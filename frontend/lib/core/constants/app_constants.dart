@@ -6,13 +6,7 @@ class AppConstants {
   
   // Default base URL for API & CDN
   static String get defaultBaseUrl {
-    if (kIsWeb) return 'http://localhost:3000';
-    if (Platform.isAndroid) {
-      // Connect to PC server over Wi-Fi IP
-      return 'http://192.168.100.77:3000';
-    }
-    // iOS simulator & desktop reach host on localhost
-    return 'http://localhost:3000';
+    return 'http://162.243.197.241:3000';
   }
 
   // Cache configuration
