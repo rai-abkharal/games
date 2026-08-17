@@ -1,0 +1,16 @@
+{
+  "id": "stack-tower",
+  "version": "1.1.0",
+  "title": "Stack Tower",
+  "entry": "index.html",
+  "orientation": "portrait",
+  "engine": "phaser",
+  "engineVersion": "3.88.2",
+  "category": "Casual",
+  "description": "Precision tap to stack moving blocks into the stratosphere.",
+  "feedOrder": 3,
+  "features": {
+    "sound": true,
+    "vibration": true
+  }
+}

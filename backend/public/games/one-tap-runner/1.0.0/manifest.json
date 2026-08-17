@@ -1,0 +1,16 @@
+{
+  "id": "one-tap-runner",
+  "version": "1.0.0",
+  "title": "One-Tap Runner",
+  "entry": "index.html",
+  "orientation": "portrait",
+  "engine": "phaser",
+  "engineVersion": "3.88.2",
+  "category": "Runner",
+  "description": "Auto-runner with responsive tap-jump and double-jump mechanics.",
+  "feedOrder": 9,
+  "features": {
+    "sound": true,
+    "vibration": true
+  }
+}

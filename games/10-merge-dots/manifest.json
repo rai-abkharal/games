@@ -1,0 +1,16 @@
+{
+  "id": "merge-dots",
+  "version": "1.1.0",
+  "title": "Merge Dots",
+  "entry": "index.html",
+  "orientation": "portrait",
+  "engine": "phaser",
+  "engineVersion": "3.88.2",
+  "category": "Puzzle",
+  "description": "Merge matching number dots on a 4x4 board to reach the highest dot!",
+  "feedOrder": 10,
+  "features": {
+    "sound": true,
+    "vibration": true
+  }
+}

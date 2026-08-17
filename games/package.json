@@ -1,0 +1,21 @@
+{
+  "name": "mini-games-suite",
+  "version": "1.0.0",
+  "private": true,
+  "description": "10 Complete Portrait 2D Mini-Games built with Phaser + TypeScript + Vite",
+  "scripts": {
+    "build:all": "tsx scripts/build-all-games.ts",
+    "deploy:all": "tsx scripts/deploy-all-games.ts"
+  },
+  "dependencies": {
+    "phaser": "^3.88.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "terser": "^5.39.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.1",
+    "vite-plugin-singlefile": "^2.1.0"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "memory-flip",
+  "version": "1.0.0",
+  "title": "Memory Flip",
+  "entry": "index.html",
+  "orientation": "portrait",
+  "engine": "phaser",
+  "engineVersion": "3.88.2",
+  "category": "Puzzle",
+  "description": "Flip cards, find matching pairs, and test your recall speed.",
+  "feedOrder": 5,
+  "features": {
+    "sound": true,
+    "vibration": false
+  }
+}

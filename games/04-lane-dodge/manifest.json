@@ -1,0 +1,16 @@
+{
+  "id": "lane-dodge",
+  "version": "1.1.0",
+  "title": "Lane Dodge",
+  "entry": "index.html",
+  "orientation": "portrait",
+  "engine": "phaser",
+  "engineVersion": "3.88.2",
+  "category": "Arcade",
+  "description": "Swipe and tap across 3 vertical lanes to dodge oncoming hazards.",
+  "feedOrder": 4,
+  "features": {
+    "sound": true,
+    "vibration": true
+  }
+}

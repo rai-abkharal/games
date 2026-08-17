@@ -1,0 +1,16 @@
+{
+  "id": "tap-cannon",
+  "version": "1.1.0",
+  "title": "Tap Cannon",
+  "entry": "index.html",
+  "orientation": "portrait",
+  "engine": "phaser",
+  "engineVersion": "3.88.2",
+  "category": "Arcade",
+  "description": "Tap to blast moving targets in a fast 30-second score chase!",
+  "feedOrder": 1,
+  "features": {
+    "sound": true,
+    "vibration": true
+  }
+}

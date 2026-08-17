@@ -1,0 +1,16 @@
+{
+  "id": "fruit-catch",
+  "version": "1.1.0",
+  "title": "Fruit Catch",
+  "entry": "index.html",
+  "orientation": "portrait",
+  "engine": "phaser",
+  "engineVersion": "3.88.2",
+  "category": "Arcade",
+  "description": "Slide your basket to catch ripe fruits and avoid explosive bombs.",
+  "feedOrder": 6,
+  "features": {
+    "sound": true,
+    "vibration": true
+  }
+}

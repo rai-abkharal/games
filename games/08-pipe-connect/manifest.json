@@ -1,0 +1,16 @@
+{
+  "id": "pipe-connect",
+  "version": "1.1.0",
+  "title": "Pipe Connect",
+  "entry": "index.html",
+  "orientation": "portrait",
+  "engine": "phaser",
+  "engineVersion": "3.88.2",
+  "category": "Puzzle",
+  "description": "Rotate pipe tiles to establish clean flow from source to drain.",
+  "feedOrder": 8,
+  "features": {
+    "sound": true,
+    "vibration": false
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "tiny-archer",
+  "version": "1.0.0",
+  "title": "Tiny Archer",
+  "entry": "index.html",
+  "orientation": "portrait",
+  "engine": "phaser",
+  "engineVersion": "3.88.2",
+  "category": "Action",
+  "description": "Pull back, aim trajectory, and loose arrows at moving targets.",
+  "feedOrder": 7,
+  "features": {
+    "sound": true,
+    "vibration": true
+  }
+}
