@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,12 +6,12 @@ import '../../controllers/feed_controller.dart';
 class FpsMetrics {
   final double fps;
   final double frameTimeMs;
-  final int bridgePingMs;
+  final double worstFrameMs;
 
   const FpsMetrics({
     this.fps = 60.0,
     this.frameTimeMs = 16.6,
-    this.bridgePingMs = 1,
+    this.worstFrameMs = 16.6,
   });
 }
 
@@ -31,22 +30,19 @@ class _PerformanceHudState extends ConsumerState<PerformanceHud> {
   DateTime _lastFpsUpdate = DateTime.now();
   Duration _lastFrameTimestamp = Duration.zero;
   double _lastFrameTimeMs = 16.6;
-  int _lastBridgePingMs = 1;
-  Timer? _pingTimer;
+  double _worstFrameMs = 16.6;
 
   @override
   void initState() {
     super.initState();
+    // Passive sampling only. The old version pushed a runJavaScript call
+    // across the platform channel every 2 seconds to "measure" bridge
+    // latency, which produced the very hitch it was reporting.
     SchedulerBinding.instance.addPersistentFrameCallback(_onFrame);
-
-    _pingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      _testBridgeLatency();
-    });
   }
 
   @override
   void dispose() {
-    _pingTimer?.cancel();
     _metricsNotifier.dispose();
     super.dispose();
   }
@@ -57,8 +53,9 @@ class _PerformanceHudState extends ConsumerState<PerformanceHud> {
     if (_lastFrameTimestamp != Duration.zero) {
       final frameDuration = timeStamp - _lastFrameTimestamp;
       final ms = frameDuration.inMicroseconds / 1000.0;
-      if (ms > 0 && ms < 200) {
+      if (ms > 0 && ms < 500) {
         _lastFrameTimeMs = ms;
+        if (ms > _worstFrameMs) _worstFrameMs = ms;
       }
     }
     _lastFrameTimestamp = timeStamp;
@@ -67,35 +64,17 @@ class _PerformanceHudState extends ConsumerState<PerformanceHud> {
     final now = DateTime.now();
     final elapsed = now.difference(_lastFpsUpdate).inMilliseconds;
 
-    if (elapsed >= 500) {
+    if (elapsed >= 1000) {
       final currentFps = ((_frameCount * 1000.0) / elapsed).clamp(1.0, 120.0);
       _metricsNotifier.value = FpsMetrics(
         fps: currentFps,
         frameTimeMs: _lastFrameTimeMs,
-        bridgePingMs: _lastBridgePingMs,
+        worstFrameMs: _worstFrameMs,
       );
       _frameCount = 0;
+      _worstFrameMs = 16.6;
       _lastFpsUpdate = now;
     }
-  }
-
-  Future<void> _testBridgeLatency() async {
-    final start = DateTime.now().microsecondsSinceEpoch;
-    final bridge = ref.read(gameBridgeControllerProvider);
-    try {
-      await bridge.setSoundEnabled(
-        !ref.read(feedControllerProvider).isSoundMuted,
-      );
-      final elapsed = (DateTime.now().microsecondsSinceEpoch - start) / 1000.0;
-      if (mounted) {
-        _lastBridgePingMs = elapsed.round().clamp(0, 999);
-        _metricsNotifier.value = FpsMetrics(
-          fps: _metricsNotifier.value.fps,
-          frameTimeMs: _metricsNotifier.value.frameTimeMs,
-          bridgePingMs: _lastBridgePingMs,
-        );
-      }
-    } catch (_) {}
   }
 
   static Color getFpsColor(double fps) {
@@ -141,19 +120,12 @@ class _PerformanceHudState extends ConsumerState<PerformanceHud> {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.94),
+                      color: const Color(0xFFFFFFFF),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
                         color: _isExpanded ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
                         width: 1.5,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.08),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -226,16 +198,9 @@ class _PerformanceHudState extends ConsumerState<PerformanceHud> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.96),
+                  color: const Color(0xFFFFFFFF),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,10 +267,12 @@ class _PerformanceHudState extends ConsumerState<PerformanceHud> {
                             ),
                             const SizedBox(width: 8),
                             _buildMetricCard(
-                              'BRIDGE RESPONSE',
-                              '${metrics.bridgePingMs} ms',
-                              const Color(0xFF2563EB),
-                              'IPC Latency',
+                              'WORST FRAME',
+                              '${metrics.worstFrameMs.toStringAsFixed(1)} ms',
+                              metrics.worstFrameMs <= 24.0
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFFDC2626),
+                              'Last 1s peak',
                             ),
                           ],
                         );
@@ -315,7 +282,7 @@ class _PerformanceHudState extends ConsumerState<PerformanceHud> {
 
                     // Architecture & Cache Info Rows
                     _buildInfoRow('Active Game', '${currentGame?.title ?? "N/A"} (${currentGame?.id ?? "N/A"})'),
-                    _buildInfoRow('Feed Index', '${feedState.currentIndex + 1} / ${feedState.games.length} (Sliding Window Pool: 3)'),
+                    _buildInfoRow('Feed Index', '${feedState.currentIndex + 1} / ${feedState.games.length} (Live WebViews: 1)'),
                     _buildInfoRow(
                       'Preload Cache',
                       isCached ? 'Local Embedded Shelf Server (0ms)' : 'Streaming from Remote CDN',

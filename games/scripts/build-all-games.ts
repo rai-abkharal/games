@@ -39,11 +39,34 @@ async function buildAll() {
             allow: [path.resolve(__dirname, '..')],
           },
         },
+        define: {
+          __GAME_DEBUG__: 'false',
+        },
+        // Strip every console call from shipped game code. Logging from inside
+        // an Android WebView is serialised to the host and shows up as jank.
+        esbuild: {
+          drop: ['console', 'debugger'],
+        },
         build: {
           outDir: path.join(gameDir, 'dist'),
           emptyOutDir: true,
           minify: 'esbuild',
           target: 'es2020',
+          // Phaser is pulled out into its own chunk with a stable filename so
+          // the WebView HTTP cache reuses one copy across all games instead of
+          // parsing a fresh ~2.9MB bundle per game.
+          rollupOptions: {
+            output: {
+              manualChunks: {
+                phaser: ['phaser'],
+              },
+              chunkFileNames: (chunkInfo) =>
+                chunkInfo.name === 'phaser'
+                  ? 'assets/phaser.js'
+                  : 'assets/[name]-[hash].js',
+              entryFileNames: 'assets/[name]-[hash].js',
+            },
+          },
         },
         logLevel: 'warn',
       });

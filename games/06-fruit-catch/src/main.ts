@@ -254,6 +254,7 @@ const config: Phaser.Types.Core.GameConfig = {
   backgroundColor: '#f8f6f0',
   transparent: false,
   roundPixels: true,
+  autoRound: true,
   antialias: false,
   fps: {
     target: 60,
@@ -264,7 +265,6 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   render: {
     powerPreference: 'high-performance',
-    desynchronized: true,
     batchSize: 2048,
     clearBeforeRender: true,
   },
