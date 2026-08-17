@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../models/game_manifest.dart';
 import '../../controllers/feed_controller.dart';
+import 'download_sheet.dart';
 
 /// Chrome drawn on top of the game.
 ///
@@ -139,6 +140,12 @@ class _FeedOverlayState extends ConsumerState<FeedOverlay> {
                             ),
                           ),
                         ),
+                      _RoundButton(
+                        icon: Icons.download_for_offline_rounded,
+                        iconColor: const Color(0xFF16A34A),
+                        onTap: () => DownloadSheet.show(context),
+                      ),
+                      const SizedBox(width: 6),
                       _RoundButton(
                         icon: isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
                         iconColor: isMuted ? const Color(0xFFEF4444) : const Color(0xFF1E293B),

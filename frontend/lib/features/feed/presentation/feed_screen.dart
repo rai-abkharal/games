@@ -6,9 +6,11 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/lifecycle/app_lifecycle_handler.dart';
 import '../../game_host/presentation/game_host_view.dart';
 import '../controllers/feed_controller.dart';
+import '../../download/controllers/download_controller.dart';
 import 'widgets/feed_overlay.dart';
 import 'widgets/game_over_dialog.dart';
 import 'widgets/game_thumbnail.dart';
+import 'widgets/mode_selection_dialog.dart';
 import 'widgets/performance_hud.dart';
 
 class FeedScreen extends ConsumerStatefulWidget {
@@ -36,6 +38,13 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     _pageController = PageController();
     _lifecycleHandler = AppLifecycleHandler(ref.read(gameBridgeControllerProvider));
     _lifecycleHandler.start();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final downloadState = ref.read(downloadControllerProvider);
+      if (!downloadState.hasSelectedMode) {
+        ModeSelectionDialog.show(context);
+      }
+    });
   }
 
   @override
