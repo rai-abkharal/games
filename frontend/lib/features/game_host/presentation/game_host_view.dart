@@ -28,7 +28,11 @@ class GameHostView extends ConsumerStatefulWidget {
   ConsumerState<GameHostView> createState() => _GameHostViewState();
 }
 
-class _GameHostViewState extends ConsumerState<GameHostView> {
+class _GameHostViewState extends ConsumerState<GameHostView>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   late final WebViewController _controller;
   late final GameBridgeController _bridge;
   bool _isLoading = true;
@@ -187,6 +191,7 @@ class _GameHostViewState extends ConsumerState<GameHostView> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Stack(
       fit: StackFit.expand,
       children: [
