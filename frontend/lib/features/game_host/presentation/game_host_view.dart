@@ -150,17 +150,25 @@ class _GameHostViewState extends ConsumerState<GameHostView>
 
     if (widget.isActive != oldWidget.isActive) {
       if (widget.isActive) {
-        // Became active in viewport
+        // Became active in viewport: Wake up engine loop & resume
+        _controller.runJavaScript('''
+          if (window.__PHASER_GAME__ && window.__PHASER_GAME__.loop) {
+            window.__PHASER_GAME__.loop.wake();
+          }
+        ''');
         bridgeController.attachController(_controller);
         final isMuted = ref.read(feedControllerProvider).isSoundMuted;
         bridgeController.setSoundEnabled(!isMuted);
         bridgeController.sendResume();
       } else {
-        // Scrolled away / became inactive
+        // Scrolled away: Sleep engine RAF loop for 0.0% background CPU/GPU load
         _controller.runJavaScript('''
           if (window.GameBridge) {
             window.GameBridge.setSoundEnabled(false);
             window.GameBridge.pause();
+          }
+          if (window.__PHASER_GAME__ && window.__PHASER_GAME__.loop) {
+            window.__PHASER_GAME__.loop.sleep();
           }
         ''');
       }
