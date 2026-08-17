@@ -1,6 +1,16 @@
 import path from 'path';
 import fs from 'fs';
 import { build } from 'vite';
+import { viteSingleFile } from 'vite-plugin-singlefile';
+
+const MAX_GAME_PACKAGE_BYTES = 5 * 1024 * 1024;
+
+function listFilesRecursive(directory: string): string[] {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const fullPath = path.join(directory, entry.name);
+    return entry.isDirectory() ? listFilesRecursive(fullPath) : [fullPath];
+  });
+}
 
 const GAME_DIRS = [
   '01-tap-cannon',
@@ -34,6 +44,7 @@ async function buildAll() {
             { find: '@shared', replacement: sharedDir },
           ],
         },
+        plugins: [viteSingleFile()],
         server: {
           fs: {
             allow: [path.resolve(__dirname, '..')],
@@ -44,17 +55,38 @@ async function buildAll() {
           emptyOutDir: true,
           minify: 'esbuild',
           target: 'es2020',
+          assetsInlineLimit: Number.POSITIVE_INFINITY,
+          cssCodeSplit: false,
+          reportCompressedSize: true,
         },
         logLevel: 'warn',
       });
 
-      // Verify dist exists
-      const distIndex = path.join(gameDir, 'dist', 'index.html');
-      if (fs.existsSync(distIndex)) {
-        console.log(`✅ Successfully built ${dirName} -> ${path.join(gameDir, 'dist')}\n`);
-      } else {
+      // Enforce the MVP package contract: one deterministic HTML artifact.
+      const distDir = path.join(gameDir, 'dist');
+      const distIndex = path.join(distDir, 'index.html');
+      const outputFiles = listFilesRecursive(distDir);
+      if (!fs.existsSync(distIndex)) {
         throw new Error(`Build finished but dist/index.html is missing for ${dirName}`);
       }
+      if (outputFiles.length !== 1 || outputFiles[0] !== distIndex) {
+        throw new Error(
+          `${dirName} emitted external files. Import or inline every runtime asset, ` +
+          `or migrate the delivery contract to a signed archive manifest.`,
+        );
+      }
+
+      const packageBytes = fs.statSync(distIndex).size;
+      if (packageBytes > MAX_GAME_PACKAGE_BYTES) {
+        throw new Error(
+          `${dirName} package is ${(packageBytes / 1024 / 1024).toFixed(2)} MB; ` +
+          `the MVP budget is ${MAX_GAME_PACKAGE_BYTES / 1024 / 1024} MB.`,
+        );
+      }
+
+      console.log(
+        `✅ ${dirName}: ${(packageBytes / 1024 / 1024).toFixed(2)} MB single-file package\n`,
+      );
     } catch (err) {
       console.error(`❌ Failed building ${dirName}:`, err);
       process.exit(1);

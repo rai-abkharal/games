@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import { deployGame } from '../../backend/scripts/deploy-game';
 
@@ -15,19 +16,39 @@ const GAME_DIRS = [
 ];
 
 async function deployAll() {
-  console.log('🚀 Deploying all 10 mini-games into Backend CDN static storage...\n');
+  const force = process.argv.includes('--force');
+  const repoDir = path.resolve(__dirname, '../..');
+  const publicDir = path.join(repoDir, 'backend', 'public');
+  const backendCatalog = path.join(repoDir, 'backend', 'catalog', 'games.json');
+  const bundledCatalog = path.join(
+    repoDir,
+    'frontend',
+    'assets',
+    'catalog',
+    'games.json',
+  );
+
+  console.log(
+    `🚀 Deploying all 10 mini-games (${force ? 'development force mode' : 'immutable mode'})...\n`,
+  );
 
   for (const dirName of GAME_DIRS) {
     const gameDir = path.resolve(__dirname, '..', dirName);
     deployGame({
       gameDir,
-      force: true,
-      publicDir: path.resolve(__dirname, '../../backend/public'),
-      catalogPath: path.resolve(__dirname, '../../backend/catalog/games.json'),
+      force,
+      publicDir,
+      catalogPath: backendCatalog,
     });
   }
 
-  console.log('\n🎉 Successfully deployed all 10 mini-games to local CDN and updated catalog!');
+  fs.mkdirSync(path.dirname(bundledCatalog), { recursive: true });
+  fs.copyFileSync(backendCatalog, bundledCatalog);
+
+  console.log('\n🎉 Deployed all games and synchronized the bundled Flutter catalog.');
 }
 
-deployAll();
+deployAll().catch((error) => {
+  console.error(`❌ Deployment failed: ${(error as Error).message}`);
+  process.exit(1);
+});

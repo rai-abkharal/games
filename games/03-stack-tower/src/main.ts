@@ -309,7 +309,7 @@ const config: Phaser.Types.Core.GameConfig = {
   roundPixels: true,
   antialias: false,
   fps: {
-    target: 120,
+    target: 60,
     min: 30,
     forceSetTimeOut: false,
     deltaHistory: 10,

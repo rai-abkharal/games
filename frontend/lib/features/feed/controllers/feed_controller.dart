@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../../core/bridge/game_bridge.dart';
 import '../../../core/cache/lru_cache_manager.dart';
 import '../../../core/constants/app_constants.dart';
@@ -42,6 +45,7 @@ class FeedState {
     bool? isSoundMuted,
     int? preloadingIndex,
     Map<String, dynamic>? lastGameOverPayload,
+    bool clearLastGameOverPayload = false,
     bool? isGameOverVisible,
     Map<String, int>? highScores,
   }) {
@@ -52,7 +56,9 @@ class FeedState {
       currentIndex: currentIndex ?? this.currentIndex,
       isSoundMuted: isSoundMuted ?? this.isSoundMuted,
       preloadingIndex: preloadingIndex,
-      lastGameOverPayload: lastGameOverPayload ?? this.lastGameOverPayload,
+      lastGameOverPayload: clearLastGameOverPayload
+          ? null
+          : (lastGameOverPayload ?? this.lastGameOverPayload),
       isGameOverVisible: isGameOverVisible ?? this.isGameOverVisible,
       highScores: highScores ?? this.highScores,
     );
@@ -64,6 +70,9 @@ class FeedController extends StateNotifier<FeedState> {
   final GameCacheManager cacheManager;
   final EmbeddedGameServer server;
   final GameBridgeController bridgeController;
+
+  Timer? _preloadTimer;
+  int _preloadGeneration = 0;
 
   FeedController({
     required this.apiClient,
@@ -77,23 +86,19 @@ class FeedController extends StateNotifier<FeedState> {
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
     final isMuted = prefs.getBool(AppConstants.keySoundMuted) ?? false;
-    
-    // Load stored high scores
+
     Map<String, int> scores = {};
     final scoresJson = prefs.getString(AppConstants.keyHighScores);
     if (scoresJson != null) {
       try {
         final decoded = jsonDecode(scoresJson) as Map<String, dynamic>;
-        scores = decoded.map((k, v) => MapEntry(k, (v as num).toInt()));
+        scores = decoded.map((key, value) => MapEntry(key, (value as num).toInt()));
       } catch (_) {}
     }
 
     state = state.copyWith(isSoundMuted: isMuted, highScores: scores);
-
-    // Setup bridge listener
     bridgeController.addListener(_onBridgeMessage);
 
-    // Initialize cache and embedded server
     await cacheManager.initialize();
     if (cacheManager.cacheBaseDir != null) {
       try {
@@ -105,6 +110,10 @@ class FeedController extends StateNotifier<FeedState> {
   }
 
   void _onBridgeMessage(String action, Map<String, dynamic> payload) {
+    if (action == 'ready' || action == 'gameStarted') {
+      _schedulePreloadAfterActiveGameStarts();
+    }
+
     if (action == 'gameOver' || action == 'completed') {
       final score = (payload['score'] as num?)?.toInt() ?? 0;
       final game = state.currentGame;
@@ -114,7 +123,7 @@ class FeedController extends StateNotifier<FeedState> {
         if (score > currentHigh) {
           final updated = Map<String, int>.from(state.highScores)..[game.id] = score;
           state = state.copyWith(highScores: updated);
-          _saveHighScores();
+          unawaited(_saveHighScores());
         }
       }
 
@@ -131,6 +140,7 @@ class FeedController extends StateNotifier<FeedState> {
   }
 
   Future<void> loadFeed() async {
+    _cancelPendingPreload();
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
@@ -147,91 +157,98 @@ class FeedController extends StateNotifier<FeedState> {
         isLoading: false,
         games: catalog.games,
         currentIndex: 0,
+        clearLastGameOverPayload: true,
+        isGameOverVisible: false,
       );
-
-      // Preload window: current game (index 0) and next 2 games (index 1 & 2)
-      if (catalog.games.isNotEmpty) {
-        await _prepareGameAtIndex(0);
-        _preloadUpcomingGames(0);
-      }
-    } catch (e) {
+    } catch (error) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Failed to load games: $e',
+        errorMessage: 'Failed to load games: $error',
       );
     }
   }
 
   Future<void> onPageChanged(int newIndex) async {
-    if (newIndex == state.currentIndex || newIndex < 0 || newIndex >= state.games.length) {
+    if (newIndex == state.currentIndex ||
+        newIndex < 0 ||
+        newIndex >= state.games.length) {
       return;
     }
 
-    // Pause previous game
-    await bridgeController.sendPause();
+    _cancelPendingPreload();
+    unawaited(bridgeController.sendPause());
 
     state = state.copyWith(
       currentIndex: newIndex,
       isGameOverVisible: false,
-      lastGameOverPayload: null,
+      clearLastGameOverPayload: true,
     );
-
-    // Prepare current game and trigger background preload for upcoming 2-3 games
-    await _prepareGameAtIndex(newIndex);
-    _preloadUpcomingGames(newIndex);
   }
 
-  Future<void> _prepareGameAtIndex(int index) async {
-    if (index < 0 || index >= state.games.length) return;
-    final game = state.games[index];
+  void _schedulePreloadAfterActiveGameStarts() {
+    final sourceIndex = state.currentIndex;
+    final generation = ++_preloadGeneration;
+    _preloadTimer?.cancel();
 
-    // Protect window [index-1, index, index+1, index+2] from LRU eviction
-    final protectedIds = <String>{game.id};
-    for (int offset = -1; offset <= 2; offset++) {
-      final targetIdx = index + offset;
-      if (targetIdx >= 0 && targetIdx < state.games.length) {
-        protectedIds.add(state.games[targetIdx].id);
+    // Let the active WebView finish its first frames before disk/network work.
+    _preloadTimer = Timer(const Duration(milliseconds: 900), () {
+      unawaited(_preloadUpcomingSequentially(sourceIndex, generation));
+    });
+  }
+
+  Future<void> _preloadUpcomingSequentially(
+    int sourceIndex,
+    int generation,
+  ) async {
+    for (var step = 1; step <= AppConstants.preloadAheadCount; step++) {
+      if (generation != _preloadGeneration || state.currentIndex != sourceIndex) {
+        return;
       }
+
+      final targetIndex = sourceIndex + step;
+      if (targetIndex >= state.games.length) return;
+
+      state = state.copyWith(preloadingIndex: targetIndex);
+      await _prepareGameAtIndex(targetIndex, sourceIndex: sourceIndex);
+    }
+
+    if (generation == _preloadGeneration) {
+      state = state.copyWith(preloadingIndex: null);
+    }
+  }
+
+  Future<void> _prepareGameAtIndex(
+    int index, {
+    required int sourceIndex,
+  }) async {
+    if (index < 0 || index >= state.games.length) return;
+
+    final game = state.games[index];
+    final protectedKeys = <String>{'${game.id}_${game.version}'};
+    if (sourceIndex >= 0 && sourceIndex < state.games.length) {
+      final sourceGame = state.games[sourceIndex];
+      protectedKeys.add('${sourceGame.id}_${sourceGame.version}');
     }
 
     try {
       await cacheManager.prepareGame(
         game,
-        protectedGameIds: protectedIds,
+        priority: CachePreparationPriority.preload,
+        protectedGameKeys: protectedKeys,
       );
 
-      // Start embedded server on root cache directory if not running
       if (!server.isRunning && cacheManager.cacheBaseDir != null) {
         await server.start(cacheManager.cacheBaseDir!.path);
       }
-    } catch (e) {
-      // Fallback: will play from remote entryUrl directly if local cache fails
+    } catch (_) {
+      // The active host can still fall back to the remote entry URL.
     }
   }
 
-  void _preloadUpcomingGames(int currentIndex) {
-    // Eagerly pre-cache next 1, 2, and 3 games in the background
-    for (int step = 1; step <= 3; step++) {
-      final nextIdx = currentIndex + step;
-      if (nextIdx < state.games.length) {
-        _preloadSingleGame(nextIdx);
-      }
-    }
-  }
-
-  void _preloadSingleGame(int targetIndex) {
-    if (targetIndex >= state.games.length) return;
-    final game = state.games[targetIndex];
-
-    final protected = <String>{
-      if (state.currentGame != null) state.currentGame!.id,
-      game.id,
-    };
-
-    cacheManager
-        .prepareGame(game, protectedGameIds: protected)
-        .then((_) {})
-        .catchError((_) {});
+  void _cancelPendingPreload() {
+    _preloadGeneration++;
+    _preloadTimer?.cancel();
+    _preloadTimer = null;
   }
 
   Future<void> toggleSound() async {
@@ -240,7 +257,6 @@ class FeedController extends StateNotifier<FeedState> {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(AppConstants.keySoundMuted, newMuted);
-
     await bridgeController.setSoundEnabled(!newMuted);
   }
 
@@ -252,13 +268,38 @@ class FeedController extends StateNotifier<FeedState> {
   void dismissGameOver() {
     state = state.copyWith(isGameOverVisible: false);
   }
+
+  @override
+  void dispose() {
+    _cancelPendingPreload();
+    bridgeController.removeListener(_onBridgeMessage);
+    super.dispose();
+  }
 }
 
-// Providers
-final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
-final gameCacheManagerProvider = Provider<GameCacheManager>((ref) => GameCacheManager());
-final embeddedGameServerProvider = Provider<EmbeddedGameServer>((ref) => EmbeddedGameServer());
-final gameBridgeControllerProvider = Provider<GameBridgeController>((ref) => GameBridgeController());
+final apiClientProvider = Provider<ApiClient>((ref) {
+  final client = ApiClient();
+  ref.onDispose(client.dispose);
+  return client;
+});
+
+final gameCacheManagerProvider = Provider<GameCacheManager>((ref) {
+  final manager = GameCacheManager();
+  ref.onDispose(manager.dispose);
+  return manager;
+});
+
+final embeddedGameServerProvider = Provider<EmbeddedGameServer>((ref) {
+  final server = EmbeddedGameServer();
+  ref.onDispose(() => unawaited(server.stop()));
+  return server;
+});
+
+final gameBridgeControllerProvider = Provider<GameBridgeController>((ref) {
+  final controller = GameBridgeController();
+  ref.onDispose(controller.dispose);
+  return controller;
+});
 
 final feedControllerProvider = StateNotifierProvider<FeedController, FeedState>((ref) {
   return FeedController(

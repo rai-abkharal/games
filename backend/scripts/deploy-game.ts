@@ -9,6 +9,7 @@ interface DeployOptions {
   force?: boolean;
   publicDir?: string;
   catalogPath?: string;
+  bundledCatalogPath?: string;
   baseUrl?: string;
 }
 
@@ -57,6 +58,8 @@ export function deployGame(options: DeployOptions): { success: boolean; message:
   const { gameDir, dryRun = false, force = false } = options;
   const publicDir = options.publicDir || path.resolve(__dirname, '../public');
   const catalogPath = options.catalogPath || path.resolve(__dirname, '../catalog/games.json');
+  const bundledCatalogPath = options.bundledCatalogPath ||
+    path.resolve(__dirname, '../../frontend/assets/catalog/games.json');
   const baseUrl = (options.baseUrl || process.env.BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
 
   console.log(`\n📦 Processing game deployment from: ${gameDir}`);
@@ -107,9 +110,15 @@ export function deployGame(options: DeployOptions): { success: boolean; message:
   const targetThumbnailsDir = path.join(publicDir, 'thumbnails');
   const targetThumbnailFile = path.join(targetThumbnailsDir, `${gameId}.webp`);
 
-  // Step 7: Check if version already exists
-  if (fs.existsSync(targetGameDir) && !force) {
-    console.warn(`⚠️ Version ${version} of ${gameId} is already published at ${targetGameDir}. Use --force to overwrite in development.`);
+  // Published versions are immutable. A development force deploy must first
+  // delete the old directory; copying over it leaves obsolete hashed bundles.
+  if (fs.existsSync(targetGameDir)) {
+    if (!force) {
+      throw new Error(
+        `Version ${version} of ${gameId} already exists. Bump the version, or use --force only in development.`,
+      );
+    }
+    fs.rmSync(targetGameDir, { recursive: true, force: true });
   }
 
   const entryUrl = `${baseUrl}/games/${gameId}/${version}/index.html`;
@@ -153,7 +162,9 @@ export function deployGame(options: DeployOptions): { success: boolean; message:
 
   // Copy or generate thumbnail
   fs.mkdirSync(targetThumbnailsDir, { recursive: true });
-  const localThumb = path.join(gameDir, 'public', 'thumbnail.webp') || path.join(gameDir, 'thumbnail.webp');
+  const publicThumb = path.join(gameDir, 'public', 'thumbnail.webp');
+  const rootThumb = path.join(gameDir, 'thumbnail.webp');
+  const localThumb = fs.existsSync(publicThumb) ? publicThumb : rootThumb;
   if (fs.existsSync(localThumb)) {
     fs.copyFileSync(localThumb, targetThumbnailFile);
   } else if (!fs.existsSync(targetThumbnailFile)) {
@@ -189,8 +200,13 @@ export function deployGame(options: DeployOptions): { success: boolean; message:
   // Validate full catalog
   CatalogSchema.parse(catalog);
 
-  fs.mkdirSync(path.dirname(catalogPath), { recursive: true });
-  fs.writeFileSync(catalogPath, JSON.stringify(catalog, null, 2));
+  const catalogJson = `${JSON.stringify(catalog, null, 2)}\n`;
+  for (const outputPath of [catalogPath, bundledCatalogPath]) {
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    const temporaryPath = `${outputPath}.tmp-${process.pid}`;
+    fs.writeFileSync(temporaryPath, catalogJson);
+    fs.renameSync(temporaryPath, outputPath);
+  }
 
   console.log(`✅ Deployed ${gameId} v${version} successfully!`);
   console.log(`🌐 Entry URL: ${entryUrl}`);

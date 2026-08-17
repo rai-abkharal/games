@@ -1,8 +1,13 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+
+import '../../../core/constants/app_constants.dart';
 import '../../../models/game_manifest.dart';
 import '../../feed/controllers/feed_controller.dart';
 
@@ -20,15 +25,12 @@ class GameHostView extends ConsumerStatefulWidget {
   ConsumerState<GameHostView> createState() => _GameHostViewState();
 }
 
-class _GameHostViewState extends ConsumerState<GameHostView>
-    with AutomaticKeepAliveClientMixin {
+class _GameHostViewState extends ConsumerState<GameHostView> {
   late final WebViewController _controller;
   bool _isLoading = true;
   bool _hasError = false;
   String _errorMessage = '';
-
-  @override
-  bool get wantKeepAlive => true;
+  double _downloadProgress = 0;
 
   @override
   void initState() {
@@ -39,6 +41,7 @@ class _GameHostViewState extends ConsumerState<GameHostView>
   void _initWebView() {
     final bridgeController = ref.read(gameBridgeControllerProvider);
     late final PlatformWebViewControllerCreationParams params;
+
     if (WebViewPlatform.instance is WebKitWebViewPlatform) {
       params = WebKitWebViewControllerCreationParams(
         allowsInlineMediaPlayback: true,
@@ -50,9 +53,9 @@ class _GameHostViewState extends ConsumerState<GameHostView>
 
     _controller = WebViewController.fromPlatformCreationParams(params);
     if (_controller.platform is AndroidWebViewController) {
-      AndroidWebViewController.enableDebugging(false);
+      unawaited(AndroidWebViewController.enableDebugging(false));
       final androidController = _controller.platform as AndroidWebViewController;
-      androidController.setMediaPlaybackRequiresUserGesture(false);
+      unawaited(androidController.setMediaPlaybackRequiresUserGesture(false));
     }
 
     _controller
@@ -68,127 +71,199 @@ class _GameHostViewState extends ConsumerState<GameHostView>
       )
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageStarted: (String url) {
-            if (mounted) setState(() => _isLoading = true);
+          onNavigationRequest: (request) {
+            final uri = Uri.tryParse(request.url);
+            return uri != null && _isAllowedTopLevelNavigation(uri)
+                ? NavigationDecision.navigate
+                : NavigationDecision.prevent;
           },
-          onPageFinished: (String url) {
-            if (mounted) {
-              setState(() => _isLoading = false);
-              final isMuted = ref.read(feedControllerProvider).isSoundMuted;
+          onPageStarted: (_) {
+            if (mounted && !_isLoading) {
+              setState(() => _isLoading = true);
+            }
+          },
+          onPageFinished: (_) {
+            if (!mounted) return;
 
-              if (widget.isActive) {
-                bridgeController.attachController(_controller);
-                bridgeController.setSoundEnabled(!isMuted);
-                bridgeController.sendResume();
-              } else {
-                // Background pre-rendered instance: keep silent and paused
-                _controller.runJavaScript('''
-                  if (window.GameBridge) {
-                    window.GameBridge.setSoundEnabled(false);
-                    window.GameBridge.pause();
-                  }
-                ''');
-              }
+            setState(() {
+              _isLoading = false;
+              _downloadProgress = 1;
+            });
+
+            if (widget.isActive) {
+              bridgeController.attachController(_controller);
+              final isMuted = ref.read(feedControllerProvider).isSoundMuted;
+              unawaited(bridgeController.setSoundEnabled(!isMuted));
+              unawaited(bridgeController.sendResume());
+            } else {
+              unawaited(_pauseThisWebView());
             }
           },
           onWebResourceError: (WebResourceError error) {
-            if (mounted) {
-              setState(() {
-                _isLoading = false;
-                _hasError = true;
-                _errorMessage = error.description;
-              });
-            }
+            // This callback also receives favicon/subresource failures. Only a
+            // main-frame failure means the game itself failed to load.
+            if (!mounted || error.isForMainFrame == false) return;
+            setState(() {
+              _isLoading = false;
+              _hasError = true;
+              _errorMessage = error.description;
+            });
           },
         ),
       );
 
-    _loadGame();
+    unawaited(_loadGame());
+  }
+
+
+  bool _isAllowedTopLevelNavigation(Uri uri) {
+    if (uri.scheme == 'about' ||
+        uri.scheme == 'data' ||
+        uri.scheme == 'blob' ||
+        uri.scheme == 'file') {
+      return true;
+    }
+
+    if (uri.host == '127.0.0.1' || uri.host == 'localhost') {
+      return uri.scheme == 'http';
+    }
+
+    final trustedBase = Uri.tryParse(AppConstants.defaultBaseUrl);
+    if (trustedBase == null || trustedBase.host.isEmpty) return false;
+
+    int effectivePort(Uri value) {
+      if (value.hasPort) return value.port;
+      return value.scheme == 'https' ? 443 : 80;
+    }
+
+    final sameOrigin = uri.scheme == trustedBase.scheme &&
+        uri.host == trustedBase.host &&
+        effectivePort(uri) == effectivePort(trustedBase);
+    if (!sameOrigin) return false;
+
+    return uri.scheme == 'https' || (!kReleaseMode && uri.scheme == 'http');
   }
 
   Future<void> _loadGame() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+        _errorMessage = '';
+        _downloadProgress = 0;
+      });
+    }
 
     final cacheManager = ref.read(gameCacheManagerProvider);
     final server = ref.read(embeddedGameServerProvider);
-
-    String loadUrl = widget.game.entryUrl;
-
-    // Check if cached locally with valid hash
-    if (cacheManager.isGameCached(widget.game.id, widget.game.version, widget.game.sha256)) {
-      final entry = cacheManager.getCachedEntry(widget.game.id, widget.game.version);
-      if (entry != null) {
-        if (!server.isRunning && cacheManager.cacheBaseDir != null) {
-          await server.start(cacheManager.cacheBaseDir!.path);
-        }
-        if (server.isRunning) {
-          loadUrl = '${server.baseUrl}/${widget.game.id}/${widget.game.version}/index.html';
-        }
-      }
-    }
+    var loadUrl = widget.game.entryUrl;
 
     try {
-      await _controller.loadRequest(Uri.parse(loadUrl));
-    } catch (e) {
-      if (mounted) {
+      final entry = await cacheManager.prepareGame(
+        widget.game,
+        protectedGameKeys: {
+          '${widget.game.id}_${widget.game.version}',
+        },
+        onProgress: (progress) {
+          if (!mounted) return;
+          setState(() => _downloadProgress = progress.clamp(0.0, 1.0).toDouble());
+        },
+      );
+
+      if (!server.isRunning && cacheManager.cacheBaseDir != null) {
+        try {
+          await server.start(cacheManager.cacheBaseDir!.path);
+        } catch (_) {
+          // Loading the verified file directly remains a local fallback.
+        }
+      }
+
+      if (server.isRunning) {
+        loadUrl = '${server.baseUrl}/${widget.game.id}/${widget.game.version}/index.html';
+      } else {
+        loadUrl = Uri.file(entry.entryFilePath).toString();
+      }
+    } catch (error) {
+      if (kReleaseMode) {
+        if (!mounted) return;
         setState(() {
           _isLoading = false;
           _hasError = true;
-          _errorMessage = e.toString();
+          _errorMessage = 'Could not prepare a verified game package: $error';
         });
+        return;
       }
+
+      // Direct remote loading is kept only as a development convenience.
+      loadUrl = widget.game.entryUrl;
     }
+
+    if (!mounted) return;
+
+    final loadUri = Uri.tryParse(loadUrl);
+    if (loadUri == null || !_isAllowedTopLevelNavigation(loadUri)) {
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+        _errorMessage = kReleaseMode
+            ? 'Game delivery must use a verified local package or HTTPS.'
+            : 'Blocked untrusted game URL: $loadUrl';
+      });
+      return;
+    }
+
+    try {
+      await _controller.loadRequest(loadUri);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+        _errorMessage = error.toString();
+      });
+    }
+  }
+
+  Future<void> _pauseThisWebView() async {
+    try {
+      await _controller.runJavaScript('''
+        if (window.GameBridge) {
+          window.GameBridge.setSoundEnabled(false);
+          window.GameBridge.pause();
+        }
+      ''');
+    } catch (_) {}
   }
 
   @override
   void didUpdateWidget(covariant GameHostView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final bridgeController = ref.read(gameBridgeControllerProvider);
+    if (widget.isActive == oldWidget.isActive) return;
 
-    if (widget.isActive != oldWidget.isActive) {
-      if (widget.isActive) {
-        // Became active in viewport: Wake up engine loop & resume
-        _controller.runJavaScript('''
-          if (window.__PHASER_GAME__ && window.__PHASER_GAME__.loop) {
-            window.__PHASER_GAME__.loop.wake();
-          }
-        ''');
-        bridgeController.attachController(_controller);
-        final isMuted = ref.read(feedControllerProvider).isSoundMuted;
-        bridgeController.setSoundEnabled(!isMuted);
-        bridgeController.sendResume();
-      } else {
-        // Scrolled away: Sleep engine RAF loop for 0.0% background CPU/GPU load
-        _controller.runJavaScript('''
-          if (window.GameBridge) {
-            window.GameBridge.setSoundEnabled(false);
-            window.GameBridge.pause();
-          }
-          if (window.__PHASER_GAME__ && window.__PHASER_GAME__.loop) {
-            window.__PHASER_GAME__.loop.sleep();
-          }
-        ''');
-      }
+    final bridgeController = ref.read(gameBridgeControllerProvider);
+    if (widget.isActive) {
+      bridgeController.attachController(_controller);
+      final isMuted = ref.read(feedControllerProvider).isSoundMuted;
+      unawaited(bridgeController.setSoundEnabled(!isMuted));
+      unawaited(bridgeController.sendResume());
+    } else {
+      unawaited(_pauseThisWebView());
     }
   }
 
   @override
+  void dispose() {
+    final bridgeController = ref.read(gameBridgeControllerProvider);
+    unawaited(bridgeController.sendDestroy(_controller));
+    bridgeController.detachController(_controller);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    super.build(context);
-
-    if (widget.isActive) {
-      ref.read(gameBridgeControllerProvider).attachController(_controller);
-    }
-
     return Stack(
       children: [
-        // 1. WebView Game View
         WebViewWidget(controller: _controller),
-
-        // 2. Loading State
         if (_isLoading)
           Container(
             color: const Color(0xFFF8F6F0),
@@ -196,12 +271,21 @@ class _GameHostViewState extends ConsumerState<GameHostView>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                  SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: CircularProgressIndicator(
+                      value: _downloadProgress > 0 && _downloadProgress < 1
+                          ? _downloadProgress
+                          : null,
+                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Loading ${widget.game.title}...',
+                    _downloadProgress > 0 && _downloadProgress < 1
+                        ? 'Preparing ${widget.game.title} ${(_downloadProgress * 100).round()}%'
+                        : 'Loading ${widget.game.title}...',
                     style: const TextStyle(
                       color: Color(0xFF1E293B),
                       fontSize: 16,
@@ -212,8 +296,6 @@ class _GameHostViewState extends ConsumerState<GameHostView>
               ),
             ),
           ),
-
-        // 3. Error / Retry State
         if (_hasError)
           Container(
             color: const Color(0xFFF8F6F0),
@@ -222,7 +304,11 @@ class _GameHostViewState extends ConsumerState<GameHostView>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 48),
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    color: Color(0xFFEF4444),
+                    size: 48,
+                  ),
                   const SizedBox(height: 12),
                   const Text(
                     'Failed to load game',

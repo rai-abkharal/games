@@ -17,12 +17,30 @@ export type SoundListener = (enabled: boolean) => void;
 
 class GameBridgeManager {
   private static instance: GameBridgeManager;
-  private soundEnabled: boolean = true;
-  private isPaused: boolean = false;
-  private onPauseListeners: Set<LifecycleListener> = new Set();
-  private onResumeListeners: Set<LifecycleListener> = new Set();
-  private onRestartListeners: Set<LifecycleListener> = new Set();
+
+  private soundEnabled = true;
+  private isPaused = false;
+  private isDestroyed = false;
+  private isGameplayActive = false;
+  private lastHapticAt = 0;
+  private metricsTimer: number | null = null;
+
+  // Each mini-game has one active gameplay scene. Replacing these handlers
+  // prevents old Phaser Scenes from being retained after every restart.
+  private onPauseListener: LifecycleListener | null = null;
+  private onResumeListener: LifecycleListener | null = null;
+  private onRestartListener: LifecycleListener | null = null;
   private onSoundChangeListeners: Set<SoundListener> = new Set();
+
+  private readonly handleFlutterPause = () => this.triggerPause();
+  private readonly handleFlutterResume = () => this.triggerResume();
+  private readonly handleFlutterRestart = () => this.triggerRestart();
+  private readonly handleFlutterSound = (event: Event) => {
+    const customEvent = event as CustomEvent<{ enabled?: boolean }>;
+    if (typeof customEvent.detail?.enabled === 'boolean') {
+      this.setSound(customEvent.detail.enabled);
+    }
+  };
 
   private constructor() {
     this.setupGlobalBridge();
@@ -36,88 +54,143 @@ class GameBridgeManager {
   }
 
   private setupGlobalBridge() {
-    // Expose window.GameBridge
     const bridge = {
-      ready: () => this.notifyFlutter('ready', {}),
-      gameStarted: () => this.notifyFlutter('gameStarted', {}),
+      ready: () => this.ready(),
+      gameStarted: () => this.gameStarted(),
       pause: () => this.triggerPause(),
       resume: () => this.triggerResume(),
       restart: () => this.triggerRestart(),
-      gameOver: (payload: GameOverPayload) => this.notifyFlutter('gameOver', payload),
-      completed: (payload: GameCompletedPayload) => this.notifyFlutter('completed', payload),
+      gameOver: (payload: GameOverPayload) => this.gameOver(payload),
+      completed: (payload: GameCompletedPayload) => this.completed(payload),
       setSoundEnabled: (enabled: boolean) => this.setSound(enabled),
       haptic: (type: 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error') =>
-        this.notifyFlutter('haptic', { type }),
+        this.haptic(type),
+      destroy: () => this.destroy(),
     };
 
     (window as any).GameBridge = bridge;
 
-    // Listen for custom window events dispatched by Flutter host injection
-    window.addEventListener('flutter:pause', () => this.triggerPause());
-    window.addEventListener('flutter:resume', () => this.triggerResume());
-    window.addEventListener('flutter:restart', () => this.triggerRestart());
-    window.addEventListener('flutter:sound', (e: any) => {
-      if (e.detail && typeof e.detail.enabled === 'boolean') {
-        this.setSound(e.detail.enabled);
-      }
-    });
-
-    console.log('🎮 [GameBridge] Initialized window.GameBridge');
+    window.addEventListener('flutter:pause', this.handleFlutterPause);
+    window.addEventListener('flutter:resume', this.handleFlutterResume);
+    window.addEventListener('flutter:restart', this.handleFlutterRestart);
+    window.addEventListener('flutter:sound', this.handleFlutterSound as EventListener);
   }
 
   private notifyFlutter(action: string, payload: any) {
-    console.log(`📡 [GameBridge -> Host] ${action}:`, payload);
+    if (this.isDestroyed) return;
+    const message = JSON.stringify({ action, payload });
 
-    // 1. Standard flutter_inappwebview channel
-    if ((window as any).flutter_inappwebview && (window as any).flutter_inappwebview.callHandler) {
-      (window as any).flutter_inappwebview.callHandler('GameBridgeChannel', JSON.stringify({ action, payload }));
+    if ((window as any).flutter_inappwebview?.callHandler) {
+      (window as any).flutter_inappwebview.callHandler('GameBridgeChannel', message);
     }
 
-    // 2. Standard webview_flutter JavaScriptChannel
-    if ((window as any).FlutterGameBridge && (window as any).FlutterGameBridge.postMessage) {
-      (window as any).FlutterGameBridge.postMessage(JSON.stringify({ action, payload }));
+    if ((window as any).FlutterGameBridge?.postMessage) {
+      (window as any).FlutterGameBridge.postMessage(message);
     }
 
-    // 3. PostMessage fallback
     if (window.parent && window.parent !== window) {
       window.parent.postMessage({ source: 'GameBridge', action, payload }, '*');
     }
   }
 
-  public triggerPause() {
-    this.isPaused = true;
-    this.onPauseListeners.forEach((cb) => {
-      try { cb(); } catch (e) { console.error(e); }
-    });
-    // Sleep Phaser engine loop to drop background CPU/GPU consumption to 0%
-    if ((window as any).__PHASER_GAME__ && (window as any).__PHASER_GAME__.loop) {
-      try { (window as any).__PHASER_GAME__.loop.sleep(); } catch (_) {}
+  private startMetricsReporting() {
+    if (this.metricsTimer !== null || !this.isGameplayActive || this.isPaused) return;
+
+    const report = () => {
+      const game = (window as any).__PHASER_GAME__;
+      const loop = game?.loop;
+      if (!loop || this.isDestroyed || !this.isGameplayActive || this.isPaused) return;
+
+      const fps = Number(loop.actualFps ?? 0);
+      const frameTimeMs = Number(loop.delta ?? 0);
+      if (!Number.isFinite(fps) || !Number.isFinite(frameTimeMs)) return;
+
+      this.notifyFlutter('metrics', {
+        fps: Math.round(fps * 10) / 10,
+        frameTimeMs: Math.round(frameTimeMs * 10) / 10,
+      });
+    };
+
+    report();
+    this.metricsTimer = window.setInterval(report, 1000);
+  }
+
+  private stopMetricsReporting() {
+    if (this.metricsTimer !== null) {
+      window.clearInterval(this.metricsTimer);
+      this.metricsTimer = null;
     }
+  }
+
+  public triggerPause() {
+    if (this.isDestroyed || this.isPaused) return;
+    this.isPaused = true;
+    this.stopMetricsReporting();
+
+    try {
+      this.onPauseListener?.();
+    } catch (_) {}
+
+    const game = (window as any).__PHASER_GAME__;
+    if (game?.loop) {
+      try {
+        game.loop.sleep();
+      } catch (_) {}
+    }
+
     this.notifyFlutter('paused', {});
   }
 
   public triggerResume() {
+    if (this.isDestroyed) return;
+
+    const wasPaused = this.isPaused;
     this.isPaused = false;
-    // Wake Phaser engine loop
-    if ((window as any).__PHASER_GAME__ && (window as any).__PHASER_GAME__.loop) {
-      try { (window as any).__PHASER_GAME__.loop.wake(); } catch (_) {}
+
+    const game = (window as any).__PHASER_GAME__;
+    if (game?.loop) {
+      try {
+        game.loop.wake();
+      } catch (_) {}
     }
-    this.onResumeListeners.forEach((cb) => {
-      try { cb(); } catch (e) { console.error(e); }
-    });
-    this.notifyFlutter('resumed', {});
+
+    if (wasPaused) {
+      try {
+        this.onResumeListener?.();
+      } catch (_) {}
+      this.notifyFlutter('resumed', {});
+    }
+
+    this.startMetricsReporting();
   }
 
   public triggerRestart() {
-    this.onRestartListeners.forEach((cb) => {
-      try { cb(); } catch (e) { console.error(e); }
-    });
+    if (this.isDestroyed) return;
+
+    const listener = this.onRestartListener;
+    if (listener) {
+      try {
+        listener();
+        return;
+      } catch (_) {}
+    }
+
+    // Universal fallback used when restart is requested during gameplay.
+    const game = (window as any).__PHASER_GAME__;
+    try {
+      if (game?.scene?.keys?.GameScene) {
+        game.scene.start('GameScene');
+      }
+    } catch (_) {}
   }
 
   public setSound(enabled: boolean) {
+    if (this.isDestroyed) return;
     this.soundEnabled = enabled;
-    this.onSoundChangeListeners.forEach((cb) => {
-      try { cb(enabled); } catch (e) { console.error(e); }
+    this.onSoundChangeListeners.forEach((listener) => {
+      try {
+        listener(enabled);
+      } catch (_) {}
     });
   }
 
@@ -129,28 +202,36 @@ class GameBridgeManager {
     return this.isPaused;
   }
 
-  public onPause(cb: LifecycleListener) {
-    this.onPauseListeners.add(cb);
+  public onPause(listener: LifecycleListener) {
+    this.onPauseListener = listener;
   }
 
-  public offPause(cb: LifecycleListener) {
-    this.onPauseListeners.delete(cb);
+  public offPause(listener: LifecycleListener) {
+    if (this.onPauseListener === listener) this.onPauseListener = null;
   }
 
-  public onResume(cb: LifecycleListener) {
-    this.onResumeListeners.add(cb);
+  public onResume(listener: LifecycleListener) {
+    this.onResumeListener = listener;
   }
 
-  public offResume(cb: LifecycleListener) {
-    this.onResumeListeners.delete(cb);
+  public offResume(listener: LifecycleListener) {
+    if (this.onResumeListener === listener) this.onResumeListener = null;
   }
 
-  public onRestart(cb: LifecycleListener) {
-    this.onRestartListeners.add(cb);
+  public onRestart(listener: LifecycleListener) {
+    this.onRestartListener = listener;
   }
 
-  public onSoundChange(cb: SoundListener) {
-    this.onSoundChangeListeners.add(cb);
+  public offRestart(listener: LifecycleListener) {
+    if (this.onRestartListener === listener) this.onRestartListener = null;
+  }
+
+  public onSoundChange(listener: SoundListener) {
+    this.onSoundChangeListeners.add(listener);
+  }
+
+  public offSoundChange(listener: SoundListener) {
+    this.onSoundChangeListeners.delete(listener);
   }
 
   public ready() {
@@ -158,19 +239,55 @@ class GameBridgeManager {
   }
 
   public gameStarted() {
+    // A previous GameOverScene must not remain reachable through its callback.
+    this.onRestartListener = null;
+    this.isGameplayActive = true;
     this.notifyFlutter('gameStarted', {});
+    this.startMetricsReporting();
   }
 
   public gameOver(payload: GameOverPayload) {
+    this.onPauseListener = null;
+    this.onResumeListener = null;
+    this.isGameplayActive = false;
+    this.stopMetricsReporting();
     this.notifyFlutter('gameOver', payload);
   }
 
   public completed(payload: GameCompletedPayload) {
+    this.onPauseListener = null;
+    this.onResumeListener = null;
+    this.isGameplayActive = false;
+    this.stopMetricsReporting();
     this.notifyFlutter('completed', payload);
   }
 
   public haptic(type: 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error') {
+    const now = performance.now();
+    if (now - this.lastHapticAt < 60) return;
+    this.lastHapticAt = now;
     this.notifyFlutter('haptic', { type });
+  }
+
+  public destroy() {
+    if (this.isDestroyed) return;
+
+    this.stopMetricsReporting();
+    window.removeEventListener('flutter:pause', this.handleFlutterPause);
+    window.removeEventListener('flutter:resume', this.handleFlutterResume);
+    window.removeEventListener('flutter:restart', this.handleFlutterRestart);
+    window.removeEventListener('flutter:sound', this.handleFlutterSound as EventListener);
+
+    this.onPauseListener = null;
+    this.onResumeListener = null;
+    this.onRestartListener = null;
+    this.onSoundChangeListeners.clear();
+    this.isGameplayActive = false;
+    this.isDestroyed = true;
+
+    try {
+      delete (window as any).GameBridge;
+    } catch (_) {}
   }
 }
 

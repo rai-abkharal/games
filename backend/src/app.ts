@@ -29,7 +29,8 @@ export function createApp(catalogPath?: string, baseUrl?: string): Express {
   const thumbnailsDir = path.join(publicDir, 'thumbnails');
 
   app.use('/games', express.static(gamesDir, {
-    maxAge: '1h',
+    maxAge: '1y',
+    immutable: true,
     setHeaders: (res) => {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');

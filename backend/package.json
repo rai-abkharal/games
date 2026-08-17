@@ -8,9 +8,17 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "vitest run",
-    "deploy-game": "tsx scripts/deploy-game.ts"
+    "deploy-game": "tsx scripts/deploy-game.ts",
+    "verify-catalog": "node scripts/verify-catalog.mjs"
   },
-  "keywords": ["mini-games", "catalog", "r2", "cdn", "phaser", "flutter"],
+  "keywords": [
+    "mini-games",
+    "catalog",
+    "r2",
+    "cdn",
+    "phaser",
+    "flutter"
+  ],
   "author": "Antigravity",
   "license": "MIT",
   "dependencies": {

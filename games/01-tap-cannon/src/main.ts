@@ -14,7 +14,7 @@ const config: Phaser.Types.Core.GameConfig = {
   roundPixels: true,
   antialias: false,
   fps: {
-    target: 120, // Adaptive Native VSync (60Hz, 90Hz, 120Hz)
+    target: 60,
     min: 30,
     forceSetTimeOut: false,
     deltaHistory: 10,
@@ -35,6 +35,8 @@ const config: Phaser.Types.Core.GameConfig = {
     arcade: {
       gravity: { x: 0, y: 0 },
       debug: false,
+      fps: 60,
+      fixedStep: true,
     },
   },
   scene: [BootScene, MenuScene, GameScene, GameOverScene],
