@@ -11,6 +11,11 @@ echo "======================================================="
 cd "$PROJECT_DIR"
 
 echo ""
+echo "🧹 [0/5] Cleaning local build files to prevent Git conflicts..."
+git checkout -f main || true
+git reset --hard origin/main || git reset --hard HEAD || true
+
+echo ""
 echo "🚀 [1/5] Pulling latest code from Git..."
 git pull origin main
 
