@@ -5,11 +5,27 @@ import { GameScene } from './scenes/GameScene';
 import { GameOverScene } from './scenes/GameOverScene';
 
 const config: Phaser.Types.Core.GameConfig = {
-  type: Phaser.AUTO,
+  type: Phaser.WEBGL,
   parent: 'game-container',
   width: 480,
   height: 800,
   backgroundColor: '#f8f6f0',
+  transparent: false,
+  roundPixels: true,
+  antialias: false,
+  fps: {
+    target: 60,
+    min: 30,
+    forceSetTimeOut: false,
+    deltaHistory: 10,
+    smoothStep: true,
+  },
+  render: {
+    powerPreference: 'high-performance',
+    desynchronized: true,
+    batchSize: 2048,
+    clearBeforeRender: true,
+  },
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -19,9 +35,12 @@ const config: Phaser.Types.Core.GameConfig = {
     arcade: {
       gravity: { x: 0, y: 0 },
       debug: false,
+      fps: 60,
+      fixedStep: true,
     },
   },
   scene: [BootScene, MenuScene, GameScene, GameOverScene],
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+(window as any).__PHASER_GAME__ = game;

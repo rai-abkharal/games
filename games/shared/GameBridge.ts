@@ -89,11 +89,19 @@ class GameBridgeManager {
     this.onPauseListeners.forEach((cb) => {
       try { cb(); } catch (e) { console.error(e); }
     });
+    // Sleep Phaser engine loop to drop background CPU/GPU consumption to 0%
+    if ((window as any).__PHASER_GAME__ && (window as any).__PHASER_GAME__.loop) {
+      try { (window as any).__PHASER_GAME__.loop.sleep(); } catch (_) {}
+    }
     this.notifyFlutter('paused', {});
   }
 
   public triggerResume() {
     this.isPaused = false;
+    // Wake Phaser engine loop
+    if ((window as any).__PHASER_GAME__ && (window as any).__PHASER_GAME__.loop) {
+      try { (window as any).__PHASER_GAME__.loop.wake(); } catch (_) {}
+    }
     this.onResumeListeners.forEach((cb) => {
       try { cb(); } catch (e) { console.error(e); }
     });

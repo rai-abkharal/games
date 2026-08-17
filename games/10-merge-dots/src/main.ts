@@ -295,13 +295,30 @@ class GameOverScene extends Phaser.Scene {
 }
 
 const config: Phaser.Types.Core.GameConfig = {
-  type: Phaser.AUTO,
+  type: Phaser.WEBGL,
   parent: 'game-container',
   width: 480,
   height: 800,
   backgroundColor: '#f8f6f0',
+  transparent: false,
+  roundPixels: true,
+  antialias: false,
+  fps: {
+    target: 60,
+    min: 30,
+    forceSetTimeOut: false,
+    deltaHistory: 10,
+    smoothStep: true,
+  },
+  render: {
+    powerPreference: 'high-performance',
+    desynchronized: true,
+    batchSize: 2048,
+    clearBeforeRender: true,
+  },
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   scene: [BootScene, MenuScene, GameScene, GameOverScene],
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+(window as any).__PHASER_GAME__ = game;
