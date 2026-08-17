@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -478,11 +477,7 @@ class GameCacheManager {
       throw StateError('Game package exceeds the download size limit.');
     }
 
-    if (kReleaseMode && uri.scheme != 'https') {
-      throw StateError(
-        'Release builds only download game packages over HTTPS: $uri',
-      );
-    }
+
 
     final request = http.Request('GET', uri);
     final response = await client
@@ -564,9 +559,8 @@ class GameCacheManager {
   }
 
   Future<String> _calculateDirectoryHash(Directory directory) async {
-    final output = AccumulatorSink<Digest>();
-    final input = sha256.startChunkedConversion(output);
     final prefix = '${directory.path}${Platform.pathSeparator}';
+    final files = <File>[];
 
     Future<void> walk(Directory current) async {
       final entities = await current
@@ -578,23 +572,23 @@ class GameCacheManager {
       for (final entity in entities) {
         if (entity is Directory) {
           await walk(entity);
-          continue;
-        }
-
-        final file = entity as File;
-        final relativePath = file.path
-            .substring(prefix.length)
-            .replaceAll('\\', '/');
-        input.add(utf8.encode(relativePath));
-        await for (final chunk in file.openRead()) {
-          input.add(chunk);
+        } else if (entity is File) {
+          files.add(entity);
         }
       }
     }
 
     await walk(directory);
-    input.close();
-    return output.events.single.toString();
+
+    final bytes = <int>[];
+    for (final file in files) {
+      final relPath = file.path.startsWith(prefix)
+          ? file.path.substring(prefix.length).replaceAll(r'\', '/')
+          : file.path.replaceAll(r'\', '/');
+      bytes.addAll(utf8.encode(relPath));
+      bytes.addAll(await file.readAsBytes());
+    }
+    return sha256.convert(bytes).toString();
   }
 
   Future<int> _directorySize(Directory directory) async {

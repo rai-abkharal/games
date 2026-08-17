@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/bridge/game_bridge.dart';
 import '../../controllers/feed_controller.dart';
 
@@ -37,7 +39,9 @@ class _PerformanceHudState extends ConsumerState<PerformanceHud>
   @override
   void initState() {
     super.initState();
-    _ticker = createTicker(_onHostFrame)..start();
+    if (AppConstants.enablePerformanceHud && !kReleaseMode) {
+      _ticker = createTicker(_onHostFrame)..start();
+    }
   }
 
   void _onHostFrame(Duration timestamp) {
@@ -79,6 +83,9 @@ class _PerformanceHudState extends ConsumerState<PerformanceHud>
 
   @override
   Widget build(BuildContext context) {
+    if (!AppConstants.enablePerformanceHud || kReleaseMode) {
+      return const SizedBox.shrink();
+    }
     final feed = ref.watch(feedControllerProvider);
     final cache = ref.read(gameCacheManagerProvider);
     final server = ref.read(embeddedGameServerProvider);

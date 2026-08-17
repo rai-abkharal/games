@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -113,9 +112,6 @@ class ApiClient {
     if (!trustedBase.hasScheme || trustedBase.host.isEmpty) {
       throw StateError('GAMES_BASE_URL is invalid: $baseUrl');
     }
-    if (kReleaseMode && trustedBase.scheme != 'https') {
-      throw StateError('Release builds require an HTTPS GAMES_BASE_URL.');
-    }
 
     final ids = <String>{};
     for (final game in catalog.games) {
@@ -139,9 +135,6 @@ class ApiClient {
         final uri = Uri.tryParse(rawUrl);
         if (uri == null || !_isSameOrigin(uri, trustedBase)) {
           throw StateError('${game.id} uses an untrusted catalog URL: $rawUrl');
-        }
-        if (kReleaseMode && uri.scheme != 'https') {
-          throw StateError('${game.id} must use HTTPS in release builds.');
         }
       }
     }

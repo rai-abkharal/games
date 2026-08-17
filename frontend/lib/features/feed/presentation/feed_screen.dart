@@ -144,17 +144,21 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   // Adjacent pages remain lightweight while their package bytes
                   // are pre-cached after the active game reaches ready state.
                   if (isCurrent)
-                    GameHostView(
-                      key: ValueKey('${game.id}_${game.version}'),
-                      game: game,
-                      isActive: true,
+                    RepaintBoundary(
+                      child: GameHostView(
+                        key: ValueKey('${game.id}_${game.version}'),
+                        game: game,
+                        isActive: true,
+                      ),
                     )
                   else
                     _GamePagePlaceholder(title: game.title),
-                  FeedOverlay(
-                    game: game,
-                    index: index,
-                    totalGames: feedState.games.length,
+                  RepaintBoundary(
+                    child: FeedOverlay(
+                      game: game,
+                      index: index,
+                      totalGames: feedState.games.length,
+                    ),
                   ),
                 ],
               );

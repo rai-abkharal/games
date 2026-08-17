@@ -22,4 +22,7 @@ class AppConstants {
   static const String keySoundMuted = 'is_sound_muted';
   static const String keyHighScores = 'game_high_scores';
   static const String keyGameCacheIndex = 'game_cache_index';
+
+  // Performance flags
+  static const bool enablePerformanceHud = false;
 }

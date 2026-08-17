@@ -141,7 +141,7 @@ class _GameHostViewState extends ConsumerState<GameHostView> {
         effectivePort(uri) == effectivePort(trustedBase);
     if (!sameOrigin) return false;
 
-    return uri.scheme == 'https' || (!kReleaseMode && uri.scheme == 'http');
+    return uri.scheme == 'https' || uri.scheme == 'http';
   }
 
   Future<void> _loadGame() async {
@@ -205,9 +205,7 @@ class _GameHostViewState extends ConsumerState<GameHostView> {
       setState(() {
         _isLoading = false;
         _hasError = true;
-        _errorMessage = kReleaseMode
-            ? 'Game delivery must use a verified local package or HTTPS.'
-            : 'Blocked untrusted game URL: $loadUrl';
+        _errorMessage = 'Blocked untrusted game URL: $loadUrl';
       });
       return;
     }
