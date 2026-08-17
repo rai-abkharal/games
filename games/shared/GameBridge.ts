@@ -1,10 +1,3 @@
-declare const __GAME_DEBUG__: boolean | undefined;
-
-/// Console logging inside an Android WebView is not free. Every call is
-/// serialised out to the host, and the bridge fires on every haptic, score and
-/// lifecycle event. Vite replaces this with false in production builds.
-const DEBUG: boolean = typeof __GAME_DEBUG__ !== 'undefined' ? !!__GAME_DEBUG__ : false;
-
 export interface GameOverPayload {
   score: number;
   highScore?: number;
@@ -69,19 +62,11 @@ class GameBridgeManager {
       }
     });
 
-    // Belt and braces: if the host never sends a pause, the browser still
-    // tells us when the page is hidden.
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        this.triggerPause();
-      }
-    });
-
-    if (DEBUG) console.log('[GameBridge] Initialized window.GameBridge');
+    console.log('🎮 [GameBridge] Initialized window.GameBridge');
   }
 
   private notifyFlutter(action: string, payload: any) {
-    if (DEBUG) console.log(`[GameBridge -> Host] ${action}:`, payload);
+    console.log(`📡 [GameBridge -> Host] ${action}:`, payload);
 
     // 1. Standard flutter_inappwebview channel
     if ((window as any).flutter_inappwebview && (window as any).flutter_inappwebview.callHandler) {
@@ -102,41 +87,37 @@ class GameBridgeManager {
   public triggerPause() {
     this.isPaused = true;
     this.onPauseListeners.forEach((cb) => {
-      try { cb(); } catch (e) { if (DEBUG) console.error(e); }
+      try { cb(); } catch (e) { console.error(e); }
     });
-    const game = (window as any).__PHASER_GAME__;
-    if (game) {
-      // Stop the render loop and suspend the audio context. Sleeping the loop
-      // alone leaves WebAudio running, which keeps the process awake.
-      try { game.loop.sleep(); } catch (_) {}
-      try { if (game.sound && game.sound.context) game.sound.context.suspend(); } catch (_) {}
+    // Sleep Phaser engine loop to drop background CPU/GPU consumption to 0%
+    if ((window as any).__PHASER_GAME__ && (window as any).__PHASER_GAME__.loop) {
+      try { (window as any).__PHASER_GAME__.loop.sleep(); } catch (_) {}
     }
     this.notifyFlutter('paused', {});
   }
 
   public triggerResume() {
     this.isPaused = false;
-    const game = (window as any).__PHASER_GAME__;
-    if (game) {
-      try { game.loop.wake(); } catch (_) {}
-      try { if (game.sound && game.sound.context) game.sound.context.resume(); } catch (_) {}
+    // Wake Phaser engine loop
+    if ((window as any).__PHASER_GAME__ && (window as any).__PHASER_GAME__.loop) {
+      try { (window as any).__PHASER_GAME__.loop.wake(); } catch (_) {}
     }
     this.onResumeListeners.forEach((cb) => {
-      try { cb(); } catch (e) { if (DEBUG) console.error(e); }
+      try { cb(); } catch (e) { console.error(e); }
     });
     this.notifyFlutter('resumed', {});
   }
 
   public triggerRestart() {
     this.onRestartListeners.forEach((cb) => {
-      try { cb(); } catch (e) { if (DEBUG) console.error(e); }
+      try { cb(); } catch (e) { console.error(e); }
     });
   }
 
   public setSound(enabled: boolean) {
     this.soundEnabled = enabled;
     this.onSoundChangeListeners.forEach((cb) => {
-      try { cb(enabled); } catch (e) { if (DEBUG) console.error(e); }
+      try { cb(enabled); } catch (e) { console.error(e); }
     });
   }
 

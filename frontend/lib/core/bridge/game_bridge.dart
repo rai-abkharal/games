@@ -16,15 +16,6 @@ class GameBridgeController {
     _webViewController = null;
   }
 
-  /// Only detach if the caller is the controller currently attached. A new
-  /// game host can mount before the old one is disposed, and a blind detach
-  /// would leave the new game without a bridge.
-  void detachIfCurrent(WebViewController controller) {
-    if (identical(_webViewController, controller)) {
-      _webViewController = null;
-    }
-  }
-
   void addListener(BridgeEventListener listener) {
     _listeners.add(listener);
   }

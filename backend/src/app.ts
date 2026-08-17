@@ -1,7 +1,6 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
-import fs from 'fs';
 import { CatalogService } from './services/catalogService';
 
 export function createApp(catalogPath?: string, baseUrl?: string): Express {
@@ -24,15 +23,8 @@ export function createApp(catalogPath?: string, baseUrl?: string): Express {
   }));
   app.use(express.json());
 
-  // Static Assets Hosting (CDN Simulation) - Multi-Environment Safe Path Resolution
-  const publicCandidates = [
-    path.resolve(process.cwd(), 'public'),
-    path.resolve(process.cwd(), '../public'),
-    path.resolve(__dirname, '../../public'),
-    path.resolve(__dirname, '../public'),
-    '/var/www/games-platform/backend/public',
-  ];
-  const publicDir = publicCandidates.find((p) => fs.existsSync(p)) || path.resolve(__dirname, '../public');
+  // Static Assets Hosting (CDN Simulation)
+  const publicDir = path.resolve(__dirname, '../public');
   const gamesDir = path.join(publicDir, 'games');
   const thumbnailsDir = path.join(publicDir, 'thumbnails');
 

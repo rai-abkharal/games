@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../features/feed/presentation/feed_screen.dart';
 
 class MiniGamesApp extends StatelessWidget {
@@ -6,7 +7,22 @@ class MiniGamesApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Orientation and system UI are set once in main(), not on every rebuild.
+    // Lock portrait orientation
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+
+    // Transparent status bar with dark icons for light theme
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFFF8F6F0),
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
+
     return MaterialApp(
       title: 'Mini-Games Swipe',
       debugShowCheckedModeBanner: false,

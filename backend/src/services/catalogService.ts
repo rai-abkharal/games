@@ -8,20 +8,8 @@ export class CatalogService {
   private baseUrl: string;
 
   constructor(catalogPath?: string, baseUrl?: string) {
-    if (catalogPath && fs.existsSync(catalogPath)) {
-      this.catalogPath = catalogPath;
-    } else {
-      const candidates = [
-        path.resolve(process.cwd(), 'catalog/games.json'),
-        path.resolve(process.cwd(), '../catalog/games.json'),
-        path.resolve(__dirname, '../../../catalog/games.json'),
-        path.resolve(__dirname, '../../catalog/games.json'),
-        path.resolve(__dirname, '../catalog/games.json'),
-        '/var/www/games-platform/backend/catalog/games.json',
-      ];
-      this.catalogPath = candidates.find((p) => fs.existsSync(p)) || path.resolve(__dirname, '../../catalog/games.json');
-    }
-    this.baseUrl = (baseUrl || process.env.BASE_URL || 'http://162.243.197.241:3000').replace(/\/+$/, '');
+    this.catalogPath = catalogPath || path.resolve(__dirname, '../../catalog/games.json');
+    this.baseUrl = (baseUrl || process.env.BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
   }
 
   public setBaseUrl(url: string) {
