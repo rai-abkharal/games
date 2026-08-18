@@ -111,26 +111,26 @@ class GameScene extends Phaser.Scene {
     this.arrowsText = this.add.text(width - 24, 24, '🏹 10', { fontSize: '22px', fontStyle: 'bold', color: '#d97706' }).setOrigin(1, 0);
 
     // Aim Control Ring (Configurable Visual Reticle around Bow Area)
-    const aimZoneRadius = 76;
-    const aimZoneGlow = this.add.circle(this.bowOrigin.x, this.bowOrigin.y, aimZoneRadius, 0x059669, 0.12);
-    aimZoneGlow.setStrokeStyle(2, 0x10b981, 0.45);
+    const aimZoneRadius = 96;
+    const aimZoneGlow = this.add.circle(this.bowOrigin.x, this.bowOrigin.y, aimZoneRadius, 0x059669, 0.15);
+    aimZoneGlow.setStrokeStyle(2.5, 0x10b981, 0.6);
 
     // Subtle pulsing animation for aim zone
     this.tweens.add({
       targets: aimZoneGlow,
-      scale: 1.08,
-      alpha: 0.18,
-      duration: 1200,
+      scale: 1.06,
+      alpha: 0.22,
+      duration: 1100,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut'
     });
 
     // Bow Base Center
-    this.add.circle(this.bowOrigin.x, this.bowOrigin.y, 24, 0x059669).setStrokeStyle(3, 0x34d399);
+    this.add.circle(this.bowOrigin.x, this.bowOrigin.y, 26, 0x059669).setStrokeStyle(3, 0x34d399);
 
     // Aim guide label
-    this.add.text(this.bowOrigin.x, height - 22, 'PULL & AIM HERE', {
+    this.add.text(this.bowOrigin.x, height - 16, '🎯 DRAG INSIDE CIRCLE TO AIM', {
       fontSize: '11px',
       fontStyle: 'bold',
       color: '#059669',
@@ -143,13 +143,21 @@ class GameScene extends Phaser.Scene {
       this.trajectoryDots.push(dot);
     }
 
-    // Input handlers with Dynamic Swipe Disabling
+    // Input handlers: Lock swipe ONLY when touch starts inside the aim circle!
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (this.isGameOver || this.arrowsLeft <= 0) return;
-      this.isAiming = true;
-      // Lock vertical feed swiping while aiming
-      GameBridge.setSwipeEnabled(false);
-      this.updateAim(pointer);
+
+      const dist = Phaser.Math.Distance.Between(pointer.x, pointer.y, this.bowOrigin.x, this.bowOrigin.y);
+      if (dist <= aimZoneRadius + 15) {
+        // Touch is strictly INSIDE the aim circle: Aim bow & lock page swipe
+        this.isAiming = true;
+        GameBridge.setSwipeEnabled(false);
+        this.updateAim(pointer);
+      } else {
+        // Touch is OUTSIDE the aim circle: Do NOT aim, keep swipe 100% enabled for feed scrolling!
+        this.isAiming = false;
+        GameBridge.setSwipeEnabled(true);
+      }
     });
 
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
@@ -161,10 +169,11 @@ class GameScene extends Phaser.Scene {
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       if (this.isAiming) {
         this.isAiming = false;
-        // Re-enable vertical feed swiping
         GameBridge.setSwipeEnabled(true);
         this.trajectoryDots.forEach((d) => d.setVisible(false));
         this.releaseArrow(pointer);
+      } else {
+        GameBridge.setSwipeEnabled(true);
       }
     });
 

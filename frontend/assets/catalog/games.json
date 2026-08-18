@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "updatedAt": "2026-08-18T07:24:30.556Z",
+  "updatedAt": "2026-08-18T07:47:57.762Z",
   "games": [
     {
       "id": "tap-cannon",
@@ -122,14 +122,14 @@
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/tiny-archer/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/tiny-archer.webp",
-      "sizeBytes": 1499986,
+      "sizeBytes": 1500158,
       "orientation": "portrait",
       "engine": "phaser",
       "manifestUrl": "http://localhost:8080/games/tiny-archer/1.1.0/manifest.json",
       "feedOrder": 7,
       "category": "Action",
       "description": "Pull back, aim trajectory, and loose arrows at moving targets.",
-      "sha256": "e9cac837f5378eecfcfdc46a952c3964239a257ca25d2860cbfefbe4ea603e3b",
+      "sha256": "bb58f3b16c69314428d7d8a9fede7db033b1c4b7fdce450b1706c6951a0c4362",
       "features": {
         "sound": true,
         "vibration": true
