@@ -63,6 +63,7 @@ class GameBridgeManager {
       gameOver: (payload: GameOverPayload) => this.gameOver(payload),
       completed: (payload: GameCompletedPayload) => this.completed(payload),
       setSoundEnabled: (enabled: boolean) => this.setSound(enabled),
+      setSwipeEnabled: (enabled: boolean) => this.setSwipeEnabled(enabled),
       haptic: (type: 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error') =>
         this.haptic(type),
       destroy: () => this.destroy(),
@@ -260,6 +261,10 @@ class GameBridgeManager {
     this.isGameplayActive = false;
     this.stopMetricsReporting();
     this.notifyFlutter('completed', payload);
+  }
+
+  public setSwipeEnabled(enabled: boolean) {
+    this.notifyFlutter('setSwipeEnabled', { enabled });
   }
 
   public haptic(type: 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error') {

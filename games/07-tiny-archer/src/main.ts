@@ -110,8 +110,31 @@ class GameScene extends Phaser.Scene {
     this.scoreText = this.add.text(24, 24, 'SCORE: 0', { fontSize: '20px', fontStyle: 'bold', color: '#0f172a' });
     this.arrowsText = this.add.text(width - 24, 24, '🏹 10', { fontSize: '22px', fontStyle: 'bold', color: '#d97706' }).setOrigin(1, 0);
 
-    // Bow Base
+    // Aim Control Ring (Configurable Visual Reticle around Bow Area)
+    const aimZoneRadius = 76;
+    const aimZoneGlow = this.add.circle(this.bowOrigin.x, this.bowOrigin.y, aimZoneRadius, 0x059669, 0.12);
+    aimZoneGlow.setStrokeStyle(2, 0x10b981, 0.45);
+
+    // Subtle pulsing animation for aim zone
+    this.tweens.add({
+      targets: aimZoneGlow,
+      scale: 1.08,
+      alpha: 0.18,
+      duration: 1200,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    // Bow Base Center
     this.add.circle(this.bowOrigin.x, this.bowOrigin.y, 24, 0x059669).setStrokeStyle(3, 0x34d399);
+
+    // Aim guide label
+    this.add.text(this.bowOrigin.x, height - 22, 'PULL & AIM HERE', {
+      fontSize: '11px',
+      fontStyle: 'bold',
+      color: '#059669',
+    }).setOrigin(0.5);
 
     // Trajectory Dots
     this.trajectoryDots = [];
@@ -120,10 +143,12 @@ class GameScene extends Phaser.Scene {
       this.trajectoryDots.push(dot);
     }
 
-    // Input handlers
+    // Input handlers with Dynamic Swipe Disabling
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (this.isGameOver || this.arrowsLeft <= 0) return;
       this.isAiming = true;
+      // Lock vertical feed swiping while aiming
+      GameBridge.setSwipeEnabled(false);
       this.updateAim(pointer);
     });
 
@@ -136,8 +161,18 @@ class GameScene extends Phaser.Scene {
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       if (this.isAiming) {
         this.isAiming = false;
+        // Re-enable vertical feed swiping
+        GameBridge.setSwipeEnabled(true);
         this.trajectoryDots.forEach((d) => d.setVisible(false));
         this.releaseArrow(pointer);
+      }
+    });
+
+    this.input.on('pointerout', () => {
+      if (this.isAiming) {
+        this.isAiming = false;
+        GameBridge.setSwipeEnabled(true);
+        this.trajectoryDots.forEach((d) => d.setVisible(false));
       }
     });
 

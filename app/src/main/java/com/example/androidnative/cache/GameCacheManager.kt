@@ -1,0 +1,193 @@
+package com.example.androidnative.cache
+
+import android.content.Context
+import android.net.Uri
+import android.webkit.WebResourceResponse
+import com.example.androidnative.model.GameItem
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.File
+import java.io.FileInputStream
+import java.util.concurrent.ConcurrentHashMap
+import java.util.regex.Pattern
+
+class GameCacheManager(private val context: Context) {
+
+    private val client = OkHttpClient()
+    private val cacheBaseDir = File(context.filesDir, "game_cache")
+    private val downloadedGames = ConcurrentHashMap<String, Boolean>()
+
+    init {
+        if (!cacheBaseDir.exists()) {
+            cacheBaseDir.mkdirs()
+        }
+        refreshDownloadedStatus()
+    }
+
+    fun refreshDownloadedStatus() {
+        val games = cacheBaseDir.listFiles() ?: return
+        for (gameDir in games) {
+            if (gameDir.isDirectory) {
+                val versions = gameDir.listFiles() ?: continue
+                for (vDir in versions) {
+                    if (vDir.isDirectory) {
+                        val indexHtml = File(vDir, "index.html")
+                        if (indexHtml.exists()) {
+                            downloadedGames["${gameDir.name}_${vDir.name}"] = true
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fun isGameCached(gameId: String, version: String): Boolean {
+        val key = "${gameId}_$version"
+        if (downloadedGames[key] == true) return true
+        val targetDir = File(cacheBaseDir, "$gameId/$version")
+        val indexHtml = File(targetDir, "index.html")
+        val cached = indexHtml.exists() && indexHtml.length() > 0
+        if (cached) downloadedGames[key] = true
+        return cached
+    }
+
+    fun getLocalFile(gameId: String, version: String, relativePath: String): File? {
+        val normalized = relativePath.trimStart('/')
+        val file = File(cacheBaseDir, "$gameId/$version/$normalized")
+        return if (file.exists()) file else null
+    }
+
+    fun interceptRequest(url: String): WebResourceResponse? {
+        try {
+            val uri = Uri.parse(url)
+            val path = uri.path ?: return null
+
+            // Example path: /games/tap-cannon/1.1.0/assets/index-xxx.js
+            val segments = path.split("/").filter { it.isNotEmpty() }
+            if (segments.size >= 3 && segments[0] == "games") {
+                val gameId = segments[1]
+                val version = segments[2]
+                val relativePath = if (segments.size > 3) {
+                    segments.subList(3, segments.size).joinToString("/")
+                } else {
+                    "index.html"
+                }
+
+                val localFile = getLocalFile(gameId, version, relativePath)
+                if (localFile != null && localFile.exists()) {
+                    val mimeType = getMimeType(relativePath)
+                    val encoding = if (mimeType.startsWith("text/") || mimeType.contains("javascript") || mimeType.contains("json")) "UTF-8" else null
+                    val headers = mapOf(
+                        "Access-Control-Allow-Origin" to "*",
+                        "Access-Control-Allow-Methods" to "GET, OPTIONS",
+                        "Cache-Control" to "public, max-age=31536000"
+                    )
+                    return WebResourceResponse(
+                        mimeType,
+                        encoding,
+                        200,
+                        "OK",
+                        headers,
+                        FileInputStream(localFile)
+                    )
+                }
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    private fun getMimeType(path: String): String {
+        return when {
+            path.endsWith(".html") -> "text/html"
+            path.endsWith(".js") || path.endsWith(".mjs") -> "application/javascript"
+            path.endsWith(".css") -> "text/css"
+            path.endsWith(".json") -> "application/json"
+            path.endsWith(".png") -> "image/png"
+            path.endsWith(".jpg") || path.endsWith(".jpeg") -> "image/jpeg"
+            path.endsWith(".webp") -> "image/webp"
+            path.endsWith(".svg") -> "image/svg+xml"
+            path.endsWith(".mp3") -> "audio/mpeg"
+            path.endsWith(".ogg") || path.endsWith(".oga") -> "audio/ogg"
+            path.endsWith(".wav") -> "audio/wav"
+            path.endsWith(".woff2") -> "font/woff2"
+            path.endsWith(".woff") -> "font/woff"
+            path.endsWith(".ttf") -> "font/ttf"
+            else -> "application/octet-stream"
+        }
+    }
+
+    suspend fun downloadGame(
+        game: GameItem,
+        onProgress: (Float) -> Unit = {}
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            onProgress(0.1f)
+            val targetDir = File(cacheBaseDir, "${game.id}/${game.version}")
+            if (targetDir.exists()) {
+                targetDir.deleteRecursively()
+            }
+            targetDir.mkdirs()
+
+            // 1. Download index.html
+            val req = Request.Builder().url(game.entryUrl).build()
+            val res = client.newCall(req).execute()
+            if (!res.isSuccessful) return@withContext false
+
+            val htmlContent = res.body?.string() ?: return@withContext false
+            val indexFile = File(targetDir, "index.html")
+            indexFile.writeText(htmlContent)
+            onProgress(0.5f)
+
+            // 2. Extract and download referenced assets (e.g. ./assets/index-xxx.js)
+            val scriptPattern = Pattern.compile("<script[^>]+src=\"([^\"]+)\"")
+            val matcher = scriptPattern.matcher(htmlContent)
+            val baseUri = Uri.parse(game.entryUrl)
+
+            while (matcher.find()) {
+                var src = matcher.group(1) ?: continue
+                if (!src.startsWith("http")) {
+                    val assetUrl = resolveUri(baseUri, src)
+                    src = src.removePrefix("./")
+                    val assetFile = File(targetDir, src)
+                    assetFile.parentFile?.mkdirs()
+
+                    val assetReq = Request.Builder().url(assetUrl).build()
+                    val assetRes = client.newCall(assetReq).execute()
+                    if (assetRes.isSuccessful) {
+                        assetRes.body?.byteStream()?.use { input ->
+                            assetFile.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                    }
+                }
+            }
+
+            downloadedGames["${game.id}_${game.version}"] = true
+            onProgress(1.0f)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun resolveUri(base: Uri, relative: String): String {
+        val baseStr = base.toString()
+        val lastSlash = baseStr.lastIndexOf('/')
+        return if (lastSlash != -1) {
+            baseStr.substring(0, lastSlash + 1) + relative.removePrefix("./")
+        } else {
+            "$baseStr/$relative"
+        }
+    }
+
+    fun clearAllCache() {
+        if (cacheBaseDir.exists()) {
+            cacheBaseDir.deleteRecursively()
+            cacheBaseDir.mkdirs()
+        }
+        downloadedGames.clear()
+    }
+}
