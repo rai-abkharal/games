@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "updatedAt": "2026-08-19T12:07:47.344Z",
+  "updatedAt": "2026-08-19T12:54:19.257Z",
   "games": [
     {
       "id": "tap-cannon",
@@ -16,11 +16,11 @@
       "category": "Arcade",
       "description": "Tap to blast moving targets in a fast 30-second score chase!",
       "sha256": "668ce2c270525bfb1da98a738ae1f6e43ce630500472424a4364ac688db231b7",
+      "touchZones": [],
       "features": {
         "sound": true,
         "vibration": true
-      },
-      "touchZones": []
+      }
     },
     {
       "id": "color-match",
@@ -36,11 +36,11 @@
       "category": "Puzzle",
       "description": "Match falling & appearing colors before time runs out!",
       "sha256": "8e393f487ac7091c14752baf2d130e5dfe97787e8b482f14ddfada75d1462cf1",
+      "touchZones": [],
       "features": {
         "sound": true,
         "vibration": false
-      },
-      "touchZones": []
+      }
     },
     {
       "id": "stack-tower",
@@ -56,11 +56,11 @@
       "category": "Casual",
       "description": "Precision tap to stack moving blocks into the stratosphere.",
       "sha256": "31f04475b803bdce455d08e8d994ff466bc8c8558bbce76b06d2ca31a3ff72e0",
+      "touchZones": [],
       "features": {
         "sound": true,
         "vibration": true
-      },
-      "touchZones": []
+      }
     },
     {
       "id": "lane-dodge",
@@ -76,11 +76,11 @@
       "category": "Arcade",
       "description": "Swipe and tap across 3 vertical lanes to dodge oncoming hazards.",
       "sha256": "70278a0b7f16204ab41a021f13cf40d699de66ee5fe10c1f064a2a6a22d6ec9b",
+      "touchZones": [],
       "features": {
         "sound": true,
         "vibration": true
-      },
-      "touchZones": []
+      }
     },
     {
       "id": "memory-flip",
@@ -96,11 +96,11 @@
       "category": "Puzzle",
       "description": "Flip cards, find matching pairs, and test your recall speed.",
       "sha256": "c0e891a24d530ecef93bb17c41a75096815c6938c5a59b30cdde89f8db5da916",
+      "touchZones": [],
       "features": {
         "sound": true,
         "vibration": false
-      },
-      "touchZones": []
+      }
     },
     {
       "id": "fruit-catch",
@@ -116,10 +116,6 @@
       "category": "Arcade",
       "description": "Slide your basket to catch ripe fruits and avoid explosive bombs.",
       "sha256": "4abea9892d19bc7626e035320ad9a5046d3999001bfd7fe04dcfc1af60b9483e",
-      "features": {
-        "sound": true,
-        "vibration": true
-      },
       "touchZones": [
         {
           "name": "Basket Slider",
@@ -128,7 +124,11 @@
           "width": 1,
           "height": 0.35
         }
-      ]
+      ],
+      "features": {
+        "sound": true,
+        "vibration": true
+      }
     },
     {
       "id": "tiny-archer",
@@ -144,10 +144,6 @@
       "category": "Action",
       "description": "Pull back, aim trajectory, and loose arrows at moving targets.",
       "sha256": "7b9aecd06943d1977bd662482f80914d7cae3a438ea5db0ff350d29d62a57061",
-      "features": {
-        "sound": true,
-        "vibration": true
-      },
       "touchZones": [
         {
           "name": "Bow & Arrow Pull",
@@ -156,7 +152,11 @@
           "width": 0.45,
           "height": 0.4
         }
-      ]
+      ],
+      "features": {
+        "sound": true,
+        "vibration": true
+      }
     },
     {
       "id": "pipe-connect",
@@ -172,11 +172,11 @@
       "category": "Puzzle",
       "description": "Rotate pipe tiles to establish clean flow from source to drain.",
       "sha256": "2df315784c5d7e607a793042f986182634de95a1a4d77af5c4886343d2fa92ea",
+      "touchZones": [],
       "features": {
         "sound": true,
         "vibration": false
-      },
-      "touchZones": []
+      }
     },
     {
       "id": "one-tap-runner",
@@ -192,11 +192,11 @@
       "category": "Runner",
       "description": "Auto-runner with responsive tap-jump and double-jump mechanics.",
       "sha256": "74a6ac396d728d49af71fce37f4eb1af7a2f9c85f3d4482122e80e1fd51b624e",
+      "touchZones": [],
       "features": {
         "sound": true,
         "vibration": true
-      },
-      "touchZones": []
+      }
     },
     {
       "id": "merge-dots",
@@ -212,10 +212,6 @@
       "category": "Puzzle",
       "description": "Merge matching number dots on a 4x4 board to reach the highest dot!",
       "sha256": "fd1b050109b0c8fdebb025e793fbdb61ea44122d8b2873c49862a666f1cb69dc",
-      "features": {
-        "sound": true,
-        "vibration": true
-      },
       "touchZones": [
         {
           "name": "4x4 Grid Board",
@@ -224,7 +220,11 @@
           "width": 0.84,
           "height": 0.54
         }
-      ]
+      ],
+      "features": {
+        "sound": true,
+        "vibration": true
+      }
     },
     {
       "id": "fruit-frenzy",
@@ -240,11 +240,11 @@
       "category": "Arcade",
       "description": "Tap to launch into a playful fruit-catching frenzy, build combos, and chase your best score.",
       "sha256": "96f751cadd0f6fe96a215fefd6b4616192ea71c89bfbd2d236411995209c1ff3",
+      "touchZones": [],
       "features": {
         "sound": true,
         "vibration": false
-      },
-      "touchZones": []
+      }
     },
     {
       "id": "neon-switch",
@@ -260,11 +260,11 @@
       "category": "Arcade",
       "description": "Tap to switch lanes, dodge neon orbs, build combos, and survive as long as possible.",
       "sha256": "79591aea6be7258e9c875a1d41d775c8bb8b6ada674dbaed7e2e10538f3300bf",
+      "touchZones": [],
       "features": {
         "sound": true,
         "vibration": false
-      },
-      "touchZones": []
+      }
     },
     {
       "id": "sky-pop",
@@ -280,11 +280,11 @@
       "category": "Arcade",
       "description": "Tap to fly through sky gates, survive the gaps, and build the highest score.",
       "sha256": "662400fd5e2b7917c708febd5871b1a71e5ffe7c0fee626e48091276c2ecf6ef",
+      "touchZones": [],
       "features": {
         "sound": true,
         "vibration": false
-      },
-      "touchZones": []
+      }
     },
     {
       "id": "crown-arena",
@@ -300,10 +300,6 @@
       "category": "Arcade",
       "description": "Battle smart AI opponents in a dynamic 2D arena. Capture and hold the golden crown to win!",
       "sha256": "4a595ac65afe870f899ec90750a3c3b1c014f7abc31ac186407c548d952c2735",
-      "features": {
-        "sound": true,
-        "vibration": false
-      },
       "touchZones": [
         {
           "name": "Virtual Joystick",
@@ -319,7 +315,11 @@
           "width": 0.35,
           "height": 0.45
         }
-      ]
+      ],
+      "features": {
+        "sound": true,
+        "vibration": false
+      }
     },
     {
       "id": "cyber-blade",
@@ -335,10 +335,6 @@
       "category": "Action",
       "description": "High-speed neon blade slicing and precision reflex challenge.",
       "sha256": "5b02a5c7d6e45cc84f68a556bcc994fd80065e5a6a1ec54ec5af56868257e54b",
-      "features": {
-        "sound": true,
-        "vibration": false
-      },
       "touchZones": [
         {
           "name": "Blade Slicing Arena",
@@ -347,7 +343,11 @@
           "width": 1,
           "height": 0.75
         }
-      ]
+      ],
+      "features": {
+        "sound": true,
+        "vibration": false
+      }
     },
     {
       "id": "jetpack-surge",
@@ -363,11 +363,11 @@
       "category": "Arcade",
       "description": "High-velocity jetpack booster through electric sky barriers.",
       "sha256": "912b4e2255354e237394c9686a369cdcd2b502de1541b884b119bac3d73154dc",
+      "touchZones": [],
       "features": {
         "sound": true,
         "vibration": false
-      },
-      "touchZones": []
+      }
     }
   ]
 }

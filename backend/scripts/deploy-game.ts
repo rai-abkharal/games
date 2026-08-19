@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { Catalog, CatalogSchema, GameSchema } from '../src/types/game';
+import { Catalog, CatalogSchema, Game, GameSchema } from '../src/types/game';
 
 interface DeployOptions {
   gameDir: string;
@@ -125,7 +125,17 @@ export function deployGame(options: DeployOptions): { success: boolean; message:
   const thumbnailUrl = `${baseUrl}/thumbnails/${gameId}.webp`;
   const manifestUrl = `${baseUrl}/games/${gameId}/${version}/manifest.json`;
 
-  const gameEntry = {
+  const existingGame = fs.existsSync(catalogPath)
+    ? (() => {
+        try {
+          return (JSON.parse(fs.readFileSync(catalogPath, 'utf-8')).games || []).find((g: any) => g.id === gameId);
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+
+  const gameEntry: Game = {
     id: gameId,
     title,
     version,
@@ -139,6 +149,7 @@ export function deployGame(options: DeployOptions): { success: boolean; message:
     category,
     description,
     sha256,
+    touchZones: (manifest as any).touchZones || existingGame?.touchZones || [],
     features,
   };
 
