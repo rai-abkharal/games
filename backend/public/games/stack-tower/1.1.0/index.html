@@ -1,20 +1,268 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Stack Tower</title>
-  <script src="/shared/phaser.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: none; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #f8f6f0; display: flex; justify-content: center; align-items: center; touch-action: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    #game-container { width: 100%; height: 100%; max-width: 540px; position: relative; touch-action: none; }
-    canvas { display: block; width: 100% !important; height: 100% !important; object-fit: contain; touch-action: none; }
-  </style>
-  <script type="module" crossorigin>(function(){const t=document.createElement("link").relList;if(t&&t.supports&&t.supports("modulepreload"))return;for(const s of document.querySelectorAll('link[rel="modulepreload"]'))i(s);new MutationObserver(s=>{for(const n of s)if(n.type==="childList")for(const o of n.addedNodes)o.tagName==="LINK"&&o.rel==="modulepreload"&&i(o)}).observe(document,{childList:!0,subtree:!0});function e(s){const n={};return s.integrity&&(n.integrity=s.integrity),s.referrerPolicy&&(n.referrerPolicy=s.referrerPolicy),s.crossOrigin==="use-credentials"?n.credentials="include":s.crossOrigin==="anonymous"?n.credentials="omit":n.credentials="same-origin",n}__name(e,"getFetchOpts");function i(s){if(s.ep)return;s.ep=!0;const n=e(s);fetch(s.href,n)}__name(i,"processPreload")})();const r=(typeof window<"u"?window.Phaser:{})||{};r.Game;r.Scene;r.AUTO;r.WEBGL;r.CANVAS;r.Scale;r.Math;r.Physics;r.Input;r.GameObjects;r.Display;r.Time;r.Sound;r.Tweens;r.Animations;r.Loader;r.Geom;r.Curves;r.Cameras;r.Structs;r.Events;r.Core;r.Types;class a{constructor(){this.soundEnabled=!0,this.isPaused=!1,this.isDestroyed=!1,this.isGameplayActive=!1,this.lastHapticAt=0,this.metricsTimer=null,this.onPauseListener=null,this.onResumeListener=null,this.onRestartListener=null,this.onSoundChangeListeners=new Set,this.handleFlutterPause=()=>this.triggerPause(),this.handleFlutterResume=()=>this.triggerResume(),this.handleFlutterRestart=()=>this.triggerRestart(),this.handleFlutterSound=t=>{const e=t;typeof e.detail?.enabled=="boolean"&&this.setSound(e.detail.enabled)},this.setupGlobalBridge()}static getInstance(){return a.instance||(a.instance=new a),a.instance}setupGlobalBridge(){const t={ready:()=>this.ready(),gameStarted:()=>this.gameStarted(),pause:()=>this.triggerPause(),resume:()=>this.triggerResume(),restart:()=>this.triggerRestart(),gameOver:e=>this.gameOver(e),completed:e=>this.completed(e),setSoundEnabled:e=>this.setSound(e),setSwipeEnabled:e=>this.setSwipeEnabled(e),haptic:e=>this.haptic(e),destroy:()=>this.destroy()};window.GameBridge=t,window.addEventListener("flutter:pause",this.handleFlutterPause),window.addEventListener("flutter:resume",this.handleFlutterResume),window.addEventListener("flutter:restart",this.handleFlutterRestart),window.addEventListener("flutter:sound",this.handleFlutterSound)}notifyFlutter(t,e){if(this.isDestroyed)return;const i=JSON.stringify({action:t,payload:e});window.flutter_inappwebview?.callHandler&&window.flutter_inappwebview.callHandler("GameBridgeChannel",i),window.FlutterGameBridge?.postMessage&&window.FlutterGameBridge.postMessage(i),window.parent&&window.parent!==window&&window.parent.postMessage({source:"GameBridge",action:t,payload:e},"*")}startMetricsReporting(){if(this.metricsTimer!==null||!this.isGameplayActive||this.isPaused)return;const t=()=>{const i=window.__PHASER_GAME__?.loop;if(!i||this.isDestroyed||!this.isGameplayActive||this.isPaused)return;const s=Number(i.actualFps??0),n=Number(i.delta??0);!Number.isFinite(s)||!Number.isFinite(n)||this.notifyFlutter("metrics",{fps:Math.round(s*10)/10,frameTimeMs:Math.round(n*10)/10})};t(),this.metricsTimer=window.setInterval(t,1e3)}stopMetricsReporting(){this.metricsTimer!==null&&(window.clearInterval(this.metricsTimer),this.metricsTimer=null)}triggerPause(){if(this.isDestroyed||this.isPaused)return;this.isPaused=!0,this.stopMetricsReporting();try{this.onPauseListener?.()}catch{}const t=window.__PHASER_GAME__;if(t?.loop)try{t.loop.sleep()}catch{}this.notifyFlutter("paused",{})}triggerResume(){if(this.isDestroyed)return;const t=this.isPaused;this.isPaused=!1;const e=window.__PHASER_GAME__;if(e?.loop)try{e.loop.wake()}catch{}if(t){try{this.onResumeListener?.()}catch{}this.notifyFlutter("resumed",{})}this.startMetricsReporting()}triggerRestart(){if(this.isDestroyed)return;const t=this.onRestartListener;if(t)try{t();return}catch{}const e=window.__PHASER_GAME__;try{e?.scene?.keys?.GameScene&&e.scene.start("GameScene")}catch{}}setSound(t){this.isDestroyed||(this.soundEnabled=t,this.onSoundChangeListeners.forEach(e=>{try{e(t)}catch{}}))}isSoundEnabled(){return this.soundEnabled}getIsPaused(){return this.isPaused}onPause(t){this.onPauseListener=t}offPause(t){this.onPauseListener===t&&(this.onPauseListener=null)}onResume(t){this.onResumeListener=t}offResume(t){this.onResumeListener===t&&(this.onResumeListener=null)}onRestart(t){this.onRestartListener=t}offRestart(t){this.onRestartListener===t&&(this.onRestartListener=null)}onSoundChange(t){this.onSoundChangeListeners.add(t)}offSoundChange(t){this.onSoundChangeListeners.delete(t)}ready(){this.notifyFlutter("ready",{})}gameStarted(){this.onRestartListener=null,this.isGameplayActive=!0,this.notifyFlutter("gameStarted",{}),this.startMetricsReporting()}gameOver(t){this.onPauseListener=null,this.onResumeListener=null,this.isGameplayActive=!1,this.stopMetricsReporting(),this.notifyFlutter("gameOver",t)}completed(t){this.onPauseListener=null,this.onResumeListener=null,this.isGameplayActive=!1,this.stopMetricsReporting(),this.notifyFlutter("completed",t)}setSwipeEnabled(t){this.notifyFlutter("setSwipeEnabled",{enabled:t})}haptic(t){const e=performance.now();e-this.lastHapticAt<60||(this.lastHapticAt=e,this.notifyFlutter("haptic",{type:t}))}destroy(){if(!this.isDestroyed){this.stopMetricsReporting(),window.removeEventListener("flutter:pause",this.handleFlutterPause),window.removeEventListener("flutter:resume",this.handleFlutterResume),window.removeEventListener("flutter:restart",this.handleFlutterRestart),window.removeEventListener("flutter:sound",this.handleFlutterSound),this.onPauseListener=null,this.onResumeListener=null,this.onRestartListener=null,this.onSoundChangeListeners.clear(),this.isGameplayActive=!1,this.isDestroyed=!0;try{delete window.GameBridge}catch{}}}}const c=a.getInstance();class g{constructor(){this.ctx=null;const t=()=>{this.initCtx(),this.ctx&&this.ctx.state==="suspended"&&this.ctx.resume(),window.removeEventListener("touchstart",t),window.removeEventListener("pointerdown",t),window.removeEventListener("click",t)};window.addEventListener("touchstart",t,{passive:!0}),window.addEventListener("pointerdown",t,{passive:!0}),window.addEventListener("click",t,{passive:!0})}initCtx(){if(!this.ctx&&typeof window<"u"){const t=window.AudioContext||window.webkitAudioContext;t&&(this.ctx=new t)}return this.ctx}canPlay(){return c.isSoundEnabled()&&!!this.initCtx()}playTap(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="sine",t.frequency.setValueAtTime(440,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(880,this.ctx.currentTime+.05),e.gain.setValueAtTime(.2,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.001,this.ctx.currentTime+.05),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.05)}playShoot(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="triangle",t.frequency.setValueAtTime(600,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(150,this.ctx.currentTime+.12),e.gain.setValueAtTime(.3,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.12),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.12)}playHit(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="square",t.frequency.setValueAtTime(320,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(80,this.ctx.currentTime+.15),e.gain.setValueAtTime(.35,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.15),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.15)}playScore(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="sine",t.frequency.setValueAtTime(523.25,this.ctx.currentTime),t.frequency.setValueAtTime(659.25,this.ctx.currentTime+.06),t.frequency.setValueAtTime(783.99,this.ctx.currentTime+.12),e.gain.setValueAtTime(.25,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.22),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.22)}playSlice(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="sawtooth",t.frequency.setValueAtTime(900,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(300,this.ctx.currentTime+.08),e.gain.setValueAtTime(.2,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.08),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.08)}playJump(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="sine",t.frequency.setValueAtTime(250,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(650,this.ctx.currentTime+.15),e.gain.setValueAtTime(.25,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.15),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.15)}playGameOver(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.currentTime;[{freq:440,time:0,dur:.12},{freq:392,time:.12,dur:.12},{freq:349,time:.24,dur:.12},{freq:293,time:.36,dur:.3}].forEach(({freq:e,time:i,dur:s})=>{const n=this.ctx.createOscillator(),o=this.ctx.createGain();n.type="sawtooth",n.frequency.setValueAtTime(e,t+i),o.gain.setValueAtTime(.2,t+i),o.gain.exponentialRampToValueAtTime(.01,t+i+s),n.connect(o),o.connect(this.ctx.destination),n.start(t+i),n.stop(t+i+s)})}playSuccess(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.currentTime;[{freq:523.25,time:0,dur:.08},{freq:659.25,time:.08,dur:.08},{freq:783.99,time:.16,dur:.08},{freq:1046.5,time:.24,dur:.25}].forEach(({freq:e,time:i,dur:s})=>{const n=this.ctx.createOscillator(),o=this.ctx.createGain();n.type="triangle",n.frequency.setValueAtTime(e,t+i),o.gain.setValueAtTime(.25,t+i),o.gain.exponentialRampToValueAtTime(.01,t+i+s),n.connect(o),o.connect(this.ctx.destination),n.start(t+i),n.stop(t+i+s)})}}const l=new g;class x extends r.Scene{constructor(){super({key:"BootScene"})}create(){c.ready(),c.gameStarted(),this.scene.start("GameScene")}}class y extends r.Scene{constructor(){super({key:"MenuScene"})}create(){const{width:t,height:e}=this.scale,i=this.add.text(t/2,e*.28,"STACK TOWER",{fontSize:"38px",fontStyle:"bold",color:"#0f172a"}).setOrigin(.5);this.tweens.add({targets:i,scale:1.06,duration:800,yoyo:!0,repeat:-1}),this.add.text(t/2,e*.38,"🏗️ Tap to Build & Slice",{fontSize:"20px",color:"#059669",fontStyle:"bold"}).setOrigin(.5);const s=this.add.rectangle(t/2,e*.6,220,60,366185).setInteractive({useHandCursor:!0});s.setStrokeStyle(3,3462041),this.add.text(t/2,e*.6,"START STACKING",{fontSize:"20px",fontStyle:"bold",color:"#ffffff"}).setOrigin(.5),s.on("pointerdown",()=>{l.playTap(),c.gameStarted(),this.scene.start("GameScene")}),this.add.text(t/2,e*.75,`Tap to drop moving blocks.
-Line them up perfectly for combo bonuses!`,{fontSize:"15px",color:"#64748b",align:"center",lineSpacing:6}).setOrigin(.5)}}class w extends r.Scene{constructor(){super({key:"GameScene"}),this.score=0,this.perfectStreak=0,this.isGameOver=!1,this.blockHeight=36,this.currentBlockWidth=240,this.currentSpeed=240,this.movingDir=1,this.tower=[]}create(){this.score=0,this.perfectStreak=0,this.isGameOver=!1,this.currentBlockWidth=240,this.currentSpeed=240,this.movingDir=1,this.tower=[];const{width:t,height:e}=this.scale;this.cameras.main.scrollY=0,this.scoreText=this.add.text(24,24,"TOWER: 0",{fontSize:"24px",fontStyle:"bold",color:"#0f172a"}).setScrollFactor(0).setDepth(100),this.streakText=this.add.text(t-24,24,"",{fontSize:"20px",fontStyle:"bold",color:"#d97706"}).setOrigin(1,0).setScrollFactor(0).setDepth(100);const i=e-120,s=this.getColorForLevel(0),n=this.add.rectangle(t/2,i,this.currentBlockWidth,this.blockHeight,s);this.tower.push({rect:n,x:t/2,y:i,width:this.currentBlockWidth,height:this.blockHeight,color:s}),this.spawnMovingBlock(),this.input.on("pointerdown",()=>this.dropBlock()),c.onPause(()=>this.scene.pause()),c.onResume(()=>this.scene.resume())}getColorForLevel(t){const e=t*16%360;return r.Display.Color.HSLToColor(e/360,.7,.5).color}spawnMovingBlock(){if(this.isGameOver)return;const{width:t}=this.scale,e=this.tower.length,s=this.tower[this.tower.length-1].y-this.blockHeight,n=this.getColorForLevel(e);this.movingDir=Math.random()<.5?1:-1;const o=this.movingDir===1?-this.currentBlockWidth/2:t+this.currentBlockWidth/2;this.movingBlock=this.add.rectangle(o,s,this.currentBlockWidth,this.blockHeight,n),this.currentSpeed=Math.min(240+e*8,480)}update(t,e){if(this.isGameOver||!this.movingBlock)return;const i=e/1e3,{width:s}=this.scale;this.movingBlock.x+=this.currentSpeed*this.movingDir*i,this.movingBlock.x>s+this.currentBlockWidth/2?(this.movingBlock.x=s+this.currentBlockWidth/2,this.movingDir=-1):this.movingBlock.x<-this.currentBlockWidth/2&&(this.movingBlock.x=-this.currentBlockWidth/2,this.movingDir=1)}dropBlock(){if(this.isGameOver||!this.movingBlock)return;const t=this.tower[this.tower.length-1],e=this.movingBlock.x-t.x,i=Math.abs(e);if(i<=4)this.perfectStreak++,l.playScore(),c.haptic("light"),this.movingBlock.x=t.x,this.streakText.setText(`PERFECT x${this.perfectStreak}!`),this.currentBlockWidth=Math.min(this.currentBlockWidth+4,240);else if(i<this.currentBlockWidth){this.perfectStreak=0,this.streakText.setText(""),l.playSlice(),c.haptic("medium");const u=this.currentBlockWidth-i,d=t.x+e/2,m=i,f=e>0?d+u/2+m/2:d-u/2-m/2,p=this.add.rectangle(f,this.movingBlock.y,m,this.blockHeight,this.movingBlock.fillColor);this.tweens.add({targets:p,y:p.y+300,rotation:e>0?.8:-.8,alpha:0,duration:800,onComplete:()=>p.destroy()}),this.currentBlockWidth=u,this.movingBlock.width=u,this.movingBlock.x=d}else{this.endGame();return}this.tower.push({rect:this.movingBlock,x:this.movingBlock.x,y:this.movingBlock.y,width:this.currentBlockWidth,height:this.blockHeight,color:this.movingBlock.fillColor}),this.score++,this.scoreText.setText(`TOWER: ${this.score}`);const{height:n}=this.scale,o=Math.min(0,this.movingBlock.y-n*.6);this.tweens.add({targets:this.cameras.main,scrollY:o,duration:300,ease:"Quad.easeOut"}),this.spawnMovingBlock()}endGame(){this.isGameOver=!0,l.playGameOver(),c.haptic("heavy"),this.movingBlock&&this.tweens.add({targets:this.movingBlock,y:this.movingBlock.y+400,alpha:0,duration:700}),c.gameOver({score:this.score,timeSpentSeconds:this.score*2,stats:{towerHeight:this.score}}),this.time.delayedCall(800,()=>{this.scene.start("GameOverScene",{score:this.score})})}}class T extends r.Scene{constructor(){super({key:"GameOverScene"}),this.score=0}init(t){this.score=t.score||0}create(){const{width:t,height:e}=this.scale;this.cameras.main.scrollY=0,this.add.text(t/2,e*.28,"TOWER COLLAPSED!",{fontSize:"36px",fontStyle:"bold",color:"#dc2626"}).setOrigin(.5),this.add.text(t/2,e*.4,"FINAL HEIGHT",{fontSize:"20px",color:"#64748b",fontStyle:"bold"}).setOrigin(.5),this.add.text(t/2,e*.48,`${this.score} FLOORS`,{fontSize:"48px",fontStyle:"bold",color:"#059669"}).setOrigin(.5);const i=this.add.rectangle(t/2,e*.65,220,60,366185).setInteractive({useHandCursor:!0});i.setStrokeStyle(3,3462041),this.add.text(t/2,e*.65,"RETRY",{fontSize:"22px",fontStyle:"bold",color:"#ffffff"}).setOrigin(.5);const s=()=>{l.playTap(),c.gameStarted(),this.scene.start("GameScene")};i.on("pointerdown",s),c.onRestart(s)}}const S={type:r.AUTO,parent:"game-container",width:480,height:800,backgroundColor:"#f8f6f0",transparent:!1,roundPixels:!1,antialias:!1,fps:{target:120,min:30,forceSetTimeOut:!1,deltaHistory:10,smoothStep:!0},render:{powerPreference:"high-performance",desynchronized:!1,batchSize:2048,clearBeforeRender:!0},scale:{mode:r.Scale.FIT,autoCenter:r.Scale.CENTER_BOTH},scene:[x,y,w,T]},v=new r.Game(S);window.__PHASER_GAME__=v;</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Stack Tower</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;touch-action:none;user-select:none;-webkit-user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#090d1a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{overscroll-behavior:none}
+#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+canvas{display:block;background:#0f172a}
+</style>
 </head>
 <body>
-  <div id="game-container"></div>
+<div id="game-container"></div>
+<script>
+(()=>{'use strict';
+const W=360,H=640,D=Math.min(window.devicePixelRatio||1,2);
+const c=document.createElement('canvas');c.width=W*D;c.height=H*D;c.style.width='min(100vw,56.25vh)';c.style.height='min(177.78vw,100vh)';
+document.getElementById('game-container').appendChild(c);
+const ctx=c.getContext('2d');ctx.scale(D,D);
+
+const BLOCK_H=26;
+let score=0,combo=0,best=+localStorage.getItem('stack-tower-best')||0;
+let over=false,started=false,last=performance.now(),shake=0,cameraY=0;
+let stack=[],debris=[],particles=[],current=null;
+let isPaused=false;
+window.__GAME_PAUSED__=false;
+window.SoundFx={ctx:null};
+
+function bridge(name,...args){
+  try{window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');if(window.GameBridge?.[name])window.GameBridge[name](...args)}catch(e){}
+}
+bridge('sendReady');
+
+function sound(freq,dur=0.06,type='sine',vol=0.04){
+  try{
+    const A=sound.A||(sound.A=new(window.AudioContext||window.webkitAudioContext)());
+    if(A.state==='suspended')A.resume();
+    const o=A.createOscillator(),g=A.createGain();
+    o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,A.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001,A.currentTime+dur);
+    o.connect(g);g.connect(A.destination);o.start();o.stop(A.currentTime+dur);
+  }catch(e){}
+}
+
+function pauseGame(){
+  isPaused=true;
+  if(sound.A&&sound.A.state==='running'){try{sound.A.suspend()}catch(e){}}
+}
+function resumeGame(){
+  if(isPaused||window.__GAME_PAUSED__){
+    isPaused=false;
+    window.__GAME_PAUSED__=false;
+    last=performance.now();
+    if(sound.A&&sound.A.state==='suspended'){try{sound.A.resume()}catch(e){}}
+    requestAnimationFrame(frame);
+  }
+}
+window.addEventListener('blur',pauseGame);
+window.addEventListener('focus',resumeGame);
+window.addEventListener('pause',pauseGame);
+window.addEventListener('resume',resumeGame);
+
+function getColor(index){
+  const hue=(index*14)%360;
+  return `hsl(${hue}, 70%, 55%)`;
+}
+
+function initStack(){
+  stack=[{x:W/2-100,y:H-80,w:200,h:BLOCK_H,color:getColor(0)}];
+  cameraY=0;
+  spawnBlock();
+}
+
+function spawnBlock(){
+  const top=stack[stack.length-1];
+  const dir=Math.random()<0.5?1:-1;
+  current={
+    x:dir===1?-top.w:W,
+    y:top.y-BLOCK_H,
+    w:top.w,
+    h:BLOCK_H,
+    vx:dir*(180+Math.min(120,score*3)),
+    color:getColor(stack.length)
+  };
+}
+
+function placeBlock(){
+  if(over){reset();return;}
+  if(!started){started=true;bridge('gameStarted');return;}
+  if(!current)return;
+
+  const top=stack[stack.length-1];
+  const diff=current.x-top.x;
+  const tol=4; // perfect tolerance
+
+  if(Math.abs(diff)<=tol){
+    // Perfect place!
+    combo++;
+    score++;
+    current.x=top.x;
+    stack.push(current);
+    sound(440+combo*45,0.1,'triangle',0.06);
+    bridge('haptic','medium');
+    bridge('sendScoreUpdated',score,1);
+    current=null;
+    spawnBlock();
+  }else if((diff>0&&diff<current.w)||(diff<0&&Math.abs(diff)<current.w)){
+    // Sliced block
+    combo=0;
+    score++;
+    bridge('sendScoreUpdated',score,1);
+    bridge('haptic','light');
+    sound(380,0.06,'sine',0.05);
+
+    const newW=current.w-Math.abs(diff);
+    let newX,debX,debW;
+
+    if(diff>0){
+      newX=current.x;
+      debX=newX+newW;
+      debW=diff;
+    }else{
+      newX=top.x;
+      debX=current.x;
+      debW=Math.abs(diff);
+    }
+
+    stack.push({x:newX,y:current.y,w:newW,h:BLOCK_H,color:current.color});
+    debris.push({x:debX,y:current.y,w:debW,h:BLOCK_H,color:current.color,vy:0,rot:0,vrot:(Math.random()-0.5)*5});
+    current=null;
+    spawnBlock();
+  }else{
+    // Missed completely!
+    debris.push({x:current.x,y:current.y,w:current.w,h:BLOCK_H,color:current.color,vy:0,rot:0,vrot:3});
+    current=null;
+    endGame();
+  }
+}
+
+function reset(){
+  score=0;combo=0;over=false;started=true;debris=[];particles=[];
+  last=performance.now();shake=0;
+  initStack();
+  bridge('gameStarted');
+}
+
+function endGame(){
+  if(over)return;
+  over=true;shake=0.35;
+  sound(140,0.3,'sawtooth',0.08);
+  bridge('haptic','error');
+  if(score>best){best=score;localStorage.setItem('stack-tower-best',best);}
+  bridge('sendGameOver',score,1,30);
+}
+
+c.addEventListener('pointerdown',e=>{e.preventDefault();placeBlock();},{passive:false});
+
+initStack();
+
+function frame(t){
+  if(isPaused||window.__GAME_PAUSED__)return;
+  const dt=Math.min(0.033,(t-last)/1000);last=t;
+  ctx.save();
+  if(shake>0){ctx.translate((Math.random()-0.5)*8,(Math.random()-0.5)*8);shake-=dt;}
+
+  // Background
+  ctx.fillStyle='#0f172a';ctx.fillRect(0,0,W,H);
+
+  // Smooth Camera Follow
+  const targetCamY=Math.max(0,(stack.length-7)*BLOCK_H);
+  cameraY+=(targetCamY-cameraY)*0.1;
+
+  ctx.save();
+  ctx.translate(0,cameraY);
+
+  // Update Moving Block
+  if(started&&!over&&current){
+    current.x+=current.vx*dt;
+    if(current.vx>0&&current.x>W-current.w+60)current.vx*=-1;
+    if(current.vx<0&&current.x<-60)current.vx*=-1;
+
+    ctx.fillStyle=current.color;
+    ctx.fillRect(current.x,current.y,current.w,current.h);
+    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;
+    ctx.strokeRect(current.x,current.y,current.w,current.h);
+  }
+
+  // Draw Stack
+  for(let i=0;i<stack.length;i++){
+    const b=stack[i];
+    ctx.fillStyle=b.color;
+    ctx.fillRect(b.x,b.y,b.w,b.h);
+    ctx.strokeStyle='rgba(0,0,0,0.15)';ctx.lineWidth=1;
+    ctx.strokeRect(b.x,b.y,b.w,b.h);
+  }
+
+  // Update & Draw Debris
+  for(let i=debris.length-1;i>=0;i--){
+    const d=debris[i];
+    d.vy+=800*dt;
+    d.y+=d.vy*dt;
+    d.rot+=d.vrot*dt;
+
+    ctx.save();
+    ctx.translate(d.x+d.w/2,d.y+d.h/2);
+    ctx.rotate(d.rot);
+    ctx.fillStyle=d.color;
+    ctx.fillRect(-d.w/2,-d.h/2,d.w,d.h);
+    ctx.restore();
+
+    if(d.y>H+300)debris.splice(i,1);
+  }
+
+  ctx.restore();
+
+  // HUD
+  ctx.fillStyle='#ffffff';ctx.font='bold 36px sans-serif';ctx.textAlign='center';
+  ctx.fillText(score,W/2,70);
+  ctx.fillStyle='#94a3b8';ctx.font='bold 14px sans-serif';
+  ctx.fillText(`BEST: ${best}`,W/2,100);
+
+  if(combo>=2){
+    ctx.fillStyle='#fbbf24';ctx.font='bold 15px sans-serif';
+    ctx.fillText(`PERFECT ×${combo}!`,W/2,125);
+  }
+
+  // Start Screen
+  if(!started&&!over){
+    ctx.fillStyle='rgba(15,23,42,0.85)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ffffff';ctx.font='bold 32px sans-serif';
+    ctx.fillText('STACK TOWER',W/2,H*0.36);
+    ctx.fillStyle='#38bdf8';ctx.font='bold 14px sans-serif';
+    ctx.fillText('PRECISION STACKING',W/2,H*0.36+30);
+    ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';
+    ctx.fillText('Tap to drop and align each block!',W/2,H*0.52);
+    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-90,H*0.62,180,48);
+    ctx.fillStyle='#ffffff';ctx.font='bold 16px sans-serif';
+    ctx.fillText('TAP TO PLAY',W/2,H*0.62+30);
+  }
+
+  // Game Over
+  if(over){
+    ctx.fillStyle='rgba(15,23,42,0.88)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#1e293b';ctx.fillRect(35,H/2-130,290,260);
+    ctx.strokeStyle='#38bdf8';ctx.lineWidth=2;ctx.strokeRect(35,H/2-130,290,260);
+    ctx.textAlign='center';ctx.fillStyle='#ef4444';ctx.font='bold 26px sans-serif';
+    ctx.fillText('TOWER TOPPLED',W/2,H/2-70);
+    ctx.fillStyle='#ffffff';ctx.font='bold 48px sans-serif';
+    ctx.fillText(score,W/2,H/2-10);
+    ctx.fillStyle='#94a3b8';ctx.font='14px sans-serif';
+    ctx.fillText(`BEST SCORE: ${best}`,W/2,H/2+38);
+    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-85,H/2+62,170,44);
+    ctx.fillStyle='#ffffff';ctx.font='bold 14px sans-serif';
+    ctx.fillText('PLAY AGAIN',W/2,H/2+89);
+  }
+
+  ctx.restore();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
 </body>
 </html>

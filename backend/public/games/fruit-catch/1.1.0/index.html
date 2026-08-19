@@ -1,20 +1,258 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Fruit Catch</title>
-  <script src="/shared/phaser.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: none; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #f8f6f0; display: flex; justify-content: center; align-items: center; touch-action: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    #game-container { width: 100%; height: 100%; max-width: 540px; position: relative; touch-action: none; }
-    canvas { display: block; width: 100% !important; height: 100% !important; object-fit: contain; touch-action: none; }
-  </style>
-  <script type="module" crossorigin>(function(){const t=document.createElement("link").relList;if(t&&t.supports&&t.supports("modulepreload"))return;for(const i of document.querySelectorAll('link[rel="modulepreload"]'))s(i);new MutationObserver(i=>{for(const n of i)if(n.type==="childList")for(const a of n.addedNodes)a.tagName==="LINK"&&a.rel==="modulepreload"&&s(a)}).observe(document,{childList:!0,subtree:!0});function e(i){const n={};return i.integrity&&(n.integrity=i.integrity),i.referrerPolicy&&(n.referrerPolicy=i.referrerPolicy),i.crossOrigin==="use-credentials"?n.credentials="include":i.crossOrigin==="anonymous"?n.credentials="omit":n.credentials="same-origin",n}__name(e,"getFetchOpts");function s(i){if(i.ep)return;i.ep=!0;const n=e(i);fetch(i.href,n)}__name(s,"processPreload")})();const r=(typeof window<"u"?window.Phaser:{})||{};r.Game;r.Scene;r.AUTO;r.WEBGL;r.CANVAS;r.Scale;r.Math;r.Physics;r.Input;r.GameObjects;r.Display;r.Time;r.Sound;r.Tweens;r.Animations;r.Loader;r.Geom;r.Curves;r.Cameras;r.Structs;r.Events;r.Core;r.Types;class h{constructor(){this.soundEnabled=!0,this.isPaused=!1,this.isDestroyed=!1,this.isGameplayActive=!1,this.lastHapticAt=0,this.metricsTimer=null,this.onPauseListener=null,this.onResumeListener=null,this.onRestartListener=null,this.onSoundChangeListeners=new Set,this.handleFlutterPause=()=>this.triggerPause(),this.handleFlutterResume=()=>this.triggerResume(),this.handleFlutterRestart=()=>this.triggerRestart(),this.handleFlutterSound=t=>{const e=t;typeof e.detail?.enabled=="boolean"&&this.setSound(e.detail.enabled)},this.setupGlobalBridge()}static getInstance(){return h.instance||(h.instance=new h),h.instance}setupGlobalBridge(){const t={ready:()=>this.ready(),gameStarted:()=>this.gameStarted(),pause:()=>this.triggerPause(),resume:()=>this.triggerResume(),restart:()=>this.triggerRestart(),gameOver:e=>this.gameOver(e),completed:e=>this.completed(e),setSoundEnabled:e=>this.setSound(e),setSwipeEnabled:e=>this.setSwipeEnabled(e),haptic:e=>this.haptic(e),destroy:()=>this.destroy()};window.GameBridge=t,window.addEventListener("flutter:pause",this.handleFlutterPause),window.addEventListener("flutter:resume",this.handleFlutterResume),window.addEventListener("flutter:restart",this.handleFlutterRestart),window.addEventListener("flutter:sound",this.handleFlutterSound)}notifyFlutter(t,e){if(this.isDestroyed)return;const s=JSON.stringify({action:t,payload:e});window.flutter_inappwebview?.callHandler&&window.flutter_inappwebview.callHandler("GameBridgeChannel",s),window.FlutterGameBridge?.postMessage&&window.FlutterGameBridge.postMessage(s),window.parent&&window.parent!==window&&window.parent.postMessage({source:"GameBridge",action:t,payload:e},"*")}startMetricsReporting(){if(this.metricsTimer!==null||!this.isGameplayActive||this.isPaused)return;const t=()=>{const s=window.__PHASER_GAME__?.loop;if(!s||this.isDestroyed||!this.isGameplayActive||this.isPaused)return;const i=Number(s.actualFps??0),n=Number(s.delta??0);!Number.isFinite(i)||!Number.isFinite(n)||this.notifyFlutter("metrics",{fps:Math.round(i*10)/10,frameTimeMs:Math.round(n*10)/10})};t(),this.metricsTimer=window.setInterval(t,1e3)}stopMetricsReporting(){this.metricsTimer!==null&&(window.clearInterval(this.metricsTimer),this.metricsTimer=null)}triggerPause(){if(this.isDestroyed||this.isPaused)return;this.isPaused=!0,this.stopMetricsReporting();try{this.onPauseListener?.()}catch{}const t=window.__PHASER_GAME__;if(t?.loop)try{t.loop.sleep()}catch{}this.notifyFlutter("paused",{})}triggerResume(){if(this.isDestroyed)return;const t=this.isPaused;this.isPaused=!1;const e=window.__PHASER_GAME__;if(e?.loop)try{e.loop.wake()}catch{}if(t){try{this.onResumeListener?.()}catch{}this.notifyFlutter("resumed",{})}this.startMetricsReporting()}triggerRestart(){if(this.isDestroyed)return;const t=this.onRestartListener;if(t)try{t();return}catch{}const e=window.__PHASER_GAME__;try{e?.scene?.keys?.GameScene&&e.scene.start("GameScene")}catch{}}setSound(t){this.isDestroyed||(this.soundEnabled=t,this.onSoundChangeListeners.forEach(e=>{try{e(t)}catch{}}))}isSoundEnabled(){return this.soundEnabled}getIsPaused(){return this.isPaused}onPause(t){this.onPauseListener=t}offPause(t){this.onPauseListener===t&&(this.onPauseListener=null)}onResume(t){this.onResumeListener=t}offResume(t){this.onResumeListener===t&&(this.onResumeListener=null)}onRestart(t){this.onRestartListener=t}offRestart(t){this.onRestartListener===t&&(this.onRestartListener=null)}onSoundChange(t){this.onSoundChangeListeners.add(t)}offSoundChange(t){this.onSoundChangeListeners.delete(t)}ready(){this.notifyFlutter("ready",{})}gameStarted(){this.onRestartListener=null,this.isGameplayActive=!0,this.notifyFlutter("gameStarted",{}),this.startMetricsReporting()}gameOver(t){this.onPauseListener=null,this.onResumeListener=null,this.isGameplayActive=!1,this.stopMetricsReporting(),this.notifyFlutter("gameOver",t)}completed(t){this.onPauseListener=null,this.onResumeListener=null,this.isGameplayActive=!1,this.stopMetricsReporting(),this.notifyFlutter("completed",t)}setSwipeEnabled(t){this.notifyFlutter("setSwipeEnabled",{enabled:t})}haptic(t){const e=performance.now();e-this.lastHapticAt<60||(this.lastHapticAt=e,this.notifyFlutter("haptic",{type:t}))}destroy(){if(!this.isDestroyed){this.stopMetricsReporting(),window.removeEventListener("flutter:pause",this.handleFlutterPause),window.removeEventListener("flutter:resume",this.handleFlutterResume),window.removeEventListener("flutter:restart",this.handleFlutterRestart),window.removeEventListener("flutter:sound",this.handleFlutterSound),this.onPauseListener=null,this.onResumeListener=null,this.onRestartListener=null,this.onSoundChangeListeners.clear(),this.isGameplayActive=!1,this.isDestroyed=!0;try{delete window.GameBridge}catch{}}}}const o=h.getInstance();class p{constructor(){this.ctx=null;const t=()=>{this.initCtx(),this.ctx&&this.ctx.state==="suspended"&&this.ctx.resume(),window.removeEventListener("touchstart",t),window.removeEventListener("pointerdown",t),window.removeEventListener("click",t)};window.addEventListener("touchstart",t,{passive:!0}),window.addEventListener("pointerdown",t,{passive:!0}),window.addEventListener("click",t,{passive:!0})}initCtx(){if(!this.ctx&&typeof window<"u"){const t=window.AudioContext||window.webkitAudioContext;t&&(this.ctx=new t)}return this.ctx}canPlay(){return o.isSoundEnabled()&&!!this.initCtx()}playTap(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="sine",t.frequency.setValueAtTime(440,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(880,this.ctx.currentTime+.05),e.gain.setValueAtTime(.2,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.001,this.ctx.currentTime+.05),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.05)}playShoot(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="triangle",t.frequency.setValueAtTime(600,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(150,this.ctx.currentTime+.12),e.gain.setValueAtTime(.3,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.12),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.12)}playHit(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="square",t.frequency.setValueAtTime(320,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(80,this.ctx.currentTime+.15),e.gain.setValueAtTime(.35,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.15),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.15)}playScore(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="sine",t.frequency.setValueAtTime(523.25,this.ctx.currentTime),t.frequency.setValueAtTime(659.25,this.ctx.currentTime+.06),t.frequency.setValueAtTime(783.99,this.ctx.currentTime+.12),e.gain.setValueAtTime(.25,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.22),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.22)}playSlice(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="sawtooth",t.frequency.setValueAtTime(900,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(300,this.ctx.currentTime+.08),e.gain.setValueAtTime(.2,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.08),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.08)}playJump(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="sine",t.frequency.setValueAtTime(250,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(650,this.ctx.currentTime+.15),e.gain.setValueAtTime(.25,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.15),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.15)}playGameOver(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.currentTime;[{freq:440,time:0,dur:.12},{freq:392,time:.12,dur:.12},{freq:349,time:.24,dur:.12},{freq:293,time:.36,dur:.3}].forEach(({freq:e,time:s,dur:i})=>{const n=this.ctx.createOscillator(),a=this.ctx.createGain();n.type="sawtooth",n.frequency.setValueAtTime(e,t+s),a.gain.setValueAtTime(.2,t+s),a.gain.exponentialRampToValueAtTime(.01,t+s+i),n.connect(a),a.connect(this.ctx.destination),n.start(t+s),n.stop(t+s+i)})}playSuccess(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.currentTime;[{freq:523.25,time:0,dur:.08},{freq:659.25,time:.08,dur:.08},{freq:783.99,time:.16,dur:.08},{freq:1046.5,time:.24,dur:.25}].forEach(({freq:e,time:s,dur:i})=>{const n=this.ctx.createOscillator(),a=this.ctx.createGain();n.type="triangle",n.frequency.setValueAtTime(e,t+s),a.gain.setValueAtTime(.25,t+s),a.gain.exponentialRampToValueAtTime(.01,t+s+i),n.connect(a),a.connect(this.ctx.destination),n.start(t+s),n.stop(t+s+i)})}}const u=new p,m=[{symbol:"🍎",pts:100,isBomb:!1},{symbol:"🍌",pts:150,isBomb:!1},{symbol:"🍊",pts:120,isBomb:!1},{symbol:"🍉",pts:200,isBomb:!1},{symbol:"💣",pts:0,isBomb:!0}];class f extends r.Scene{constructor(){super({key:"BootScene"})}create(){o.ready(),o.gameStarted(),this.scene.start("GameScene")}}class y extends r.Scene{constructor(){super({key:"MenuScene"})}create(){const{width:t,height:e}=this.scale,s=this.add.text(t/2,e*.28,"FRUIT CATCH",{fontSize:"38px",fontStyle:"bold",color:"#0f172a"}).setOrigin(.5);this.tweens.add({targets:s,scale:1.05,duration:750,yoyo:!0,repeat:-1}),this.add.text(t/2,e*.38,"🧺 45-Second Juicy Frenzy",{fontSize:"20px",color:"#d97706",fontStyle:"bold"}).setOrigin(.5);const i=this.add.rectangle(t/2,e*.6,220,60,14251782).setInteractive({useHandCursor:!0});i.setStrokeStyle(3,16498468),this.add.text(t/2,e*.6,"PLAY NOW",{fontSize:"22px",fontStyle:"bold",color:"#ffffff"}).setOrigin(.5),i.on("pointerdown",()=>{u.playTap(),o.gameStarted(),this.scene.start("GameScene")}),this.add.text(t/2,e*.75,`Drag or touch to move your basket.
-Catch fruits and dodge explosive bombs!`,{fontSize:"15px",color:"#64748b",align:"center",lineSpacing:6}).setOrigin(.5)}}class x extends r.Scene{constructor(){super({key:"GameScene"}),this.items=[],this.score=0,this.lives=3,this.timeLeft=45,this.isGameOver=!1}create(){this.score=0,this.lives=3,this.timeLeft=45,this.isGameOver=!1,this.items=[];const{width:t,height:e}=this.scale;this.scoreText=this.add.text(24,24,"SCORE: 0",{fontSize:"20px",fontStyle:"bold",color:"#0f172a"}),this.livesText=this.add.text(t/2,24,"❤️ ❤️ ❤️",{fontSize:"18px"}).setOrigin(.5,0),this.timerText=this.add.text(t-24,24,"45s",{fontSize:"20px",fontStyle:"bold",color:"#d97706"}).setOrigin(1,0);const s=this.add.rectangle(0,0,96,44,11817737).setStrokeStyle(3,7877903),i=this.add.rectangle(0,-20,104,10,9584654),n=this.add.text(0,2,"🧺",{fontSize:"26px"}).setOrigin(.5);this.basket=this.add.container(t/2,e-90,[s,i,n]),this.input.on("pointermove",a=>{this.isGameOver||a.isDown&&(this.basket.x=r.Math.Clamp(a.x,52,t-52))}),this.input.on("pointerdown",a=>{this.isGameOver||(this.basket.x=r.Math.Clamp(a.x,52,t-52))}),this.spawnEvent=this.time.addEvent({delay:600,callback:this.spawnItem,callbackScope:this,loop:!0}),this.timerEvent=this.time.addEvent({delay:1e3,callback:()=>{this.timeLeft--,this.timerText.setText(`${this.timeLeft}s`),this.timeLeft<=0&&this.endGame()},loop:!0}),o.onPause(()=>this.scene.pause()),o.onResume(()=>this.scene.resume())}spawnItem(){if(this.isGameOver)return;const{width:t}=this.scale,e=m[Math.floor(Math.random()*m.length)],s=r.Math.Between(40,t-40),i=-40,n=this.add.circle(0,0,22,e.isBomb?16698058:16708551,.9),a=this.add.text(0,0,e.symbol,{fontSize:"32px"}).setOrigin(.5),d=this.add.container(s,i,[n,a]),c=r.Math.Between(260,440)+(45-this.timeLeft)*3;this.items.push({container:d,symbol:e.symbol,pts:e.pts,isBomb:e.isBomb,speed:c})}update(t,e){if(this.isGameOver)return;const s=e/1e3,{height:i}=this.scale;for(let n=this.items.length-1;n>=0;n--){const a=this.items[n];if(a.container.y+=a.speed*s,r.Math.Distance.Between(this.basket.x,this.basket.y,a.container.x,a.container.y)<46){if(a.isBomb){u.playHit(),o.haptic("heavy"),this.cameras.main.shake(200,.02),this.lives--;const c=["💀 💀 💀","❤️ 💀 💀","❤️ ❤️ 💀","❤️ ❤️ ❤️"];if(this.livesText.setText(c[Math.max(0,this.lives)]),this.lives<=0){this.endGame();return}}else{u.playScore(),o.haptic("light"),this.score+=a.pts,this.scoreText.setText(`SCORE: ${this.score}`);const c=this.add.text(a.container.x,a.container.y,`+${a.pts}`,{fontSize:"18px",fontStyle:"bold",color:"#d97706"}).setOrigin(.5);this.tweens.add({targets:c,y:c.y-30,alpha:0,duration:500,onComplete:()=>c.destroy()})}a.container.destroy(),this.items.splice(n,1);continue}a.container.y>i+50&&(a.container.destroy(),this.items.splice(n,1))}}endGame(){this.isGameOver=!0,this.spawnEvent.remove(),this.timerEvent.remove(),u.playGameOver(),o.gameOver({score:this.score,timeSpentSeconds:45-this.timeLeft,stats:{finalScore:this.score}}),this.scene.start("GameOverScene",{score:this.score})}}class g extends r.Scene{constructor(){super({key:"GameOverScene"}),this.score=0}init(t){this.score=t.score||0}create(){const{width:t,height:e}=this.scale;this.add.text(t/2,e*.28,"GAME OVER",{fontSize:"40px",fontStyle:"bold",color:"#dc2626"}).setOrigin(.5),this.add.text(t/2,e*.4,"JUICE HARVEST",{fontSize:"20px",color:"#64748b",fontStyle:"bold"}).setOrigin(.5),this.add.text(t/2,e*.48,`${this.score} PTS`,{fontSize:"52px",fontStyle:"bold",color:"#d97706"}).setOrigin(.5);const s=this.add.rectangle(t/2,e*.65,220,60,14251782).setInteractive({useHandCursor:!0});s.setStrokeStyle(3,16498468),this.add.text(t/2,e*.65,"CATCH AGAIN",{fontSize:"22px",fontStyle:"bold",color:"#ffffff"}).setOrigin(.5);const i=()=>{u.playTap(),o.gameStarted(),this.scene.start("GameScene")};s.on("pointerdown",i),o.onRestart(i)}}const w={type:r.AUTO,parent:"game-container",width:480,height:800,backgroundColor:"#f8f6f0",transparent:!1,roundPixels:!1,antialias:!1,fps:{target:120,min:30,forceSetTimeOut:!1,deltaHistory:10,smoothStep:!0},render:{powerPreference:"high-performance",desynchronized:!1,batchSize:2048,clearBeforeRender:!0},scale:{mode:r.Scale.FIT,autoCenter:r.Scale.CENTER_BOTH},scene:[f,y,x,g]},T=new r.Game(w);window.__PHASER_GAME__=T;</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Fruit Catch</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;touch-action:none;user-select:none;-webkit-user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#090d1a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{overscroll-behavior:none}
+#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+canvas{display:block;background:#0f172a}
+</style>
 </head>
 <body>
-  <div id="game-container"></div>
+<div id="game-container"></div>
+<script>
+(()=>{'use strict';
+const W=360,H=640,D=Math.min(window.devicePixelRatio||1,2);
+const c=document.createElement('canvas');c.width=W*D;c.height=H*D;c.style.width='min(100vw,56.25vh)';c.style.height='min(177.78vw,100vh)';
+document.getElementById('game-container').appendChild(c);
+const ctx=c.getContext('2d');ctx.scale(D,D);
+
+const FRUITS=[
+  {name:'Apple',emoji:'🍎',color:'#ef4444',pts:10},
+  {name:'Banana',emoji:'🍌',color:'#fbbf24',pts:15},
+  {name:'Orange',emoji:'🍊',color:'#f97316',pts:20},
+  {name:'Melon',emoji:'🍉',color:'#22c55e',pts:25}
+];
+
+let score=0,lives=3,combo=0,best=+localStorage.getItem('fruit-catch-best')||0;
+let over=false,started=false,last=performance.now(),shake=0;
+let basket={x:W/2,y:H-60,w:80,h:24,targetX:W/2};
+let items=[],particles=[],popups=[],spawnTimer=0,speed=260;
+let isPaused=false;
+window.__GAME_PAUSED__=false;
+window.SoundFx={ctx:null};
+
+function bridge(name,...args){
+  try{window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');if(window.GameBridge?.[name])window.GameBridge[name](...args)}catch(e){}
+}
+bridge('sendReady');
+
+function sound(freq,dur=0.06,type='sine',vol=0.04){
+  try{
+    const A=sound.A||(sound.A=new(window.AudioContext||window.webkitAudioContext)());
+    if(A.state==='suspended')A.resume();
+    const o=A.createOscillator(),g=A.createGain();
+    o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,A.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001,A.currentTime+dur);
+    o.connect(g);g.connect(A.destination);o.start();o.stop(A.currentTime+dur);
+  }catch(e){}
+}
+
+function pauseGame(){
+  isPaused=true;
+  if(sound.A&&sound.A.state==='running'){try{sound.A.suspend()}catch(e){}}
+}
+function resumeGame(){
+  if(isPaused||window.__GAME_PAUSED__){
+    isPaused=false;
+    window.__GAME_PAUSED__=false;
+    last=performance.now();
+    if(sound.A&&sound.A.state==='suspended'){try{sound.A.resume()}catch(e){}}
+    requestAnimationFrame(frame);
+  }
+}
+window.addEventListener('blur',pauseGame);
+window.addEventListener('focus',resumeGame);
+window.addEventListener('pause',pauseGame);
+window.addEventListener('resume',resumeGame);
+
+function burst(x,y,n,color){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=60+Math.random()*160;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.45,max:0.45,r:2+Math.random()*3,color});
+  }
+}
+
+function spawnItem(){
+  const isBomb=Math.random()<0.2;
+  if(isBomb){
+    items.push({x:30+Math.random()*(W-60),y:-30,r:18,isBomb:true,color:'#64748b',vy:speed*1.1});
+  }else{
+    const fruit=FRUITS[Math.floor(Math.random()*FRUITS.length)];
+    items.push({x:30+Math.random()*(W-60),y:-30,r:18,isBomb:false,...fruit,vy:speed});
+  }
+}
+
+function reset(){
+  score=0;lives=3;combo=0;over=false;started=true;
+  items=[];particles=[];popups=[];spawnTimer=0;speed=260;
+  basket={x:W/2,y:H-60,w:80,h:24,targetX:W/2};
+  last=performance.now();shake=0;
+  bridge('gameStarted');
+}
+
+function endGame(){
+  if(over)return;
+  over=true;shake=0.35;
+  sound(140,0.3,'sawtooth',0.08);
+  bridge('haptic','error');
+  if(score>best){best=score;localStorage.setItem('fruit-catch-best',best);}
+  bridge('sendGameOver',score,1,30);
+}
+
+function updateTouch(e){
+  const r=c.getBoundingClientRect();
+  const clX=e.touches?e.touches[0].clientX:e.clientX;
+  basket.targetX=Math.max(basket.w/2,Math.min(W-basket.w/2,(clX-r.left)*(W/r.width)));
+}
+
+c.addEventListener('touchstart',e=>{
+  if(!started||over){reset();return;}
+  updateTouch(e);
+},{passive:true});
+c.addEventListener('touchmove',updateTouch,{passive:true});
+c.addEventListener('pointerdown',e=>{
+  if(!started||over){reset();return;}
+  updateTouch(e);
+},{passive:false});
+c.addEventListener('pointermove',e=>{if(started&&!over)updateTouch(e);},{passive:false});
+
+function frame(t){
+  if(isPaused||window.__GAME_PAUSED__)return;
+  const dt=Math.min(0.033,(t-last)/1000);last=t;
+  ctx.save();
+  if(shake>0){ctx.translate((Math.random()-0.5)*8,(Math.random()-0.5)*8);shake-=dt;}
+
+  // Background
+  ctx.fillStyle='#0f172a';ctx.fillRect(0,0,W,H);
+
+  if(started&&!over){
+    speed+=dt*4;
+    spawnTimer+=dt;
+    if(spawnTimer>=Math.max(0.45,0.9-speed*0.001)){
+      spawnTimer=0;
+      spawnItem();
+    }
+  }
+
+  // Smooth Basket Move
+  basket.x+=(basket.targetX-basket.x)*0.25;
+
+  // Update & Draw Items
+  for(let i=items.length-1;i>=0;i--){
+    const it=items[i];
+    if(started&&!over)it.y+=it.vy*dt;
+    if(it.y>H+30){
+      if(!it.isBomb&&started&&!over){
+        combo=0;
+      }
+      items.splice(i,1);
+      continue;
+    }
+
+    if(it.isBomb){
+      ctx.fillStyle='#334155';ctx.beginPath();ctx.arc(it.x,it.y,it.r,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#ef4444';ctx.fillRect(it.x-3,it.y-it.r-6,6,6);
+    }else{
+      ctx.fillStyle=it.color;ctx.beginPath();ctx.arc(it.x,it.y,it.r,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(it.x-4,it.y-4,it.r*0.35,0,Math.PI*2);ctx.fill();
+    }
+
+    // Catch Collision Check
+    if(!over&&Math.abs(it.x-basket.x)<basket.w/2+it.r&&Math.abs(it.y-basket.y)<basket.h/2+it.r){
+      if(it.isBomb){
+        lives--;
+        shake=0.3;
+        burst(it.x,it.y,20,'#ef4444');
+        sound(160,0.25,'sawtooth',0.08);
+        bridge('haptic','medium');
+        items.splice(i,1);
+        if(lives<=0)endGame();
+      }else{
+        combo++;
+        const pts=it.pts+(combo>=4?10:0);
+        score+=pts;
+        bridge('sendScoreUpdated',score,1);
+        bridge('haptic','light');
+        sound(520+combo*35,0.06,'triangle',0.05);
+        burst(it.x,it.y,12,it.color);
+        popups.push({x:it.x,y:it.y,text:`+${pts}`,color:it.color,life:0.45,max:0.45});
+        items.splice(i,1);
+      }
+    }
+  }
+
+  // Draw Basket
+  ctx.fillStyle='#78350f';ctx.fillRect(basket.x-basket.w/2,basket.y-basket.h/2,basket.w,basket.h);
+  ctx.fillStyle='#b45309';ctx.fillRect(basket.x-basket.w/2+4,basket.y-basket.h/2+4,basket.w-8,basket.h-8);
+  ctx.strokeStyle='#fbbf24';ctx.lineWidth=2;ctx.strokeRect(basket.x-basket.w/2,basket.y-basket.h/2,basket.w,basket.h);
+
+  // Particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
+    if(p.life<=0){particles.splice(i,1);continue;}
+    ctx.globalAlpha=p.life/p.max;ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // Popups
+  for(let i=popups.length-1;i>=0;i--){
+    const pp=popups[i];pp.life-=dt;pp.y-=30*dt;
+    if(pp.life<=0){popups.splice(i,1);continue;}
+    ctx.globalAlpha=pp.life/pp.max;ctx.fillStyle=pp.color;
+    ctx.font='bold 18px sans-serif';ctx.textAlign='center';
+    ctx.fillText(pp.text,pp.x,pp.y);
+  }
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.fillStyle='#ffffff';ctx.font='bold 22px sans-serif';ctx.textAlign='left';
+  ctx.fillText(`SCORE: ${score}`,20,40);
+  ctx.textAlign='right';ctx.fillStyle='#ef4444';
+  let hearts='';for(let h=0;h<lives;h++)hearts+='♥ ';
+  ctx.fillText(hearts,W-20,40);
+
+  // Start Screen
+  if(!started&&!over){
+    ctx.fillStyle='rgba(15,23,42,0.85)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ffffff';ctx.font='bold 32px sans-serif';
+    ctx.fillText('FRUIT CATCH',W/2,H*0.36);
+    ctx.fillStyle='#38bdf8';ctx.font='bold 14px sans-serif';
+    ctx.fillText('FRUIT BASKET CATCHER',W/2,H*0.36+30);
+    ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';
+    ctx.fillText('Drag the basket to catch fruits and dodge bombs!',W/2,H*0.52);
+    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-90,H*0.62,180,48);
+    ctx.fillStyle='#ffffff';ctx.font='bold 16px sans-serif';
+    ctx.fillText('TAP TO PLAY',W/2,H*0.62+30);
+  }
+
+  // Game Over
+  if(over){
+    ctx.fillStyle='rgba(15,23,42,0.88)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#1e293b';ctx.fillRect(35,H/2-130,290,260);
+    ctx.strokeStyle='#ef4444';ctx.lineWidth=2;ctx.strokeRect(35,H/2-130,290,260);
+    ctx.textAlign='center';ctx.fillStyle='#ef4444';ctx.font='bold 26px sans-serif';
+    ctx.fillText('OUT OF LIVES',W/2,H/2-70);
+    ctx.fillStyle='#ffffff';ctx.font='bold 48px sans-serif';
+    ctx.fillText(score,W/2,H/2-10);
+    ctx.fillStyle='#94a3b8';ctx.font='14px sans-serif';
+    ctx.fillText(`BEST SCORE: ${best}`,W/2,H/2+38);
+    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-85,H/2+62,170,44);
+    ctx.fillStyle='#ffffff';ctx.font='bold 14px sans-serif';
+    ctx.fillText('PLAY AGAIN',W/2,H/2+89);
+  }
+
+  ctx.restore();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
 </body>
 </html>

@@ -1,19 +1,268 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Stack Tower</title>
-  <script src="/shared/phaser.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: none; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #f8f6f0; display: flex; justify-content: center; align-items: center; touch-action: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    #game-container { width: 100%; height: 100%; max-width: 540px; position: relative; touch-action: none; }
-    canvas { display: block; width: 100% !important; height: 100% !important; object-fit: contain; touch-action: none; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Stack Tower</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;touch-action:none;user-select:none;-webkit-user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#090d1a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{overscroll-behavior:none}
+#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+canvas{display:block;background:#0f172a}
+</style>
 </head>
 <body>
-  <div id="game-container"></div>
-  <script type="module" src="./src/main.ts"></script>
+<div id="game-container"></div>
+<script>
+(()=>{'use strict';
+const W=360,H=640,D=Math.min(window.devicePixelRatio||1,2);
+const c=document.createElement('canvas');c.width=W*D;c.height=H*D;c.style.width='min(100vw,56.25vh)';c.style.height='min(177.78vw,100vh)';
+document.getElementById('game-container').appendChild(c);
+const ctx=c.getContext('2d');ctx.scale(D,D);
+
+const BLOCK_H=26;
+let score=0,combo=0,best=+localStorage.getItem('stack-tower-best')||0;
+let over=false,started=false,last=performance.now(),shake=0,cameraY=0;
+let stack=[],debris=[],particles=[],current=null;
+let isPaused=false;
+window.__GAME_PAUSED__=false;
+window.SoundFx={ctx:null};
+
+function bridge(name,...args){
+  try{window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');if(window.GameBridge?.[name])window.GameBridge[name](...args)}catch(e){}
+}
+bridge('sendReady');
+
+function sound(freq,dur=0.06,type='sine',vol=0.04){
+  try{
+    const A=sound.A||(sound.A=new(window.AudioContext||window.webkitAudioContext)());
+    if(A.state==='suspended')A.resume();
+    const o=A.createOscillator(),g=A.createGain();
+    o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,A.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001,A.currentTime+dur);
+    o.connect(g);g.connect(A.destination);o.start();o.stop(A.currentTime+dur);
+  }catch(e){}
+}
+
+function pauseGame(){
+  isPaused=true;
+  if(sound.A&&sound.A.state==='running'){try{sound.A.suspend()}catch(e){}}
+}
+function resumeGame(){
+  if(isPaused||window.__GAME_PAUSED__){
+    isPaused=false;
+    window.__GAME_PAUSED__=false;
+    last=performance.now();
+    if(sound.A&&sound.A.state==='suspended'){try{sound.A.resume()}catch(e){}}
+    requestAnimationFrame(frame);
+  }
+}
+window.addEventListener('blur',pauseGame);
+window.addEventListener('focus',resumeGame);
+window.addEventListener('pause',pauseGame);
+window.addEventListener('resume',resumeGame);
+
+function getColor(index){
+  const hue=(index*14)%360;
+  return `hsl(${hue}, 70%, 55%)`;
+}
+
+function initStack(){
+  stack=[{x:W/2-100,y:H-80,w:200,h:BLOCK_H,color:getColor(0)}];
+  cameraY=0;
+  spawnBlock();
+}
+
+function spawnBlock(){
+  const top=stack[stack.length-1];
+  const dir=Math.random()<0.5?1:-1;
+  current={
+    x:dir===1?-top.w:W,
+    y:top.y-BLOCK_H,
+    w:top.w,
+    h:BLOCK_H,
+    vx:dir*(180+Math.min(120,score*3)),
+    color:getColor(stack.length)
+  };
+}
+
+function placeBlock(){
+  if(over){reset();return;}
+  if(!started){started=true;bridge('gameStarted');return;}
+  if(!current)return;
+
+  const top=stack[stack.length-1];
+  const diff=current.x-top.x;
+  const tol=4; // perfect tolerance
+
+  if(Math.abs(diff)<=tol){
+    // Perfect place!
+    combo++;
+    score++;
+    current.x=top.x;
+    stack.push(current);
+    sound(440+combo*45,0.1,'triangle',0.06);
+    bridge('haptic','medium');
+    bridge('sendScoreUpdated',score,1);
+    current=null;
+    spawnBlock();
+  }else if((diff>0&&diff<current.w)||(diff<0&&Math.abs(diff)<current.w)){
+    // Sliced block
+    combo=0;
+    score++;
+    bridge('sendScoreUpdated',score,1);
+    bridge('haptic','light');
+    sound(380,0.06,'sine',0.05);
+
+    const newW=current.w-Math.abs(diff);
+    let newX,debX,debW;
+
+    if(diff>0){
+      newX=current.x;
+      debX=newX+newW;
+      debW=diff;
+    }else{
+      newX=top.x;
+      debX=current.x;
+      debW=Math.abs(diff);
+    }
+
+    stack.push({x:newX,y:current.y,w:newW,h:BLOCK_H,color:current.color});
+    debris.push({x:debX,y:current.y,w:debW,h:BLOCK_H,color:current.color,vy:0,rot:0,vrot:(Math.random()-0.5)*5});
+    current=null;
+    spawnBlock();
+  }else{
+    // Missed completely!
+    debris.push({x:current.x,y:current.y,w:current.w,h:BLOCK_H,color:current.color,vy:0,rot:0,vrot:3});
+    current=null;
+    endGame();
+  }
+}
+
+function reset(){
+  score=0;combo=0;over=false;started=true;debris=[];particles=[];
+  last=performance.now();shake=0;
+  initStack();
+  bridge('gameStarted');
+}
+
+function endGame(){
+  if(over)return;
+  over=true;shake=0.35;
+  sound(140,0.3,'sawtooth',0.08);
+  bridge('haptic','error');
+  if(score>best){best=score;localStorage.setItem('stack-tower-best',best);}
+  bridge('sendGameOver',score,1,30);
+}
+
+c.addEventListener('pointerdown',e=>{e.preventDefault();placeBlock();},{passive:false});
+
+initStack();
+
+function frame(t){
+  if(isPaused||window.__GAME_PAUSED__)return;
+  const dt=Math.min(0.033,(t-last)/1000);last=t;
+  ctx.save();
+  if(shake>0){ctx.translate((Math.random()-0.5)*8,(Math.random()-0.5)*8);shake-=dt;}
+
+  // Background
+  ctx.fillStyle='#0f172a';ctx.fillRect(0,0,W,H);
+
+  // Smooth Camera Follow
+  const targetCamY=Math.max(0,(stack.length-7)*BLOCK_H);
+  cameraY+=(targetCamY-cameraY)*0.1;
+
+  ctx.save();
+  ctx.translate(0,cameraY);
+
+  // Update Moving Block
+  if(started&&!over&&current){
+    current.x+=current.vx*dt;
+    if(current.vx>0&&current.x>W-current.w+60)current.vx*=-1;
+    if(current.vx<0&&current.x<-60)current.vx*=-1;
+
+    ctx.fillStyle=current.color;
+    ctx.fillRect(current.x,current.y,current.w,current.h);
+    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;
+    ctx.strokeRect(current.x,current.y,current.w,current.h);
+  }
+
+  // Draw Stack
+  for(let i=0;i<stack.length;i++){
+    const b=stack[i];
+    ctx.fillStyle=b.color;
+    ctx.fillRect(b.x,b.y,b.w,b.h);
+    ctx.strokeStyle='rgba(0,0,0,0.15)';ctx.lineWidth=1;
+    ctx.strokeRect(b.x,b.y,b.w,b.h);
+  }
+
+  // Update & Draw Debris
+  for(let i=debris.length-1;i>=0;i--){
+    const d=debris[i];
+    d.vy+=800*dt;
+    d.y+=d.vy*dt;
+    d.rot+=d.vrot*dt;
+
+    ctx.save();
+    ctx.translate(d.x+d.w/2,d.y+d.h/2);
+    ctx.rotate(d.rot);
+    ctx.fillStyle=d.color;
+    ctx.fillRect(-d.w/2,-d.h/2,d.w,d.h);
+    ctx.restore();
+
+    if(d.y>H+300)debris.splice(i,1);
+  }
+
+  ctx.restore();
+
+  // HUD
+  ctx.fillStyle='#ffffff';ctx.font='bold 36px sans-serif';ctx.textAlign='center';
+  ctx.fillText(score,W/2,70);
+  ctx.fillStyle='#94a3b8';ctx.font='bold 14px sans-serif';
+  ctx.fillText(`BEST: ${best}`,W/2,100);
+
+  if(combo>=2){
+    ctx.fillStyle='#fbbf24';ctx.font='bold 15px sans-serif';
+    ctx.fillText(`PERFECT ×${combo}!`,W/2,125);
+  }
+
+  // Start Screen
+  if(!started&&!over){
+    ctx.fillStyle='rgba(15,23,42,0.85)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ffffff';ctx.font='bold 32px sans-serif';
+    ctx.fillText('STACK TOWER',W/2,H*0.36);
+    ctx.fillStyle='#38bdf8';ctx.font='bold 14px sans-serif';
+    ctx.fillText('PRECISION STACKING',W/2,H*0.36+30);
+    ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';
+    ctx.fillText('Tap to drop and align each block!',W/2,H*0.52);
+    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-90,H*0.62,180,48);
+    ctx.fillStyle='#ffffff';ctx.font='bold 16px sans-serif';
+    ctx.fillText('TAP TO PLAY',W/2,H*0.62+30);
+  }
+
+  // Game Over
+  if(over){
+    ctx.fillStyle='rgba(15,23,42,0.88)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#1e293b';ctx.fillRect(35,H/2-130,290,260);
+    ctx.strokeStyle='#38bdf8';ctx.lineWidth=2;ctx.strokeRect(35,H/2-130,290,260);
+    ctx.textAlign='center';ctx.fillStyle='#ef4444';ctx.font='bold 26px sans-serif';
+    ctx.fillText('TOWER TOPPLED',W/2,H/2-70);
+    ctx.fillStyle='#ffffff';ctx.font='bold 48px sans-serif';
+    ctx.fillText(score,W/2,H/2-10);
+    ctx.fillStyle='#94a3b8';ctx.font='14px sans-serif';
+    ctx.fillText(`BEST SCORE: ${best}`,W/2,H/2+38);
+    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-85,H/2+62,170,44);
+    ctx.fillStyle='#ffffff';ctx.font='bold 14px sans-serif';
+    ctx.fillText('PLAY AGAIN',W/2,H/2+89);
+  }
+
+  ctx.restore();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
 </body>
 </html>

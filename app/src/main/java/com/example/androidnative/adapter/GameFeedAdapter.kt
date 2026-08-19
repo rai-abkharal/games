@@ -222,16 +222,14 @@ class GameFeedAdapter(
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     
-                    // Allow 200ms for V8 JIT & GPU shader compilation warmup before smooth reveal
-                    binding.placeholderContainer.postDelayed({
-                        binding.placeholderContainer.animate()
-                            .alpha(0f)
-                            .setDuration(220)
-                            .withEndAction {
-                                binding.placeholderContainer.visibility = View.GONE
-                            }
-                            .start()
-                    }, 200)
+                    // Instant reveal for 10KB micro-engines
+                    binding.placeholderContainer.animate()
+                        .alpha(0f)
+                        .setDuration(120)
+                        .withEndAction {
+                            binding.placeholderContainer.visibility = View.GONE
+                        }
+                        .start()
 
                     val targetPos = if (bindingAdapterPosition != RecyclerView.NO_POSITION) bindingAdapterPosition else position
                     val isCurrent = (targetPos == currentSelectedPosition)

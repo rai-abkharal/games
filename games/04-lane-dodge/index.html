@@ -1,19 +1,295 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Lane Dodge</title>
-  <script src="/shared/phaser.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: none; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #f8f6f0; display: flex; justify-content: center; align-items: center; touch-action: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    #game-container { width: 100%; height: 100%; max-width: 540px; position: relative; touch-action: none; }
-    canvas { display: block; width: 100% !important; height: 100% !important; object-fit: contain; touch-action: none; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Lane Dodge</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;touch-action:none;user-select:none;-webkit-user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#090d1a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{overscroll-behavior:none}
+#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+canvas{display:block;background:#0f172a}
+</style>
 </head>
 <body>
-  <div id="game-container"></div>
-  <script type="module" src="./src/main.ts"></script>
+<div id="game-container"></div>
+<script>
+(()=>{'use strict';
+const W=360,H=640,D=Math.min(window.devicePixelRatio||1,2);
+const c=document.createElement('canvas');c.width=W*D;c.height=H*D;c.style.width='min(100vw,56.25vh)';c.style.height='min(177.78vw,100vh)';
+document.getElementById('game-container').appendChild(c);
+const ctx=c.getContext('2d');ctx.scale(D,D);
+
+const LANES=[W*0.25, W*0.5, W*0.75];
+let score=0,coins=0,best=+localStorage.getItem('lane-dodge-best')||0;
+let over=false,started=false,last=performance.now(),shake=0,roadY=0;
+let player={lane:1,x:LANES[1],y:H-90,targetX:LANES[1],tilt:0};
+let obstacles=[],collectibles=[],particles=[],popups=[],spawnTimer=0,speed=380;
+let isPaused=false;
+window.__GAME_PAUSED__=false;
+window.SoundFx={ctx:null};
+
+function bridge(name,...args){
+  try{window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');if(window.GameBridge?.[name])window.GameBridge[name](...args)}catch(e){}
+}
+bridge('sendReady');
+
+function sound(freq,dur=0.06,type='sine',vol=0.04){
+  try{
+    const A=sound.A||(sound.A=new(window.AudioContext||window.webkitAudioContext)());
+    if(A.state==='suspended')A.resume();
+    const o=A.createOscillator(),g=A.createGain();
+    o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,A.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001,A.currentTime+dur);
+    o.connect(g);g.connect(A.destination);o.start();o.stop(A.currentTime+dur);
+  }catch(e){}
+}
+
+function pauseGame(){
+  isPaused=true;
+  if(sound.A&&sound.A.state==='running'){try{sound.A.suspend()}catch(e){}}
+}
+function resumeGame(){
+  if(isPaused||window.__GAME_PAUSED__){
+    isPaused=false;
+    window.__GAME_PAUSED__=false;
+    last=performance.now();
+    if(sound.A&&sound.A.state==='suspended'){try{sound.A.resume()}catch(e){}}
+    requestAnimationFrame(frame);
+  }
+}
+window.addEventListener('blur',pauseGame);
+window.addEventListener('focus',resumeGame);
+window.addEventListener('pause',pauseGame);
+window.addEventListener('resume',resumeGame);
+
+function burst(x,y,n,color){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=60+Math.random()*160;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.45,max:0.45,r:2+Math.random()*3,color});
+  }
+}
+
+function moveLane(dir){
+  if(over){reset();return;}
+  if(!started){started=true;bridge('gameStarted');return;}
+
+  const next=Math.max(0,Math.min(2,player.lane+dir));
+  if(next!==player.lane){
+    player.lane=next;
+    player.targetX=LANES[next];
+    player.tilt=dir*0.25;
+    sound(480,0.05,'triangle',0.05);
+    bridge('haptic','light');
+  }
+}
+
+function spawnWave(){
+  const freeLane=Math.floor(Math.random()*3);
+  for(let l=0;l<3;l++){
+    if(l!==freeLane){
+      obstacles.push({lane:l,x:LANES[l],y:-50,w:44,h:55,color:'#ef4444'});
+    }else if(Math.random()<0.6){
+      collectibles.push({lane:l,x:LANES[l],y:-45,r:12,color:'#fbbf24'});
+    }
+  }
+}
+
+function reset(){
+  score=0;coins=0;over=false;started=true;
+  obstacles=[];collectibles=[];particles=[];popups=[];
+  player={lane:1,x:LANES[1],y:H-90,targetX:LANES[1],tilt:0};
+  spawnTimer=0;speed=380;last=performance.now();shake=0;
+  bridge('gameStarted');
+}
+
+function endGame(){
+  if(over)return;
+  over=true;shake=0.4;
+  sound(130,0.35,'sawtooth',0.08);
+  bridge('haptic','error');
+  burst(player.x,player.y,24,'#ef4444');
+  if(score>best){best=score;localStorage.setItem('lane-dodge-best',best);}
+  bridge('sendGameOver',score,1,30);
+}
+
+let touchStartX=0;
+c.addEventListener('touchstart',e=>{touchStartX=e.touches[0].clientX;},{passive:true});
+c.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-touchStartX;
+  if(Math.abs(dx)>30){
+    moveLane(dx>0?1:-1);
+  }else{
+    const r=c.getBoundingClientRect();
+    const x=(touchStartX-r.left)*(W/r.width);
+    moveLane(x<W/2?-1:1);
+  }
+},{passive:true});
+
+c.addEventListener('pointerdown',e=>{
+  if(!('ontouchstart' in window)){
+    const r=c.getBoundingClientRect();
+    const x=(e.clientX-r.left)*(W/r.width);
+    moveLane(x<W/2?-1:1);
+  }
+},{passive:false});
+
+function frame(t){
+  if(isPaused||window.__GAME_PAUSED__)return;
+  const dt=Math.min(0.033,(t-last)/1000);last=t;
+  ctx.save();
+  if(shake>0){ctx.translate((Math.random()-0.5)*8,(Math.random()-0.5)*8);shake-=dt;}
+
+  // Background Road
+  ctx.fillStyle='#0f172a';ctx.fillRect(0,0,W,H);
+  
+  // Road Track
+  ctx.fillStyle='#1e293b';ctx.fillRect(35,0,W-70,H);
+  
+  // Road Dashed Lines
+  roadY=(roadY+speed*dt)%40;
+  ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.lineWidth=3;
+  ctx.setLineDash([20,20]);
+  ctx.lineDashOffset=-roadY;
+  ctx.beginPath();ctx.moveTo(W*0.375,0);ctx.lineTo(W*0.375,H);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(W*0.625,0);ctx.lineTo(W*0.625,H);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Road Borders
+  ctx.fillStyle='#38bdf8';ctx.fillRect(32,0,3,H);ctx.fillRect(W-35,0,3,H);
+
+  if(started&&!over){
+    speed+=dt*8;
+    score+=Math.round(speed*dt*0.1);
+    bridge('sendScoreUpdated',score,1);
+
+    spawnTimer+=dt;
+    if(spawnTimer>=Math.max(0.65,1.2-speed*0.0008)){
+      spawnTimer=0;
+      spawnWave();
+    }
+  }
+
+  // Smooth Player Movement
+  player.x+=(player.targetX-player.x)*0.22;
+  player.tilt*=(1-dt*8);
+
+  // Update & Draw Obstacles
+  for(let i=obstacles.length-1;i>=0;i--){
+    const ob=obstacles[i];
+    if(started&&!over)ob.y+=speed*dt;
+    if(ob.y>H+60){obstacles.splice(i,1);continue;}
+
+    ctx.fillStyle=ob.color;ctx.fillRect(ob.x-ob.w/2,ob.y-ob.h/2,ob.w,ob.h);
+    ctx.fillStyle='#991b1b';ctx.fillRect(ob.x-ob.w/2+4,ob.y-ob.h/2+4,ob.w-8,ob.h-8);
+    ctx.fillStyle='#ffffff';ctx.fillRect(ob.x-8,ob.y-ob.h/2+8,16,6);
+
+    // Collision Check
+    if(!over&&Math.abs(ob.x-player.x)<32&&Math.abs(ob.y-player.y)<40){
+      endGame();
+    }
+  }
+
+  // Update & Draw Collectibles
+  for(let i=collectibles.length-1;i>=0;i--){
+    const col=collectibles[i];
+    if(started&&!over)col.y+=speed*dt;
+    if(col.y>H+60){collectibles.splice(i,1);continue;}
+
+    ctx.fillStyle=col.color;ctx.beginPath();ctx.arc(col.x,col.y,col.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fef08a';ctx.beginPath();ctx.arc(col.x,col.y,col.r*0.6,0,Math.PI*2);ctx.fill();
+
+    // Coin Pickup
+    if(!over&&Math.abs(col.x-player.x)<28&&Math.abs(col.y-player.y)<32){
+      coins++;
+      score+=50;
+      bridge('haptic','light');
+      sound(780,0.06,'triangle',0.06);
+      burst(col.x,col.y,10,col.color);
+      popups.push({x:col.x,y:col.y,text:'+50',color:col.color,life:0.45,max:0.45});
+      collectibles.splice(i,1);
+    }
+  }
+
+  // Draw Player Car
+  ctx.save();
+  ctx.translate(player.x,player.y);
+  ctx.rotate(player.tilt);
+
+  // Car Body
+  ctx.fillStyle='#0284c7';ctx.fillRect(-18,-26,36,52);
+  ctx.fillStyle='#38bdf8';ctx.fillRect(-14,-14,28,28);
+  // Wheels
+  ctx.fillStyle='#0f172a';
+  ctx.fillRect(-22,-22,5,12);ctx.fillRect(17,-22,5,12);
+  ctx.fillRect(-22,10,5,12);ctx.fillRect(17,10,5,12);
+  // Headlights
+  ctx.fillStyle='#fef08a';ctx.fillRect(-14,-26,7,3);ctx.fillRect(7,-26,7,3);
+
+  ctx.restore();
+
+  // Particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
+    if(p.life<=0){particles.splice(i,1);continue;}
+    ctx.globalAlpha=p.life/p.max;ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // Popups
+  for(let i=popups.length-1;i>=0;i--){
+    const pp=popups[i];pp.life-=dt;pp.y-=30*dt;
+    if(pp.life<=0){popups.splice(i,1);continue;}
+    ctx.globalAlpha=pp.life/pp.max;ctx.fillStyle=pp.color;
+    ctx.font='bold 18px sans-serif';ctx.textAlign='center';
+    ctx.fillText(pp.text,pp.x,pp.y);
+  }
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.fillStyle='#ffffff';ctx.font='bold 22px sans-serif';ctx.textAlign='left';
+  ctx.fillText(`SCORE: ${score}`,20,40);
+  ctx.textAlign='right';ctx.fillStyle='#fbbf24';
+  ctx.fillText(`★ ${coins}`,W-20,40);
+
+  // Start Screen
+  if(!started&&!over){
+    ctx.fillStyle='rgba(15,23,42,0.85)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ffffff';ctx.font='bold 32px sans-serif';
+    ctx.fillText('LANE DODGE',W/2,H*0.36);
+    ctx.fillStyle='#38bdf8';ctx.font='bold 14px sans-serif';
+    ctx.fillText('CYBER HIGHWAY SPEED DODGER',W/2,H*0.36+30);
+    ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';
+    ctx.fillText('Tap left/right or swipe to change lanes!',W/2,H*0.52);
+    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-90,H*0.62,180,48);
+    ctx.fillStyle='#ffffff';ctx.font='bold 16px sans-serif';
+    ctx.fillText('TAP TO PLAY',W/2,H*0.62+30);
+  }
+
+  // Game Over
+  if(over){
+    ctx.fillStyle='rgba(15,23,42,0.88)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#1e293b';ctx.fillRect(35,H/2-130,290,260);
+    ctx.strokeStyle='#ef4444';ctx.lineWidth=2;ctx.strokeRect(35,H/2-130,290,260);
+    ctx.textAlign='center';ctx.fillStyle='#ef4444';ctx.font='bold 26px sans-serif';
+    ctx.fillText('CRASHED!',W/2,H/2-70);
+    ctx.fillStyle='#ffffff';ctx.font='bold 48px sans-serif';
+    ctx.fillText(score,W/2,H/2-10);
+    ctx.fillStyle='#94a3b8';ctx.font='14px sans-serif';
+    ctx.fillText(`BEST SCORE: ${best}`,W/2,H/2+38);
+    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-85,H/2+62,170,44);
+    ctx.fillStyle='#ffffff';ctx.font='bold 14px sans-serif';
+    ctx.fillText('PLAY AGAIN',W/2,H/2+89);
+  }
+
+  ctx.restore();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
 </body>
 </html>

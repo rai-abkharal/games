@@ -1,19 +1,321 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Tiny Archer</title>
-  <script src="/shared/phaser.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: none; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #f8f6f0; display: flex; justify-content: center; align-items: center; touch-action: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    #game-container { width: 100%; height: 100%; max-width: 540px; position: relative; touch-action: none; }
-    canvas { display: block; width: 100% !important; height: 100% !important; object-fit: contain; touch-action: none; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Tiny Archer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;touch-action:none;user-select:none;-webkit-user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#090d1a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{overscroll-behavior:none}
+#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+canvas{display:block;background:#0f172a}
+</style>
 </head>
 <body>
-  <div id="game-container"></div>
-  <script type="module" src="./src/main.ts"></script>
+<div id="game-container"></div>
+<script>
+(()=>{'use strict';
+const W=360,H=640,D=Math.min(window.devicePixelRatio||1,2);
+const c=document.createElement('canvas');c.width=W*D;c.height=H*D;c.style.width='min(100vw,56.25vh)';c.style.height='min(177.78vw,100vh)';
+document.getElementById('game-container').appendChild(c);
+const ctx=c.getContext('2d');ctx.scale(D,D);
+
+let score=0,arrowsLeft=10,combo=0,best=+localStorage.getItem('tiny-archer-best')||0;
+let over=false,started=false,last=performance.now(),shake=0;
+let bow={x:55,y:H*0.58,pulling:false,pullX:0,pullY:0};
+let arrows=[],target={x:W-45,y:H*0.4,w:16,h:90,vy:80},wind=0;
+let particles=[],popups=[];
+let isPaused=false;
+window.__GAME_PAUSED__=false;
+window.SoundFx={ctx:null};
+
+function bridge(name,...args){
+  try{window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');if(window.GameBridge?.[name])window.GameBridge[name](...args)}catch(e){}
+}
+bridge('sendReady');
+
+function sound(freq,dur=0.06,type='sine',vol=0.04){
+  try{
+    const A=sound.A||(sound.A=new(window.AudioContext||window.webkitAudioContext)());
+    if(A.state==='suspended')A.resume();
+    const o=A.createOscillator(),g=A.createGain();
+    o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,A.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001,A.currentTime+dur);
+    o.connect(g);g.connect(A.destination);o.start();o.stop(A.currentTime+dur);
+  }catch(e){}
+}
+
+function pauseGame(){
+  isPaused=true;
+  if(sound.A&&sound.A.state==='running'){try{sound.A.suspend()}catch(e){}}
+}
+function resumeGame(){
+  if(isPaused||window.__GAME_PAUSED__){
+    isPaused=false;
+    window.__GAME_PAUSED__=false;
+    last=performance.now();
+    if(sound.A&&sound.A.state==='suspended'){try{sound.A.resume()}catch(e){}}
+    requestAnimationFrame(frame);
+  }
+}
+window.addEventListener('blur',pauseGame);
+window.addEventListener('focus',resumeGame);
+window.addEventListener('pause',pauseGame);
+window.addEventListener('resume',resumeGame);
+
+function burst(x,y,n,color){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=60+Math.random()*160;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.45,max:0.45,r:2+Math.random()*3,color});
+  }
+}
+
+function newWind(){
+  wind=(Math.random()-0.5)*120;
+}
+
+function shootArrow(vx,vy){
+  if(arrowsLeft<=0)return;
+  arrowsLeft--;
+  arrows.push({x:bow.x,y:bow.y,vx,vy,rot:Math.atan2(vy,vx),stuck:false});
+  sound(580,0.08,'triangle',0.06);
+  bridge('haptic','light');
+}
+
+function reset(){
+  score=0;arrowsLeft=10;combo=0;over=false;started=true;
+  arrows=[];particles=[];popups=[];
+  target={x:W-45,y:H*0.4,w:16,h:90,vy:80};
+  newWind();last=performance.now();shake=0;
+  bridge('gameStarted');
+}
+
+function endGame(){
+  if(over)return;
+  over=true;shake=0.3;
+  sound(160,0.3,'sawtooth',0.08);
+  if(score>best){best=score;localStorage.setItem('tiny-archer-best',best);}
+  bridge('sendGameOver',score,1,30);
+}
+
+function getPos(e){
+  const r=c.getBoundingClientRect();
+  const clX=e.touches?e.touches[0].clientX:e.clientX;
+  const clY=e.touches?e.touches[0].clientY:e.clientY;
+  return {x:(clX-r.left)*(W/r.width),y:(clY-r.top)*(H/r.height)};
+}
+
+c.addEventListener('touchstart',e=>{
+  if(!started||over){reset();return;}
+  const p=getPos(e);
+  bow.pulling=true;bow.pullX=p.x;bow.pullY=p.y;
+},{passive:true});
+
+c.addEventListener('touchmove',e=>{
+  if(bow.pulling){
+    const p=getPos(e);
+    bow.pullX=p.x;bow.pullY=p.y;
+  }
+},{passive:true});
+
+c.addEventListener('touchend',e=>{
+  if(bow.pulling){
+    bow.pulling=false;
+    const dx=bow.x-bow.pullX,dy=bow.y-bow.pullY;
+    const dist=Math.min(110,Math.hypot(dx,dy));
+    if(dist>15){
+      const power=dist*8.5;
+      const angle=Math.atan2(dy,dx);
+      shootArrow(Math.cos(angle)*power,Math.sin(angle)*power);
+    }
+  }
+},{passive:true});
+
+c.addEventListener('pointerdown',e=>{
+  if(!('ontouchstart' in window)){
+    if(!started||over){reset();return;}
+    const p=getPos(e);bow.pulling=true;bow.pullX=p.x;bow.pullY=p.y;
+  }
+},{passive:false});
+c.addEventListener('pointermove',e=>{
+  if(!('ontouchstart' in window)&&bow.pulling){
+    const p=getPos(e);bow.pullX=p.x;bow.pullY=p.y;
+  }
+},{passive:false});
+c.addEventListener('pointerup',e=>{
+  if(!('ontouchstart' in window)&&bow.pulling){
+    bow.pulling=false;
+    const dx=bow.x-bow.pullX,dy=bow.y-bow.pullY;
+    const dist=Math.min(110,Math.hypot(dx,dy));
+    if(dist>15){
+      const power=dist*8.5;
+      const angle=Math.atan2(dy,dx);
+      shootArrow(Math.cos(angle)*power,Math.sin(angle)*power);
+    }
+  }
+},{passive:false});
+
+newWind();
+
+function frame(t){
+  if(isPaused||window.__GAME_PAUSED__)return;
+  const dt=Math.min(0.033,(t-last)/1000);last=t;
+  ctx.save();
+  if(shake>0){ctx.translate((Math.random()-0.5)*8,(Math.random()-0.5)*8);shake-=dt;}
+
+  // Background
+  ctx.fillStyle='#0f172a';ctx.fillRect(0,0,W,H);
+
+  // Target Update
+  if(started&&!over){
+    target.y+=target.vy*dt;
+    if(target.y<80||target.y>H-150)target.vy*=-1;
+  }
+
+  // Draw Target
+  ctx.fillStyle='#ef4444';ctx.fillRect(target.x,target.y-target.h/2,target.w,target.h);
+  ctx.fillStyle='#ffffff';ctx.fillRect(target.x+3,target.y-target.h/2+12,target.w-6,target.h-24);
+  ctx.fillStyle='#fbbf24';ctx.fillRect(target.x+5,target.y-12,target.w-10,24);
+
+  // Update & Draw Arrows
+  for(let i=arrows.length-1;i>=0;i--){
+    const ar=arrows[i];
+    if(!ar.stuck){
+      ar.vx+=wind*dt;
+      ar.vy+=480*dt; // Gravity
+      ar.x+=ar.vx*dt;
+      ar.y+=ar.vy*dt;
+      ar.rot=Math.atan2(ar.vy,ar.vx);
+
+      // Hit Target Check
+      if(ar.x>=target.x&&ar.x<=target.x+target.w&&Math.abs(ar.y-target.y)<=target.h/2){
+        ar.stuck=true;
+        const diff=Math.abs(ar.y-target.y);
+        const isBullseye=diff<=12;
+        combo++;
+        const pts=isBullseye?100:diff<=28?50:25;
+        score+=pts+(combo>=3?25:0);
+        bridge('sendScoreUpdated',score,1);
+        bridge('haptic',isBullseye?'heavy':'medium');
+        sound(isBullseye?880:600,0.08,'square',0.06);
+        burst(ar.x,ar.y,isBullseye?20:12,isBullseye?'#fbbf24':'#ef4444');
+        popups.push({x:ar.x-30,y:ar.y,text:isBullseye?'BULLSEYE! +100':`+${pts}`,color:isBullseye?'#fbbf24':'#ffffff',life:0.55,max:0.55});
+        newWind();
+        if(arrowsLeft===0&&arrows.filter(a=>!a.stuck).length===0)setTimeout(endGame,600);
+      }
+
+      if(ar.x>W+50||ar.y>H+50){
+        arrows.splice(i,1);
+        if(arrowsLeft===0&&arrows.filter(a=>!a.stuck).length===0)setTimeout(endGame,600);
+        continue;
+      }
+    }
+
+    // Draw Arrow
+    ctx.save();
+    ctx.translate(ar.x,ar.y);
+    ctx.rotate(ar.rot);
+    ctx.fillStyle='#94a3b8';ctx.fillRect(-20,-2,40,4);
+    ctx.fillStyle='#38bdf8';ctx.beginPath();ctx.moveTo(20,0);ctx.lineTo(12,-5);ctx.lineTo(12,5);ctx.closePath();ctx.fill();
+    ctx.restore();
+  }
+
+  // Draw Bow & Aim Line
+  ctx.save();
+  ctx.translate(bow.x,bow.y);
+
+  if(bow.pulling){
+    const dx=bow.x-bow.pullX,dy=bow.y-bow.pullY;
+    const angle=Math.atan2(dy,dx);
+    const dist=Math.min(110,Math.hypot(dx,dy));
+
+    // Trajectory Dots
+    ctx.restore();
+    ctx.fillStyle='rgba(56,189,248,0.5)';
+    const pwr=dist*8.5;
+    let simX=bow.x,simY=bow.y,simVx=Math.cos(angle)*pwr,simVy=Math.sin(angle)*pwr;
+    for(let step=0;step<14;step++){
+      simVx+=wind*0.04;simVy+=480*0.04;
+      simX+=simVx*0.04;simY+=simVy*0.04;
+      ctx.beginPath();ctx.arc(simX,simY,2.5,0,Math.PI*2);ctx.fill();
+    }
+    ctx.save();
+    ctx.translate(bow.x,bow.y);
+  }
+
+  // Bow Curve
+  ctx.strokeStyle='#b45309';ctx.lineWidth=4;
+  ctx.beginPath();ctx.arc(0,0,28,-Math.PI/2,Math.PI/2);ctx.stroke();
+  ctx.strokeStyle='#cbd5e1';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(0,-28);ctx.lineTo(bow.pulling?-Math.min(25,Math.hypot(bow.x-bow.pullX,bow.y-bow.pullY)*0.3):0,0);ctx.lineTo(0,28);ctx.stroke();
+  ctx.restore();
+
+  // Particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
+    if(p.life<=0){particles.splice(i,1);continue;}
+    ctx.globalAlpha=p.life/p.max;ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // Popups
+  for(let i=popups.length-1;i>=0;i--){
+    const pp=popups[i];pp.life-=dt;pp.y-=25*dt;
+    if(pp.life<=0){popups.splice(i,1);continue;}
+    ctx.globalAlpha=pp.life/pp.max;ctx.fillStyle=pp.color;
+    ctx.font='bold 16px sans-serif';ctx.textAlign='center';
+    ctx.fillText(pp.text,pp.x,pp.y);
+  }
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.fillStyle='#ffffff';ctx.font='bold 22px sans-serif';ctx.textAlign='left';
+  ctx.fillText(`SCORE: ${score}`,20,40);
+  ctx.textAlign='right';ctx.fillStyle='#38bdf8';
+  ctx.fillText(`ARROWS: ${arrowsLeft}`,W-20,40);
+
+  // Wind Indicator
+  ctx.fillStyle='#94a3b8';ctx.font='12px sans-serif';ctx.textAlign='center';
+  ctx.fillText(`WIND: ${wind>0?'▶':'◀'} ${Math.abs(Math.round(wind/10))}`,W/2,40);
+
+  // Start Screen
+  if(!started&&!over){
+    ctx.fillStyle='rgba(15,23,42,0.85)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ffffff';ctx.font='bold 32px sans-serif';
+    ctx.fillText('TINY ARCHER',W/2,H*0.36);
+    ctx.fillStyle='#38bdf8';ctx.font='bold 14px sans-serif';
+    ctx.fillText('BOW & ARROW PHYSICS SHOOTER',W/2,H*0.36+30);
+    ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';
+    ctx.fillText('Drag back from the bow to aim & release to shoot!',W/2,H*0.52);
+    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-90,H*0.62,180,48);
+    ctx.fillStyle='#ffffff';ctx.font='bold 16px sans-serif';
+    ctx.fillText('TAP TO PLAY',W/2,H*0.62+30);
+  }
+
+  // Game Over
+  if(over){
+    ctx.fillStyle='rgba(15,23,42,0.88)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#1e293b';ctx.fillRect(35,H/2-130,290,260);
+    ctx.strokeStyle='#38bdf8';ctx.lineWidth=2;ctx.strokeRect(35,H/2-130,290,260);
+    ctx.textAlign='center';ctx.fillStyle='#38bdf8';ctx.font='bold 26px sans-serif';
+    ctx.fillText('QUIVER EMPTY',W/2,H/2-70);
+    ctx.fillStyle='#ffffff';ctx.font='bold 48px sans-serif';
+    ctx.fillText(score,W/2,H/2-10);
+    ctx.fillStyle='#94a3b8';ctx.font='14px sans-serif';
+    ctx.fillText(`BEST SCORE: ${best}`,W/2,H/2+38);
+    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-85,H/2+62,170,44);
+    ctx.fillStyle='#ffffff';ctx.font='bold 14px sans-serif';
+    ctx.fillText('PLAY AGAIN',W/2,H/2+89);
+  }
+
+  ctx.restore();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
 </body>
 </html>

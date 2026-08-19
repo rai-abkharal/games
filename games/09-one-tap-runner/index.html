@@ -1,19 +1,281 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>One-Tap Runner</title>
-  <script src="/shared/phaser.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: none; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #f8f6f0; display: flex; justify-content: center; align-items: center; touch-action: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    #game-container { width: 100%; height: 100%; max-width: 540px; position: relative; touch-action: none; }
-    canvas { display: block; width: 100% !important; height: 100% !important; object-fit: contain; touch-action: none; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>One-Tap Runner</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;touch-action:none;user-select:none;-webkit-user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#090d1a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{overscroll-behavior:none}
+#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+canvas{display:block;background:#0f172a}
+</style>
 </head>
 <body>
-  <div id="game-container"></div>
-  <script type="module" src="./src/main.ts"></script>
+<div id="game-container"></div>
+<script>
+(()=>{'use strict';
+const W=360,H=640,D=Math.min(window.devicePixelRatio||1,2);
+const c=document.createElement('canvas');c.width=W*D;c.height=H*D;c.style.width='min(100vw,56.25vh)';c.style.height='min(177.78vw,100vh)';
+document.getElementById('game-container').appendChild(c);
+const ctx=c.getContext('2d');ctx.scale(D,D);
+
+const GROUND_Y=H-120;
+let score=0,coins=0,best=+localStorage.getItem('one-tap-runner-best')||0;
+let over=false,started=false,last=performance.now(),shake=0,speed=280;
+let player={x:65,y:GROUND_Y-32,vy:0,w:28,h:32,jumps:2,onGround:true,rot:0};
+let obstacles=[],collectibles=[],particles=[],popups=[],spawnTimer=0,bgOffset=0;
+let isPaused=false;
+window.__GAME_PAUSED__=false;
+window.SoundFx={ctx:null};
+
+function bridge(name,...args){
+  try{window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');if(window.GameBridge?.[name])window.GameBridge[name](...args)}catch(e){}
+}
+bridge('sendReady');
+
+function sound(freq,dur=0.06,type='sine',vol=0.04){
+  try{
+    const A=sound.A||(sound.A=new(window.AudioContext||window.webkitAudioContext)());
+    if(A.state==='suspended')A.resume();
+    const o=A.createOscillator(),g=A.createGain();
+    o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,A.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001,A.currentTime+dur);
+    o.connect(g);g.connect(A.destination);o.start();o.stop(A.currentTime+dur);
+  }catch(e){}
+}
+
+function pauseGame(){
+  isPaused=true;
+  if(sound.A&&sound.A.state==='running'){try{sound.A.suspend()}catch(e){}}
+}
+function resumeGame(){
+  if(isPaused||window.__GAME_PAUSED__){
+    isPaused=false;
+    window.__GAME_PAUSED__=false;
+    last=performance.now();
+    if(sound.A&&sound.A.state==='suspended'){try{sound.A.resume()}catch(e){}}
+    requestAnimationFrame(frame);
+  }
+}
+window.addEventListener('blur',pauseGame);
+window.addEventListener('focus',resumeGame);
+window.addEventListener('pause',pauseGame);
+window.addEventListener('resume',resumeGame);
+
+function burst(x,y,n,color){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=60+Math.random()*160;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.45,max:0.45,r:2+Math.random()*3,color});
+  }
+}
+
+function jump(){
+  if(over){reset();return;}
+  if(!started){started=true;bridge('gameStarted');}
+  if(player.jumps>0){
+    player.vy=-460;
+    player.jumps--;
+    player.onGround=false;
+    sound(550+(2-player.jumps)*100,0.06,'triangle',0.06);
+    bridge('haptic','light');
+    burst(player.x+player.w/2,player.y+player.h,6,'#38bdf8');
+  }
+}
+
+function spawnObstacle(){
+  const isHigh=Math.random()<0.35;
+  obstacles.push({
+    x:W+30,
+    y:isHigh?GROUND_Y-60:GROUND_Y-30,
+    w:24,
+    h:isHigh?60:30,
+    color:'#ef4444'
+  });
+
+  if(Math.random()<0.6){
+    collectibles.push({
+      x:W+30+(Math.random()<0.5?50:-50),
+      y:GROUND_Y-60-Math.random()*40,
+      r:10,
+      color:'#fbbf24'
+    });
+  }
+}
+
+function reset(){
+  score=0;coins=0;over=false;started=true;
+  obstacles=[];collectibles=[];particles=[];popups=[];
+  player={x:65,y:GROUND_Y-32,vy:0,w:28,h:32,jumps:2,onGround:true,rot:0};
+  spawnTimer=0;speed=280;last=performance.now();shake=0;
+  bridge('gameStarted');
+}
+
+function endGame(){
+  if(over)return;
+  over=true;shake=0.35;
+  sound(140,0.3,'sawtooth',0.08);
+  bridge('haptic','error');
+  burst(player.x+player.w/2,player.y+player.h/2,20,'#ef4444');
+  if(score>best){best=score;localStorage.setItem('one-tap-runner-best',best);}
+  bridge('sendGameOver',score,1,30);
+}
+
+c.addEventListener('pointerdown',e=>{e.preventDefault();jump();},{passive:false});
+
+function frame(t){
+  if(isPaused||window.__GAME_PAUSED__)return;
+  const dt=Math.min(0.033,(t-last)/1000);last=t;
+  ctx.save();
+  if(shake>0){ctx.translate((Math.random()-0.5)*8,(Math.random()-0.5)*8);shake-=dt;}
+
+  // Background
+  ctx.fillStyle='#0f172a';ctx.fillRect(0,0,W,H);
+
+  if(started&&!over){
+    speed+=dt*5;
+    score+=Math.round(speed*dt*0.1);
+    bridge('sendScoreUpdated',score,1);
+
+    spawnTimer+=dt;
+    if(spawnTimer>=Math.max(1.1,2.0-speed*0.002)){
+      spawnTimer=0;
+      spawnObstacle();
+    }
+  }
+
+  // Draw Ground Line
+  ctx.fillStyle='#1e293b';ctx.fillRect(0,GROUND_Y,W,H-GROUND_Y);
+  ctx.strokeStyle='#38bdf8';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(0,GROUND_Y);ctx.lineTo(W,GROUND_Y);ctx.stroke();
+
+  // Ground Grid Scrolling
+  bgOffset=(bgOffset+speed*dt)%30;
+  ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=1;
+  for(let x=-bgOffset;x<W;x+=30){
+    ctx.beginPath();ctx.moveTo(x,GROUND_Y);ctx.lineTo(x,H);ctx.stroke();
+  }
+
+  // Update Player Physics
+  if(started&&!over){
+    player.vy+=1150*dt; // Gravity
+    player.y+=player.vy*dt;
+    if(!player.onGround)player.rot+=dt*6;
+
+    if(player.y>=GROUND_Y-player.h){
+      player.y=GROUND_Y-player.h;
+      player.vy=0;
+      player.jumps=2;
+      player.onGround=true;
+      player.rot=0;
+    }
+  }
+
+  // Draw Player
+  ctx.save();
+  ctx.translate(player.x+player.w/2,player.y+player.h/2);
+  ctx.rotate(player.rot);
+  ctx.fillStyle='#38bdf8';ctx.fillRect(-player.w/2,-player.h/2,player.w,player.h);
+  ctx.fillStyle='#ffffff';ctx.fillRect(player.w/2-10,-player.h/2+6,8,8);
+  ctx.restore();
+
+  // Update & Draw Obstacles
+  for(let i=obstacles.length-1;i>=0;i--){
+    const ob=obstacles[i];
+    if(started&&!over)ob.x-=speed*dt;
+    if(ob.x<-40){obstacles.splice(i,1);continue;}
+
+    ctx.fillStyle=ob.color;ctx.fillRect(ob.x,ob.y,ob.w,ob.h);
+    ctx.strokeStyle='#991b1b';ctx.lineWidth=2;ctx.strokeRect(ob.x,ob.y,ob.w,ob.h);
+
+    // Collision Check
+    if(!over&&player.x+player.w-4>ob.x&&player.x+4<ob.x+ob.w&&player.y+player.h-4>ob.y&&player.y+4<ob.y+ob.h){
+      endGame();
+    }
+  }
+
+  // Update & Draw Collectibles
+  for(let i=collectibles.length-1;i>=0;i--){
+    const col=collectibles[i];
+    if(started&&!over)col.x-=speed*dt;
+    if(col.x<-40){collectibles.splice(i,1);continue;}
+
+    ctx.fillStyle=col.color;ctx.beginPath();ctx.arc(col.x,col.y,col.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fef08a';ctx.beginPath();ctx.arc(col.x,col.y,col.r*0.6,0,Math.PI*2);ctx.fill();
+
+    // Pickup Check
+    if(!over&&Math.hypot((player.x+player.w/2)-col.x,(player.y+player.h/2)-col.y)<player.w/2+col.r){
+      coins++;score+=50;
+      sound(780,0.06,'triangle',0.06);
+      bridge('haptic','light');
+      burst(col.x,col.y,10,col.color);
+      popups.push({x:col.x,y:col.y,text:'+50',color:col.color,life:0.45,max:0.45});
+      collectibles.splice(i,1);
+    }
+  }
+
+  // Particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
+    if(p.life<=0){particles.splice(i,1);continue;}
+    ctx.globalAlpha=p.life/p.max;ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // Popups
+  for(let i=popups.length-1;i>=0;i--){
+    const pp=popups[i];pp.life-=dt;pp.y-=25*dt;
+    if(pp.life<=0){popups.splice(i,1);continue;}
+    ctx.globalAlpha=pp.life/pp.max;ctx.fillStyle=pp.color;
+    ctx.font='bold 18px sans-serif';ctx.textAlign='center';
+    ctx.fillText(pp.text,pp.x,pp.y);
+  }
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.fillStyle='#ffffff';ctx.font='bold 22px sans-serif';ctx.textAlign='left';
+  ctx.fillText(`SCORE: ${score}`,20,40);
+  ctx.textAlign='right';ctx.fillStyle='#fbbf24';
+  ctx.fillText(`★ ${coins}`,W-20,40);
+
+  // Start Screen
+  if(!started&&!over){
+    ctx.fillStyle='rgba(15,23,42,0.85)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ffffff';ctx.font='bold 32px sans-serif';
+    ctx.fillText('ONE-TAP RUNNER',W/2,H*0.36);
+    ctx.fillStyle='#38bdf8';ctx.font='bold 14px sans-serif';
+    ctx.fillText('ENDLESS SIDE-SCROLLER',W/2,H*0.36+30);
+    ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';
+    ctx.fillText('Tap to jump! Tap again in air to double jump!',W/2,H*0.52);
+    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-90,H*0.62,180,48);
+    ctx.fillStyle='#ffffff';ctx.font='bold 16px sans-serif';
+    ctx.fillText('TAP TO PLAY',W/2,H*0.62+30);
+  }
+
+  // Game Over
+  if(over){
+    ctx.fillStyle='rgba(15,23,42,0.88)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#1e293b';ctx.fillRect(35,H/2-130,290,260);
+    ctx.strokeStyle='#ef4444';ctx.lineWidth=2;ctx.strokeRect(35,H/2-130,290,260);
+    ctx.textAlign='center';ctx.fillStyle='#ef4444';ctx.font='bold 26px sans-serif';
+    ctx.fillText('GAME OVER',W/2,H/2-70);
+    ctx.fillStyle='#ffffff';ctx.font='bold 48px sans-serif';
+    ctx.fillText(score,W/2,H/2-10);
+    ctx.fillStyle='#94a3b8';ctx.font='14px sans-serif';
+    ctx.fillText(`BEST SCORE: ${best}`,W/2,H/2+38);
+    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-85,H/2+62,170,44);
+    ctx.fillStyle='#ffffff';ctx.font='bold 14px sans-serif';
+    ctx.fillText('PLAY AGAIN',W/2,H/2+89);
+  }
+
+  ctx.restore();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
 </body>
 </html>

@@ -1,20 +1,345 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Pipe Connect</title>
-  <script src="/shared/phaser.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: none; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #f8f6f0; display: flex; justify-content: center; align-items: center; touch-action: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    #game-container { width: 100%; height: 100%; max-width: 540px; position: relative; touch-action: none; }
-    canvas { display: block; width: 100% !important; height: 100% !important; object-fit: contain; touch-action: none; }
-  </style>
-  <script type="module" crossorigin>(function(){const t=document.createElement("link").relList;if(t&&t.supports&&t.supports("modulepreload"))return;for(const s of document.querySelectorAll('link[rel="modulepreload"]'))n(s);new MutationObserver(s=>{for(const i of s)if(i.type==="childList")for(const o of i.addedNodes)o.tagName==="LINK"&&o.rel==="modulepreload"&&n(o)}).observe(document,{childList:!0,subtree:!0});function e(s){const i={};return s.integrity&&(i.integrity=s.integrity),s.referrerPolicy&&(i.referrerPolicy=s.referrerPolicy),s.crossOrigin==="use-credentials"?i.credentials="include":s.crossOrigin==="anonymous"?i.credentials="omit":i.credentials="same-origin",i}__name(e,"getFetchOpts");function n(s){if(s.ep)return;s.ep=!0;const i=e(s);fetch(s.href,i)}__name(n,"processPreload")})();const r=(typeof window<"u"?window.Phaser:{})||{};r.Game;r.Scene;r.AUTO;r.WEBGL;r.CANVAS;r.Scale;r.Math;r.Physics;r.Input;r.GameObjects;r.Display;r.Time;r.Sound;r.Tweens;r.Animations;r.Loader;r.Geom;r.Curves;r.Cameras;r.Structs;r.Events;r.Core;r.Types;class h{constructor(){this.soundEnabled=!0,this.isPaused=!1,this.isDestroyed=!1,this.isGameplayActive=!1,this.lastHapticAt=0,this.metricsTimer=null,this.onPauseListener=null,this.onResumeListener=null,this.onRestartListener=null,this.onSoundChangeListeners=new Set,this.handleFlutterPause=()=>this.triggerPause(),this.handleFlutterResume=()=>this.triggerResume(),this.handleFlutterRestart=()=>this.triggerRestart(),this.handleFlutterSound=t=>{const e=t;typeof e.detail?.enabled=="boolean"&&this.setSound(e.detail.enabled)},this.setupGlobalBridge()}static getInstance(){return h.instance||(h.instance=new h),h.instance}setupGlobalBridge(){const t={ready:()=>this.ready(),gameStarted:()=>this.gameStarted(),pause:()=>this.triggerPause(),resume:()=>this.triggerResume(),restart:()=>this.triggerRestart(),gameOver:e=>this.gameOver(e),completed:e=>this.completed(e),setSoundEnabled:e=>this.setSound(e),setSwipeEnabled:e=>this.setSwipeEnabled(e),haptic:e=>this.haptic(e),destroy:()=>this.destroy()};window.GameBridge=t,window.addEventListener("flutter:pause",this.handleFlutterPause),window.addEventListener("flutter:resume",this.handleFlutterResume),window.addEventListener("flutter:restart",this.handleFlutterRestart),window.addEventListener("flutter:sound",this.handleFlutterSound)}notifyFlutter(t,e){if(this.isDestroyed)return;const n=JSON.stringify({action:t,payload:e});window.flutter_inappwebview?.callHandler&&window.flutter_inappwebview.callHandler("GameBridgeChannel",n),window.FlutterGameBridge?.postMessage&&window.FlutterGameBridge.postMessage(n),window.parent&&window.parent!==window&&window.parent.postMessage({source:"GameBridge",action:t,payload:e},"*")}startMetricsReporting(){if(this.metricsTimer!==null||!this.isGameplayActive||this.isPaused)return;const t=()=>{const n=window.__PHASER_GAME__?.loop;if(!n||this.isDestroyed||!this.isGameplayActive||this.isPaused)return;const s=Number(n.actualFps??0),i=Number(n.delta??0);!Number.isFinite(s)||!Number.isFinite(i)||this.notifyFlutter("metrics",{fps:Math.round(s*10)/10,frameTimeMs:Math.round(i*10)/10})};t(),this.metricsTimer=window.setInterval(t,1e3)}stopMetricsReporting(){this.metricsTimer!==null&&(window.clearInterval(this.metricsTimer),this.metricsTimer=null)}triggerPause(){if(this.isDestroyed||this.isPaused)return;this.isPaused=!0,this.stopMetricsReporting();try{this.onPauseListener?.()}catch{}const t=window.__PHASER_GAME__;if(t?.loop)try{t.loop.sleep()}catch{}this.notifyFlutter("paused",{})}triggerResume(){if(this.isDestroyed)return;const t=this.isPaused;this.isPaused=!1;const e=window.__PHASER_GAME__;if(e?.loop)try{e.loop.wake()}catch{}if(t){try{this.onResumeListener?.()}catch{}this.notifyFlutter("resumed",{})}this.startMetricsReporting()}triggerRestart(){if(this.isDestroyed)return;const t=this.onRestartListener;if(t)try{t();return}catch{}const e=window.__PHASER_GAME__;try{e?.scene?.keys?.GameScene&&e.scene.start("GameScene")}catch{}}setSound(t){this.isDestroyed||(this.soundEnabled=t,this.onSoundChangeListeners.forEach(e=>{try{e(t)}catch{}}))}isSoundEnabled(){return this.soundEnabled}getIsPaused(){return this.isPaused}onPause(t){this.onPauseListener=t}offPause(t){this.onPauseListener===t&&(this.onPauseListener=null)}onResume(t){this.onResumeListener=t}offResume(t){this.onResumeListener===t&&(this.onResumeListener=null)}onRestart(t){this.onRestartListener=t}offRestart(t){this.onRestartListener===t&&(this.onRestartListener=null)}onSoundChange(t){this.onSoundChangeListeners.add(t)}offSoundChange(t){this.onSoundChangeListeners.delete(t)}ready(){this.notifyFlutter("ready",{})}gameStarted(){this.onRestartListener=null,this.isGameplayActive=!0,this.notifyFlutter("gameStarted",{}),this.startMetricsReporting()}gameOver(t){this.onPauseListener=null,this.onResumeListener=null,this.isGameplayActive=!1,this.stopMetricsReporting(),this.notifyFlutter("gameOver",t)}completed(t){this.onPauseListener=null,this.onResumeListener=null,this.isGameplayActive=!1,this.stopMetricsReporting(),this.notifyFlutter("completed",t)}setSwipeEnabled(t){this.notifyFlutter("setSwipeEnabled",{enabled:t})}haptic(t){const e=performance.now();e-this.lastHapticAt<60||(this.lastHapticAt=e,this.notifyFlutter("haptic",{type:t}))}destroy(){if(!this.isDestroyed){this.stopMetricsReporting(),window.removeEventListener("flutter:pause",this.handleFlutterPause),window.removeEventListener("flutter:resume",this.handleFlutterResume),window.removeEventListener("flutter:restart",this.handleFlutterRestart),window.removeEventListener("flutter:sound",this.handleFlutterSound),this.onPauseListener=null,this.onResumeListener=null,this.onRestartListener=null,this.onSoundChangeListeners.clear(),this.isGameplayActive=!1,this.isDestroyed=!0;try{delete window.GameBridge}catch{}}}}const a=h.getInstance();class T{constructor(){this.ctx=null;const t=()=>{this.initCtx(),this.ctx&&this.ctx.state==="suspended"&&this.ctx.resume(),window.removeEventListener("touchstart",t),window.removeEventListener("pointerdown",t),window.removeEventListener("click",t)};window.addEventListener("touchstart",t,{passive:!0}),window.addEventListener("pointerdown",t,{passive:!0}),window.addEventListener("click",t,{passive:!0})}initCtx(){if(!this.ctx&&typeof window<"u"){const t=window.AudioContext||window.webkitAudioContext;t&&(this.ctx=new t)}return this.ctx}canPlay(){return a.isSoundEnabled()&&!!this.initCtx()}playTap(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="sine",t.frequency.setValueAtTime(440,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(880,this.ctx.currentTime+.05),e.gain.setValueAtTime(.2,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.001,this.ctx.currentTime+.05),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.05)}playShoot(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="triangle",t.frequency.setValueAtTime(600,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(150,this.ctx.currentTime+.12),e.gain.setValueAtTime(.3,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.12),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.12)}playHit(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="square",t.frequency.setValueAtTime(320,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(80,this.ctx.currentTime+.15),e.gain.setValueAtTime(.35,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.15),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.15)}playScore(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="sine",t.frequency.setValueAtTime(523.25,this.ctx.currentTime),t.frequency.setValueAtTime(659.25,this.ctx.currentTime+.06),t.frequency.setValueAtTime(783.99,this.ctx.currentTime+.12),e.gain.setValueAtTime(.25,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.22),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.22)}playSlice(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="sawtooth",t.frequency.setValueAtTime(900,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(300,this.ctx.currentTime+.08),e.gain.setValueAtTime(.2,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.08),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.08)}playJump(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.createOscillator(),e=this.ctx.createGain();t.type="sine",t.frequency.setValueAtTime(250,this.ctx.currentTime),t.frequency.exponentialRampToValueAtTime(650,this.ctx.currentTime+.15),e.gain.setValueAtTime(.25,this.ctx.currentTime),e.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.15),t.connect(e),e.connect(this.ctx.destination),t.start(),t.stop(this.ctx.currentTime+.15)}playGameOver(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.currentTime;[{freq:440,time:0,dur:.12},{freq:392,time:.12,dur:.12},{freq:349,time:.24,dur:.12},{freq:293,time:.36,dur:.3}].forEach(({freq:e,time:n,dur:s})=>{const i=this.ctx.createOscillator(),o=this.ctx.createGain();i.type="sawtooth",i.frequency.setValueAtTime(e,t+n),o.gain.setValueAtTime(.2,t+n),o.gain.exponentialRampToValueAtTime(.01,t+n+s),i.connect(o),o.connect(this.ctx.destination),i.start(t+n),i.stop(t+n+s)})}playSuccess(){if(!this.canPlay()||!this.ctx)return;const t=this.ctx.currentTime;[{freq:523.25,time:0,dur:.08},{freq:659.25,time:.08,dur:.08},{freq:783.99,time:.16,dur:.08},{freq:1046.5,time:.24,dur:.25}].forEach(({freq:e,time:n,dur:s})=>{const i=this.ctx.createOscillator(),o=this.ctx.createGain();i.type="triangle",i.frequency.setValueAtTime(e,t+n),o.gain.setValueAtTime(.25,t+n),o.gain.exponentialRampToValueAtTime(.01,t+n+s),i.connect(o),o.connect(this.ctx.destination),i.start(t+n),i.stop(t+n+s)})}}const p=new T;class S extends r.Scene{constructor(){super({key:"BootScene"})}create(){a.ready(),a.gameStarted(),this.scene.start("GameScene")}}class A extends r.Scene{constructor(){super({key:"MenuScene"})}create(){const{width:t,height:e}=this.scale,n=this.add.text(t/2,e*.28,"PIPE CONNECT",{fontSize:"38px",fontStyle:"bold",color:"#0f172a"}).setOrigin(.5);this.tweens.add({targets:n,scale:1.06,duration:800,yoyo:!0,repeat:-1}),this.add.text(t/2,e*.38,"💧 Rotate & Connect Flow",{fontSize:"20px",color:"#0284c7",fontStyle:"bold"}).setOrigin(.5);const s=this.add.rectangle(t/2,e*.6,220,60,165063).setInteractive({useHandCursor:!0});s.setStrokeStyle(3,3718648),this.add.text(t/2,e*.6,"SOLVE PUZZLE",{fontSize:"22px",fontStyle:"bold",color:"#ffffff"}).setOrigin(.5),s.on("pointerdown",()=>{p.playTap(),a.gameStarted(),this.scene.start("GameScene")}),this.add.text(t/2,e*.75,`Tap tiles to rotate pipes.
-Connect the water source 💧 to destination 🏆!`,{fontSize:"15px",color:"#64748b",align:"center",lineSpacing:6}).setOrigin(.5)}}class b extends r.Scene{constructor(){super({key:"GameScene"}),this.grid=[],this.rows=4,this.cols=4,this.seconds=0,this.isConnected=!1}create(){this.seconds=0,this.isConnected=!1,this.grid=[];const{width:t,height:e}=this.scale;this.add.text(24,24,"💧 -> 🏆",{fontSize:"22px",fontStyle:"bold",color:"#0284c7"}),this.timerText=this.add.text(t-24,24,"TIME: 0s",{fontSize:"20px",fontStyle:"bold",color:"#d97706"}).setOrigin(1,0),this.statusText=this.add.text(t/2,e*.16,"Rotate tiles to create a path",{fontSize:"16px",color:"#64748b",fontStyle:"bold"}).setOrigin(.5),this.timerEvent=this.time.addEvent({delay:1e3,callback:()=>{this.seconds++,this.timerText.setText(`TIME: ${this.seconds}s`)},loop:!0});const n=84,s=this.cols*n,i=(t-s)/2+n/2,o=e*.26+n/2,y=[["elbow","straight","elbow","elbow"],["straight","elbow","straight","elbow"],["elbow","straight","elbow","straight"],["elbow","straight","straight","elbow"]];for(let c=0;c<this.rows;c++){this.grid[c]=[];for(let l=0;l<this.cols;l++){const f=y[c][l],g=r.Math.Between(1,3),x=this.add.rectangle(0,0,n-6,n-6,16777215).setStrokeStyle(2,13358561,.9),d=this.add.graphics();this.drawPipe(d,f,n);const m=this.add.container(i+l*n,o+c*n,[x,d]);m.setSize(n,n),m.setInteractive({useHandCursor:!0}),d.setAngle(g*90);const w={r:c,c:l,type:f,rotation:g,container:m,lines:d};m.on("pointerdown",()=>this.rotateTile(w)),this.grid[c][l]=w}}this.add.text(i,o-56,"💧 SOURCE",{fontSize:"15px",fontStyle:"bold",color:"#0284c7"}).setOrigin(.5),this.add.text(i+(this.cols-1)*n,o+(this.rows-1)*n+56,"🏆 DRAIN",{fontSize:"15px",fontStyle:"bold",color:"#d97706"}).setOrigin(.5),this.checkFlow(),a.onPause(()=>this.scene.pause()),a.onResume(()=>this.scene.resume())}drawPipe(t,e,n){t.clear();const s=n/2;t.lineStyle(16,165063,1),e==="straight"?t.lineBetween(0,-s+4,0,s-4):e==="elbow"?(t.beginPath(),t.moveTo(0,-s+4),t.lineTo(0,0),t.lineTo(s-4,0),t.strokePath()):(t.lineBetween(-s+4,0,s-4,0),t.lineBetween(0,-s+4,0,s-4))}rotateTile(t){this.isConnected||(t.rotation=(t.rotation+1)%4,p.playTap(),a.haptic("light"),this.tweens.add({targets:t.lines,angle:t.rotation*90,duration:150,ease:"Quad.easeOut",onComplete:()=>this.checkFlow()}))}getOpenings(t){const e=t.rotation%4;return t.type==="straight"?e%2===0?{top:!0,right:!1,bottom:!0,left:!1}:{top:!1,right:!0,bottom:!1,left:!0}:t.type==="elbow"?{top:e===0||e===3,right:e===0||e===1,bottom:e===1||e===2,left:e===2||e===3}:{top:!0,right:!0,bottom:!0,left:!0}}checkFlow(){const t=Array.from({length:this.rows},()=>Array(this.cols).fill(!1)),e=[[0,0]];t[0][0]=!0;let n=!1;for(;e.length>0;){const[s,i]=e.shift();if(s===this.rows-1&&i===this.cols-1){n=!0;break}const o=this.getOpenings(this.grid[s][i]);o.top&&s>0&&!t[s-1][i]&&this.getOpenings(this.grid[s-1][i]).bottom&&(t[s-1][i]=!0,e.push([s-1,i])),o.bottom&&s<this.rows-1&&!t[s+1][i]&&this.getOpenings(this.grid[s+1][i]).top&&(t[s+1][i]=!0,e.push([s+1,i])),o.left&&i>0&&!t[s][i-1]&&this.getOpenings(this.grid[s][i-1]).right&&(t[s][i-1]=!0,e.push([s][i-1])),o.right&&i<this.cols-1&&!t[s][i+1]&&this.getOpenings(this.grid[s][i+1]).left&&(t[s][i+1]=!0,e.push([s][i+1]))}n&&!this.isConnected&&this.handleSuccess()}handleSuccess(){this.isConnected=!0,this.timerEvent.remove(),p.playSuccess(),a.haptic("success"),this.statusText.setText("FLOW CONNECTED! 🌊").setColor("#059669");const t=Math.max(150,1500-this.seconds*20);a.completed({score:t,level:1,stats:{seconds:this.seconds}}),this.time.delayedCall(700,()=>{this.scene.start("GameOverScene",{score:t,seconds:this.seconds})})}}class R extends r.Scene{constructor(){super({key:"GameOverScene"}),this.score=0,this.seconds=0}init(t){this.score=t.score||0,this.seconds=t.seconds||0}create(){const{width:t,height:e}=this.scale;this.add.text(t/2,e*.28,"PUZZLE SOLVED!",{fontSize:"38px",fontStyle:"bold",color:"#0284c7"}).setOrigin(.5),this.add.text(t/2,e*.38,`🌊 Time: ${this.seconds}s`,{fontSize:"20px",color:"#64748b",fontStyle:"bold"}).setOrigin(.5),this.add.text(t/2,e*.48,`${this.score} PTS`,{fontSize:"52px",fontStyle:"bold",color:"#d97706"}).setOrigin(.5);const n=this.add.rectangle(t/2,e*.65,220,60,165063).setInteractive({useHandCursor:!0});n.setStrokeStyle(3,3718648),this.add.text(t/2,e*.65,"PLAY AGAIN",{fontSize:"22px",fontStyle:"bold",color:"#ffffff"}).setOrigin(.5);const s=()=>{p.playTap(),a.gameStarted(),this.scene.start("GameScene")};n.on("pointerdown",s),a.onRestart(s)}}const P={type:r.AUTO,parent:"game-container",width:480,height:800,backgroundColor:"#f8f6f0",transparent:!1,roundPixels:!1,antialias:!1,fps:{target:120,min:30,forceSetTimeOut:!1,deltaHistory:10,smoothStep:!0},render:{powerPreference:"high-performance",desynchronized:!1,batchSize:2048,clearBeforeRender:!0},scale:{mode:r.Scale.FIT,autoCenter:r.Scale.CENTER_BOTH},scene:[S,A,b,R]},v=new r.Game(P);window.__PHASER_GAME__=v;</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Pipe Connect</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;touch-action:none;user-select:none;-webkit-user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#090d1a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{overscroll-behavior:none}
+#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+canvas{display:block;background:#0f172a}
+</style>
 </head>
 <body>
-  <div id="game-container"></div>
+<div id="game-container"></div>
+<script>
+(()=>{'use strict';
+const W=360,H=640,D=Math.min(window.devicePixelRatio||1,2);
+const c=document.createElement('canvas');c.width=W*D;c.height=H*D;c.style.width='min(100vw,56.25vh)';c.style.height='min(177.78vw,100vh)';
+document.getElementById('game-container').appendChild(c);
+const ctx=c.getContext('2d');ctx.scale(D,D);
+
+const GRID_SIZE=4;
+let grid=[],level=1,score=0,best=+localStorage.getItem('pipe-connect-best')||0;
+let over=false,started=false,last=performance.now(),shake=0,levelTime=35;
+let particles=[],popups=[];
+let isPaused=false;
+window.__GAME_PAUSED__=false;
+window.SoundFx={ctx:null};
+
+function bridge(name,...args){
+  try{window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');if(window.GameBridge?.[name])window.GameBridge[name](...args)}catch(e){}
+}
+bridge('sendReady');
+
+function sound(freq,dur=0.06,type='sine',vol=0.04){
+  try{
+    const A=sound.A||(sound.A=new(window.AudioContext||window.webkitAudioContext)());
+    if(A.state==='suspended')A.resume();
+    const o=A.createOscillator(),g=A.createGain();
+    o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,A.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001,A.currentTime+dur);
+    o.connect(g);g.connect(A.destination);o.start();o.stop(A.currentTime+dur);
+  }catch(e){}
+}
+
+function pauseGame(){
+  isPaused=true;
+  if(sound.A&&sound.A.state==='running'){try{sound.A.suspend()}catch(e){}}
+}
+function resumeGame(){
+  if(isPaused||window.__GAME_PAUSED__){
+    isPaused=false;
+    window.__GAME_PAUSED__=false;
+    last=performance.now();
+    if(sound.A&&sound.A.state==='suspended'){try{sound.A.resume()}catch(e){}}
+    requestAnimationFrame(frame);
+  }
+}
+window.addEventListener('blur',pauseGame);
+window.addEventListener('focus',resumeGame);
+window.addEventListener('pause',pauseGame);
+window.addEventListener('resume',resumeGame);
+
+function burst(x,y,n,color){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=60+Math.random()*160;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.45,max:0.45,r:2+Math.random()*3,color});
+  }
+}
+
+// Pipe openings: [TOP, RIGHT, BOTTOM, LEFT]
+const TYPES=[
+  {type:'straight',dirs:[true,false,true,false]},
+  {type:'elbow',dirs:[true,true,false,false]},
+  {type:'cross',dirs:[true,true,true,true]},
+  {type:'t',dirs:[true,true,false,true]}
+];
+
+function initGrid(){
+  grid=[];
+  const cellSize=68,gap=8;
+  const startX=(W-(GRID_SIZE*cellSize+(GRID_SIZE-1)*gap))/2;
+  const startY=H*0.22;
+
+  for(let r=0;r<GRID_SIZE;r++){
+    grid[r]=[];
+    for(let col=0;col<GRID_SIZE;col++){
+      const template=TYPES[Math.floor(Math.random()*TYPES.length)];
+      const rot=Math.floor(Math.random()*4);
+      grid[r][col]={
+        x:startX+col*(cellSize+gap),
+        y:startY+r*(cellSize+gap),
+        w:cellSize,h:cellSize,
+        type:template.type,
+        baseDirs:[...template.dirs],
+        rot,
+        targetRot:rot,
+        connected:false
+      };
+    }
+  }
+  checkFlow();
+}
+
+function getDirs(cell){
+  const r=(Math.round(cell.rot)%4+4)%4;
+  const d=cell.baseDirs;
+  return [
+    d[(4-r)%4],
+    d[(5-r)%4],
+    d[(6-r)%4],
+    d[(7-r)%4]
+  ];
+}
+
+function checkFlow(){
+  for(let r=0;r<GRID_SIZE;r++){
+    for(let col=0;col<GRID_SIZE;col++)grid[r][col].connected=false;
+  }
+
+  // Source at (0,0) - connected if top or left is open
+  const queue=[{r:0,col:0}];
+  grid[0][0].connected=true;
+  const visited=new Set(['0,0']);
+
+  while(queue.length>0){
+    const {r,col}=queue.shift();
+    const curr=grid[r][col];
+    const dirs=getDirs(curr);
+
+    const neighbors=[
+      {nr:r-1,nc:col,fromDir:2,toDir:0}, // Top
+      {nr:r,nc:col+1,fromDir:3,toDir:1}, // Right
+      {nr:r+1,nc:col,fromDir:0,toDir:2}, // Bottom
+      {nr:r,nc:col-1,fromDir:1,toDir:3}  // Left
+    ];
+
+    for(const {nr,nc,fromDir,toDir} of neighbors){
+      if(nr>=0&&nr<GRID_SIZE&&nc>=0&&nc<GRID_SIZE&&!visited.has(`${nr},${nc}`)){
+        const next=grid[nr][nc];
+        const nextDirs=getDirs(next);
+        if(dirs[toDir]&&nextDirs[fromDir]){
+          next.connected=true;
+          visited.add(`${nr},${nc}`);
+          queue.push({r:nr,col:nc});
+        }
+      }
+    }
+  }
+
+  // Check if drain (3,3) connected
+  if(grid[GRID_SIZE-1][GRID_SIZE-1].connected){
+    levelComplete();
+  }
+}
+
+function levelComplete(){
+  const pts=200+Math.round(levelTime*10);
+  score+=pts;level++;levelTime=Math.max(20,35-level);
+  sound(750,0.15,'triangle',0.06);
+  bridge('sendScoreUpdated',score,1);
+  bridge('haptic','medium');
+  burst(W/2,H/2,25,'#38bdf8');
+  popups.push({x:W/2,y:H*0.18,text:`LEVEL COMPLETE! +${pts}`,color:'#38bdf8',life:0.7,max:0.7});
+  setTimeout(initGrid,400);
+}
+
+function rotateCell(cell){
+  if(over)return;
+  if(!started){started=true;bridge('gameStarted');}
+  cell.targetRot+=1;
+  sound(440,0.04,'sine',0.04);
+  bridge('haptic','light');
+}
+
+function reset(){
+  score=0;level=1;levelTime=35;over=false;started=true;
+  particles=[];popups=[];last=performance.now();shake=0;
+  initGrid();
+  bridge('gameStarted');
+}
+
+function endGame(){
+  if(over)return;
+  over=true;shake=0.3;
+  sound(140,0.3,'sawtooth',0.08);
+  if(score>best){best=score;localStorage.setItem('pipe-connect-best',best);}
+  bridge('sendGameOver',score,1,30);
+}
+
+function getPos(e){
+  const r=c.getBoundingClientRect();
+  const clX=e.touches?e.touches[0].clientX:e.clientX;
+  const clY=e.touches?e.touches[0].clientY:e.clientY;
+  return {x:(clX-r.left)*(W/r.width),y:(clY-r.top)*(H/r.height)};
+}
+
+c.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  const p=getPos(e);
+  if(!started||over){reset();return;}
+
+  for(let r=0;r<GRID_SIZE;r++){
+    for(let col=0;col<GRID_SIZE;col++){
+      const cell=grid[r][col];
+      if(p.x>=cell.x&&p.x<=cell.x+cell.w&&p.y>=cell.y&&p.y<=cell.y+cell.h){
+        rotateCell(cell);
+        break;
+      }
+    }
+  }
+},{passive:false});
+
+initGrid();
+
+function frame(t){
+  if(isPaused||window.__GAME_PAUSED__)return;
+  const dt=Math.min(0.033,(t-last)/1000);last=t;
+  ctx.save();
+  if(shake>0){ctx.translate((Math.random()-0.5)*8,(Math.random()-0.5)*8);shake-=dt;}
+
+  // Background
+  ctx.fillStyle='#0f172a';ctx.fillRect(0,0,W,H);
+
+  if(started&&!over){
+    levelTime-=dt;
+    if(levelTime<=0)endGame();
+  }
+
+  // HUD
+  ctx.fillStyle='#ffffff';ctx.font='bold 22px sans-serif';ctx.textAlign='left';
+  ctx.fillText(`SCORE: ${score}`,20,40);
+  ctx.textAlign='right';ctx.fillStyle=levelTime<8?'#ef4444':'#fbbf24';
+  ctx.fillText(`TIME: ${Math.ceil(levelTime)}s`,W-20,40);
+
+  // Draw Grid
+  let needCheck=false;
+  for(let r=0;r<GRID_SIZE;r++){
+    for(let col=0;col<GRID_SIZE;col++){
+      const cell=grid[r][col];
+      
+      // Smooth Rotation
+      if(cell.rot<cell.targetRot){
+        cell.rot+=(cell.targetRot-cell.rot)*0.25;
+        if(Math.abs(cell.targetRot-cell.rot)<0.02){cell.rot=cell.targetRot;needCheck=true;}
+      }
+
+      ctx.save();
+      ctx.translate(cell.x+cell.w/2,cell.y+cell.h/2);
+      ctx.rotate(cell.rot*Math.PI/2);
+
+      // Cell Background
+      ctx.fillStyle='#1e293b';ctx.fillRect(-cell.w/2,-cell.h/2,cell.w,cell.h);
+      ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;ctx.strokeRect(-cell.w/2,-cell.h/2,cell.w,cell.h);
+
+      // Draw Pipe Shape
+      ctx.strokeStyle=cell.connected?'#38bdf8':'#64748b';
+      ctx.lineWidth=14;ctx.lineCap='round';
+
+      const d=cell.baseDirs;
+      // Top
+      if(d[0]){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,-cell.h/2);ctx.stroke();}
+      // Right
+      if(d[1]){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(cell.w/2,0);ctx.stroke();}
+      // Bottom
+      if(d[2]){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,cell.h/2);ctx.stroke();}
+      // Left
+      if(d[3]){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-cell.w/2,0);ctx.stroke();}
+
+      // Center Node
+      ctx.fillStyle=cell.connected?'#38bdf8':'#64748b';
+      ctx.beginPath();ctx.arc(0,0,8,0,Math.PI*2);ctx.fill();
+
+      ctx.restore();
+    }
+  }
+
+  if(needCheck)checkFlow();
+
+  // Draw Source (Top-Left) and Drain (Bottom-Right) indicators
+  ctx.fillStyle='#38bdf8';ctx.font='bold 12px sans-serif';ctx.textAlign='center';
+  ctx.fillText('💧 SOURCE',grid[0][0].x+34,grid[0][0].y-10);
+  ctx.fillStyle='#22c55e';
+  ctx.fillText('DRAIN 🏁',grid[GRID_SIZE-1][GRID_SIZE-1].x+34,grid[GRID_SIZE-1][GRID_SIZE-1].y+grid[0][0].h+20);
+
+  // Particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
+    if(p.life<=0){particles.splice(i,1);continue;}
+    ctx.globalAlpha=p.life/p.max;ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // Popups
+  for(let i=popups.length-1;i>=0;i--){
+    const pp=popups[i];pp.life-=dt;pp.y-=25*dt;
+    if(pp.life<=0){popups.splice(i,1);continue;}
+    ctx.globalAlpha=pp.life/pp.max;ctx.fillStyle=pp.color;
+    ctx.font='bold 18px sans-serif';ctx.textAlign='center';
+    ctx.fillText(pp.text,pp.x,pp.y);
+  }
+  ctx.globalAlpha=1;
+
+  // Start Screen
+  if(!started&&!over){
+    ctx.fillStyle='rgba(15,23,42,0.85)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ffffff';ctx.font='bold 32px sans-serif';
+    ctx.fillText('PIPE CONNECT',W/2,H*0.36);
+    ctx.fillStyle='#38bdf8';ctx.font='bold 14px sans-serif';
+    ctx.fillText('GRID WATER FLOW PUZZLE',W/2,H*0.36+30);
+    ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';
+    ctx.fillText('Tap pipe tiles to connect water from source to drain!',W/2,H*0.52);
+    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-90,H*0.62,180,48);
+    ctx.fillStyle='#ffffff';ctx.font='bold 16px sans-serif';
+    ctx.fillText('TAP TO PLAY',W/2,H*0.62+30);
+  }
+
+  // Game Over
+  if(over){
+    ctx.fillStyle='rgba(15,23,42,0.88)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#1e293b';ctx.fillRect(35,H/2-130,290,260);
+    ctx.strokeStyle='#ef4444';ctx.lineWidth=2;ctx.strokeRect(35,H/2-130,290,260);
+    ctx.textAlign='center';ctx.fillStyle='#ef4444';ctx.font='bold 26px sans-serif';
+    ctx.fillText('TIME UP!',W/2,H/2-70);
+    ctx.fillStyle='#ffffff';ctx.font='bold 48px sans-serif';
+    ctx.fillText(score,W/2,H/2-10);
+    ctx.fillStyle='#94a3b8';ctx.font='14px sans-serif';
+    ctx.fillText(`BEST SCORE: ${best}`,W/2,H/2+38);
+    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-85,H/2+62,170,44);
+    ctx.fillStyle='#ffffff';ctx.font='bold 14px sans-serif';
+    ctx.fillText('PLAY AGAIN',W/2,H/2+89);
+  }
+
+  ctx.restore();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
 </body>
 </html>
