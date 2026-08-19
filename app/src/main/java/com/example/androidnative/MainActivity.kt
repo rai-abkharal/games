@@ -42,6 +42,24 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         cacheManager = GameCacheManager(this)
         repository = GameRepository(this)
 
+        // Lock window to highest hardware refresh rate (90Hz / 120Hz / 144Hz)
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                val display = this.display
+                val modes = display?.supportedModes
+                val maxMode = modes?.maxByOrNull { it.refreshRate }
+                if (maxMode != null) {
+                    val params = window.attributes
+                    params.preferredDisplayModeId = maxMode.modeId
+                    window.attributes = params
+                }
+            } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                val params = window.attributes
+                params.preferredRefreshRate = 120f
+                window.attributes = params
+            }
+        } catch (_: Exception) {}
+
         setupViewPager()
         setupTopBar()
         loadCatalog()
@@ -62,6 +80,8 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                     super.onPageSelected(position)
                     this@MainActivity.adapter.handlePageSelected(position)
                     updateTopBarForGame(position)
+                    // Trigger predictive background pre-download for upcoming games
+                    cacheManager.preloadUpcomingGames(position, currentGameList, lifecycleScope)
                 }
             })
         }
@@ -119,6 +139,8 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             adapter.setGames(currentGameList)
             if (currentGameList.isNotEmpty()) {
                 updateTopBarForGame(0)
+                // Preload starting games (0, 1, 2) immediately on app startup
+                cacheManager.preloadUpcomingGames(0, currentGameList, lifecycleScope)
             }
         }
     }

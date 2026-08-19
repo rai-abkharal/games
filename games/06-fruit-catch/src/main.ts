@@ -253,10 +253,10 @@ const config: Phaser.Types.Core.GameConfig = {
   height: 800,
   backgroundColor: '#f8f6f0',
   transparent: false,
-  roundPixels: true,
+  roundPixels: false,
   antialias: false,
   fps: {
-    target: 60,
+    target: 120,
     min: 30,
     forceSetTimeOut: false,
     deltaHistory: 10,

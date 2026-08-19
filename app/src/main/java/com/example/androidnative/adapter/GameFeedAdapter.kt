@@ -172,6 +172,9 @@ class GameFeedAdapter(
             val webView = binding.webView
             webView.setBackgroundColor(Color.parseColor("#F8F6F0"))
             webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            webView.isVerticalScrollBarEnabled = false
+            webView.isHorizontalScrollBarEnabled = false
+            webView.overScrollMode = View.OVER_SCROLL_NEVER
 
             val settings = webView.settings
             settings.javaScriptEnabled = true
@@ -181,6 +184,8 @@ class GameFeedAdapter(
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.allowFileAccess = true
             settings.databaseEnabled = true
+            @Suppress("DEPRECATION")
+            settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
 
             val bridge = NativeGameBridge(context, bridgeListener)
             webView.addJavascriptInterface(bridge, "FlutterGameBridge")

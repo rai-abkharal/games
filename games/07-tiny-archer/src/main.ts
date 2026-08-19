@@ -78,7 +78,8 @@ class MenuScene extends Phaser.Scene {
 class GameScene extends Phaser.Scene {
   private bowOrigin!: Phaser.Math.Vector2;
   private isAiming: boolean = false;
-  private aimVector!: Phaser.Math.Vector2;
+  private aimVector: Phaser.Math.Vector2 = new Phaser.Math.Vector2();
+  private pullVector: Phaser.Math.Vector2 = new Phaser.Math.Vector2();
   private trajectoryDots: Phaser.GameObjects.Circle[] = [];
   
   private arrowsLeft: number = 10;
@@ -201,13 +202,13 @@ class GameScene extends Phaser.Scene {
   }
 
   private updateAim(pointer: Phaser.Input.Pointer) {
-    const pullVector = new Phaser.Math.Vector2(this.bowOrigin.x - pointer.x, this.bowOrigin.y - pointer.y);
+    this.pullVector.set(this.bowOrigin.x - pointer.x, this.bowOrigin.y - pointer.y);
     const maxPull = 120;
-    if (pullVector.length() > maxPull) {
-      pullVector.setLength(maxPull);
+    if (this.pullVector.length() > maxPull) {
+      this.pullVector.setLength(maxPull);
     }
 
-    this.aimVector = pullVector;
+    this.aimVector.copy(this.pullVector);
 
     // Draw trajectory dots
     const speed = this.aimVector.length() * 8.5;
@@ -368,10 +369,10 @@ const config: Phaser.Types.Core.GameConfig = {
   height: 800,
   backgroundColor: '#f8f6f0',
   transparent: false,
-  roundPixels: true,
+  roundPixels: false,
   antialias: false,
   fps: {
-    target: 60,
+    target: 120,
     min: 30,
     forceSetTimeOut: false,
     deltaHistory: 10,
