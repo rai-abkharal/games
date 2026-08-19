@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+export const TouchZoneSchema = z.object({
+  name: z.string().default('gameplay'),
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  width: z.number().min(0).max(1),
+  height: z.number().min(0).max(1),
+});
+
 export const GameFeaturesSchema = z.object({
   sound: z.boolean().default(true),
   vibration: z.boolean().default(false),
@@ -22,6 +30,7 @@ export const GameSchema = z.object({
   controls: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
   ageRating: z.string().optional(),
+  touchZones: z.array(TouchZoneSchema).optional().default([]),
   features: GameFeaturesSchema,
 });
 

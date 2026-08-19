@@ -210,6 +210,40 @@ class GameFeedAdapter(
             webView.addJavascriptInterface(bridge, "NativeBridge")
             webView.webChromeClient = WebChromeClient()
 
+            webView.setOnTouchListener { v, event ->
+                val zones = game.touchZones
+                if (zones.isNullOrEmpty()) {
+                    v.parent?.requestDisallowInterceptTouchEvent(false)
+                    return@setOnTouchListener false
+                }
+
+                val viewWidth = v.width.toFloat()
+                val viewHeight = v.height.toFloat()
+                if (viewWidth <= 0 || viewHeight <= 0) return@setOnTouchListener false
+
+                val normX = event.x / viewWidth
+                val normY = event.y / viewHeight
+
+                val isInsideBlockedZone = zones.any { zone ->
+                    normX >= zone.x && normX <= (zone.x + zone.width) &&
+                    normY >= zone.y && normY <= (zone.y + zone.height)
+                }
+
+                when (event.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_MOVE -> {
+                        if (isInsideBlockedZone) {
+                            v.parent?.requestDisallowInterceptTouchEvent(true)
+                        } else {
+                            v.parent?.requestDisallowInterceptTouchEvent(false)
+                        }
+                    }
+                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                        v.parent?.requestDisallowInterceptTouchEvent(false)
+                    }
+                }
+                false
+            }
+
             webView.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(
                     view: WebView?,

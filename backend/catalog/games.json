@@ -19,7 +19,8 @@
       "features": {
         "sound": true,
         "vibration": true
-      }
+      },
+      "touchZones": []
     },
     {
       "id": "color-match",
@@ -38,7 +39,8 @@
       "features": {
         "sound": true,
         "vibration": false
-      }
+      },
+      "touchZones": []
     },
     {
       "id": "stack-tower",
@@ -57,7 +59,8 @@
       "features": {
         "sound": true,
         "vibration": true
-      }
+      },
+      "touchZones": []
     },
     {
       "id": "lane-dodge",
@@ -76,7 +79,8 @@
       "features": {
         "sound": true,
         "vibration": true
-      }
+      },
+      "touchZones": []
     },
     {
       "id": "memory-flip",
@@ -95,7 +99,8 @@
       "features": {
         "sound": true,
         "vibration": false
-      }
+      },
+      "touchZones": []
     },
     {
       "id": "fruit-catch",
@@ -114,7 +119,16 @@
       "features": {
         "sound": true,
         "vibration": true
-      }
+      },
+      "touchZones": [
+        {
+          "name": "Basket Slider",
+          "x": 0,
+          "y": 0.65,
+          "width": 1,
+          "height": 0.35
+        }
+      ]
     },
     {
       "id": "tiny-archer",
@@ -133,7 +147,16 @@
       "features": {
         "sound": true,
         "vibration": true
-      }
+      },
+      "touchZones": [
+        {
+          "name": "Bow & Arrow Pull",
+          "x": 0,
+          "y": 0.4,
+          "width": 0.45,
+          "height": 0.4
+        }
+      ]
     },
     {
       "id": "pipe-connect",
@@ -152,7 +175,8 @@
       "features": {
         "sound": true,
         "vibration": false
-      }
+      },
+      "touchZones": []
     },
     {
       "id": "one-tap-runner",
@@ -171,7 +195,8 @@
       "features": {
         "sound": true,
         "vibration": true
-      }
+      },
+      "touchZones": []
     },
     {
       "id": "merge-dots",
@@ -190,7 +215,16 @@
       "features": {
         "sound": true,
         "vibration": true
-      }
+      },
+      "touchZones": [
+        {
+          "name": "4x4 Grid Board",
+          "x": 0.08,
+          "y": 0.2,
+          "width": 0.84,
+          "height": 0.54
+        }
+      ]
     },
     {
       "id": "fruit-frenzy",
@@ -209,7 +243,8 @@
       "features": {
         "sound": true,
         "vibration": false
-      }
+      },
+      "touchZones": []
     },
     {
       "id": "neon-switch",
@@ -228,7 +263,8 @@
       "features": {
         "sound": true,
         "vibration": false
-      }
+      },
+      "touchZones": []
     },
     {
       "id": "sky-pop",
@@ -247,7 +283,8 @@
       "features": {
         "sound": true,
         "vibration": false
-      }
+      },
+      "touchZones": []
     },
     {
       "id": "crown-arena",
@@ -266,7 +303,23 @@
       "features": {
         "sound": true,
         "vibration": false
-      }
+      },
+      "touchZones": [
+        {
+          "name": "Virtual Joystick",
+          "x": 0,
+          "y": 0.5,
+          "width": 0.55,
+          "height": 0.5
+        },
+        {
+          "name": "Attack & Dash Buttons",
+          "x": 0.65,
+          "y": 0.55,
+          "width": 0.35,
+          "height": 0.45
+        }
+      ]
     },
     {
       "id": "cyber-blade",
@@ -285,7 +338,16 @@
       "features": {
         "sound": true,
         "vibration": false
-      }
+      },
+      "touchZones": [
+        {
+          "name": "Blade Slicing Arena",
+          "x": 0,
+          "y": 0.15,
+          "width": 1,
+          "height": 0.75
+        }
+      ]
     },
     {
       "id": "jetpack-surge",
@@ -304,7 +366,8 @@
       "features": {
         "sound": true,
         "vibration": false
-      }
+      },
+      "touchZones": []
     }
   ]
 }

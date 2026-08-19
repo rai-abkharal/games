@@ -37,6 +37,7 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
         ageRating: g.ageRating || 'everyone',
         totalPlays: 1240 + idx * 315,
         totalReports: 0,
+        touchZones: (g as any).touchZones || [],
         versions: [
           {
             id: `${g.id}-${g.version}`,
@@ -248,6 +249,45 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       success: true,
       reports: []
     });
+  });
+
+  // 5. Update Game Touch Zones (Dynamic Swipe Lock)
+  router.put('/games/:id/touch-zones', (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { touchZones } = req.body;
+      
+      let catalogData: any = { schemaVersion: '1.0.0', games: [] };
+      if (fs.existsSync(catalogPath)) {
+        catalogData = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+      }
+
+      const game = catalogData.games.find((g: any) => g.id === id);
+      if (!game) {
+        res.status(404).json({ error: 'Game not found in catalog' });
+        return;
+      }
+
+      game.touchZones = Array.isArray(touchZones) ? touchZones : [];
+      fs.writeFileSync(catalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
+
+      // Sync to frontend assets catalog if present
+      const frontendCatalogPath = path.resolve(__dirname, '../../../frontend/assets/catalog/games.json');
+      if (fs.existsSync(path.dirname(frontendCatalogPath))) {
+        fs.writeFileSync(frontendCatalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
+      }
+
+      // Hot reload catalog in memory
+      catalogService.loadAndValidateCatalog();
+
+      res.json({
+        success: true,
+        message: `Updated touch zones for game "${game.title}"`,
+        touchZones: game.touchZones
+      });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to update touch zones', details: String(err) });
+    }
   });
 
   return router;

@@ -8,6 +8,14 @@ data class GameCatalog(
     @SerializedName("games") val games: List<GameItem> = emptyList()
 )
 
+data class TouchZone(
+    @SerializedName("name") val name: String = "gameplay",
+    @SerializedName("x") val x: Float = 0f,
+    @SerializedName("y") val y: Float = 0f,
+    @SerializedName("width") val width: Float = 1f,
+    @SerializedName("height") val height: Float = 1f
+)
+
 data class GameItem(
     @SerializedName("id") val id: String,
     @SerializedName("title") val title: String,
@@ -22,5 +30,6 @@ data class GameItem(
     @SerializedName("category") val category: String = "Arcade",
     @SerializedName("description") val description: String = "",
     @SerializedName("sha256") val sha256: String? = null,
+    @SerializedName("touchZones") val touchZones: List<TouchZone> = emptyList(),
     @SerializedName("features") val features: Map<String, Boolean>? = null
 )
