@@ -1490,6 +1490,17 @@ addEventListener("keydown", (e) => {
 });
 addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
 
+function bridge(name,...args){
+  try{
+    window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');
+    if(name==='setSwipeEnabled'){
+      if(window.FlutterGameBridge?.setSwipeEnabled)window.FlutterGameBridge.setSwipeEnabled(args[0]);
+      if(window.NativeBridge?.setSwipeEnabled)window.NativeBridge.setSwipeEnabled(args[0]);
+    }
+    if(window.GameBridge?.[name])window.GameBridge[name](...args);
+  }catch(e){}
+}
+
 /* ---------- Virtual Joystick Controller ---------- */
 function initJoystick() {
     const base = joystick.baseEl;
@@ -1507,6 +1518,7 @@ function initJoystick() {
         base.style.bottom = "";
         base.style.top = "";
         base.style.right = "";
+        bridge('setSwipeEnabled', true);
     }
 
     function onPointerDown(e) {
@@ -1524,6 +1536,7 @@ function initJoystick() {
         if (!isNearBase && !isLeftZone)
             return;
 
+        bridge('setSwipeEnabled', false);
         joystick.active = true;
         joystick.pointerId = e.pointerId;
         base.classList.add("active");

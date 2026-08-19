@@ -36,7 +36,14 @@ window.__GAME_PAUSED__=false;
 window.SoundFx={ctx:null};
 
 function bridge(name,...args){
-  try{window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');if(window.GameBridge?.[name])window.GameBridge[name](...args)}catch(e){}
+  try{
+    window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');
+    if(name==='setSwipeEnabled'){
+      if(window.FlutterGameBridge?.setSwipeEnabled)window.FlutterGameBridge.setSwipeEnabled(args[0]);
+      if(window.NativeBridge?.setSwipeEnabled)window.NativeBridge.setSwipeEnabled(args[0]);
+    }
+    if(window.GameBridge?.[name])window.GameBridge[name](...args);
+  }catch(e){}
 }
 bridge('sendReady');
 
@@ -191,16 +198,33 @@ function endGame(){
   bridge('sendGameOver',score,1,30);
 }
 
+const CELL_SIZE=68,GAP=10;
+const START_X=(W-(GRID_SIZE*CELL_SIZE+(GRID_SIZE-1)*GAP))/2;
+const START_Y=H*0.22;
+const BOARD_SIZE=GRID_SIZE*CELL_SIZE+(GRID_SIZE-1)*GAP;
+
+function isInsideBoard(px,py){
+  return px>=START_X-20&&px<=START_X+BOARD_SIZE+20&&py>=START_Y-20&&py<=START_Y+BOARD_SIZE+20;
+}
+
 function handleStart(x,y){
   if(!started||over){reset();return;}
-  touchStartX=x;
-  touchStartY=y;
-  isSwiping=true;
+  const r=c.getBoundingClientRect();
+  const px=(x-r.left)*(W/r.width);
+  const py=(y-r.top)*(H/r.height);
+
+  if(isInsideBoard(px,py)){
+    bridge('setSwipeEnabled',false);
+    touchStartX=x;
+    touchStartY=y;
+    isSwiping=true;
+  }
 }
 
 function handleEnd(x,y){
   if(!isSwiping)return;
   isSwiping=false;
+  bridge('setSwipeEnabled',true);
   const dx=x-touchStartX;
   const dy=y-touchStartY;
   if(Math.hypot(dx,dy)>20){
@@ -213,24 +237,24 @@ function handleEnd(x,y){
 }
 
 c.addEventListener('touchstart',e=>{
-  e.preventDefault();
   handleStart(e.touches[0].clientX,e.touches[0].clientY);
-},{passive:false});
+},{passive:true});
 
 c.addEventListener('touchend',e=>{
-  e.preventDefault();
   handleEnd(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
-},{passive:false});
+},{passive:true});
+
+c.addEventListener('touchcancel',e=>{
+  if(isSwiping){isSwiping=false;bridge('setSwipeEnabled',true);}
+},{passive:true});
 
 c.addEventListener('pointerdown',e=>{
-  e.preventDefault();
   handleStart(e.clientX,e.clientY);
-},{passive:false});
+},{passive:true});
 
 c.addEventListener('pointerup',e=>{
-  e.preventDefault();
   handleEnd(e.clientX,e.clientY);
-},{passive:false});
+},{passive:true});
 
 initGrid();
 

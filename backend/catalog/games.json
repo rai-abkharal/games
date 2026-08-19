@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "updatedAt": "2026-08-19T11:29:04.430Z",
+  "updatedAt": "2026-08-19T12:07:47.344Z",
   "games": [
     {
       "id": "tap-cannon",
@@ -122,14 +122,14 @@
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/tiny-archer/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/tiny-archer.webp",
-      "sizeBytes": 11008,
+      "sizeBytes": 11314,
       "orientation": "portrait",
       "engine": "phaser",
       "manifestUrl": "http://localhost:8080/games/tiny-archer/1.1.0/manifest.json",
       "feedOrder": 7,
       "category": "Action",
       "description": "Pull back, aim trajectory, and loose arrows at moving targets.",
-      "sha256": "d3d0deb94dde06089e2692c14beea8c0072ae0a25c46b1e78869572652f804c7",
+      "sha256": "7b9aecd06943d1977bd662482f80914d7cae3a438ea5db0ff350d29d62a57061",
       "features": {
         "sound": true,
         "vibration": true
@@ -179,14 +179,14 @@
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/merge-dots/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/merge-dots.webp",
-      "sizeBytes": 11059,
+      "sizeBytes": 11851,
       "orientation": "portrait",
       "engine": "phaser",
       "manifestUrl": "http://localhost:8080/games/merge-dots/1.1.0/manifest.json",
       "feedOrder": 10,
       "category": "Puzzle",
       "description": "Merge matching number dots on a 4x4 board to reach the highest dot!",
-      "sha256": "eaf20ca5a083a0621ad04705f2c9507dda33d97006686c39adc6a6fbadc04f12",
+      "sha256": "fd1b050109b0c8fdebb025e793fbdb61ea44122d8b2873c49862a666f1cb69dc",
       "features": {
         "sound": true,
         "vibration": true
@@ -255,14 +255,14 @@
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/crown-arena/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/crown-arena.webp",
-      "sizeBytes": 50820,
+      "sizeBytes": 51332,
       "orientation": "portrait",
       "engine": "phaser",
       "manifestUrl": "http://localhost:8080/games/crown-arena/1.1.0/manifest.json",
       "feedOrder": 99,
       "category": "Arcade",
       "description": "Battle smart AI opponents in a dynamic 2D arena. Capture and hold the golden crown to win!",
-      "sha256": "4efe7d50a8eb597f7327c3b96ab68d13d255a2e0867d1a697bea8a2722225776",
+      "sha256": "4a595ac65afe870f899ec90750a3c3b1c014f7abc31ac186407c548d952c2735",
       "features": {
         "sound": true,
         "vibration": false

@@ -107,10 +107,17 @@ function getPos(e){
   return {x:(clX-r.left)*(W/r.width),y:(clY-r.top)*(H/r.height)};
 }
 
+function isNearBow(px,py){
+  return Math.hypot(px-bow.x,py-bow.y)<=75;
+}
+
 c.addEventListener('touchstart',e=>{
   if(!started||over){reset();return;}
   const p=getPos(e);
-  bow.pulling=true;bow.pullX=p.x;bow.pullY=p.y;
+  if(isNearBow(p.x,p.y)){
+    bridge('setSwipeEnabled',false);
+    bow.pulling=true;bow.pullX=p.x;bow.pullY=p.y;
+  }
 },{passive:true});
 
 c.addEventListener('touchmove',e=>{
@@ -123,6 +130,7 @@ c.addEventListener('touchmove',e=>{
 c.addEventListener('touchend',e=>{
   if(bow.pulling){
     bow.pulling=false;
+    bridge('setSwipeEnabled',true);
     const dx=bow.x-bow.pullX,dy=bow.y-bow.pullY;
     const dist=Math.min(110,Math.hypot(dx,dy));
     if(dist>15){
@@ -131,6 +139,10 @@ c.addEventListener('touchend',e=>{
       shootArrow(Math.cos(angle)*power,Math.sin(angle)*power);
     }
   }
+},{passive:true});
+
+c.addEventListener('touchcancel',e=>{
+  if(bow.pulling){bow.pulling=false;bridge('setSwipeEnabled',true);}
 },{passive:true});
 
 c.addEventListener('pointerdown',e=>{
