@@ -16,10 +16,17 @@ canvas{display:block;background:#07152f}
 <div id="game-container"></div>
 <script>
 (()=>{'use strict';
-const W=360,H=640,D=devicePixelRatio||1;
+const W=360,H=640,D=Math.min(devicePixelRatio||1,2);
 const c=document.createElement('canvas');c.width=W*D;c.height=H*D;c.style.width='min(100vw,56.25vh)';c.style.height='min(177.78vw,100vh)';
 document.getElementById('game-container').appendChild(c);
 const x=c.getContext('2d');x.scale(D,D);
+
+// Pre-cached static canvas gradients
+const skyGrad=x.createLinearGradient(0,0,0,H);
+skyGrad.addColorStop(0,'#55c7ff');skyGrad.addColorStop(.52,'#8ee8ff');skyGrad.addColorStop(1,'#d9f8ff');
+
+const sunGrad=x.createRadialGradient(280,115,0,280,115,100);
+sunGrad.addColorStop(0,'rgba(255,247,174,.75)');sunGrad.addColorStop(1,'rgba(255,247,174,0)');
 
 let score=0,best=+localStorage.getItem('sky-pop-best')||0,over=false;
 let bird={x:82,y:320,vy:0,rot:0},walls=[],parts=[],clouds=[];
@@ -94,12 +101,10 @@ function frame(t){
  x.save();
  if(shake>0){x.translate((Math.random()-.5)*9,(Math.random()-.5)*9);shake-=dt}
  if(!over){elapsed+=dt}
- const sky=x.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#55c7ff');sky.addColorStop(.52,'#8ee8ff');sky.addColorStop(1,'#d9f8ff');
- x.fillStyle=sky;x.fillRect(0,0,W,H);
+ x.fillStyle=skyGrad;x.fillRect(0,0,W,H);
 
  // sun
- let sg=x.createRadialGradient(280,115,0,280,115,100);sg.addColorStop(0,'rgba(255,247,174,.75)');sg.addColorStop(1,'rgba(255,247,174,0)');
- x.fillStyle=sg;x.beginPath();x.arc(280,115,100,0,6.28);x.fill();
+ x.fillStyle=sunGrad;x.beginPath();x.arc(280,115,100,0,6.28);x.fill();
  x.fillStyle='#fff1a8';x.beginPath();x.arc(280,115,34,0,6.28);x.fill();
 
  // clouds
@@ -130,8 +135,7 @@ function frame(t){
 
  // bird
  x.save();x.translate(bird.x,bird.y);x.rotate(bird.rot);
- let glow=x.createRadialGradient(0,0,0,0,0,34);glow.addColorStop(0,'rgba(255,230,74,.42)');glow.addColorStop(1,'rgba(255,230,74,0)');
- x.fillStyle=glow;x.beginPath();x.arc(0,0,34,0,6.28);x.fill();
+ x.fillStyle='rgba(255,230,74,.35)';x.beginPath();x.arc(0,0,30,0,6.28);x.fill();
  x.fillStyle='#ffe44f';x.beginPath();x.ellipse(0,0,20,15,0,0,6.28);x.fill();
  x.fillStyle='#ffbd3d';x.beginPath();x.ellipse(-5,8,12,6,.3,0,6.28);x.fill();
  x.fillStyle='#fff';x.beginPath();x.arc(9,-6,6,0,6.28);x.fill();x.fillStyle='#111827';x.beginPath();x.arc(11,-6,2.5,0,6.28);x.fill();
@@ -140,12 +144,12 @@ function frame(t){
  // particles
  for(let i=parts.length-1;i>=0;i--){let p=parts[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=250*dt;if(p.life<=0){parts.splice(i,1);continue}x.globalAlpha=p.life/p.max;x.fillStyle=p.color;x.beginPath();x.arc(p.x,p.y,p.r,0,6.28);x.fill()}x.globalAlpha=1;
 
- // HUD
- x.textAlign='center';x.font='bold 43px Arial Black,Arial';x.fillStyle='#fff';x.shadowColor='#4169e1';x.shadowBlur=9;x.fillText(score,W/2,52);x.shadowBlur=0;
+ // HUD (Zero-blur fast rendering)
+ x.textAlign='center';x.font='bold 43px Arial Black,Arial';x.fillStyle='#fff';x.fillText(score,W/2,52);
  x.textAlign='left';x.font='bold 12px Arial';x.fillStyle='#21458b';x.fillText('BEST '+best,16,24);
  if(combo>=3){x.textAlign='right';x.fillStyle='#ff8b2d';x.font='bold 13px Arial';x.fillText('COMBO ×'+combo,W-16,24)}
 
- if(intro>0&&!over){intro-=dt*1000;x.fillStyle='rgba(4,20,48,.08)';x.fillRect(0,0,W,H);x.textAlign='center';x.font='bold 29px Arial Black,Arial';x.fillStyle='#fff';x.shadowColor='#4169e1';x.shadowBlur=10;x.fillText('TAP TO',W/2,H*.38);x.fillText('FLY',W/2,H*.38+35);x.shadowBlur=0;x.font='11px Arial';x.fillStyle='#17498b';x.fillText('FLY THROUGH THE SKY GATES',W/2,H*.51)}
+ if(intro>0&&!over){intro-=dt*1000;x.fillStyle='rgba(4,20,48,.08)';x.fillRect(0,0,W,H);x.textAlign='center';x.font='bold 29px Arial Black,Arial';x.fillStyle='#fff';x.fillText('TAP TO',W/2,H*.38);x.fillText('FLY',W/2,H*.38+35);x.font='11px Arial';x.fillStyle='#17498b';x.fillText('FLY THROUGH THE SKY GATES',W/2,H*.51)}
 
  if(over){
   x.fillStyle='rgba(4,15,40,.72)';x.fillRect(0,0,W,H);

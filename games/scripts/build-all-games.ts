@@ -49,6 +49,7 @@ async function buildAll() {
         base: './',
         resolve: {
           alias: [
+            { find: 'phaser', replacement: path.resolve(__dirname, '../node_modules/phaser/dist/phaser-arcade-physics.min.js') },
             { find: '../../shared', replacement: sharedDir },
             { find: '../shared', replacement: sharedDir },
             { find: '@shared', replacement: sharedDir },
@@ -68,14 +69,6 @@ async function buildAll() {
           assetsInlineLimit: Number.POSITIVE_INFINITY,
           cssCodeSplit: false,
           reportCompressedSize: true,
-          rollupOptions: {
-            external: ['phaser'],
-            output: {
-              globals: {
-                phaser: 'Phaser',
-              },
-            },
-          },
         },
         logLevel: 'warn',
       });
