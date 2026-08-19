@@ -29,7 +29,7 @@ echo "🎮 [3/5] Compiling and Deploying all 10 Mini-Games to CDN..."
 cd "$PROJECT_DIR/games"
 npm install
 npm run build:all
-npm run deploy:all
+npx tsx scripts/deploy-all-games.ts --force
 
 echo ""
 echo "🔨 [4/5] Building Backend TypeScript to Production JS..."
