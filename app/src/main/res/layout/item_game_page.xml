@@ -3,40 +3,82 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F8F6F0">
+    android:background="#070D1E">
 
     <!-- Native Hardware-Accelerated WebView -->
     <WebView
         android:id="@+id/webView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#F8F6F0"
-        android:layerType="hardware" />
+        android:background="#070D1E" />
 
-    <!-- Static Thumbnail / Placeholder (Shown while loading) -->
-    <LinearLayout
+    <!-- Static Thumbnail / Placeholder (Shown while compiling & warming up) -->
+    <RelativeLayout
         android:id="@+id/placeholderContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#F8F6F0"
-        android:gravity="center"
-        android:orientation="vertical"
-        android:visibility="gone">
+        android:background="#070D1E"
+        android:visibility="visible">
 
-        <ProgressBar
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:indeterminateTint="#2563EB" />
-
-        <TextView
-            android:id="@+id/tvPlaceholderTitle"
+        <!-- Center Game Identity Banner -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Loading Game..."
-            android:textColor="#1E293B"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-    </LinearLayout>
+            android:layout_centerInParent="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <!-- Glowing Game Logo Circle -->
+            <FrameLayout
+                android:layout_width="88dp"
+                android:layout_height="88dp"
+                android:background="@drawable/bg_round_button"
+                android:backgroundTint="#1E293B">
+
+                <TextView
+                    android:id="@+id/tvGameIconLetter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="🎮"
+                    android:textSize="36sp" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvPlaceholderTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="Loading..."
+                android:textColor="#F8FAFC"
+                android:textSize="22sp"
+                android:fontFamily="sans-serif-black" />
+
+            <TextView
+                android:id="@+id/tvPlaceholderCategory"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="ARCADE • 120 FPS"
+                android:textColor="#818CF8"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.1" />
+
+        </LinearLayout>
+
+        <!-- 1-Line Sleek Glowing Loading Bar at Bottom of Header / Top of Screen -->
+        <ProgressBar
+            android:id="@+id/topLoadingLine"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_alignParentTop="true"
+            android:indeterminate="true"
+            android:indeterminateTint="#818CF8"
+            android:progressDrawable="@drawable/loading_line_gradient" />
+
+    </RelativeLayout>
 
 </FrameLayout>

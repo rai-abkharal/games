@@ -176,10 +176,12 @@ class GameFeedAdapter(
         fun bind(game: GameItem, position: Int) {
             activeWebViews[position] = binding.webView
             binding.placeholderContainer.visibility = View.VISIBLE
+            binding.placeholderContainer.alpha = 1.0f
             binding.tvPlaceholderTitle.text = game.title
+            binding.tvPlaceholderCategory.text = "${game.category.uppercase()} • 120 FPS ENGINE"
 
             val webView = binding.webView
-            webView.setBackgroundColor(Color.parseColor("#0F172A"))
+            webView.setBackgroundColor(Color.parseColor("#070D1E"))
             webView.isVerticalScrollBarEnabled = false
             webView.isHorizontalScrollBarEnabled = false
             webView.overScrollMode = View.OVER_SCROLL_NEVER
@@ -196,6 +198,9 @@ class GameFeedAdapter(
             settings.loadWithOverviewMode = true
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                 settings.offscreenPreRaster = true
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                settings.safeBrowsingEnabled = false
             }
             @Suppress("DEPRECATION")
             settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
@@ -216,7 +221,17 @@ class GameFeedAdapter(
 
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
-                    binding.placeholderContainer.visibility = View.GONE
+                    
+                    // Allow 200ms for V8 JIT & GPU shader compilation warmup before smooth reveal
+                    binding.placeholderContainer.postDelayed({
+                        binding.placeholderContainer.animate()
+                            .alpha(0f)
+                            .setDuration(220)
+                            .withEndAction {
+                                binding.placeholderContainer.visibility = View.GONE
+                            }
+                            .start()
+                    }, 200)
 
                     val targetPos = if (bindingAdapterPosition != RecyclerView.NO_POSITION) bindingAdapterPosition else position
                     val isCurrent = (targetPos == currentSelectedPosition)
