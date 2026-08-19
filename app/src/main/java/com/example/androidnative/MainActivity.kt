@@ -177,7 +177,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                 for (i in currentGameList.indices) {
                     val game = currentGameList[i]
                     sheetBinding.tvBatchStatus.text = "Downloading ${game.title} (${i + 1}/${currentGameList.size})..."
-                    cacheManager.downloadGame(game) { p ->
+                    cacheManager.downloadGame(game, isExplicitOffline = true) { p ->
                         val overall = (((i + p) / currentGameList.size) * 100).toInt()
                         sheetBinding.pbBatchProgress.progress = overall
                     }
@@ -201,10 +201,16 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     private fun startBatchDownload() {
         lifecycleScope.launch {
             for (game in currentGameList) {
-                cacheManager.downloadGame(game)
+                cacheManager.downloadGame(game, isExplicitOffline = true)
             }
-            Toast.makeText(this@MainActivity, "Games cached for ultra-smooth play!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@MainActivity, "Games downloaded for 100% offline play!", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Automatically purge session cache on app close (keeps permanent offline downloads)
+        cacheManager.clearTempCache()
     }
 
     override fun onGameStarted() {

@@ -17,25 +17,31 @@ import java.util.regex.Pattern
 class GameCacheManager(private val context: Context) {
 
     private val client = OkHttpClient()
-    private val cacheBaseDir = File(context.filesDir, "game_cache")
+    private val tempCacheDir = File(context.cacheDir, "game_cache")
+    private val offlineStorageDir = File(context.filesDir, "offline_games")
     private val downloadedGames = ConcurrentHashMap<String, Boolean>()
 
     init {
-        if (!cacheBaseDir.exists()) {
-            cacheBaseDir.mkdirs()
-        }
+        if (!tempCacheDir.exists()) tempCacheDir.mkdirs()
+        if (!offlineStorageDir.exists()) offlineStorageDir.mkdirs()
         refreshDownloadedStatus()
     }
 
     fun refreshDownloadedStatus() {
-        val games = cacheBaseDir.listFiles() ?: return
+        downloadedGames.clear()
+        scanDir(offlineStorageDir)
+        scanDir(tempCacheDir)
+    }
+
+    private fun scanDir(baseDir: File) {
+        val games = baseDir.listFiles() ?: return
         for (gameDir in games) {
             if (gameDir.isDirectory) {
                 val versions = gameDir.listFiles() ?: continue
                 for (vDir in versions) {
                     if (vDir.isDirectory) {
                         val indexHtml = File(vDir, "index.html")
-                        if (indexHtml.exists()) {
+                        if (indexHtml.exists() && indexHtml.length() > 0) {
                             downloadedGames["${gameDir.name}_${vDir.name}"] = true
                         }
                     }
@@ -47,15 +53,19 @@ class GameCacheManager(private val context: Context) {
     fun isGameCached(gameId: String, version: String): Boolean {
         val key = "${gameId}_$version"
         if (downloadedGames[key] == true) return true
-        val targetDir = File(cacheBaseDir, "$gameId/$version")
-        val indexHtml = File(targetDir, "index.html")
-        val cached = indexHtml.exists() && indexHtml.length() > 0
+        val inOffline = File(offlineStorageDir, "$gameId/$version/index.html").exists()
+        val inTemp = File(tempCacheDir, "$gameId/$version/index.html").exists()
+        val cached = inOffline || inTemp
         if (cached) downloadedGames[key] = true
         return cached
     }
 
     fun isGameCached(game: GameItem): Boolean {
         return isGameCached(game.id, game.version)
+    }
+
+    fun isGameDownloadedOffline(gameId: String, version: String): Boolean {
+        return File(offlineStorageDir, "$gameId/$version/index.html").exists()
     }
 
     /**
@@ -79,8 +89,13 @@ class GameCacheManager(private val context: Context) {
 
     fun getLocalFile(gameId: String, version: String, relativePath: String): File? {
         val normalized = relativePath.trimStart('/')
-        val file = File(cacheBaseDir, "$gameId/$version/$normalized")
-        return if (file.exists()) file else null
+        // 1. Check permanent offline storage first
+        val offlineFile = File(offlineStorageDir, "$gameId/$version/$normalized")
+        if (offlineFile.exists()) return offlineFile
+
+        // 2. Check temporary session cache
+        val tempFile = File(tempCacheDir, "$gameId/$version/$normalized")
+        return if (tempFile.exists()) tempFile else null
     }
 
     fun interceptRequest(url: String): WebResourceResponse? {
@@ -144,11 +159,13 @@ class GameCacheManager(private val context: Context) {
 
     suspend fun downloadGame(
         game: GameItem,
+        isExplicitOffline: Boolean = false,
         onProgress: (Float) -> Unit = {}
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             onProgress(0.1f)
-            val targetDir = File(cacheBaseDir, "${game.id}/${game.version}")
+            val baseDir = if (isExplicitOffline) offlineStorageDir else tempCacheDir
+            val targetDir = File(baseDir, "${game.id}/${game.version}")
             if (targetDir.exists()) {
                 targetDir.deleteRecursively()
             }
@@ -207,10 +224,26 @@ class GameCacheManager(private val context: Context) {
         }
     }
 
+    /**
+     * Clears temporary session cache when app closes, freeing memory
+     * while preserving explicitly downloaded offline games.
+     */
+    fun clearTempCache() {
+        if (tempCacheDir.exists()) {
+            tempCacheDir.deleteRecursively()
+            tempCacheDir.mkdirs()
+        }
+        refreshDownloadedStatus()
+    }
+
     fun clearAllCache() {
-        if (cacheBaseDir.exists()) {
-            cacheBaseDir.deleteRecursively()
-            cacheBaseDir.mkdirs()
+        if (tempCacheDir.exists()) {
+            tempCacheDir.deleteRecursively()
+            tempCacheDir.mkdirs()
+        }
+        if (offlineStorageDir.exists()) {
+            offlineStorageDir.deleteRecursively()
+            offlineStorageDir.mkdirs()
         }
         downloadedGames.clear()
     }
