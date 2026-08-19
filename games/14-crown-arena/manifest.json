@@ -1,0 +1,25 @@
+{
+  "id": "crown-arena",
+  "title": "Crown Arena",
+  "version": "1.1.0",
+  "sdkVersion": 1,
+  "entry": "index.html",
+  "orientation": "portrait",
+  "controls": [
+    "DRAG",
+    "TAP"
+  ],
+  "sizeBytes": 50732,
+  "sha256": "",
+  "ageRating": "everyone",
+  "minAppVersion": "1.0.0",
+  "hasReward": false,
+  "thumbnail": "crown-arena.svg",
+  "tags": [
+    "action",
+    "arena",
+    "arcade",
+    "reflex"
+  ],
+  "description": "Battle smart AI opponents in a dynamic 2D arena. Capture and hold the golden crown to win!"
+}

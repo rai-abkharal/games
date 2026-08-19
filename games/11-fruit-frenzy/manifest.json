@@ -1,0 +1,24 @@
+{
+  "id": "fruit-frenzy",
+  "title": "Fruit Frenzy",
+  "version": "1.0.0",
+  "sdkVersion": 1,
+  "entry": "index.html",
+  "orientation": "portrait",
+  "controls": [
+    "TAP"
+  ],
+  "sizeBytes": 5457,
+  "sha256": "ca81f2a0c6ffc085d36a0d25bb8bf43bf71c6258afe2098a982a1d3a44c52194",
+  "ageRating": "everyone",
+  "minAppVersion": "1.0.0",
+  "hasReward": false,
+  "thumbnail": "fruit-frenzy.svg",
+  "tags": [
+    "arcade",
+    "hypercasual",
+    "casual",
+    "reflex"
+  ],
+  "description": "Tap to launch into a playful fruit-catching frenzy, build combos, and chase your best score."
+}

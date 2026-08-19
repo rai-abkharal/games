@@ -2,18 +2,13 @@ import fs from 'fs';
 import path from 'path';
 import { deployGame } from '../../backend/scripts/deploy-game';
 
-const GAME_DIRS = [
-  '01-tap-cannon',
-  '02-color-match',
-  '03-stack-tower',
-  '04-lane-dodge',
-  '05-memory-flip',
-  '06-fruit-catch',
-  '07-tiny-archer',
-  '08-pipe-connect',
-  '09-one-tap-runner',
-  '10-merge-dots',
-];
+function getGameDirectories(): string[] {
+  const gamesRoot = path.resolve(__dirname, '..');
+  return fs.readdirSync(gamesRoot, { withFileTypes: true })
+    .filter(dirent => dirent.isDirectory() && fs.existsSync(path.join(gamesRoot, dirent.name, 'manifest.json')))
+    .map(dirent => dirent.name)
+    .sort();
+}
 
 async function deployAll() {
   const force = process.argv.includes('--force');
@@ -28,8 +23,9 @@ async function deployAll() {
     'games.json',
   );
 
+  const GAME_DIRS = getGameDirectories();
   console.log(
-    `🚀 Deploying all 10 mini-games (${force ? 'development force mode' : 'immutable mode'})...\n`,
+    `🚀 Deploying all ${GAME_DIRS.length} mini-games (${force ? 'development force mode' : 'immutable mode'})...\n`,
   );
 
   for (const dirName of GAME_DIRS) {

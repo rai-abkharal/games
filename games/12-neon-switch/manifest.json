@@ -1,0 +1,24 @@
+{
+  "id": "neon-switch",
+  "title": "Neon Switch",
+  "version": "1.0.0",
+  "sdkVersion": 1,
+  "entry": "index.html",
+  "orientation": "portrait",
+  "controls": [
+    "TAP"
+  ],
+  "sizeBytes": 0,
+  "sha256": "",
+  "ageRating": "everyone",
+  "minAppVersion": "1.0.0",
+  "hasReward": false,
+  "thumbnail": "neon-switch.svg",
+  "tags": [
+    "arcade",
+    "hypercasual",
+    "action",
+    "reflex"
+  ],
+  "description": "Tap to switch lanes, dodge neon orbs, build combos, and survive as long as possible."
+}

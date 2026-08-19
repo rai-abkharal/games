@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "updatedAt": "2026-08-19T06:20:59.586Z",
+  "updatedAt": "2026-08-19T08:00:16.873Z",
   "games": [
     {
       "id": "tap-cannon",
@@ -190,6 +190,82 @@
       "features": {
         "sound": true,
         "vibration": true
+      }
+    },
+    {
+      "id": "fruit-frenzy",
+      "title": "Fruit Frenzy",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/fruit-frenzy/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/fruit-frenzy.webp",
+      "sizeBytes": 10390,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/fruit-frenzy/1.0.0/manifest.json",
+      "feedOrder": 99,
+      "category": "Arcade",
+      "description": "Tap to launch into a playful fruit-catching frenzy, build combos, and chase your best score.",
+      "sha256": "b0b93df1eb7694b7a96fe6e7d042a8124da3dca77d711772f492f021fb1f63e8",
+      "features": {
+        "sound": true,
+        "vibration": false
+      }
+    },
+    {
+      "id": "neon-switch",
+      "title": "Neon Switch",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/neon-switch/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/neon-switch.webp",
+      "sizeBytes": 8056,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/neon-switch/1.0.0/manifest.json",
+      "feedOrder": 99,
+      "category": "Arcade",
+      "description": "Tap to switch lanes, dodge neon orbs, build combos, and survive as long as possible.",
+      "sha256": "aeb3c4599cda21b7f009902b547562ed532baa85a9ae88a79cf014a6fb5277c3",
+      "features": {
+        "sound": true,
+        "vibration": false
+      }
+    },
+    {
+      "id": "sky-pop",
+      "title": "Sky Pop",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/sky-pop/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/sky-pop.webp",
+      "sizeBytes": 7589,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/sky-pop/1.0.0/manifest.json",
+      "feedOrder": 99,
+      "category": "Arcade",
+      "description": "Tap to fly through sky gates, survive the gaps, and build the highest score.",
+      "sha256": "09feea712f020fd1583d33af25e760fee591dffda9e1f3542a38024b5da21fb1",
+      "features": {
+        "sound": true,
+        "vibration": false
+      }
+    },
+    {
+      "id": "crown-arena",
+      "title": "Crown Arena",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/crown-arena/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/crown-arena.webp",
+      "sizeBytes": 50732,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/crown-arena/1.1.0/manifest.json",
+      "feedOrder": 99,
+      "category": "Arcade",
+      "description": "Battle smart AI opponents in a dynamic 2D arena. Capture and hold the golden crown to win!",
+      "sha256": "97cd41f08aee6b6a5ca808b084b78e0e027b1189984296e4162acd4b22133d53",
+      "features": {
+        "sound": true,
+        "vibration": false
       }
     }
   ]

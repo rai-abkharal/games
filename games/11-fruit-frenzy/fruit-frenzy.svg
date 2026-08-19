@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 480">
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff0c9"/><stop offset="1" stop-color="#e7f4cf"/></linearGradient></defs>
+<rect width="360" height="480" fill="url(#g)"/><rect width="360" height="65" fill="#e98969"/>
+<circle cx="120" cy="205" r="40" fill="#e94f4f"/><circle cx="180" cy="175" r="38" fill="#f6a623"/>
+<path d="M235 220 C210 175 210 145 240 135 C270 150 270 205 235 220Z" fill="#8cbe4f"/>
+<ellipse cx="180" cy="270" rx="72" ry="38" fill="#f7d68d"/>
+<text x="180" y="375" font-family="system-ui" font-size="29" font-weight="800" fill="#68452f" text-anchor="middle">Fruit Frenzy</text>
+<text x="180" y="410" font-family="system-ui" font-size="14" font-weight="700" fill="#d96b4f" text-anchor="middle">TAP • CATCH • COMBO</text>
+</svg>

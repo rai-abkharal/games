@@ -1,0 +1,24 @@
+{
+  "id": "sky-pop",
+  "title": "Sky Pop",
+  "version": "1.0.0",
+  "sdkVersion": 1,
+  "entry": "index.html",
+  "orientation": "portrait",
+  "controls": [
+    "TAP"
+  ],
+  "sizeBytes": 0,
+  "sha256": "",
+  "ageRating": "everyone",
+  "minAppVersion": "1.0.0",
+  "hasReward": false,
+  "thumbnail": "sky-pop.svg",
+  "tags": [
+    "arcade",
+    "hypercasual",
+    "reflex",
+    "runner"
+  ],
+  "description": "Tap to fly through sky gates, survive the gaps, and build the highest score."
+}

@@ -19,6 +19,9 @@ export const GameSchema = z.object({
   category: z.string().default('Arcade'),
   description: z.string().default(''),
   sha256: z.string().optional(),
+  controls: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+  ageRating: z.string().optional(),
   features: GameFeaturesSchema,
 });
 

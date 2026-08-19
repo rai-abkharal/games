@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 480"><defs>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0f172a"/><stop offset="1" stop-color="#1e1b4b"/></linearGradient>
+<radialGradient id="r"><stop stop-color="#5e72ff" stop-opacity=".65"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs>
+<rect width="360" height="480" fill="url(#g)"/><circle cx="180" cy="180" r="150" fill="url(#r)"/>
+<circle cx="180" cy="180" r="58" fill="#5e72ff"/><circle cx="180" cy="180" r="17" fill="#fff"/>
+<text x="180" y="320" fill="#fff" font-family="system-ui" font-size="28" font-weight="700" text-anchor="middle">Neon Switch</text>
+<text x="180" y="360" fill="#5e72ff" font-family="system-ui" font-size="14" font-weight="700" text-anchor="middle">ARCADE • HYPERCASUAL • ACTION</text>
+<rect x="60" y="400" width="240" height="36" rx="18" fill="#5e72ff"/><text x="180" y="424" fill="#0f172a" font-family="system-ui" font-size="15" font-weight="700" text-anchor="middle">PLAY NOW</text></svg>

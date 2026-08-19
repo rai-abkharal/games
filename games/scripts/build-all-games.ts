@@ -12,28 +12,38 @@ function listFilesRecursive(directory: string): string[] {
   });
 }
 
-const GAME_DIRS = [
-  '01-tap-cannon',
-  '02-color-match',
-  '03-stack-tower',
-  '04-lane-dodge',
-  '05-memory-flip',
-  '06-fruit-catch',
-  '07-tiny-archer',
-  '08-pipe-connect',
-  '09-one-tap-runner',
-  '10-merge-dots',
-];
+function getGameDirectories(): string[] {
+  const gamesRoot = path.resolve(__dirname, '..');
+  return fs.readdirSync(gamesRoot, { withFileTypes: true })
+    .filter(dirent => dirent.isDirectory() && fs.existsSync(path.join(gamesRoot, dirent.name, 'manifest.json')))
+    .map(dirent => dirent.name)
+    .sort();
+}
 
 async function buildAll() {
-  console.log('🚀 Starting compilation of all 10 Mini-Games...\n');
+  const GAME_DIRS = getGameDirectories();
+  console.log(`🚀 Starting compilation of all ${GAME_DIRS.length} Mini-Games...\n`);
   const sharedDir = path.resolve(__dirname, '../shared');
 
   for (const dirName of GAME_DIRS) {
     const gameDir = path.resolve(__dirname, '..', dirName);
+    const srcMain = path.join(gameDir, 'src', 'main.ts');
+    const rootIndex = path.join(gameDir, 'index.html');
+    const distDir = path.join(gameDir, 'dist');
+    const distIndex = path.join(distDir, 'index.html');
+
     console.log(`🔨 Building ${dirName}...`);
 
     try {
+      if (!fs.existsSync(srcMain) && fs.existsSync(rootIndex)) {
+        // Pure single-file Micro-Engine game
+        fs.mkdirSync(distDir, { recursive: true });
+        fs.copyFileSync(rootIndex, distIndex);
+        const packageBytes = fs.statSync(distIndex).size;
+        console.log(`✅ ${dirName}: ${(packageBytes / 1024).toFixed(1)} KB standalone micro-engine package\n`);
+        continue;
+      }
+
       await build({
         root: gameDir,
         base: './',
@@ -51,7 +61,7 @@ async function buildAll() {
           },
         },
         build: {
-          outDir: path.join(gameDir, 'dist'),
+          outDir: distDir,
           emptyOutDir: true,
           minify: 'esbuild',
           target: 'es2020',
@@ -63,8 +73,6 @@ async function buildAll() {
       });
 
       // Enforce the MVP package contract: one deterministic HTML artifact.
-      const distDir = path.join(gameDir, 'dist');
-      const distIndex = path.join(distDir, 'index.html');
       const outputFiles = listFilesRecursive(distDir);
       if (!fs.existsSync(distIndex)) {
         throw new Error(`Build finished but dist/index.html is missing for ${dirName}`);

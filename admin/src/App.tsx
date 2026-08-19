@@ -1,0 +1,1000 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Gamepad2,
+  LayoutDashboard,
+  UploadCloud,
+  Smartphone,
+  ListOrdered,
+  AlertTriangle,
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  RotateCcw,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ShieldCheck,
+  Zap,
+  TrendingUp,
+  Flame,
+  Activity,
+  Layers,
+  ArrowRight,
+  Sparkles,
+  RefreshCw,
+  Power
+} from 'lucide-react';
+
+interface GameItem {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+  orientation: string;
+  controls: string[];
+  tags: string[];
+  status: 'published' | 'draft' | 'archived';
+  sortWeight: number;
+  ageRating: string;
+  totalPlays: number;
+  totalReports: number;
+  versions: {
+    id: string;
+    version: string;
+    sizeBytes: number;
+    sha256: string;
+    status: string;
+    rolloutPercent: number;
+  }[];
+}
+
+interface ValidationReport {
+  gameId: string;
+  slug: string;
+  version: string;
+  allPassed: boolean;
+  checks: {
+    rule: string;
+    passed: boolean;
+    message: string;
+  }[];
+}
+
+interface BridgeLogItem {
+  id: string;
+  direction: 'in' | 'out';
+  type: string;
+  payload: any;
+  ts: string;
+}
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'games' | 'upload' | 'simulator' | 'feed' | 'reports'>('dashboard');
+  const [games, setGames] = useState<GameItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<GameItem | null>(null);
+  
+  // Simulator states
+  const [simGame, setSimGame] = useState<string>('crown-chase');
+  const [simIsMuted, setSimIsMuted] = useState(false);
+  const [bridgeLogs, setBridgeLogs] = useState<BridgeLogItem[]>([]);
+  const [simScore, setSimScore] = useState(0);
+  const [simLevel, setSimLevel] = useState(1);
+  const simIframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  // Validation report state
+  const [validationReport, setValidationReport] = useState<ValidationReport | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+
+  // Reports state
+  const [reports, setReports] = useState<any[]>([]);
+
+  // Fetch games
+  const fetchGames = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('http://localhost:3000/v1/admin/games');
+      if (res.ok) {
+        const data = await res.json();
+        setGames(data.games || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch games:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchReports = async () => {
+    try {
+      const res = await fetch('http://localhost:3000/v1/admin/reports');
+      if (res.ok) {
+        const data = await res.json();
+        setReports(data.reports || []);
+      }
+    } catch (err) {}
+  };
+
+  useEffect(() => {
+    fetchGames();
+    fetchReports();
+  }, []);
+
+  // Bridge Message listener for Simulator
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      try {
+        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+        if (!data || data.v !== 1) return;
+
+        const newLog: BridgeLogItem = {
+          id: Math.random().toString(36).substring(7),
+          direction: 'in',
+          type: data.type,
+          payload: data.payload || {},
+          ts: new Date().toLocaleTimeString(),
+        };
+
+        setBridgeLogs((prev) => [newLog, ...prev.slice(0, 49)]);
+
+        if (data.type === 'SCORE_UPDATED' && data.payload) {
+          setSimScore(data.payload.score || 0);
+          if (data.payload.level) setSimLevel(data.payload.level);
+        } else if (data.type === 'GAME_OVER' && data.payload) {
+          setSimScore(data.payload.score || 0);
+        }
+      } catch (err) {}
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Simulator host action sender
+  const sendSimulatorEvent = (type: string, payload?: any) => {
+    const envelope = {
+      v: 1,
+      type,
+      gameId: simGame,
+      sessionId: 'admin-sim-' + Date.now(),
+      ts: Date.now(),
+      payload,
+    };
+
+    if (simIframeRef.current && simIframeRef.current.contentWindow) {
+      simIframeRef.current.contentWindow.postMessage(JSON.stringify(envelope), '*');
+      
+      const newLog: BridgeLogItem = {
+        id: Math.random().toString(36).substring(7),
+        direction: 'out',
+        type,
+        payload: payload || {},
+        ts: new Date().toLocaleTimeString(),
+      };
+      setBridgeLogs((prev) => [newLog, ...prev.slice(0, 49)]);
+    }
+  };
+
+  // Toggle kill switch
+  const toggleGameStatus = async (gameId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'published' ? 'archived' : 'published';
+    try {
+      const res = await fetch(`http://localhost:3000/v1/admin/games/${gameId}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        fetchGames();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Update Rollout Percentage
+  const updateRollout = async (gameId: string, percent: number) => {
+    try {
+      await fetch(`http://localhost:3000/v1/admin/games/${gameId}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rolloutPercent: percent }),
+      });
+      fetchGames();
+    } catch (err) {}
+  };
+
+  // Fetch validation report
+  const viewValidation = async (gameId: string) => {
+    try {
+      const res = await fetch(`http://localhost:3000/v1/admin/games/${gameId}/validation`);
+      if (res.ok) {
+        const data = await res.json();
+        setValidationReport(data);
+        setActiveTab('upload');
+      }
+    } catch (err) {}
+  };
+
+  // Handle Zip Upload
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setUploadSuccess(null);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const uploadUrl = selectedGame?.id
+      ? `http://localhost:3000/v1/admin/games/${selectedGame.id}/upload`
+      : `http://localhost:3000/v1/admin/games/upload`;
+
+    try {
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const gameName = data.game?.title || selectedGame?.title || 'Game';
+        const versionStr = data.version?.version || '1.0.0';
+        setUploadSuccess(`✨ "${gameName}" (v${versionStr}) published successfully!`);
+        await fetchGames();
+        if (data.game?.id || selectedGame?.id) {
+          viewValidation(data.game?.id || selectedGame?.id);
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setUploadSuccess(`❌ Upload failed: ${errData.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      console.error('Upload failed:', err);
+      setUploadSuccess(`❌ Network error: ${err.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Handle Feed Sort Weight Change
+  const updateFeedWeight = async (gameId: string, weight: number) => {
+    try {
+      await fetch('http://localhost:3000/v1/admin/feed/order', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: [{ id: gameId, sortWeight: weight }] }),
+      });
+      fetchGames();
+    } catch (err) {}
+  };
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-main)' }}>
+      {/* Sidebar */}
+      <aside style={{
+        width: '260px',
+        borderRight: '1px solid var(--border-subtle)',
+        background: 'rgba(15, 23, 42, 0.6)',
+        backdropFilter: 'blur(20px)',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '24px 16px',
+        gap: '24px'
+      }}>
+        {/* Brand */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 8px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '12px',
+            background: 'linear-gradient(135deg, #6366f1, #ec4899)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 20px rgba(99, 102, 241, 0.4)'
+          }}>
+            <Gamepad2 size={22} color="#fff" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '18px', fontWeight: '800', letterSpacing: '-0.5px' }}>SWIPE PLAY</h1>
+            <p style={{ fontSize: '11px', color: 'var(--accent-cyan)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              Operator Studio
+            </p>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {[
+            { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
+            { id: 'games', label: 'Game Catalog', icon: Layers },
+            { id: 'upload', label: 'Upload & Validator', icon: UploadCloud },
+            { id: 'simulator', label: 'Device Simulator', icon: Smartphone },
+            { id: 'feed', label: 'Feed Sequencer', icon: ListOrdered },
+            { id: 'reports', label: 'Reports Queue', icon: AlertTriangle, count: reports.length },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as any)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: isActive ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.05))' : 'transparent',
+                  color: isActive ? '#818cf8' : 'var(--text-muted)',
+                  borderLeft: isActive ? '3px solid #6366f1' : '3px solid transparent',
+                  fontWeight: isActive ? 600 : 500,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Icon size={18} color={isActive ? '#818cf8' : 'currentColor'} />
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {item.count !== undefined && item.count > 0 && (
+                  <span style={{
+                    background: 'rgba(239, 68, 68, 0.2)',
+                    color: '#f87171',
+                    fontSize: '11px',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    fontWeight: 700
+                  }}>
+                    {item.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* System Health Status Footer */}
+        <div style={{ marginTop: 'auto', padding: '16px', borderRadius: '12px', background: 'rgba(0, 0, 0, 0.3)', border: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#34d399' }}>Fastify + CDN Online</span>
+          </div>
+          <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+            Port 3000 • Localhost Storage
+          </p>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        {/* Top Header */}
+        <header style={{
+          height: '70px',
+          borderBottom: '1px solid var(--border-subtle)',
+          padding: '0 32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: 'rgba(15, 23, 42, 0.3)',
+          backdropFilter: 'blur(10px)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 40
+        }}>
+          <div>
+            <h2 style={{ fontSize: '20px', fontWeight: '700' }}>
+              {activeTab === 'dashboard' && 'Platform Performance & Metrics'}
+              {activeTab === 'games' && 'Game Catalog & Staged Rollouts'}
+              {activeTab === 'upload' && 'Package Ingestion & 7-Point Validator'}
+              {activeTab === 'simulator' && 'Interactive Device Simulator & Bridge Debugger'}
+              {activeTab === 'feed' && 'TikTok Feed Sequencer & Weights'}
+              {activeTab === 'reports' && 'User Reports & Moderation'}
+            </h2>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button className="btn-secondary" onClick={fetchGames}>
+              <RefreshCw size={15} /> Refresh
+            </button>
+            <button className="btn-primary" onClick={() => setActiveTab('simulator')}>
+              <Smartphone size={16} /> Open Simulator
+            </button>
+          </div>
+        </header>
+
+        {/* Tab Views */}
+        <div style={{ padding: '32px', flex: 1 }}>
+          {/* 1. DASHBOARD VIEW */}
+          {activeTab === 'dashboard' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+              {/* Stat Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
+                <div className="glass-panel" style={{ padding: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', color: 'var(--text-muted)' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600 }}>ACTIVE GAMES</span>
+                    <Gamepad2 size={20} color="#818cf8" />
+                  </div>
+                  <div style={{ fontSize: '32px', fontWeight: 800, margin: '12px 0 4px', color: '#fff' }}>
+                    {games.filter((g) => g.status === 'published').length} / {games.length}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#34d399' }}>
+                    <Sparkles size={13} /> Ready for instant swipe
+                  </div>
+                </div>
+
+                <div className="glass-panel" style={{ padding: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', color: 'var(--text-muted)' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600 }}>SWIPE-THROUGH RATE</span>
+                    <TrendingUp size={20} color="#06b6d4" />
+                  </div>
+                  <div style={{ fontSize: '32px', fontWeight: 800, margin: '12px 0 4px', color: '#06b6d4' }}>
+                    18.4%
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#34d399' }}>
+                    <span>Target &lt; 35% (Healthy)</span>
+                  </div>
+                </div>
+
+                <div className="glass-panel" style={{ padding: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', color: 'var(--text-muted)' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600 }}>AVG GAMEPLAY FPS</span>
+                    <Zap size={20} color="#f59e0b" />
+                  </div>
+                  <div style={{ fontSize: '32px', fontWeight: 800, margin: '12px 0 4px', color: '#f59e0b' }}>
+                    59.8
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#34d399' }}>
+                    <CheckCircle2 size={13} /> 60 FPS Target Met
+                  </div>
+                </div>
+
+                <div className="glass-panel" style={{ padding: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', color: 'var(--text-muted)' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600 }}>LOAD FAILURE RATE</span>
+                    <ShieldCheck size={20} color="#10b981" />
+                  </div>
+                  <div style={{ fontSize: '32px', fontWeight: 800, margin: '12px 0 4px', color: '#10b981' }}>
+                    0.08%
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#34d399' }}>
+                    <span>Floor &lt; 0.5% (Optimal)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Game Cards Summary Grid */}
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px' }}>Current Catalogue Running Order</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+                  {games.map((game, idx) => (
+                    <div key={game.id} className="glass-panel-interactive" style={{ padding: '20px' }}>
+                      <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                        <div style={{
+                          width: '64px',
+                          height: '80px',
+                          borderRadius: '10px',
+                          overflow: 'hidden',
+                          background: '#1e293b',
+                          flexShrink: 0
+                        }}>
+                          <img
+                            src={`http://localhost:3000${game.thumbnailUrl}`}
+                            alt={game.title}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => {
+                              (e.target as any).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="80"><rect width="64" height="80" fill="%23334155"/></svg>';
+                            }}
+                          />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-cyan)' }}>#{idx + 1}</span>
+                            <span className={`badge ${game.status === 'published' ? 'badge-published' : 'badge-archived'}`}>
+                              {game.status}
+                            </span>
+                          </div>
+                          <h4 style={{ fontSize: '16px', fontWeight: 700, margin: '4px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {game.title}
+                          </h4>
+                          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                            Weight: {game.sortWeight} • {game.controls.join(', ')}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
+                        <button
+                          className="btn-secondary"
+                          style={{ flex: 1, justifyContent: 'center', padding: '8px' }}
+                          onClick={() => {
+                            setSimGame(game.slug);
+                            setActiveTab('simulator');
+                          }}
+                        >
+                          <Smartphone size={14} /> Test
+                        </button>
+                        <button
+                          className="btn-secondary"
+                          style={{ flex: 1, justifyContent: 'center', padding: '8px' }}
+                          onClick={() => viewValidation(game.id)}
+                        >
+                          <ShieldCheck size={14} /> Report
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 2. GAME CATALOG VIEW */}
+          {activeTab === 'games' && (
+            <div className="glass-panel" style={{ padding: '24px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)', fontSize: '13px' }}>
+                    <th style={{ padding: '12px 16px' }}>GAME</th>
+                    <th style={{ padding: '12px 16px' }}>STATUS</th>
+                    <th style={{ padding: '12px 16px' }}>ROLLOUT</th>
+                    <th style={{ padding: '12px 16px' }}>FEED WEIGHT</th>
+                    <th style={{ padding: '12px 16px' }}>PACKAGE SIZE</th>
+                    <th style={{ padding: '12px 16px' }}>ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {games.map((game) => {
+                    const latest = game.versions[0];
+                    return (
+                      <tr key={game.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '14px' }}>
+                        <td style={{ padding: '16px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '40px', height: '50px', borderRadius: '8px', background: '#1e293b', overflow: 'hidden' }}>
+                              <img src={`http://localhost:3000${game.thumbnailUrl}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 700 }}>{game.title}</div>
+                              <div style={{ fontSize: '12px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{game.slug} (v{latest?.version || '1.0.0'})</div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td style={{ padding: '16px' }}>
+                          <span className={`badge ${game.status === 'published' ? 'badge-published' : 'badge-archived'}`}>
+                            {game.status}
+                          </span>
+                        </td>
+
+                        <td style={{ padding: '16px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input
+                              type="range"
+                              min="1"
+                              max="100"
+                              value={latest?.rolloutPercent || 100}
+                              onChange={(e) => updateRollout(game.id, parseInt(e.target.value))}
+                              style={{ width: '90px' }}
+                            />
+                            <span style={{ fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                              {latest?.rolloutPercent || 100}%
+                            </span>
+                          </div>
+                        </td>
+
+                        <td style={{ padding: '16px' }}>
+                          <input
+                            type="number"
+                            value={game.sortWeight}
+                            onChange={(e) => updateFeedWeight(game.id, parseInt(e.target.value) || 0)}
+                            style={{
+                              width: '70px',
+                              background: 'rgba(0,0,0,0.3)',
+                              border: '1px solid var(--border-subtle)',
+                              color: '#fff',
+                              borderRadius: '6px',
+                              padding: '6px 8px',
+                              fontFamily: 'var(--font-mono)'
+                            }}
+                          />
+                        </td>
+
+                        <td style={{ padding: '16px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                          {latest ? `${(latest.sizeBytes / 1024).toFixed(1)} KB` : 'N/A'}
+                        </td>
+
+                        <td style={{ padding: '16px' }}>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              className="btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                              onClick={() => {
+                                setSimGame(game.slug);
+                                setActiveTab('simulator');
+                              }}
+                            >
+                              <Smartphone size={13} /> Test
+                            </button>
+                            <button
+                              className="btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                              onClick={() => viewValidation(game.id)}
+                            >
+                              <ShieldCheck size={13} /> Check
+                            </button>
+                            <button
+                              className={game.status === 'published' ? 'btn-danger' : 'btn-secondary'}
+                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                              onClick={() => toggleGameStatus(game.id, game.status)}
+                            >
+                              <Power size={13} /> {game.status === 'published' ? 'Killswitch' : 'Publish'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* 3. UPLOAD & VALIDATOR VIEW */}
+          {activeTab === 'upload' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+              {/* Upload Box */}
+              <div className="glass-panel" style={{ padding: '28px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>Ingest New Game Build</h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                  Upload a packaged game .zip archive. The system automatically inspects entry, manifest schema, SHA-256 integrity, budgets, and network safety.
+                </p>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Target Game Record</label>
+                  <select
+                    value={selectedGame?.id || ''}
+                    onChange={(e) => {
+                      if (!e.target.value) {
+                        setSelectedGame(null);
+                      } else {
+                        const found = games.find((g) => g.id === e.target.value);
+                        if (found) setSelectedGame(found);
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      background: 'rgba(0,0,0,0.4)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '14px'
+                    }}
+                  >
+                    <option value="">✨ + Auto-Detect &amp; Publish as New Game (From ZIP Manifest)</option>
+                    <optgroup label="Or update existing game:">
+                      {games.map((g) => (
+                        <option key={g.id} value={g.id}>{g.title} ({g.slug})</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+
+                <div style={{
+                  border: '2px dashed var(--border-active)',
+                  borderRadius: '16px',
+                  padding: '40px 20px',
+                  textAlign: 'center',
+                  background: 'rgba(99, 102, 241, 0.03)',
+                  cursor: 'pointer',
+                  position: 'relative'
+                }}>
+                  <input
+                    type="file"
+                    accept=".zip"
+                    onChange={handleFileUpload}
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+                  />
+                  <UploadCloud size={40} color="#818cf8" style={{ marginBottom: '12px' }} />
+                  <div style={{ fontWeight: 600, fontSize: '15px' }}>
+                    {uploading ? 'Processing & Validating Build...' : 'Drag and Drop Game .ZIP Package Here'}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '4px' }}>
+                    Vite/Phaser 3 relative path bundle (max 5 MB)
+                  </div>
+                </div>
+
+                {uploadSuccess && (
+                  <div style={{ marginTop: '16px', padding: '12px 16px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', borderRadius: '8px', color: '#34d399', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle2 size={16} /> {uploadSuccess}
+                  </div>
+                )}
+              </div>
+
+              {/* 7-Point Automatic Validation Report */}
+              <div className="glass-panel" style={{ padding: '28px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 700 }}>7-Point Verification Report</h3>
+                  {validationReport && (
+                    <span className={`badge ${validationReport.allPassed ? 'badge-published' : 'badge-archived'}`}>
+                      {validationReport.allPassed ? 'ALL CHECKS PASSED' : 'CHECK FAILED'}
+                    </span>
+                  )}
+                </div>
+
+                {validationReport ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                      Target: <strong style={{ color: '#fff' }}>{validationReport.slug} (v{validationReport.version})</strong>
+                    </div>
+
+                    {validationReport.checks.map((check, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '12px 16px',
+                          borderRadius: '10px',
+                          background: 'rgba(0,0,0,0.25)',
+                          border: '1px solid var(--border-subtle)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          {check.passed ? <CheckCircle2 size={18} color="#34d399" /> : <XCircle size={18} color="#ef4444" />}
+                          <span style={{ fontSize: '14px', fontWeight: 600 }}>{check.rule}</span>
+                        </div>
+                        <span style={{ fontSize: '12px', color: check.passed ? 'var(--text-muted)' : '#f87171', fontFamily: 'var(--font-mono)' }}>
+                          {check.message}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-dim)' }}>
+                    <ShieldCheck size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
+                    <p>Select a game and click "Report" or upload a build to view the 7-point validation audit.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 4. SIMULATOR & BRIDGE INSPECTOR VIEW */}
+          {activeTab === 'simulator' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: '32px', alignItems: 'flex-start' }}>
+              {/* Phone Frame */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '100%', display: 'flex', gap: '12px' }}>
+                  <select
+                    value={simGame}
+                    onChange={(e) => {
+                      setSimGame(e.target.value);
+                      setSimScore(0);
+                      setSimLevel(1);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '10px 14px',
+                      background: 'rgba(0,0,0,0.4)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: '10px',
+                      color: '#fff',
+                      fontSize: '14px',
+                      fontWeight: 600
+                    }}
+                  >
+                    {games.map((g) => (
+                      <option key={g.slug} value={g.slug}>{g.title} ({g.slug})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Device Bezel */}
+                <div className="device-frame">
+                  <div className="device-notch" />
+                  <iframe
+                    ref={simIframeRef}
+                    key={simGame}
+                    src={`http://localhost:3000/cdn/games/${simGame}/1.0.0/index.html`}
+                    className="device-screen"
+                    title="Game Preview"
+                  />
+                </div>
+              </div>
+
+              {/* Bridge Inspector Panel */}
+              <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '760px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Activity size={18} color="#818cf8" /> Live Bridge Protocol Stream
+                  </h3>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', color: 'var(--accent-cyan)', fontWeight: 700 }}>
+                      Score: {simScore}
+                    </span>
+                    <span style={{ fontSize: '13px', color: '#fbbf24', fontWeight: 700 }}>
+                      Level: {simLevel}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Host Action Controls */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingBottom: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => sendSimulatorEvent('PAUSE_GAME')}>
+                    <Pause size={13} /> PAUSE_GAME
+                  </button>
+                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => sendSimulatorEvent('RESUME_GAME')}>
+                    <Play size={13} /> RESUME_GAME
+                  </button>
+                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => {
+                    const nextMute = !simIsMuted;
+                    setSimIsMuted(nextMute);
+                    sendSimulatorEvent(nextMute ? 'MUTE_AUDIO' : 'UNMUTE_AUDIO');
+                  }}>
+                    {simIsMuted ? <Volume2 size={13} /> : <VolumeX size={13} />} {simIsMuted ? 'UNMUTE_AUDIO' : 'MUTE_AUDIO'}
+                  </button>
+                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => sendSimulatorEvent('RESTART_GAME')}>
+                    <RotateCcw size={13} /> RESTART_GAME
+                  </button>
+                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => setBridgeLogs([])}>
+                    Clear Log
+                  </button>
+                </div>
+
+                {/* Live Event Log Stream */}
+                <div style={{ flex: 1, overflowY: 'auto', marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {bridgeLogs.length === 0 ? (
+                    <div style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '40px' }}>
+                      Interact with the device simulator to inspect live JSON message envelopes.
+                    </div>
+                  ) : (
+                    bridgeLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: '8px',
+                          background: log.direction === 'in' ? 'rgba(6, 182, 212, 0.06)' : 'rgba(99, 102, 241, 0.06)',
+                          borderLeft: log.direction === 'in' ? '3px solid #06b6d4' : '3px solid #818cf8',
+                          fontSize: '12px',
+                          fontFamily: 'var(--font-mono)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ fontWeight: 700, color: log.direction === 'in' ? '#06b6d4' : '#818cf8' }}>
+                            {log.direction === 'in' ? '◀ GAME ➔ APP' : '▶ APP ➔ GAME'}: {log.type}
+                          </span>
+                          <span style={{ color: 'var(--text-dim)' }}>{log.ts}</span>
+                        </div>
+                        <div style={{ color: 'var(--text-muted)', overflowX: 'auto' }}>
+                          {JSON.stringify(log.payload)}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 5. FEED SEQUENCER VIEW */}
+          {activeTab === 'feed' && (
+            <div className="glass-panel" style={{ padding: '28px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>TikTok Feed Running Order</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '24px' }}>
+                Higher sort weights appear earlier in user feeds. The backend applies a 7-day new-game boost and cursor-based pagination.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {games
+                  .slice()
+                  .sort((a, b) => b.sortWeight - a.sortWeight)
+                  .map((game, idx) => (
+                    <div
+                      key={game.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '16px 20px',
+                        background: 'rgba(0,0,0,0.3)',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border-subtle)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--accent-cyan)', width: '28px' }}>
+                          #{idx + 1}
+                        </div>
+                        <div style={{ width: '48px', height: '60px', borderRadius: '8px', background: '#1e293b', overflow: 'hidden' }}>
+                          <img src={`http://localhost:3000${game.thumbnailUrl}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                        <div>
+                          <h4 style={{ fontSize: '16px', fontWeight: 700 }}>{game.title}</h4>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                            Tags: {game.tags.join(', ')} • Rating: {game.ageRating}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <label style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Weight:</label>
+                        <input
+                          type="number"
+                          value={game.sortWeight}
+                          onChange={(e) => updateFeedWeight(game.id, parseInt(e.target.value) || 0)}
+                          style={{
+                            width: '80px',
+                            background: 'rgba(0,0,0,0.5)',
+                            border: '1px solid var(--border-subtle)',
+                            color: '#fff',
+                            borderRadius: '8px',
+                            padding: '8px 12px',
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '14px',
+                            fontWeight: 700
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* 6. REPORTS QUEUE VIEW */}
+          {activeTab === 'reports' && (
+            <div className="glass-panel" style={{ padding: '28px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>User Game Moderation Reports</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '24px' }}>
+                Review reports submitted by players during gameplay.
+              </p>
+
+              {reports.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-dim)' }}>
+                  <CheckCircle2 size={40} color="#34d399" style={{ margin: '0 auto 12px' }} />
+                  <p>All clean! Zero pending moderation reports.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {reports.map((rep) => (
+                    <div
+                      key={rep.id}
+                      style={{
+                        padding: '16px 20px',
+                        background: 'rgba(0,0,0,0.3)',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                          <span style={{ fontWeight: 700, fontSize: '15px' }}>{rep.game?.title || rep.gameId}</span>
+                          <span className="badge badge-archived">{rep.reason}</span>
+                        </div>
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{rep.note || 'No user note provided.'}</p>
+                      </div>
+                      <button className="btn-secondary" style={{ fontSize: '12px' }}>
+                        Dismiss
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}

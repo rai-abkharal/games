@@ -1,7 +1,9 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { CatalogService } from './services/catalogService';
+import { createAdminRouter } from './routes/adminRoutes';
 
 export function createApp(catalogPath?: string, baseUrl?: string): Express {
   const app = express();
@@ -18,7 +20,7 @@ export function createApp(catalogPath?: string, baseUrl?: string): Express {
   // Middlewares
   app.use(cors({
     origin: '*',
-    methods: ['GET', 'HEAD', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'If-None-Match'],
   }));
   app.use(express.json());
@@ -27,6 +29,17 @@ export function createApp(catalogPath?: string, baseUrl?: string): Express {
   const publicDir = path.resolve(__dirname, '../public');
   const gamesDir = path.join(publicDir, 'games');
   const thumbnailsDir = path.join(publicDir, 'thumbnails');
+  const catalogFile = catalogPath || path.resolve(__dirname, '../../catalog/games.json');
+
+  // Register Admin Router
+  app.use('/v1/admin', createAdminRouter(catalogService, publicDir, catalogFile));
+  app.use('/api/admin', createAdminRouter(catalogService, publicDir, catalogFile));
+
+  // Serve Admin Dashboard GUI if built
+  const adminDistDir = path.resolve(__dirname, '../../admin/dist');
+  if (fs.existsSync(adminDistDir)) {
+    app.use('/admin', express.static(adminDistDir));
+  }
 
   app.use('/games', express.static(gamesDir, {
     maxAge: '1y',
