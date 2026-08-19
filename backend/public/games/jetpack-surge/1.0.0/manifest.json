@@ -1,0 +1,11 @@
+{
+  "id": "jetpack-surge",
+  "title": "Jetpack Surge",
+  "version": "1.0.0",
+  "category": "Arcade",
+  "orientation": "portrait",
+  "description": "High-velocity jetpack booster through electric sky barriers.",
+  "thumbnail": "/thumbnails/jetpack-surge.png",
+  "entry": "index.html",
+  "size": "13KB"
+}

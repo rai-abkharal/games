@@ -1,0 +1,11 @@
+{
+  "id": "cyber-blade",
+  "title": "Cyber Blade",
+  "version": "1.0.0",
+  "category": "Action",
+  "orientation": "portrait",
+  "description": "High-speed neon blade slicing and precision reflex challenge.",
+  "thumbnail": "/thumbnails/cyber-blade.png",
+  "entry": "index.html",
+  "size": "12KB"
+}

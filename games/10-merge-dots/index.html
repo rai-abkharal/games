@@ -6,10 +6,10 @@
 <title>Merge Dots</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;touch-action:none;user-select:none;-webkit-user-select:none}
-html,body{width:100%;height:100%;overflow:hidden;background:#090d1a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+html,body{width:100%;height:100%;overflow:hidden;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 body{overscroll-behavior:none}
 #game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
-canvas{display:block;background:#0f172a}
+canvas{display:block;background:#f8fafc}
 </style>
 </head>
 <body>
@@ -24,13 +24,13 @@ const ctx=c.getContext('2d');ctx.scale(D,D);
 const GRID_SIZE=4;
 const COLORS={
   2:'#38bdf8',4:'#0284c7',8:'#22c55e',16:'#16a34a',
-  32:'#f59e0b',64:'#d97706',128:'#ec4899',256:'#db2777',
-  512:'#8b5cf6',1024:'#7c3aed',2048:'#e11d48'
+  32:'#f59e0b',64:'#ea580c',128:'#ec4899',256:'#e11d48',
+  512:'#8b5cf6',1024:'#7c3aed',2048:'#6366f1'
 };
 
 let grid=[],score=0,best=+localStorage.getItem('merge-dots-best')||0;
 let over=false,started=false,last=performance.now(),shake=0;
-let particles=[],popups=[];
+let particles=[],popups=[],touchStartX=0,touchStartY=0,isSwiping=false;
 let isPaused=false;
 window.__GAME_PAUSED__=false;
 window.SoundFx={ctx:null};
@@ -95,7 +95,7 @@ function spawnTile(){
   }
   if(empty.length>0){
     const {r,col}=empty[Math.floor(Math.random()*empty.length)];
-    grid[r][col]=Math.random()<0.9?2:4;
+    grid[r][col]=Math.random()<0.85?2:4;
   }
 }
 
@@ -129,7 +129,7 @@ function move(dir){
   }else if(dir==='right'){
     for(let r=0;r<GRID_SIZE;r++){
       const oldRow=[...grid[r]];
-      grid[r]=slide(grid[r].reverse()).reverse();
+      grid[r]=slide(grid[r].slice().reverse()).reverse();
       if(grid[r].some((v,i)=>v!==oldRow[i]))moved=true;
     }
   }else if(dir==='up'){
@@ -142,7 +142,7 @@ function move(dir){
     }
   }else if(dir==='down'){
     for(let col=0;col<GRID_SIZE;col++){
-      let colArr=[grid[0][col],grid[1][col],grid[2][col],grid[3][col]].reverse();
+      let colArr=[grid[0][col],grid[1][col],grid[2][col],grid[3][col]].slice().reverse();
       const oldCol=[...colArr];
       colArr=slide(colArr).reverse();
       for(let r=0;r<GRID_SIZE;r++)grid[r][col]=colArr[r];
@@ -156,8 +156,8 @@ function move(dir){
     if(mergedScore>0){
       score+=mergedScore;
       bridge('sendScoreUpdated',score,1);
-      burst(W/2,H*0.4,12,'#fbbf24');
-      popups.push({x:W/2,y:H*0.18,text:`+${mergedScore}`,color:'#fbbf24',life:0.45,max:0.45});
+      burst(W/2,H*0.35,14,'#0284c7');
+      popups.push({x:W/2,y:H*0.18,text:`+${mergedScore}`,color:'#0284c7',life:0.45,max:0.45});
     }
     spawnTile();
     checkGameOver();
@@ -165,7 +165,6 @@ function move(dir){
 }
 
 function checkGameOver(){
-  // Check if any empty cell
   for(let r=0;r<GRID_SIZE;r++){
     for(let col=0;col<GRID_SIZE;col++){
       if(grid[r][col]===0)return;
@@ -192,23 +191,46 @@ function endGame(){
   bridge('sendGameOver',score,1,30);
 }
 
-let touchStartX=0,touchStartY=0;
-c.addEventListener('touchstart',e=>{
-  touchStartX=e.touches[0].clientX;
-  touchStartY=e.touches[0].clientY;
-},{passive:true});
+function handleStart(x,y){
+  if(!started||over){reset();return;}
+  touchStartX=x;
+  touchStartY=y;
+  isSwiping=true;
+}
 
-c.addEventListener('touchend',e=>{
-  const dx=e.changedTouches[0].clientX-touchStartX;
-  const dy=e.changedTouches[0].clientY-touchStartY;
-  if(Math.hypot(dx,dy)>30){
+function handleEnd(x,y){
+  if(!isSwiping)return;
+  isSwiping=false;
+  const dx=x-touchStartX;
+  const dy=y-touchStartY;
+  if(Math.hypot(dx,dy)>20){
     if(Math.abs(dx)>Math.abs(dy)){
       move(dx>0?'right':'left');
     }else{
       move(dy>0?'down':'up');
     }
   }
-},{passive:true});
+}
+
+c.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  handleStart(e.touches[0].clientX,e.touches[0].clientY);
+},{passive:false});
+
+c.addEventListener('touchend',e=>{
+  e.preventDefault();
+  handleEnd(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
+},{passive:false});
+
+c.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  handleStart(e.clientX,e.clientY);
+},{passive:false});
+
+c.addEventListener('pointerup',e=>{
+  e.preventDefault();
+  handleEnd(e.clientX,e.clientY);
+},{passive:false});
 
 initGrid();
 
@@ -218,22 +240,24 @@ function frame(t){
   ctx.save();
   if(shake>0){ctx.translate((Math.random()-0.5)*8,(Math.random()-0.5)*8);shake-=dt;}
 
-  // Background
-  ctx.fillStyle='#0f172a';ctx.fillRect(0,0,W,H);
+  // Clean Modern Light Background
+  ctx.fillStyle='#f8fafc';ctx.fillRect(0,0,W,H);
 
   // HUD
-  ctx.fillStyle='#ffffff';ctx.font='bold 22px sans-serif';ctx.textAlign='left';
-  ctx.fillText(`SCORE: ${score}`,20,40);
-  ctx.textAlign='right';ctx.fillStyle='#94a3b8';
-  ctx.fillText(`BEST: ${best}`,W-20,40);
+  ctx.fillStyle='#0f172a';ctx.font='900 24px sans-serif';ctx.textAlign='left';
+  ctx.fillText(`SCORE: ${score}`,24,42);
+  ctx.textAlign='right';ctx.fillStyle='#64748b';ctx.font='bold 16px sans-serif';
+  ctx.fillText(`BEST: ${best}`,W-24,42);
 
-  // Draw Grid Board
-  const cellSize=68,gap=8;
+  // Draw Grid Board (Modern Light Container)
+  const cellSize=68,gap=10;
   const startX=(W-(GRID_SIZE*cellSize+(GRID_SIZE-1)*gap))/2;
   const startY=H*0.22;
 
-  ctx.fillStyle='#1e293b';ctx.fillRect(startX-10,startY-10,GRID_SIZE*cellSize+(GRID_SIZE-1)*gap+20,GRID_SIZE*cellSize+(GRID_SIZE-1)*gap+20);
-  ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=2;ctx.strokeRect(startX-10,startY-10,GRID_SIZE*cellSize+(GRID_SIZE-1)*gap+20,GRID_SIZE*cellSize+(GRID_SIZE-1)*gap+20);
+  ctx.fillStyle='#e2e8f0';
+  ctx.beginPath();
+  ctx.roundRect(startX-12,startY-12,GRID_SIZE*cellSize+(GRID_SIZE-1)*gap+24,GRID_SIZE*cellSize+(GRID_SIZE-1)*gap+24,18);
+  ctx.fill();
 
   for(let r=0;r<GRID_SIZE;r++){
     for(let col=0;col<GRID_SIZE;col++){
@@ -241,18 +265,30 @@ function frame(t){
       const x=startX+col*(cellSize+gap);
       const y=startY+r*(cellSize+gap);
 
-      // Slot Background
-      ctx.fillStyle='#0f172a';ctx.fillRect(x,y,cellSize,cellSize);
+      // Slot Base
+      ctx.fillStyle='#cbd5e1';
+      ctx.beginPath();
+      ctx.roundRect(x,y,cellSize,cellSize,14);
+      ctx.fill();
 
       // Value Tile
       if(val>0){
         ctx.fillStyle=COLORS[val]||'#e11d48';
-        ctx.beginPath();ctx.arc(x+cellSize/2,y+cellSize/2,cellSize*0.44,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#ffffff';ctx.font='bold 22px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.beginPath();
+        ctx.roundRect(x,y,cellSize,cellSize,14);
+        ctx.fill();
+
+        ctx.fillStyle='#ffffff';
+        ctx.font=val>=1000?'900 20px sans-serif':val>=100?'900 24px sans-serif':'900 28px sans-serif';
+        ctx.textAlign='center';ctx.textBaseline='middle';
         ctx.fillText(val,x+cellSize/2,y+cellSize/2);
       }
     }
   }
+
+  // Swipe Direction Helper Arrows
+  ctx.fillStyle='#94a3b8';ctx.font='bold 14px sans-serif';ctx.textAlign='center';
+  ctx.fillText('SWIPE ANYWHERE TO MERGE',W/2,startY+GRID_SIZE*cellSize+(GRID_SIZE-1)*gap+36);
 
   // Particles
   for(let i=particles.length-1;i>=0;i--){
@@ -268,37 +304,41 @@ function frame(t){
     const pp=popups[i];pp.life-=dt;pp.y-=25*dt;
     if(pp.life<=0){popups.splice(i,1);continue;}
     ctx.globalAlpha=pp.life/pp.max;ctx.fillStyle=pp.color;
-    ctx.font='bold 18px sans-serif';ctx.textAlign='center';
+    ctx.font='bold 22px sans-serif';ctx.textAlign='center';
     ctx.fillText(pp.text,pp.x,pp.y);
   }
   ctx.globalAlpha=1;
 
   // Start Screen
   if(!started&&!over){
-    ctx.fillStyle='rgba(15,23,42,0.85)';ctx.fillRect(0,0,W,H);
-    ctx.textAlign='center';ctx.fillStyle='#ffffff';ctx.font='bold 32px sans-serif';
+    ctx.fillStyle='rgba(248,250,252,0.92)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#0f172a';ctx.font='900 34px sans-serif';
     ctx.fillText('MERGE DOTS',W/2,H*0.36);
-    ctx.fillStyle='#38bdf8';ctx.font='bold 14px sans-serif';
-    ctx.fillText('4×4 NUMBER MERGE PUZZLE',W/2,H*0.36+30);
-    ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';
-    ctx.fillText('Swipe in 4 directions to merge matching numbers!',W/2,H*0.52);
-    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-90,H*0.62,180,48);
+    ctx.fillStyle='#0284c7';ctx.font='bold 15px sans-serif';
+    ctx.fillText('2048 NUMBER MERGE PUZZLE',W/2,H*0.36+32);
+    ctx.fillStyle='#64748b';ctx.font='14px sans-serif';
+    ctx.fillText('Swipe in 4 directions to combine numbers!',W/2,H*0.52);
+    ctx.fillStyle='#0284c7';
+    ctx.beginPath();ctx.roundRect(W/2-90,H*0.62,180,50,25);ctx.fill();
     ctx.fillStyle='#ffffff';ctx.font='bold 16px sans-serif';
     ctx.fillText('TAP TO PLAY',W/2,H*0.62+30);
   }
 
   // Game Over
   if(over){
-    ctx.fillStyle='rgba(15,23,42,0.88)';ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='#1e293b';ctx.fillRect(35,H/2-130,290,260);
-    ctx.strokeStyle='#ef4444';ctx.lineWidth=2;ctx.strokeRect(35,H/2-130,290,260);
-    ctx.textAlign='center';ctx.fillStyle='#ef4444';ctx.font='bold 26px sans-serif';
+    ctx.fillStyle='rgba(248,250,252,0.92)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath();ctx.roundRect(35,H/2-130,290,260,20);ctx.fill();
+    ctx.strokeStyle='#e2e8f0';ctx.lineWidth=2;
+    ctx.strokeRect(35,H/2-130,290,260);
+    ctx.textAlign='center';ctx.fillStyle='#ef4444';ctx.font='900 26px sans-serif';
     ctx.fillText('NO MORE MOVES',W/2,H/2-70);
-    ctx.fillStyle='#ffffff';ctx.font='bold 48px sans-serif';
+    ctx.fillStyle='#0f172a';ctx.font='900 48px sans-serif';
     ctx.fillText(score,W/2,H/2-10);
-    ctx.fillStyle='#94a3b8';ctx.font='14px sans-serif';
+    ctx.fillStyle='#64748b';ctx.font='14px sans-serif';
     ctx.fillText(`BEST SCORE: ${best}`,W/2,H/2+38);
-    ctx.fillStyle='#0284c7';ctx.fillRect(W/2-85,H/2+62,170,44);
+    ctx.fillStyle='#0284c7';
+    ctx.beginPath();ctx.roundRect(W/2-85,H/2+62,170,44,22);ctx.fill();
     ctx.fillStyle='#ffffff';ctx.font='bold 14px sans-serif';
     ctx.fillText('PLAY AGAIN',W/2,H/2+89);
   }

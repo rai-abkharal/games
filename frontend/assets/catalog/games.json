@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "updatedAt": "2026-08-19T11:12:55.090Z",
+  "updatedAt": "2026-08-19T11:29:04.430Z",
   "games": [
     {
       "id": "tap-cannon",
@@ -179,14 +179,14 @@
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/merge-dots/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/merge-dots.webp",
-      "sizeBytes": 10203,
+      "sizeBytes": 11059,
       "orientation": "portrait",
       "engine": "phaser",
       "manifestUrl": "http://localhost:8080/games/merge-dots/1.1.0/manifest.json",
       "feedOrder": 10,
       "category": "Puzzle",
       "description": "Merge matching number dots on a 4x4 board to reach the highest dot!",
-      "sha256": "3e10b7a740aa92cd59e41884c9777d56f10df59a81b463abbdc21dd4a57f3d56",
+      "sha256": "eaf20ca5a083a0621ad04705f2c9507dda33d97006686c39adc6a6fbadc04f12",
       "features": {
         "sound": true,
         "vibration": true
@@ -263,6 +263,44 @@
       "category": "Arcade",
       "description": "Battle smart AI opponents in a dynamic 2D arena. Capture and hold the golden crown to win!",
       "sha256": "4efe7d50a8eb597f7327c3b96ab68d13d255a2e0867d1a697bea8a2722225776",
+      "features": {
+        "sound": true,
+        "vibration": false
+      }
+    },
+    {
+      "id": "cyber-blade",
+      "title": "Cyber Blade",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/cyber-blade/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/cyber-blade.webp",
+      "sizeBytes": 12007,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/cyber-blade/1.0.0/manifest.json",
+      "feedOrder": 99,
+      "category": "Action",
+      "description": "High-speed neon blade slicing and precision reflex challenge.",
+      "sha256": "5b02a5c7d6e45cc84f68a556bcc994fd80065e5a6a1ec54ec5af56868257e54b",
+      "features": {
+        "sound": true,
+        "vibration": false
+      }
+    },
+    {
+      "id": "jetpack-surge",
+      "title": "Jetpack Surge",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/jetpack-surge/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/jetpack-surge.webp",
+      "sizeBytes": 10886,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/jetpack-surge/1.0.0/manifest.json",
+      "feedOrder": 99,
+      "category": "Arcade",
+      "description": "High-velocity jetpack booster through electric sky barriers.",
+      "sha256": "912b4e2255354e237394c9686a369cdcd2b502de1541b884b119bac3d73154dc",
       "features": {
         "sound": true,
         "vibration": false
