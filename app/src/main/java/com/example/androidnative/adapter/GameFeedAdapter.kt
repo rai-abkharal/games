@@ -210,38 +210,6 @@ class GameFeedAdapter(
             webView.addJavascriptInterface(bridge, "NativeBridge")
             webView.webChromeClient = WebChromeClient()
 
-            var isIntentionalPageSwipe = false
-
-            webView.setOnTouchListener { v, event ->
-                val density = context.resources.displayMetrics.density
-                val topHeaderZone = 85 * density
-                val bottomZone = v.height - (65 * density)
-
-                when (event.actionMasked) {
-                    android.view.MotionEvent.ACTION_DOWN -> {
-                        isIntentionalPageSwipe = (event.y < topHeaderZone || event.y > bottomZone)
-                        if (!isIntentionalPageSwipe) {
-                            // Touch inside active gameplay zone: Disallow ViewPager2 from stealing touch
-                            v.parent?.requestDisallowInterceptTouchEvent(true)
-                        } else {
-                            // Touch in top header / bottom bar: Allow natural ViewPager2 page scroll
-                            v.parent?.requestDisallowInterceptTouchEvent(false)
-                        }
-                    }
-                    android.view.MotionEvent.ACTION_MOVE -> {
-                        if (isIntentionalPageSwipe) {
-                            v.parent?.requestDisallowInterceptTouchEvent(false)
-                        } else {
-                            v.parent?.requestDisallowInterceptTouchEvent(true)
-                        }
-                    }
-                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
-                        v.parent?.requestDisallowInterceptTouchEvent(false)
-                    }
-                }
-                false
-            }
-
             webView.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(
                     view: WebView?,
