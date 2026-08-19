@@ -209,8 +209,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Automatically purge session cache on app close (keeps permanent offline downloads)
-        cacheManager.clearTempCache()
+        // Retain disk cache persistently across sessions so games open instantly on restart
     }
 
     override fun onGameStarted() {

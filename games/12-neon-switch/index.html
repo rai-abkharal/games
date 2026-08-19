@@ -34,6 +34,28 @@ for(let i=0;i<55;i++) stars.push({
  a:.08+Math.random()*.3,s:10+Math.random()*30
 });
 
+let isPaused=false;
+window.__GAME_PAUSED__=false;
+window.SoundFx={ctx:null};
+
+function pauseGame(){
+  isPaused=true;
+  if(audio.ctx&&audio.ctx.state==='running'){try{audio.ctx.suspend()}catch(e){}}
+}
+function resumeGame(){
+  if(isPaused||window.__GAME_PAUSED__){
+    isPaused=false;
+    window.__GAME_PAUSED__=false;
+    last=performance.now();
+    if(audio.ctx&&audio.ctx.state==='suspended'){try{audio.ctx.resume()}catch(e){}}
+    requestAnimationFrame(frame);
+  }
+}
+window.addEventListener('blur',pauseGame);
+window.addEventListener('focus',resumeGame);
+window.addEventListener('pause',pauseGame);
+window.addEventListener('resume',resumeGame);
+
 function bridgeCall(name,...args){
  try{
   window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');
@@ -95,6 +117,7 @@ function drawGlowCircle(x,y,r,color,alpha){
  ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
 }
 function frame(t){
+ if(isPaused||window.__GAME_PAUSED__)return;
  const dt=Math.min(.033,(t-last)/1000);last=t;
  ctx.save();
  if(shake>0){ctx.translate((Math.random()-.5)*10,(Math.random()-.5)*10);shake-=dt}

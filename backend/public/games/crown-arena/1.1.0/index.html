@@ -82,9 +82,7 @@
     height: 42px;
     border-radius: 50%;
     border: 1px solid rgba(255, 212, 105, 0.4);
-    background: rgba(22, 14, 46, 0.7);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(22, 14, 46, 0.9);
     color: var(--gold);
     display: flex;
     align-items: center;
@@ -122,14 +120,12 @@
     left: 26px;
     bottom: 26px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(35, 22, 70, 0.55) 0%, rgba(14, 9, 30, 0.8) 100%);
+    background: radial-gradient(circle, rgba(35, 22, 70, 0.75) 0%, rgba(14, 9, 30, 0.95) 100%);
     border: 2px solid rgba(255, 212, 105, 0.35);
     box-shadow:
       0 0 20px rgba(255, 212, 105, 0.18),
       inset 0 0 22px rgba(120, 70, 220, 0.35),
       0 8px 26px rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -203,9 +199,7 @@
   .layer {
     position: absolute; inset: 0;
     display: grid; place-items: center;
-    background: rgba(8,5,20,0.82);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(8,5,20,0.92);
     opacity: 0; pointer-events: none;
     transition: opacity .35s ease;
     z-index: 40;
@@ -1607,7 +1601,28 @@ initJoystick();
 
 /* ---------- loop ---------- */
 let last = performance.now();
+let isPaused = false;
+window.__GAME_PAUSED__ = false;
+window.SoundFx = { ctx: null };
+
+function pauseGame() {
+    isPaused = true;
+}
+function resumeGame() {
+    if (isPaused || window.__GAME_PAUSED__) {
+        isPaused = false;
+        window.__GAME_PAUSED__ = false;
+        last = performance.now();
+        requestAnimationFrame(frame);
+    }
+}
+window.addEventListener('blur', pauseGame);
+window.addEventListener('focus', resumeGame);
+window.addEventListener('pause', pauseGame);
+window.addEventListener('resume', resumeGame);
+
 function frame(now) {
+    if (isPaused || window.__GAME_PAUSED__) return;
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
     update(dt);

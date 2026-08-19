@@ -68,6 +68,14 @@ async function buildAll() {
           assetsInlineLimit: Number.POSITIVE_INFINITY,
           cssCodeSplit: false,
           reportCompressedSize: true,
+          rollupOptions: {
+            external: ['phaser'],
+            output: {
+              globals: {
+                phaser: 'Phaser',
+              },
+            },
+          },
         },
         logLevel: 'warn',
       });

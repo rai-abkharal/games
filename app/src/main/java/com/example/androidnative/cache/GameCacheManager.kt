@@ -106,9 +106,41 @@ class GameCacheManager(private val context: Context) {
         try {
             val uri = Uri.parse(url)
             val path = uri.path ?: return null
-
-            // Example path: /games/tap-cannon/1.1.0/assets/index-xxx.js
             val segments = path.split("/").filter { it.isNotEmpty() }
+
+            // 1. Check if intercepting shared libraries (e.g. /shared/phaser.min.js)
+            if (segments.size >= 2 && segments[0] == "shared") {
+                val fileName = segments.subList(1, segments.size).joinToString("/")
+                val cacheKey = "shared/$fileName"
+                var data = memoryCache.get(cacheKey)
+                if (data == null) {
+                    val sharedOffline = File(offlineStorageDir, "shared/$fileName")
+                    val sharedTemp = File(tempCacheDir, "shared/$fileName")
+                    val targetFile = if (sharedOffline.exists()) sharedOffline else if (sharedTemp.exists()) sharedTemp else null
+                    if (targetFile != null && targetFile.exists()) {
+                        data = targetFile.readBytes()
+                        memoryCache.put(cacheKey, data)
+                    }
+                }
+                if (data != null) {
+                    val mimeType = getMimeType(fileName)
+                    val headers = mapOf(
+                        "Access-Control-Allow-Origin" to "*",
+                        "Access-Control-Allow-Methods" to "GET, OPTIONS",
+                        "Cache-Control" to "public, max-age=31536000, immutable"
+                    )
+                    return WebResourceResponse(
+                        mimeType,
+                        "UTF-8",
+                        200,
+                        "OK",
+                        headers,
+                        java.io.ByteArrayInputStream(data)
+                    )
+                }
+            }
+
+            // 2. Intercept individual games
             if (segments.size >= 3 && segments[0] == "games") {
                 val gameId = segments[1]
                 val version = segments[2]
@@ -202,7 +234,23 @@ class GameCacheManager(private val context: Context) {
 
             while (matcher.find()) {
                 var src = matcher.group(1) ?: continue
-                if (!src.startsWith("http")) {
+                if (src.startsWith("/shared/")) {
+                    val sharedFileName = src.removePrefix("/shared/")
+                    val sharedTargetFile = File(baseDir, "shared/$sharedFileName")
+                    if (!sharedTargetFile.exists()) {
+                        sharedTargetFile.parentFile?.mkdirs()
+                        val sharedAssetUrl = "${baseUri.scheme}://${baseUri.authority}/shared/$sharedFileName"
+                        val assetReq = Request.Builder().url(sharedAssetUrl).build()
+                        val assetRes = client.newCall(assetReq).execute()
+                        if (assetRes.isSuccessful) {
+                            assetRes.body?.byteStream()?.use { input ->
+                                sharedTargetFile.outputStream().use { output ->
+                                    input.copyTo(output)
+                                }
+                            }
+                        }
+                    }
+                } else if (!src.startsWith("http")) {
                     val assetUrl = resolveUri(baseUri, src)
                     src = src.removePrefix("./")
                     val assetFile = File(targetDir, src)

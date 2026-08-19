@@ -36,8 +36,30 @@ const fruitsTypes=[
 
 for(let i=0;i<18;i++) leaves.push({x:Math.random()*W,y:Math.random()*H,s:.25+Math.random()*.6,a:.18+Math.random()*.3,r:4+Math.random()*5});
 
+let isPaused=false;
+window.__GAME_PAUSED__=false;
+window.SoundFx={ctx:null};
+
+function pauseGame(){
+  isPaused=true;
+  if(sound.A&&sound.A.state==='running'){try{sound.A.suspend()}catch(e){}}
+}
+function resumeGame(){
+  if(isPaused||window.__GAME_PAUSED__){
+    isPaused=false;
+    window.__GAME_PAUSED__=false;
+    last=performance.now();
+    if(sound.A&&sound.A.state==='suspended'){try{sound.A.resume()}catch(e){}}
+    requestAnimationFrame(frame);
+  }
+}
+window.addEventListener('blur',pauseGame);
+window.addEventListener('focus',resumeGame);
+window.addEventListener('pause',pauseGame);
+window.addEventListener('resume',resumeGame);
+
 function bridge(name,...args){
- try{window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');if(window.GameBridge?.[name])window.GameBridge[name](...args)}catch(e){}
+  try{window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');if(window.GameBridge?.[name])window.GameBridge[name](...args)}catch(e){}
 }
 bridge('sendReady');
 
@@ -151,6 +173,7 @@ function drawFruit(f){
 }
 
 function frame(t){
+ if(isPaused||window.__GAME_PAUSED__)return;
  const dt=Math.min(.033,(t-last)/1000);last=t;
  ctx.save();
  if(shake>0){ctx.translate((Math.random()-.5)*8,(Math.random()-.5)*8);shake-=dt}

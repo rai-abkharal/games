@@ -28,8 +28,30 @@ let muted=false,combo=0;
 
 for(let i=0;i<12;i++) clouds.push({x:Math.random()*W,y:50+Math.random()*300,s:.15+Math.random()*.35,w:50+Math.random()*70});
 
+let isPaused=false;
+window.__GAME_PAUSED__=false;
+window.SoundFx={ctx:null};
+
+function pauseGame(){
+  isPaused=true;
+  if(beep.A&&beep.A.state==='running'){try{beep.A.suspend()}catch(e){}}
+}
+function resumeGame(){
+  if(isPaused||window.__GAME_PAUSED__){
+    isPaused=false;
+    window.__GAME_PAUSED__=false;
+    last=performance.now();
+    if(beep.A&&beep.A.state==='suspended'){try{beep.A.resume()}catch(e){}}
+    requestAnimationFrame(frame);
+  }
+}
+window.addEventListener('blur',pauseGame);
+window.addEventListener('focus',resumeGame);
+window.addEventListener('pause',pauseGame);
+window.addEventListener('resume',resumeGame);
+
 function bridge(name,...args){
- try{window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');if(window.GameBridge?.[name])window.GameBridge[name](...args)}catch(e){}
+  try{window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');if(window.GameBridge?.[name])window.GameBridge[name](...args)}catch(e){}
 }
 bridge('sendReady');
 
@@ -67,6 +89,7 @@ document.addEventListener('visibilitychange',()=>bridge(document.hidden?'onPause
 function roundRect(ctx,px,py,w,h,r){ctx.beginPath();ctx.roundRect(px,py,w,h,r);}
 
 function frame(t){
+ if(isPaused||window.__GAME_PAUSED__)return;
  let dt=Math.min(.033,(t-last)/1000);last=t;
  x.save();
  if(shake>0){x.translate((Math.random()-.5)*9,(Math.random()-.5)*9);shake-=dt}

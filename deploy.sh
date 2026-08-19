@@ -28,6 +28,8 @@ echo ""
 echo "🎮 [3/5] Compiling and Deploying all Mini-Games to CDN..."
 cd "$PROJECT_DIR/games"
 npm install
+mkdir -p "$PROJECT_DIR/backend/public/shared"
+cp "$PROJECT_DIR/games/node_modules/phaser/dist/phaser-arcade-physics.min.js" "$PROJECT_DIR/backend/public/shared/phaser.min.js" 2>/dev/null || true
 npm run build:all
 npx tsx scripts/deploy-all-games.ts --force
 

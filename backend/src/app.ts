@@ -1,5 +1,6 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import path from 'path';
 import fs from 'fs';
 import { CatalogService } from './services/catalogService';
@@ -18,6 +19,7 @@ export function createApp(catalogPath?: string, baseUrl?: string): Express {
   }
 
   // Middlewares
+  app.use(compression({ level: 6 }));
   app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
@@ -29,7 +31,17 @@ export function createApp(catalogPath?: string, baseUrl?: string): Express {
   const publicDir = path.resolve(__dirname, '../public');
   const gamesDir = path.join(publicDir, 'games');
   const thumbnailsDir = path.join(publicDir, 'thumbnails');
+  const sharedDir = path.join(publicDir, 'shared');
   const catalogFile = catalogPath || catalogService.getCatalogPath();
+
+  app.use('/shared', express.static(sharedDir, {
+    maxAge: '1y',
+    immutable: true,
+    setHeaders: (res) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    },
+  }));
 
   // Register Admin Router
   app.use('/v1/admin', createAdminRouter(catalogService, publicDir, catalogFile));
