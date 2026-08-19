@@ -70,49 +70,52 @@ class GameFeedAdapter(
     fun handlePageSelected(position: Int) {
         currentSelectedPosition = position
         for ((pos, webView) in activeWebViews) {
-            if (pos == position) {
-                // ACTIVE GAME: Unmute & Wake Up & Resume Audio Context
-                webView.evaluateJavascript(
-                    """
-                    (function() {
-                        if (window.GameBridge) {
-                            window.GameBridge.setSoundEnabled(${!isSoundMuted});
-                            window.GameBridge.resume();
+            val isActive = (pos == position)
+            val shouldPlaySound = isActive && !isSoundMuted
+            
+            webView.evaluateJavascript(
+                """
+                (function() {
+                    window.__GAME_ACTIVE__ = $isActive;
+                    window.dispatchEvent(new Event(${if (isActive) "'focus'" else "'blur'"}));
+
+                    if (window.GameBridge) {
+                        if (typeof window.GameBridge.setSoundEnabled === 'function') {
+                            window.GameBridge.setSoundEnabled($shouldPlaySound);
                         }
-                        if (window.__PHASER_GAME__) {
-                            if (window.__PHASER_GAME__.loop) window.__PHASER_GAME__.loop.wake();
-                            if (window.__PHASER_GAME__.sound) {
-                                window.__PHASER_GAME__.sound.mute = $isSoundMuted;
-                                if (window.__PHASER_GAME__.sound.context && window.__PHASER_GAME__.sound.context.state === 'suspended') {
-                                    window.__PHASER_GAME__.sound.context.resume();
-                                }
+                        if ($isActive) {
+                            if (typeof window.GameBridge.resume === 'function') window.GameBridge.resume();
+                            if (typeof window.GameBridge.onResume === 'function') window.GameBridge.onResume();
+                        } else {
+                            if (typeof window.GameBridge.pause === 'function') window.GameBridge.pause();
+                            if (typeof window.GameBridge.onPause === 'function') window.GameBridge.onPause();
+                        }
+                    }
+
+                    if (window.__PHASER_GAME__) {
+                        if (window.__PHASER_GAME__.loop) {
+                            if ($isActive) window.__PHASER_GAME__.loop.wake();
+                            else window.__PHASER_GAME__.loop.sleep();
+                        }
+                        if (window.__PHASER_GAME__.sound) {
+                            window.__PHASER_GAME__.sound.mute = ${!shouldPlaySound};
+                            if ($isActive && window.__PHASER_GAME__.sound.context && window.__PHASER_GAME__.sound.context.state === 'suspended') {
+                                window.__PHASER_GAME__.sound.context.resume();
                             }
                         }
-                        if (window.SoundFx && window.SoundFx.ctx && window.SoundFx.ctx.state === 'suspended') {
-                            window.SoundFx.ctx.resume();
+                    }
+
+                    if (window.SoundFx && window.SoundFx.ctx) {
+                        if ($isActive) {
+                            if (window.SoundFx.ctx.state === 'suspended') window.SoundFx.ctx.resume();
+                        } else {
+                            if (window.SoundFx.ctx.state === 'running') window.SoundFx.ctx.suspend();
                         }
-                    })();
-                    """.trimIndent(),
-                    null
-                )
-            } else {
-                // OFFSCREEN GAME: Mute & Sleep (0.0% CPU usage)
-                webView.evaluateJavascript(
-                    """
-                    (function() {
-                        if (window.GameBridge) {
-                            window.GameBridge.setSoundEnabled(false);
-                            window.GameBridge.pause();
-                        }
-                        if (window.__PHASER_GAME__) {
-                            if (window.__PHASER_GAME__.loop) window.__PHASER_GAME__.loop.sleep();
-                            if (window.__PHASER_GAME__.sound) window.__PHASER_GAME__.sound.mute = true;
-                        }
-                    })();
-                    """.trimIndent(),
-                    null
-                )
-            }
+                    }
+                })();
+                """.trimIndent(),
+                null
+            )
         }
     }
 
@@ -121,13 +124,19 @@ class GameFeedAdapter(
             webView.evaluateJavascript(
                 """
                 (function() {
+                    window.__GAME_ACTIVE__ = false;
+                    window.dispatchEvent(new Event('blur'));
                     if (window.GameBridge) {
-                        window.GameBridge.setSoundEnabled(false);
-                        window.GameBridge.pause();
+                        if (typeof window.GameBridge.setSoundEnabled === 'function') window.GameBridge.setSoundEnabled(false);
+                        if (typeof window.GameBridge.pause === 'function') window.GameBridge.pause();
+                        if (typeof window.GameBridge.onPause === 'function') window.GameBridge.onPause();
                     }
                     if (window.__PHASER_GAME__) {
                         if (window.__PHASER_GAME__.loop) window.__PHASER_GAME__.loop.sleep();
                         if (window.__PHASER_GAME__.sound) window.__PHASER_GAME__.sound.mute = true;
+                    }
+                    if (window.SoundFx && window.SoundFx.ctx && window.SoundFx.ctx.state === 'running') {
+                        window.SoundFx.ctx.suspend();
                     }
                 })();
                 """.trimIndent(),
@@ -170,8 +179,7 @@ class GameFeedAdapter(
             binding.tvPlaceholderTitle.text = game.title
 
             val webView = binding.webView
-            webView.setBackgroundColor(Color.parseColor("#F8F6F0"))
-            webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            webView.setBackgroundColor(Color.parseColor("#0F172A"))
             webView.isVerticalScrollBarEnabled = false
             webView.isHorizontalScrollBarEnabled = false
             webView.overScrollMode = View.OVER_SCROLL_NEVER
@@ -184,6 +192,11 @@ class GameFeedAdapter(
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.allowFileAccess = true
             settings.databaseEnabled = true
+            settings.useWideViewPort = true
+            settings.loadWithOverviewMode = true
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                settings.offscreenPreRaster = true
+            }
             @Suppress("DEPRECATION")
             settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
 

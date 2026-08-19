@@ -98,6 +98,10 @@ class GameCacheManager(private val context: Context) {
         return if (tempFile.exists()) tempFile else null
     }
 
+    private val memoryCache = object : android.util.LruCache<String, ByteArray>(24 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: ByteArray): Int = value.size
+    }
+
     fun interceptRequest(url: String): WebResourceResponse? {
         try {
             val uri = Uri.parse(url)
@@ -114,8 +118,18 @@ class GameCacheManager(private val context: Context) {
                     "index.html"
                 }
 
-                val localFile = getLocalFile(gameId, version, relativePath)
-                if (localFile != null && localFile.exists()) {
+                val cacheKey = "$gameId/$version/$relativePath"
+                var data = memoryCache.get(cacheKey)
+                
+                if (data == null) {
+                    val localFile = getLocalFile(gameId, version, relativePath)
+                    if (localFile != null && localFile.exists()) {
+                        data = localFile.readBytes()
+                        memoryCache.put(cacheKey, data)
+                    }
+                }
+
+                if (data != null) {
                     val mimeType = getMimeType(relativePath)
                     val encoding = if (mimeType.startsWith("text/") || mimeType.contains("javascript") || mimeType.contains("json")) "UTF-8" else null
                     val headers = mapOf(
@@ -129,7 +143,7 @@ class GameCacheManager(private val context: Context) {
                         200,
                         "OK",
                         headers,
-                        FileInputStream(localFile)
+                        java.io.ByteArrayInputStream(data)
                     )
                 }
             }
@@ -229,6 +243,7 @@ class GameCacheManager(private val context: Context) {
      * while preserving explicitly downloaded offline games.
      */
     fun clearTempCache() {
+        memoryCache.evictAll()
         if (tempCacheDir.exists()) {
             tempCacheDir.deleteRecursively()
             tempCacheDir.mkdirs()
@@ -237,6 +252,7 @@ class GameCacheManager(private val context: Context) {
     }
 
     fun clearAllCache() {
+        memoryCache.evictAll()
         if (tempCacheDir.exists()) {
             tempCacheDir.deleteRecursively()
             tempCacheDir.mkdirs()
