@@ -205,26 +205,6 @@ class GameFeedAdapter(
             webView.addJavascriptInterface(bridge, "NativeBridge")
             webView.webChromeClient = WebChromeClient()
 
-            // Unlock AudioContext on touch event without consuming the touch
-            webView.setOnTouchListener { v, event ->
-                if (event.action == MotionEvent.ACTION_DOWN) {
-                    (v as? WebView)?.evaluateJavascript(
-                        """
-                        (function() {
-                            if (window.SoundFx && window.SoundFx.ctx && window.SoundFx.ctx.state === 'suspended') {
-                                window.SoundFx.ctx.resume();
-                            }
-                            if (window.__PHASER_GAME__ && window.__PHASER_GAME__.sound && window.__PHASER_GAME__.sound.context && window.__PHASER_GAME__.sound.context.state === 'suspended') {
-                                window.__PHASER_GAME__.sound.context.resume();
-                            }
-                        })();
-                        """.trimIndent(),
-                        null
-                    )
-                }
-                false
-            }
-
             webView.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(
                     view: WebView?,

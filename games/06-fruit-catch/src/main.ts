@@ -247,7 +247,7 @@ class GameOverScene extends Phaser.Scene {
 }
 
 const config: Phaser.Types.Core.GameConfig = {
-  type: Phaser.WEBGL,
+  type: Phaser.AUTO,
   parent: 'game-container',
   width: 480,
   height: 800,
@@ -264,7 +264,7 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   render: {
     powerPreference: 'high-performance',
-    desynchronized: true,
+    desynchronized: false,
     batchSize: 2048,
     clearBeforeRender: true,
   },
