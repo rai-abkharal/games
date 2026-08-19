@@ -25,11 +25,19 @@ cd "$PROJECT_DIR/backend"
 npm install
 
 echo ""
-echo "🎮 [3/5] Compiling and Deploying all 10 Mini-Games to CDN..."
+echo "🎮 [3/5] Compiling and Deploying all Mini-Games to CDN..."
 cd "$PROJECT_DIR/games"
 npm install
 npm run build:all
 npx tsx scripts/deploy-all-games.ts --force
+
+echo ""
+echo "🖥️ [3.5/5] Building Admin Dashboard..."
+if [ -d "$PROJECT_DIR/admin" ]; then
+  cd "$PROJECT_DIR/admin"
+  npm install
+  npx vite build || npm run build || true
+fi
 
 echo ""
 echo "🔨 [4/5] Building Backend TypeScript to Production JS..."
