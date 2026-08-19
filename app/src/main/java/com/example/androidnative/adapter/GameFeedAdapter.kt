@@ -210,23 +210,6 @@ class GameFeedAdapter(
             webView.addJavascriptInterface(bridge, "NativeBridge")
             webView.webChromeClient = WebChromeClient()
 
-            webView.setOnTouchListener { v, event ->
-                when (event.actionMasked) {
-                    android.view.MotionEvent.ACTION_DOWN -> {
-                        val topThreshold = (70 * context.resources.displayMetrics.density).toInt()
-                        if (event.y > topThreshold) {
-                            v.parent?.requestDisallowInterceptTouchEvent(true)
-                        } else {
-                            v.parent?.requestDisallowInterceptTouchEvent(false)
-                        }
-                    }
-                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
-                        v.parent?.requestDisallowInterceptTouchEvent(false)
-                    }
-                }
-                false
-            }
-
             webView.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(
                     view: WebView?,
