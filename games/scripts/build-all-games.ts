@@ -49,7 +49,7 @@ async function buildAll() {
         base: './',
         resolve: {
           alias: [
-            { find: 'phaser', replacement: path.resolve(__dirname, '../node_modules/phaser/dist/phaser-arcade-physics.min.js') },
+            { find: 'phaser', replacement: path.resolve(__dirname, '../shared/phaser-shim.ts') },
             { find: '../../shared', replacement: sharedDir },
             { find: '../shared', replacement: sharedDir },
             { find: '@shared', replacement: sharedDir },
