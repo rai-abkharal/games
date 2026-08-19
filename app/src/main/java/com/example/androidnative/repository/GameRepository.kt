@@ -73,7 +73,11 @@ class GameRepository(private val context: Context) {
             GameItem("tiny-archer", "Tiny Archer", "1.1.0", "$BASE_URL/games/tiny-archer/1.1.0/index.html", "$BASE_URL/thumbnails/tiny-archer.webp", 1497586, category = "Action", description = "Shoot bullseyes before time runs out!"),
             GameItem("pipe-connect", "Pipe Connect", "1.1.0", "$BASE_URL/games/pipe-connect/1.1.0/index.html", "$BASE_URL/thumbnails/pipe-connect.webp", 1496852, category = "Puzzle", description = "Rotate pipes to create a flow!"),
             GameItem("one-tap-runner", "One-Tap Runner", "1.1.0", "$BASE_URL/games/one-tap-runner/1.1.0/index.html", "$BASE_URL/thumbnails/one-tap-runner.webp", 1496171, category = "Arcade", description = "Jump over spikes with precision!"),
-            GameItem("merge-dots", "Merge Dots", "1.1.0", "$BASE_URL/games/merge-dots/1.1.0/index.html", "$BASE_URL/thumbnails/merge-dots.webp", 1496700, category = "Puzzle", description = "Slide and merge numbers to 2048!")
+            GameItem("merge-dots", "Merge Dots", "1.1.0", "$BASE_URL/games/merge-dots/1.1.0/index.html", "$BASE_URL/thumbnails/merge-dots.webp", 1496700, category = "Puzzle", description = "Slide and merge numbers to 2048!"),
+            GameItem("fruit-frenzy", "Fruit Frenzy", "1.0.0", "$BASE_URL/games/fruit-frenzy/1.0.0/index.html", "$BASE_URL/thumbnails/fruit-frenzy.webp", 10390, category = "Arcade", description = "Fast fruit-catching & slicing frenzy!"),
+            GameItem("neon-switch", "Neon Switch", "1.0.0", "$BASE_URL/games/neon-switch/1.0.0/index.html", "$BASE_URL/thumbnails/neon-switch.webp", 8056, category = "Arcade", description = "Switch lanes and dodge neon orbs!"),
+            GameItem("sky-pop", "Sky Pop", "1.0.0", "$BASE_URL/games/sky-pop/1.0.0/index.html", "$BASE_URL/thumbnails/sky-pop.webp", 7589, category = "Arcade", description = "Fly through sky gates and build high scores!"),
+            GameItem("crown-arena", "Crown Arena", "1.1.0", "$BASE_URL/games/crown-arena/1.1.0/index.html", "$BASE_URL/thumbnails/crown-arena.webp", 50732, category = "Action", description = "Capture and hold the golden crown in 2D arena battle!")
         )
     }
 }
