@@ -22,7 +22,7 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
   // 1. Get All Games for Admin Dashboard
   router.get('/games', (req: Request, res: Response) => {
     try {
-      const catalog = catalogService.getCatalog();
+      const catalog = catalogService.loadAndValidateCatalog();
       const adminGames = catalog.games.map((g, idx) => ({
         id: g.id,
         slug: g.id,

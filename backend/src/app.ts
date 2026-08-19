@@ -29,7 +29,7 @@ export function createApp(catalogPath?: string, baseUrl?: string): Express {
   const publicDir = path.resolve(__dirname, '../public');
   const gamesDir = path.join(publicDir, 'games');
   const thumbnailsDir = path.join(publicDir, 'thumbnails');
-  const catalogFile = catalogPath || path.resolve(__dirname, '../../catalog/games.json');
+  const catalogFile = catalogPath || catalogService.getCatalogPath();
 
   // Register Admin Router
   app.use('/v1/admin', createAdminRouter(catalogService, publicDir, catalogFile));
