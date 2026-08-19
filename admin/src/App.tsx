@@ -70,6 +70,8 @@ interface BridgeLogItem {
   ts: string;
 }
 
+const API_BASE = typeof window !== 'undefined' && window.location.origin.includes('5173') ? 'http://localhost:3000' : '';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'games' | 'upload' | 'simulator' | 'feed' | 'reports'>('dashboard');
   const [games, setGames] = useState<GameItem[]>([]);
@@ -96,7 +98,7 @@ export default function App() {
   const fetchGames = async () => {
     try {
       setLoading(true);
-      const res = await fetch('http://localhost:3000/v1/admin/games');
+      const res = await fetch(`${API_BASE}/v1/admin/games`);
       if (res.ok) {
         const data = await res.json();
         setGames(data.games || []);
@@ -110,7 +112,7 @@ export default function App() {
 
   const fetchReports = async () => {
     try {
-      const res = await fetch('http://localhost:3000/v1/admin/reports');
+      const res = await fetch(`${API_BASE}/v1/admin/reports`);
       if (res.ok) {
         const data = await res.json();
         setReports(data.reports || []);
@@ -182,7 +184,7 @@ export default function App() {
   const toggleGameStatus = async (gameId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'published' ? 'archived' : 'published';
     try {
-      const res = await fetch(`http://localhost:3000/v1/admin/games/${gameId}/publish`, {
+      const res = await fetch(`${API_BASE}/v1/admin/games/${gameId}/publish`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
@@ -198,7 +200,7 @@ export default function App() {
   // Update Rollout Percentage
   const updateRollout = async (gameId: string, percent: number) => {
     try {
-      await fetch(`http://localhost:3000/v1/admin/games/${gameId}/publish`, {
+      await fetch(`${API_BASE}/v1/admin/games/${gameId}/publish`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rolloutPercent: percent }),
@@ -210,7 +212,7 @@ export default function App() {
   // Fetch validation report
   const viewValidation = async (gameId: string) => {
     try {
-      const res = await fetch(`http://localhost:3000/v1/admin/games/${gameId}/validation`);
+      const res = await fetch(`${API_BASE}/v1/admin/games/${gameId}/validation`);
       if (res.ok) {
         const data = await res.json();
         setValidationReport(data);
@@ -230,8 +232,8 @@ export default function App() {
     formData.append('file', file);
 
     const uploadUrl = selectedGame?.id
-      ? `http://localhost:3000/v1/admin/games/${selectedGame.id}/upload`
-      : `http://localhost:3000/v1/admin/games/upload`;
+      ? `${API_BASE}/v1/admin/games/${selectedGame.id}/upload`
+      : `${API_BASE}/v1/admin/games/upload`;
 
     try {
       const res = await fetch(uploadUrl, {
@@ -263,7 +265,7 @@ export default function App() {
   // Handle Feed Sort Weight Change
   const updateFeedWeight = async (gameId: string, weight: number) => {
     try {
-      await fetch('http://localhost:3000/v1/admin/feed/order', {
+      await fetch(`${API_BASE}/v1/admin/feed/order`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order: [{ id: gameId, sortWeight: weight }] }),
@@ -484,7 +486,7 @@ export default function App() {
                           flexShrink: 0
                         }}>
                           <img
-                            src={`http://localhost:3000${game.thumbnailUrl}`}
+                            src={game.thumbnailUrl.startsWith('http') ? game.thumbnailUrl : `${API_BASE}${game.thumbnailUrl}`}
                             alt={game.title}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             onError={(e) => {
@@ -556,7 +558,7 @@ export default function App() {
                         <td style={{ padding: '16px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <div style={{ width: '40px', height: '50px', borderRadius: '8px', background: '#1e293b', overflow: 'hidden' }}>
-                              <img src={`http://localhost:3000${game.thumbnailUrl}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={game.thumbnailUrl.startsWith('http') ? game.thumbnailUrl : `${API_BASE}${game.thumbnailUrl}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             </div>
                             <div>
                               <div style={{ fontWeight: 700 }}>{game.title}</div>
@@ -802,7 +804,7 @@ export default function App() {
                   <iframe
                     ref={simIframeRef}
                     key={simGame}
-                    src={`http://localhost:3000/cdn/games/${simGame}/1.0.0/index.html`}
+                    src={`${API_BASE}/games/${simGame}/${games.find(g => g.slug === simGame || g.id === simGame)?.versions[0]?.version || '1.1.0'}/index.html`}
                     className="device-screen"
                     title="Game Preview"
                   />
@@ -914,7 +916,7 @@ export default function App() {
                           #{idx + 1}
                         </div>
                         <div style={{ width: '48px', height: '60px', borderRadius: '8px', background: '#1e293b', overflow: 'hidden' }}>
-                          <img src={`http://localhost:3000${game.thumbnailUrl}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={game.thumbnailUrl.startsWith('http') ? game.thumbnailUrl : `${API_BASE}${game.thumbnailUrl}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                         <div>
                           <h4 style={{ fontSize: '16px', fontWeight: 700 }}>{game.title}</h4>

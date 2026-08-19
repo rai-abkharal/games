@@ -36,9 +36,26 @@ export function createApp(catalogPath?: string, baseUrl?: string): Express {
   app.use('/api/admin', createAdminRouter(catalogService, publicDir, catalogFile));
 
   // Serve Admin Dashboard GUI if built
-  const adminDistDir = path.resolve(__dirname, '../../admin/dist');
-  if (fs.existsSync(adminDistDir)) {
+  const possibleAdminDirs = [
+    path.resolve(__dirname, '../../admin/dist'),
+    path.resolve(__dirname, '../../../admin/dist'),
+    path.resolve(process.cwd(), 'admin/dist'),
+    path.resolve(process.cwd(), '../admin/dist'),
+    '/var/www/games-platform/admin/dist',
+  ];
+  const adminDistDir = possibleAdminDirs.find(d => fs.existsSync(d) && fs.existsSync(path.join(d, 'index.html')));
+
+  if (adminDistDir) {
+    console.log(`[Admin] Serving Admin Dashboard from: ${adminDistDir}`);
     app.use('/admin', express.static(adminDistDir));
+    app.get('/admin/*', (_req: Request, res: Response) => {
+      res.sendFile(path.join(adminDistDir, 'index.html'));
+    });
+  } else {
+    console.warn(`[Admin Warning] Admin dist directory not found in checked paths.`);
+    app.get('/admin', (_req: Request, res: Response) => {
+      res.send(`<h1>Admin Dashboard Building</h1><p>Please run <code>npx vite build</code> inside the admin directory.</p>`);
+    });
   }
 
   app.use('/games', express.static(gamesDir, {
