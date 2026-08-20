@@ -67,6 +67,36 @@ class GameFeedAdapter(
         )
     }
 
+    fun grantRewardToCurrentGame(position: Int, rewardType: String) {
+        val webView = activeWebViews[position]
+        webView?.evaluateJavascript(
+            """
+            (function() {
+                window.postMessage({ type: 'REWARD_GRANTED', action: '$rewardType' }, '*');
+                if (window.GameBridge && typeof window.GameBridge.onRewardGranted === 'function') {
+                    window.GameBridge.onRewardGranted('$rewardType');
+                }
+            })();
+            """.trimIndent(),
+            null
+        )
+    }
+
+    fun sendSavedStateToGame(position: Int, level: Int, coins: Int, highScore: Int) {
+        val webView = activeWebViews[position]
+        webView?.evaluateJavascript(
+            """
+            (function() {
+                window.postMessage({ type: 'LOAD_SAVED_STATE', payload: { level: $level, coins: $coins, highScore: $highScore } }, '*');
+                if (window.GameBridge && typeof window.GameBridge.loadSavedState === 'function') {
+                    window.GameBridge.loadSavedState({ level: $level, coins: $coins, highScore: $highScore });
+                }
+            })();
+            """.trimIndent(),
+            null
+        )
+    }
+
     fun handlePageSelected(position: Int) {
         currentSelectedPosition = position
         for ((pos, webView) in activeWebViews) {
