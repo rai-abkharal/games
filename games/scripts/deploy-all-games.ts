@@ -38,10 +38,62 @@ async function deployAll() {
     });
   }
 
+  // Scan and preserve any dynamically uploaded games from Admin Dashboard
+  const publishedGamesDir = path.join(publicDir, 'games');
+  if (fs.existsSync(publishedGamesDir)) {
+    let catalogObj: any = { version: 1, updatedAt: new Date().toISOString(), games: [] };
+    if (fs.existsSync(backendCatalog)) {
+      try { catalogObj = JSON.parse(fs.readFileSync(backendCatalog, 'utf8')); } catch {}
+    }
+
+    const publishedFolders = fs.readdirSync(publishedGamesDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+
+    for (const pGameId of publishedFolders) {
+      const pGameDir = path.join(publishedGamesDir, pGameId);
+      const versions = fs.readdirSync(pGameDir, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .map(d => d.name)
+        .sort();
+
+      if (versions.length > 0) {
+        const latestVer = versions[versions.length - 1];
+        const manifestPath = path.join(pGameDir, latestVer, 'manifest.json');
+        if (fs.existsSync(manifestPath)) {
+          try {
+            const m = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+            const exists = catalogObj.games.some((g: any) => g.id === (m.id || pGameId));
+            if (!exists) {
+              console.log(`📦 Preserving & Re-registering Admin-Uploaded Game: ${m.title || pGameId} (${pGameId} v${latestVer})`);
+              catalogObj.games.push({
+                id: m.id || pGameId,
+                title: m.title || pGameId,
+                version: latestVer,
+                entryUrl: `http://localhost:8080/games/${pGameId}/${latestVer}/index.html`,
+                thumbnailUrl: `http://localhost:8080/thumbnails/${pGameId}.webp`,
+                sizeBytes: 15000,
+                orientation: m.orientation || 'portrait',
+                engine: m.engine || 'canvas2d',
+                manifestUrl: `http://localhost:8080/games/${pGameId}/${latestVer}/manifest.json`,
+                feedOrder: catalogObj.games.length + 1,
+                category: m.category || 'Arcade',
+                description: m.description || '',
+                touchZones: m.touchZones || [],
+                features: { sound: true, vibration: true }
+              });
+            }
+          } catch {}
+        }
+      }
+    }
+    fs.writeFileSync(backendCatalog, JSON.stringify(catalogObj, null, 2));
+  }
+
   fs.mkdirSync(path.dirname(bundledCatalog), { recursive: true });
   fs.copyFileSync(backendCatalog, bundledCatalog);
 
-  console.log('\n🎉 Deployed all games and synchronized the bundled Flutter catalog.');
+  console.log('\n🎉 Deployed all games and synchronized the bundled catalog.');
 }
 
 deployAll().catch((error) => {

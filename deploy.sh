@@ -11,7 +11,14 @@ echo "======================================================="
 cd "$PROJECT_DIR"
 
 echo ""
-echo "🧹 [0/5] Cleaning local build files to prevent Git conflicts..."
+echo "🛡️ [0/5] Backing up live catalog & Admin Uploaded Games..."
+mkdir -p /tmp/games_platform_backup
+if [ -f "$PROJECT_DIR/backend/catalog/games.json" ]; then
+  cp "$PROJECT_DIR/backend/catalog/games.json" /tmp/games_platform_backup/games.json
+fi
+
+echo ""
+echo "🧹 [0.5/5] Cleaning local build files to prevent Git conflicts..."
 git checkout -f main || true
 git reset --hard origin/main || git reset --hard HEAD || true
 
@@ -32,6 +39,30 @@ mkdir -p "$PROJECT_DIR/backend/public/shared"
 cp "$PROJECT_DIR/games/node_modules/phaser/dist/phaser-arcade-physics.min.js" "$PROJECT_DIR/backend/public/shared/phaser.min.js" 2>/dev/null || true
 npm run build:all
 npx tsx scripts/deploy-all-games.ts --force
+
+if [ -f /tmp/games_platform_backup/games.json ]; then
+  node -e "
+    const fs = require('fs');
+    const curPath = '$PROJECT_DIR/backend/catalog/games.json';
+    const bakPath = '/tmp/games_platform_backup/games.json';
+    try {
+      const cur = JSON.parse(fs.readFileSync(curPath, 'utf8'));
+      const bak = JSON.parse(fs.readFileSync(bakPath, 'utf8'));
+      let merged = false;
+      for (const g of (bak.games || [])) {
+        if (!cur.games.some(cg => cg.id === g.id)) {
+          console.log('🔄 Restoring Admin Uploaded Game:', g.title, '(' + g.id + ')');
+          cur.games.push(g);
+          merged = true;
+        }
+      }
+      if (merged) {
+        fs.writeFileSync(curPath, JSON.stringify(cur, null, 2));
+        console.log('✅ All Admin-Uploaded Games preserved successfully!');
+      }
+    } catch(e) {}
+  "
+fi
 
 echo ""
 echo "🖥️ [3.5/5] Building Admin Dashboard..."
