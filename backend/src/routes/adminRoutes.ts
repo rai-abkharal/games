@@ -621,5 +621,42 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
     }
   });
 
+  // 12. Update Game Features (e.g. Hint Support)
+  router.put('/games/:id/features', (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { features } = req.body;
+
+      let catalogData: any = { version: 1, games: [] };
+      if (fs.existsSync(catalogPath)) {
+        catalogData = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+      }
+
+      const game = (catalogData.games || []).find((g: any) => g.id === id);
+      if (!game) {
+        res.status(404).json({ error: 'Game not found' });
+        return;
+      }
+
+      game.features = { ...(game.features || {}), ...(features || {}) };
+      fs.writeFileSync(catalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
+
+      const frontendCatalogPath = path.resolve(__dirname, '../../../frontend/assets/catalog/games.json');
+      if (fs.existsSync(path.dirname(frontendCatalogPath))) {
+        fs.writeFileSync(frontendCatalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
+      }
+
+      catalogService.loadAndValidateCatalog();
+
+      res.json({
+        success: true,
+        message: `Updated features for ${game.title}`,
+        game
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to update features', details: err.message });
+    }
+  });
+
   return router;
 }

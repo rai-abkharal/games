@@ -318,7 +318,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val client = OkHttpClient.Builder().connectTimeout(5, TimeUnit.SECONDS).build()
-                val request = Request.Builder().url("http://localhost:3000/api/ads/config").build()
+                val request = Request.Builder().url("${GameRepository.BASE_URL}/api/ads/config").build()
                 val response = client.newCall(request).execute()
                 if (response.isSuccessful) {
                     val body = response.body?.string()

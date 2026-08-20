@@ -51,6 +51,7 @@ interface GameItem {
   totalPlays: number;
   totalReports: number;
   touchZones?: TouchZone[];
+  features?: { sound?: boolean; vibration?: boolean; hint?: boolean };
   versions: {
     id: string;
     version: string;
@@ -260,6 +261,22 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        fetchGames();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Toggle Hint Feature
+  const toggleGameHint = async (gameId: string, currentHint: boolean) => {
+    try {
+      const res = await fetch(`${API_BASE}/v1/admin/games/${gameId}/features`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ features: { hint: !currentHint } }),
       });
       if (res.ok) {
         fetchGames();
@@ -750,6 +767,14 @@ export default function App() {
                               title="Upload New Code / Version for this game"
                             >
                               <UploadCloud size={13} /> Update
+                            </button>
+                            <button
+                              className={game.features?.hint ? 'btn-primary' : 'btn-secondary'}
+                              style={{ padding: '6px 10px', fontSize: '12px', background: game.features?.hint ? 'rgba(251, 191, 36, 0.2)' : undefined, border: game.features?.hint ? '1px solid #f59e0b' : undefined, color: game.features?.hint ? '#fbbf24' : undefined }}
+                              onClick={() => toggleGameHint(game.id, !!game.features?.hint)}
+                              title="Toggle Rewarded Hint Button for this game"
+                            >
+                              💡 Hint: {game.features?.hint ? 'ON' : 'OFF'}
                             </button>
                             <button
                               className="btn-secondary"
