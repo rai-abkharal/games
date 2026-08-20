@@ -6,31 +6,22 @@
     android:layout_height="match_parent"
     android:background="#FFFFFF">
 
-    <!-- ViewPager2 for Vertical TikTok Game Swiping -->
-    <androidx.viewpager2.widget.ViewPager2
-        android:id="@+id/viewPager"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:orientation="vertical"
-        app:layout_constraintBottom_toTopOf="@id/bottomNavBarContainer"
-        app:layout_constraintTop_toBottomOf="@id/topBar" />
-
     <!-- Top Status & Ad Banner Area -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/topBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingTop="36dp"
-        android:paddingBottom="8dp"
+        android:paddingBottom="6dp"
         android:paddingHorizontal="16dp"
         app:layout_constraintTop_toTopOf="parent">
 
-        <!-- Top Ad Banner Container (Blends seamlessly with app theme, 0 policy violation text) -->
+        <!-- Top Ad Banner Container (Seamless frame for Google AdMob Adaptive Banner) -->
         <FrameLayout
             android:id="@+id/bannerAdContainer"
             android:layout_width="match_parent"
             android:layout_height="50dp"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="6dp"
             android:background="@drawable/bg_banner_container"
             app:layout_constraintTop_toTopOf="parent" />
 
@@ -119,189 +110,166 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- Floating In-Game Action HUD (Right side vertical bar) -->
+    <!-- ViewPager2 for Vertical TikTok Game Swiping -->
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/viewPager"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavBar"
+        app:layout_constraintTop_toBottomOf="@id/topBar" />
+
+    <!-- Clean In-Game Action HUD (Right side: ONLY Like & Game-Specific Hint) -->
     <LinearLayout
         android:id="@+id/inGameHud"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="12dp"
-        android:layout_marginBottom="24dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="20dp"
         android:gravity="center"
         android:orientation="vertical"
-        app:layout_constraintBottom_toTopOf="@id/bottomNavBarContainer"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavBar"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Favorite Button -->
+        <!-- Favorite / Like Button -->
         <ImageButton
             android:id="@+id/btnFavorite"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_marginBottom="10dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/bg_round_button"
-            android:contentDescription="Favorite Game"
-            android:elevation="4dp"
+            android:contentDescription="Like / Favorite Game"
+            android:elevation="6dp"
             android:src="@drawable/ic_heart"
             app:tint="#64748B" />
 
-        <!-- Hint / Rewarded Ad Button -->
+        <!-- Game-Specific Hint / Rewarded Video Button (Visible ONLY on supported games) -->
         <ImageButton
             android:id="@+id/btnHint"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_marginBottom="10dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
             android:background="@drawable/bg_round_button"
-            android:contentDescription="Get Hint / Rewarded Video"
-            android:elevation="4dp"
-            android:src="@drawable/ic_hint" />
-
-        <!-- Sound Button -->
-        <ImageButton
-            android:id="@+id/btnSound"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_marginBottom="10dp"
-            android:background="@drawable/bg_round_button"
-            android:contentDescription="Toggle Sound"
-            android:elevation="4dp"
-            android:src="@android:drawable/ic_lock_silent_mode_off"
-            app:tint="#0F172A" />
-
-        <!-- Restart Button -->
-        <ImageButton
-            android:id="@+id/btnRestart"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="@drawable/bg_round_button"
-            android:contentDescription="Restart Game"
-            android:elevation="4dp"
-            android:src="@android:drawable/ic_menu_rotate"
-            app:tint="#0F172A" />
+            android:contentDescription="Get Hint / Rewarded Ad"
+            android:elevation="6dp"
+            android:src="@drawable/ic_hint"
+            android:visibility="gone" />
     </LinearLayout>
 
-    <!-- Bottom Navigation Bar Container -->
-    <FrameLayout
-        android:id="@+id/bottomNavBarContainer"
+    <!-- Firmly Docked Bottom Navigation Bar (Solid pinned to bottom edge) -->
+    <LinearLayout
+        android:id="@+id/bottomNavBar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingHorizontal="20dp"
-        android:paddingBottom="16dp"
+        android:layout_height="56dp"
+        android:background="#FFFFFF"
+        android:elevation="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         app:layout_constraintBottom_toBottomOf="parent">
 
+        <!-- All Games Tab -->
         <LinearLayout
-            android:id="@+id/bottomNavBar"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:background="@drawable/bg_nav_bar"
-            android:elevation="8dp"
+            android:id="@+id/navAllGames"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
             android:gravity="center"
-            android:orientation="horizontal"
-            android:paddingHorizontal="8dp">
+            android:orientation="vertical">
 
-            <!-- All Games Tab -->
-            <LinearLayout
-                android:id="@+id/navAllGames"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical">
+            <ImageView
+                android:id="@+id/ivNavAll"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:src="@drawable/ic_gamepad"
+                app:tint="#6366F1" />
 
-                <ImageView
-                    android:id="@+id/ivNavAll"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:src="@drawable/ic_gamepad"
-                    app:tint="#6366F1" />
-
-                <TextView
-                    android:id="@+id/tvNavAll"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="All Games"
-                    android:textColor="#6366F1"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <!-- Trending Tab -->
-            <LinearLayout
-                android:id="@+id/navTrending"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical">
-
-                <ImageView
-                    android:id="@+id/ivNavTrending"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:src="@drawable/ic_flame"
-                    app:tint="#94A3B8" />
-
-                <TextView
-                    android:id="@+id/tvNavTrending"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Trending"
-                    android:textColor="#94A3B8"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <!-- Favorites Tab -->
-            <LinearLayout
-                android:id="@+id/navFavorites"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical">
-
-                <ImageView
-                    android:id="@+id/ivNavFav"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:src="@drawable/ic_star"
-                    app:tint="#94A3B8" />
-
-                <TextView
-                    android:id="@+id/tvNavFav"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Favorites"
-                    android:textColor="#94A3B8"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <!-- Settings Tab -->
-            <LinearLayout
-                android:id="@+id/navSettings"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical">
-
-                <ImageView
-                    android:id="@+id/ivNavSettings"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:src="@drawable/ic_settings"
-                    app:tint="#94A3B8" />
-
-                <TextView
-                    android:id="@+id/tvNavSettings"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Settings"
-                    android:textColor="#94A3B8"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
+            <TextView
+                android:id="@+id/tvNavAll"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="All Games"
+                android:textColor="#6366F1"
+                android:textSize="11sp"
+                android:textStyle="bold" />
         </LinearLayout>
-    </FrameLayout>
+
+        <!-- Trending Tab -->
+        <LinearLayout
+            android:id="@+id/navTrending"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/ivNavTrending"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:src="@drawable/ic_flame"
+                app:tint="#94A3B8" />
+
+            <TextView
+                android:id="@+id/tvNavTrending"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Trending"
+                android:textColor="#94A3B8"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Favorites Tab -->
+        <LinearLayout
+            android:id="@+id/navFavorites"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/ivNavFav"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:src="@drawable/ic_star"
+                app:tint="#94A3B8" />
+
+            <TextView
+                android:id="@+id/tvNavFav"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Favorites"
+                android:textColor="#94A3B8"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Settings Tab -->
+        <LinearLayout
+            android:id="@+id/navSettings"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/ivNavSettings"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:src="@drawable/ic_settings"
+                app:tint="#94A3B8" />
+
+            <TextView
+                android:id="@+id/tvNavSettings"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Settings"
+                android:textColor="#94A3B8"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
 
     <!-- Global Loading Spinner -->
     <ProgressBar

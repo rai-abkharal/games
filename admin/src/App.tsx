@@ -24,7 +24,8 @@ import {
   Sparkles,
   RefreshCw,
   Power,
-  Trash2
+  Trash2,
+  Megaphone
 } from 'lucide-react';
 
 interface TouchZone {
@@ -83,7 +84,7 @@ interface BridgeLogItem {
 const API_BASE = typeof window !== 'undefined' && window.location.origin.includes('5173') ? 'http://localhost:3000' : '';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'games' | 'upload' | 'simulator' | 'feed' | 'reports' | 'gestures'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'games' | 'upload' | 'simulator' | 'feed' | 'reports' | 'gestures' | 'ads'>('dashboard');
   const [games, setGames] = useState<GameItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedGame, setSelectedGame] = useState<GameItem | null>(null);
@@ -100,12 +101,29 @@ export default function App() {
   const [bridgeLogs, setBridgeLogs] = useState<BridgeLogItem[]>([]);
   const [simScore, setSimScore] = useState(0);
   const [simLevel, setSimLevel] = useState(1);
+  const [simRefreshKey, setSimRefreshKey] = useState(Date.now());
+  const [updateGameTarget, setUpdateGameTarget] = useState<GameItem | null>(null);
   const simIframeRef = useRef<HTMLIFrameElement | null>(null);
 
   // Validation report state
   const [validationReport, setValidationReport] = useState<ValidationReport | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+
+  // Ads remote configuration state
+  const [adsConfig, setAdsConfig] = useState({
+    bannerEnabled: true,
+    interstitialEnabled: true,
+    swipeInterval: 10,
+    levelCompleteAd: true,
+    cooldownSeconds: 60,
+    adMobAppId: 'ca-app-pub-3940256099942544~3347511713',
+    bannerUnitId: 'ca-app-pub-3940256099942544/6300978111',
+    interstitialUnitId: 'ca-app-pub-3940256099942544/1033173712',
+    rewardedUnitId: 'ca-app-pub-3940256099942544/5224354917',
+  });
+  const [savingAds, setSavingAds] = useState(false);
+  const [adsSavedMsg, setAdsSavedMsg] = useState<string | null>(null);
 
   // Reports state
   const [reports, setReports] = useState<any[]>([]);
@@ -118,14 +136,51 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setGames(data.games || []);
+        if (data.games?.length && !simGame) {
+          setSimGame(data.games[0].slug);
+        }
       }
     } catch (err) {
-      console.error('Failed to fetch games:', err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
+  // Fetch ads config
+  const fetchAdsConfig = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/v1/admin/ads-config`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.config) setAdsConfig(data.config);
+      }
+    } catch (_) {}
+  };
+
+  // Save ads config
+  const saveAdsConfig = async () => {
+    try {
+      setSavingAds(true);
+      const res = await fetch(`${API_BASE}/v1/admin/ads-config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(adsConfig),
+      });
+      if (res.ok) {
+        setAdsSavedMsg('✅ Ads Configuration saved & deployed live to mobile app!');
+        setTimeout(() => setAdsSavedMsg(null), 4000);
+      } else {
+        setAdsSavedMsg('❌ Failed to save ads configuration.');
+      }
+    } catch (err: any) {
+      setAdsSavedMsg(`❌ Error: ${err.message}`);
+    } finally {
+      setSavingAds(false);
+    }
+  };
+
+  // Fetch reports
   const fetchReports = async () => {
     try {
       const res = await fetch(`${API_BASE}/v1/admin/reports`);
@@ -139,6 +194,7 @@ export default function App() {
   useEffect(() => {
     fetchGames();
     fetchReports();
+    fetchAdsConfig();
   }, []);
 
   // Bridge Message listener for Simulator
@@ -385,6 +441,7 @@ export default function App() {
             { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
             { id: 'games', label: 'Game Catalog', icon: Layers },
             { id: 'gestures', label: 'Touch & Swipe Locks', icon: ShieldCheck },
+            { id: 'ads', label: 'Ads & Monetization', icon: Megaphone },
             { id: 'upload', label: 'Upload & Validator', icon: UploadCloud },
             { id: 'simulator', label: 'Device Simulator', icon: Smartphone },
             { id: 'feed', label: 'Feed Sequencer', icon: ListOrdered },
@@ -685,6 +742,17 @@ export default function App() {
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                             <button
                               className="btn-secondary"
+                              style={{ padding: '6px 10px', fontSize: '12px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid #6366f1', color: '#a5b4fc' }}
+                              onClick={() => {
+                                setUpdateGameTarget(game);
+                                setActiveTab('upload');
+                              }}
+                              title="Upload New Code / Version for this game"
+                            >
+                              <UploadCloud size={13} /> Update
+                            </button>
+                            <button
+                              className="btn-secondary"
                               style={{ padding: '6px 10px', fontSize: '12px' }}
                               onClick={() => openTouchEditor(game)}
                             >
@@ -885,6 +953,7 @@ export default function App() {
                       setSimGame(e.target.value);
                       setSimScore(0);
                       setSimLevel(1);
+                      setSimRefreshKey(Date.now());
                     }}
                     style={{
                       flex: 1,
@@ -901,6 +970,15 @@ export default function App() {
                       <option key={g.slug} value={g.slug}>{g.title} ({g.slug})</option>
                     ))}
                   </select>
+
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: '10px 14px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    onClick={() => setSimRefreshKey(Date.now())}
+                    title="Force reload game canvas without cache"
+                  >
+                    <RefreshCw size={14} /> Reload
+                  </button>
                 </div>
 
                 {/* Device Bezel */}
@@ -908,8 +986,8 @@ export default function App() {
                   <div className="device-notch" />
                   <iframe
                     ref={simIframeRef}
-                    key={simGame}
-                    src={`${API_BASE}/games/${simGame}/${games.find(g => g.slug === simGame || g.id === simGame)?.versions[0]?.version || '1.1.0'}/index.html`}
+                    key={`${simGame}-${simRefreshKey}`}
+                    src={`${API_BASE}/games/${simGame}/${games.find(g => g.slug === simGame || g.id === simGame)?.versions[0]?.version || '1.1.0'}/index.html?t=${simRefreshKey}`}
                     className="device-screen"
                     title="Game Preview"
                   />
@@ -1386,7 +1464,7 @@ export default function App() {
                   ))}
                 </div>
 
-                {/* Save Button */}
+                  {/* Save Button */}
                 <div style={{ marginTop: 'auto', display: 'flex', gap: '12px' }}>
                   <button
                     className="btn-primary"
@@ -1396,6 +1474,196 @@ export default function App() {
                   >
                     {savingTouch ? 'Saving to Server...' : '💾 Save Touch Configuration to Live Catalog'}
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 7. ADS & MONETIZATION REMOTE CONFIG VIEW */}
+          {activeTab === 'ads' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '32px', alignItems: 'flex-start' }}>
+              <div className="glass-panel" style={{ padding: '32px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                  <div style={{ padding: '10px', background: 'rgba(99, 102, 241, 0.2)', borderRadius: '12px', color: '#818cf8' }}>
+                    <Megaphone size={24} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '20px', fontWeight: 800 }}>Ads &amp; Monetization Remote Config</h3>
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                      Control AdMob unit IDs, swipe frequency, and rewarded hint rules live without app rebuilds.
+                    </p>
+                  </div>
+                </div>
+
+                {adsSavedMsg && (
+                  <div style={{
+                    padding: '14px 18px',
+                    borderRadius: '10px',
+                    background: adsSavedMsg.includes('✅') ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    border: `1px solid ${adsSavedMsg.includes('✅') ? '#34d399' : '#ef4444'}`,
+                    color: adsSavedMsg.includes('✅') ? '#34d399' : '#f87171',
+                    marginBottom: '24px',
+                    fontWeight: 600,
+                    fontSize: '14px'
+                  }}>
+                    {adsSavedMsg}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  {/* Banner Switch */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                    <div>
+                      <h4 style={{ fontSize: '15px', fontWeight: 700 }}>Top Ad Banner</h4>
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Show adaptive banner ad at the top of game feed</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={adsConfig.bannerEnabled}
+                      onChange={(e) => setAdsConfig({ ...adsConfig, bannerEnabled: e.target.checked })}
+                      style={{ width: '22px', height: '22px', accentColor: '#6366f1', cursor: 'pointer' }}
+                    />
+                  </div>
+
+                  {/* Interstitial Switch */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                    <div>
+                      <h4 style={{ fontSize: '15px', fontWeight: 700 }}>Interstitial Swipe Ads</h4>
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Show full-screen ad after a certain number of game swipes</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={adsConfig.interstitialEnabled}
+                      onChange={(e) => setAdsConfig({ ...adsConfig, interstitialEnabled: e.target.checked })}
+                      style={{ width: '22px', height: '22px', accentColor: '#6366f1', cursor: 'pointer' }}
+                    />
+                  </div>
+
+                  {/* Swipe Frequency Slider */}
+                  <div style={{ padding: '16px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 700 }}>Swipe Frequency Interval</span>
+                      <span style={{ fontSize: '14px', color: 'var(--accent-cyan)', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
+                        Every {adsConfig.swipeInterval} Swipes
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="3"
+                      max="25"
+                      value={adsConfig.swipeInterval}
+                      onChange={(e) => setAdsConfig({ ...adsConfig, swipeInterval: parseInt(e.target.value) || 10 })}
+                      style={{ width: '100%' }}
+                    />
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                      Controls how often full-screen ads appear when users swipe between games. Recommended: 10.
+                    </p>
+                  </div>
+
+                  {/* Level Complete Ad Switch */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                    <div>
+                      <h4 style={{ fontSize: '15px', fontWeight: 700 }}>Ad on Next Level / Level Complete</h4>
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Trigger interstitial ad when player passes a level in level-based games</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={adsConfig.levelCompleteAd}
+                      onChange={(e) => setAdsConfig({ ...adsConfig, levelCompleteAd: e.target.checked })}
+                      style={{ width: '22px', height: '22px', accentColor: '#6366f1', cursor: 'pointer' }}
+                    />
+                  </div>
+
+                  {/* Cooldown Timer */}
+                  <div style={{ padding: '16px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: 700, marginBottom: '6px' }}>
+                      Ad Cooldown Limit (Seconds)
+                    </label>
+                    <input
+                      type="number"
+                      value={adsConfig.cooldownSeconds}
+                      onChange={(e) => setAdsConfig({ ...adsConfig, cooldownSeconds: parseInt(e.target.value) || 0 })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        background: 'rgba(0,0,0,0.4)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '8px',
+                        color: '#fff',
+                        fontFamily: 'var(--font-mono)'
+                      }}
+                    />
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                      Minimum time required between interstitial ads to protect user retention and prevent ad fatigue.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  className="btn-primary"
+                  style={{ marginTop: '28px', width: '100%', padding: '16px', fontSize: '15px', justifyContent: 'center' }}
+                  onClick={saveAdsConfig}
+                  disabled={savingAds}
+                >
+                  {savingAds ? 'Deploying to Mobile App...' : '💾 Save & Deploy Ads Configuration'}
+                </button>
+              </div>
+
+              {/* AdMob IDs Box */}
+              <div className="glass-panel" style={{ padding: '28px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>Google AdMob Unit IDs</h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                  Update production or test AdMob unit IDs remotely.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      AdMob App ID
+                    </label>
+                    <input
+                      type="text"
+                      value={adsConfig.adMobAppId}
+                      onChange={(e) => setAdsConfig({ ...adsConfig, adMobAppId: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-subtle)', borderRadius: '8px', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '12px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      Banner Ad Unit ID
+                    </label>
+                    <input
+                      type="text"
+                      value={adsConfig.bannerUnitId}
+                      onChange={(e) => setAdsConfig({ ...adsConfig, bannerUnitId: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-subtle)', borderRadius: '8px', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '12px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      Interstitial Ad Unit ID
+                    </label>
+                    <input
+                      type="text"
+                      value={adsConfig.interstitialUnitId}
+                      onChange={(e) => setAdsConfig({ ...adsConfig, interstitialUnitId: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-subtle)', borderRadius: '8px', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '12px' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      Rewarded Video Hint Ad Unit ID
+                    </label>
+                    <input
+                      type="text"
+                      value={adsConfig.rewardedUnitId}
+                      onChange={(e) => setAdsConfig({ ...adsConfig, rewardedUnitId: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-subtle)', borderRadius: '8px', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '12px' }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

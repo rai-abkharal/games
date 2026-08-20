@@ -575,5 +575,51 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
     }
   });
 
+  // 10. Get Ads Remote Configuration
+  router.get('/ads-config', (_req: Request, res: Response) => {
+    try {
+      const adsConfigPath = path.join(path.dirname(catalogPath), 'ads_config.json');
+      let config = {
+        bannerEnabled: true,
+        interstitialEnabled: true,
+        swipeInterval: 10,
+        levelCompleteAd: true,
+        cooldownSeconds: 60,
+        adMobAppId: 'ca-app-pub-3940256099942544~3347511713',
+        bannerUnitId: 'ca-app-pub-3940256099942544/6300978111',
+        interstitialUnitId: 'ca-app-pub-3940256099942544/1033173712',
+        rewardedUnitId: 'ca-app-pub-3940256099942544/5224354917',
+      };
+
+      if (fs.existsSync(adsConfigPath)) {
+        try {
+          config = { ...config, ...JSON.parse(fs.readFileSync(adsConfigPath, 'utf8')) };
+        } catch (_) {}
+      }
+
+      res.json({ success: true, config });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to fetch ads configuration', details: err.message });
+    }
+  });
+
+  // 11. Update Ads Remote Configuration
+  router.put('/ads-config', (req: Request, res: Response) => {
+    try {
+      const adsConfigPath = path.join(path.dirname(catalogPath), 'ads_config.json');
+      const newConfig = req.body;
+
+      fs.writeFileSync(adsConfigPath, JSON.stringify(newConfig, null, 2), 'utf8');
+
+      res.json({
+        success: true,
+        message: 'Ads Remote Configuration updated successfully!',
+        config: newConfig
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to update ads configuration', details: err.message });
+    }
+  });
+
   return router;
 }

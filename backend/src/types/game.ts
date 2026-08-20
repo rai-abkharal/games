@@ -11,7 +11,22 @@ export const TouchZoneSchema = z.object({
 export const GameFeaturesSchema = z.object({
   sound: z.boolean().default(true),
   vibration: z.boolean().default(false),
-}).default({ sound: true, vibration: false });
+  hint: z.boolean().optional().default(false),
+}).default({ sound: true, vibration: false, hint: false });
+
+export const AdsConfigSchema = z.object({
+  bannerEnabled: z.boolean().default(true),
+  interstitialEnabled: z.boolean().default(true),
+  swipeInterval: z.number().int().min(1).default(10),
+  levelCompleteAd: z.boolean().default(true),
+  cooldownSeconds: z.number().int().min(0).default(60),
+  adMobAppId: z.string().default('ca-app-pub-3940256099942544~3347511713'),
+  bannerUnitId: z.string().default('ca-app-pub-3940256099942544/6300978111'),
+  interstitialUnitId: z.string().default('ca-app-pub-3940256099942544/1033173712'),
+  rewardedUnitId: z.string().default('ca-app-pub-3940256099942544/5224354917'),
+});
+
+export type AdsConfig = z.infer<typeof AdsConfigSchema>;
 
 export const GameOrientationSchema = z.string().nullish().transform((val) => {
   const lower = String(val || 'portrait').toLowerCase();

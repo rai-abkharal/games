@@ -1,8 +1,10 @@
 package com.example.androidnative
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.ColorStateList
+import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.View
@@ -15,16 +17,27 @@ import com.example.androidnative.bridge.GameBridgeListener
 import com.example.androidnative.cache.GameCacheManager
 import com.example.androidnative.databinding.ActivityMainBinding
 import com.example.androidnative.databinding.DialogGameOverBinding
-import com.example.androidnative.databinding.DialogHintRewardBinding
-import com.example.androidnative.databinding.DialogSettingsBinding
-import com.example.androidnative.databinding.DialogSplashAuthBinding
 import com.example.androidnative.manager.PlayerProgressManager
 import com.example.androidnative.model.GameItem
 import com.example.androidnative.repository.GameRepository
-import com.example.androidnative.theme.AppTheme
 import com.example.androidnative.theme.ThemeManager
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.interstitial.InterstitialAd
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
+import com.google.android.gms.ads.rewarded.RewardedAd
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 enum class FeedTab {
     ALL,
@@ -42,11 +55,25 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     private lateinit var themeManager: ThemeManager
     private lateinit var prefs: SharedPreferences
 
-    private var isMuted = false
-    private var isVibrationEnabled = true
     private var currentTab = FeedTab.ALL
     private var fullGameList: List<GameItem> = emptyList()
     private var displayedGameList: List<GameItem> = emptyList()
+
+    // Ads State & Remote Configuration
+    private var adView: AdView? = null
+    private var interstitialAd: InterstitialAd? = null
+    private var rewardedAd: RewardedAd? = null
+    private var swipeCount = 0
+    private var lastAdShowTimeMs = 0L
+
+    private var bannerEnabled = true
+    private var interstitialEnabled = true
+    private var swipeInterval = 10
+    private var levelCompleteAd = true
+    private var cooldownSeconds = 60
+    private var bannerUnitId = "ca-app-pub-3940256099942544/6300978111" // Google Test Banner
+    private var interstitialUnitId = "ca-app-pub-3940256099942544/1033173712" // Google Test Interstitial
+    private var rewardedUnitId = "ca-app-pub-3940256099942544/5224354917" // Google Test Rewarded
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,8 +82,6 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
         volumeControlStream = android.media.AudioManager.STREAM_MUSIC
         prefs = getSharedPreferences("minigames_user_prefs", Context.MODE_PRIVATE)
-        isMuted = prefs.getBoolean("is_sound_muted", false)
-        isVibrationEnabled = prefs.getBoolean("is_vibration_enabled", true)
 
         progressManager = PlayerProgressManager(this)
         themeManager = ThemeManager(this)
@@ -81,16 +106,15 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             }
         } catch (_: Exception) {}
 
+        // Initialize Google Mobile Ads SDK
+        MobileAds.initialize(this) {}
+
         applyTheme()
         setupViewPager()
         setupInGameHud()
         setupBottomNav()
         loadCatalog()
-
-        // Check if first launch for Splash / Onboarding
-        if (!prefs.getBoolean("has_onboarded", false)) {
-            showSplashAuthDialog()
-        }
+        fetchRemoteAdsConfig()
     }
 
     private fun applyTheme() {
@@ -103,26 +127,21 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
         // Seamless Banner Ad Container matching theme
         val bannerDrawable = GradientDrawable().apply {
-            cornerRadius = 24f
+            cornerRadius = 16f
             setColor(colors.bannerBg)
         }
         binding.bannerAdContainer.background = bannerDrawable
 
-        // Bottom Navigation Bar background
-        val navDrawable = GradientDrawable().apply {
-            cornerRadius = 56f
-            setColor(colors.navBg)
-            setStroke(2, if (colors.isDark) android.graphics.Color.parseColor("#334155") else android.graphics.Color.parseColor("#E2E8F0"))
-        }
-        binding.bottomNavBar.background = navDrawable
+        // Solid Docked Bottom Navigation Bar
+        binding.bottomNavBar.setBackgroundColor(colors.navBg)
 
         updateNavTabVisuals()
-        updateHudButtonsTheme()
         updateCoinsDisplay()
     }
 
     private fun setupViewPager() {
         adapter = GameFeedAdapter(this, cacheManager, this)
+        val isMuted = prefs.getBoolean("is_sound_muted", false)
         adapter.setSoundMuted(isMuted)
 
         binding.viewPager.apply {
@@ -135,12 +154,19 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                     super.onPageSelected(position)
                     this@MainActivity.adapter.handlePageSelected(position)
                     updateTopBarForGame(position)
-                    
+
                     val game = this@MainActivity.adapter.getGame(position)
                     if (game != null) {
                         val savedLevel = progressManager.getSavedLevel(game.id)
                         val highScore = progressManager.getHighScore(game.id)
                         this@MainActivity.adapter.sendSavedStateToGame(position, savedLevel, progressManager.totalCoins, highScore)
+                    }
+
+                    // Swipe Count Tracking for Interstitial Ads
+                    swipeCount++
+                    if (interstitialEnabled && swipeCount >= swipeInterval) {
+                        checkAndShowInterstitialAd()
+                        swipeCount = 0
                     }
 
                     // Predictive background pre-download
@@ -151,12 +177,10 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     }
 
     private fun setupInGameHud() {
-        updateSoundIcon()
-
-        // 1. Favorite Button
+        // 1. Favorite / Like Button
         binding.btnFavorite.setOnClickListener {
             val currentPos = binding.viewPager.currentItem
-            val game = adapter.getGame(currentPos) ?: return@setOnClickListener
+            val game = this@MainActivity.adapter.getGame(currentPos) ?: return@setOnClickListener
             val isFav = progressManager.toggleFavorite(game.id)
             updateFavoriteButton(isFav)
             val msg = if (isFav) "❤️ Added \"${game.title}\" to Favorites!" else "Removed from Favorites"
@@ -167,23 +191,9 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             }
         }
 
-        // 2. Hint / Rewarded Ad Button
+        // 2. Game-Specific Hint / Rewarded Video Button
         binding.btnHint.setOnClickListener {
-            showHintRewardDialog("game_hint")
-        }
-
-        // 3. Sound Toggle Button
-        binding.btnSound.setOnClickListener {
-            isMuted = !isMuted
-            prefs.edit().putBoolean("is_sound_muted", isMuted).apply()
-            adapter.setSoundMuted(isMuted)
-            updateSoundIcon()
-        }
-
-        // 4. Restart Button
-        binding.btnRestart.setOnClickListener {
-            val currentPos = binding.viewPager.currentItem
-            adapter.restartCurrentGame(currentPos)
+            showRewardedAdForHint("game_hint")
         }
     }
 
@@ -201,7 +211,8 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         }
 
         binding.navSettings.setOnClickListener {
-            showSettingsDialog()
+            startActivity(Intent(this, SettingsActivity::class.java))
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         }
     }
 
@@ -232,7 +243,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     private fun updateNavTabVisuals() {
         val colors = themeManager.getColors()
         val activeColor = colors.accentColor
-        val inactiveColor = if (colors.isDark) android.graphics.Color.parseColor("#64748B") else android.graphics.Color.parseColor("#94A3B8")
+        val inactiveColor = if (colors.isDark) Color.parseColor("#64748B") else Color.parseColor("#94A3B8")
 
         binding.ivNavAll.imageTintList = ColorStateList.valueOf(if (currentTab == FeedTab.ALL) activeColor else inactiveColor)
         binding.tvNavAll.setTextColor(if (currentTab == FeedTab.ALL) activeColor else inactiveColor)
@@ -244,25 +255,6 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         binding.tvNavFav.setTextColor(if (currentTab == FeedTab.FAVORITES) activeColor else inactiveColor)
     }
 
-    private fun updateHudButtonsTheme() {
-        val colors = themeManager.getColors()
-        val btnTint = if (colors.isDark) android.graphics.Color.parseColor("#F8FAFC") else android.graphics.Color.parseColor("#0F172A")
-        
-        binding.btnSound.imageTintList = ColorStateList.valueOf(btnTint)
-        binding.btnRestart.imageTintList = ColorStateList.valueOf(btnTint)
-    }
-
-    private fun updateSoundIcon() {
-        if (isMuted) {
-            binding.btnSound.setImageResource(android.R.drawable.ic_lock_silent_mode)
-            binding.btnSound.setColorFilter(getColor(android.R.color.holo_red_dark))
-        } else {
-            binding.btnSound.setImageResource(android.R.drawable.ic_lock_silent_mode_off)
-            val colors = themeManager.getColors()
-            binding.btnSound.setColorFilter(if (colors.isDark) android.graphics.Color.WHITE else android.graphics.Color.BLACK)
-        }
-    }
-
     private fun updateFavoriteButton(isFavorite: Boolean) {
         if (isFavorite) {
             binding.btnFavorite.setImageResource(R.drawable.ic_heart_filled)
@@ -270,7 +262,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         } else {
             binding.btnFavorite.setImageResource(R.drawable.ic_heart)
             val colors = themeManager.getColors()
-            val tint = if (colors.isDark) android.graphics.Color.parseColor("#94A3B8") else android.graphics.Color.parseColor("#64748B")
+            val tint = if (colors.isDark) Color.parseColor("#94A3B8") else Color.parseColor("#64748B")
             binding.btnFavorite.imageTintList = ColorStateList.valueOf(tint)
         }
     }
@@ -281,13 +273,14 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     }
 
     private fun updateTopBarForGame(position: Int) {
-        val game = adapter.getGame(position) ?: return
+        val game = this@MainActivity.adapter.getGame(position) ?: return
         binding.tvGameTitle.text = game.title
         binding.tvGameMeta.text = "${position + 1} of ${displayedGameList.size} • ${game.category}"
 
         updateFavoriteButton(progressManager.isFavorite(game.id))
         updateCoinsDisplay()
 
+        // High Score
         val highScore = progressManager.getHighScore(game.id)
         if (highScore > 0) {
             binding.tvHighScore.visibility = View.VISIBLE
@@ -295,6 +288,16 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         } else {
             binding.tvHighScore.visibility = View.GONE
         }
+
+        // Game-Specific Hint Button Visibility:
+        // Visible ONLY if game supports hint feature or category is Puzzle / Strategy / Memory
+        val supportsHint = (game.features?.get("hint") == true) || 
+                           game.category.equals("Puzzle", ignoreCase = true) ||
+                           game.category.equals("Strategy", ignoreCase = true) ||
+                           game.category.equals("Memory", ignoreCase = true) ||
+                           game.id.contains("pipe") || game.id.contains("memory") || game.id.contains("merge")
+
+        binding.btnHint.visibility = if (supportsHint) View.VISIBLE else View.GONE
     }
 
     private fun loadCatalog() {
@@ -310,88 +313,115 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         }
     }
 
-    private fun showSplashAuthDialog() {
-        val dialog = BottomSheetDialog(this)
-        val dialogBinding = DialogSplashAuthBinding.inflate(layoutInflater)
-        dialog.setContentView(dialogBinding.root)
-        dialog.setCancelable(false)
+    // Remote Ads Configuration & AdMob Loaders
+    private fun fetchRemoteAdsConfig() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val client = OkHttpClient.Builder().connectTimeout(5, TimeUnit.SECONDS).build()
+                val request = Request.Builder().url("http://localhost:3000/api/ads/config").build()
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val body = response.body?.string()
+                    if (body != null) {
+                        val json = JSONObject(body)
+                        bannerEnabled = json.optBoolean("bannerEnabled", true)
+                        interstitialEnabled = json.optBoolean("interstitialEnabled", true)
+                        swipeInterval = json.optInt("swipeInterval", 10)
+                        levelCompleteAd = json.optBoolean("levelCompleteAd", true)
+                        cooldownSeconds = json.optInt("cooldownSeconds", 60)
+                        bannerUnitId = json.optString("bannerUnitId", bannerUnitId)
+                        interstitialUnitId = json.optString("interstitialUnitId", interstitialUnitId)
+                        rewardedUnitId = json.optString("rewardedUnitId", rewardedUnitId)
+                    }
+                }
+            } catch (_: Exception) {}
 
-        dialogBinding.btnPlayAsGuest.setOnClickListener {
-            prefs.edit().putBoolean("has_onboarded", true).apply()
-            progressManager.isGuest = true
-            updateCoinsDisplay()
-            dialog.dismiss()
-            Toast.makeText(this, "Welcome ${progressManager.playerId}! Enjoy 120 FPS games.", Toast.LENGTH_SHORT).show()
+            withContext(Dispatchers.Main) {
+                if (bannerEnabled) {
+                    setupAdMobBanner()
+                }
+                loadInterstitialAd()
+                loadRewardedAd()
+            }
         }
-
-        dialogBinding.btnLoginSync.setOnClickListener {
-            prefs.edit().putBoolean("has_onboarded", true).apply()
-            progressManager.isGuest = false
-            updateCoinsDisplay()
-            dialog.dismiss()
-            Toast.makeText(this, "Logged in as ${progressManager.playerId}. Progress is backed up!", Toast.LENGTH_SHORT).show()
-        }
-
-        dialog.show()
     }
 
-    private fun showSettingsDialog() {
-        val dialog = BottomSheetDialog(this)
-        val dialogBinding = DialogSettingsBinding.inflate(layoutInflater)
-        dialog.setContentView(dialogBinding.root)
-
-        dialogBinding.tvAccountId.text = "Account: ${progressManager.playerId} (${if (progressManager.isGuest) "Guest" else "Synced"})"
-        dialogBinding.switchSound.isChecked = !isMuted
-        dialogBinding.switchVibration.isChecked = isVibrationEnabled
-
-        dialogBinding.switchSound.setOnCheckedChangeListener { _, isChecked ->
-            isMuted = !isChecked
-            prefs.edit().putBoolean("is_sound_muted", isMuted).apply()
-            adapter.setSoundMuted(isMuted)
-            updateSoundIcon()
-        }
-
-        dialogBinding.switchVibration.setOnCheckedChangeListener { _, isChecked ->
-            isVibrationEnabled = isChecked
-            prefs.edit().putBoolean("is_vibration_enabled", isVibrationEnabled).apply()
-        }
-
-        // Theme Switchers
-        dialogBinding.cardThemeWhite.setOnClickListener {
-            themeManager.currentTheme = AppTheme.PURE_WHITE
-            applyTheme()
-            dialog.dismiss()
-        }
-
-        dialogBinding.cardThemeOffWhite.setOnClickListener {
-            themeManager.currentTheme = AppTheme.OFF_WHITE
-            applyTheme()
-            dialog.dismiss()
-        }
-
-        dialogBinding.cardThemeDark.setOnClickListener {
-            themeManager.currentTheme = AppTheme.MIDNIGHT_DARK
-            applyTheme()
-            dialog.dismiss()
-        }
-
-        dialogBinding.btnClearCache.setOnClickListener {
-            cacheManager.clearAllCache()
-            Toast.makeText(this, "Offline game cache cleared successfully!", Toast.LENGTH_SHORT).show()
-            dialog.dismiss()
-        }
-
-        dialog.show()
+    private fun setupAdMobBanner() {
+        try {
+            binding.bannerAdContainer.removeAllViews()
+            adView = AdView(this).apply {
+                setAdSize(AdSize.BANNER)
+                adUnitId = bannerUnitId
+            }
+            binding.bannerAdContainer.addView(adView)
+            val adRequest = AdRequest.Builder().build()
+            adView?.loadAd(adRequest)
+        } catch (_: Exception) {}
     }
 
-    private fun showHintRewardDialog(action: String) {
-        val dialog = BottomSheetDialog(this)
-        val dialogBinding = DialogHintRewardBinding.inflate(layoutInflater)
-        dialog.setContentView(dialogBinding.root)
+    private fun loadInterstitialAd() {
+        val adRequest = AdRequest.Builder().build()
+        InterstitialAd.load(
+            this,
+            interstitialUnitId,
+            adRequest,
+            object : InterstitialAdLoadCallback() {
+                override fun onAdLoaded(ad: InterstitialAd) {
+                    interstitialAd = ad
+                }
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    interstitialAd = null
+                }
+            }
+        )
+    }
 
-        dialogBinding.btnWatchAd.setOnClickListener {
-            dialog.dismiss()
-            // Simulate AdMob Rewarded Video completion
+    private fun checkAndShowInterstitialAd() {
+        val now = System.currentTimeMillis()
+        if (now - lastAdShowTimeMs < (cooldownSeconds * 1000L)) {
+            return
+        }
+
+        if (interstitialAd != null) {
+            interstitialAd?.show(this)
+            lastAdShowTimeMs = now
+            loadInterstitialAd()
+        }
+    }
+
+    private fun loadRewardedAd() {
+        val adRequest = AdRequest.Builder().build()
+        RewardedAd.load(
+            this,
+            rewardedUnitId,
+            adRequest,
+            object : RewardedAdLoadCallback() {
+                override fun onAdLoaded(ad: RewardedAd) {
+                    rewardedAd = ad
+                }
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    rewardedAd = null
+                }
+            }
+        )
+    }
+
+    private fun showRewardedAdForHint(action: String) {
+        if (rewardedAd != null) {
+            rewardedAd?.show(this) { _ ->
+                // Reward Granted
+                val earnedCoins = 50
+                progressManager.addCoins(earnedCoins)
+                updateCoinsDisplay()
+
+                val currentPos = binding.viewPager.currentItem
+                adapter.grantRewardToCurrentGame(currentPos, action)
+
+                Toast.makeText(this, "🎉 Hint Unlocked & +$earnedCoins 🪙 Coins Granted!", Toast.LENGTH_LONG).show()
+                loadRewardedAd()
+            }
+        } else {
+            // Instant fallback reward if ad is still loading
             val earnedCoins = 50
             progressManager.addCoins(earnedCoins)
             updateCoinsDisplay()
@@ -399,14 +429,9 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             val currentPos = binding.viewPager.currentItem
             adapter.grantRewardToCurrentGame(currentPos, action)
 
-            Toast.makeText(this, "🎉 Reward Granted! +$earnedCoins 🪙 Coins & Hint Unlocked!", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "💡 Hint Unlocked! +$earnedCoins 🪙 Coins Granted!", Toast.LENGTH_SHORT).show()
+            loadRewardedAd()
         }
-
-        dialogBinding.btnCancelReward.setOnClickListener {
-            dialog.dismiss()
-        }
-
-        dialog.show()
     }
 
     // Bridge Event Callbacks
@@ -415,10 +440,10 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     override fun onGameOver(score: Int, stats: String) {
         runOnUiThread {
             val currentPos = binding.viewPager.currentItem
-            val game = adapter.getGame(currentPos)
+            val game = this@MainActivity.adapter.getGame(currentPos)
             if (game != null) {
                 progressManager.saveHighScore(game.id, score)
-                progressManager.addCoins(score / 10) // 1 coin per 10 points!
+                progressManager.addCoins(score / 10)
                 updateTopBarForGame(currentPos)
             }
             showGameOverDialog(score)
@@ -428,13 +453,18 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     override fun onGameCompleted(score: Int, level: Int) {
         runOnUiThread {
             val currentPos = binding.viewPager.currentItem
-            val game = adapter.getGame(currentPos)
+            val game = this@MainActivity.adapter.getGame(currentPos)
             if (game != null) {
                 progressManager.saveHighScore(game.id, score)
                 progressManager.saveLevel(game.id, level + 1)
-                progressManager.addCoins(50) // 50 coins on level completion!
+                progressManager.addCoins(50)
                 updateTopBarForGame(currentPos)
             }
+
+            if (levelCompleteAd) {
+                checkAndShowInterstitialAd()
+            }
+
             showGameOverDialog(score)
         }
     }
@@ -449,19 +479,19 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
     override fun onRequestHint(action: String) {
         runOnUiThread {
-            showHintRewardDialog(action)
+            showRewardedAdForHint(action)
         }
     }
 
     override fun onSaveLevelState(level: Int) {
         val currentPos = binding.viewPager.currentItem
-        val game = adapter.getGame(currentPos) ?: return
+        val game = this@MainActivity.adapter.getGame(currentPos) ?: return
         progressManager.saveLevel(game.id, level)
     }
 
     override fun onRequestRewardedAd(rewardType: String) {
         runOnUiThread {
-            showHintRewardDialog(rewardType)
+            showRewardedAdForHint(rewardType)
         }
     }
 
@@ -473,7 +503,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
     private fun showGameOverDialog(score: Int) {
         val currentPos = binding.viewPager.currentItem
-        val game = adapter.getGame(currentPos) ?: return
+        val game = this@MainActivity.adapter.getGame(currentPos) ?: return
 
         val dialog = BottomSheetDialog(this)
         val dialogBinding = DialogGameOverBinding.inflate(layoutInflater)
@@ -500,12 +530,22 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
     override fun onPause() {
         super.onPause()
+        adView?.pause()
         adapter.pauseAll()
     }
 
     override fun onResume() {
         super.onResume()
+        adView?.resume()
+        applyTheme()
+        val isMuted = prefs.getBoolean("is_sound_muted", false)
+        adapter.setSoundMuted(isMuted)
         adapter.resumeCurrent()
         updateCoinsDisplay()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        adView?.destroy()
     }
 }

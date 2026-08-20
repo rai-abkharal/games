@@ -126,6 +126,30 @@ export function createApp(catalogPath?: string, baseUrl?: string): Express {
     res.json(game);
   });
 
+  // Ads Remote Configuration Endpoint for Mobile App
+  app.get('/api/ads/config', (_req: Request, res: Response) => {
+    const adsConfigPath = path.join(path.dirname(catalogFile), 'ads_config.json');
+    if (fs.existsSync(adsConfigPath)) {
+      try {
+        const config = JSON.parse(fs.readFileSync(adsConfigPath, 'utf8'));
+        res.json(config);
+        return;
+      } catch (_) {}
+    }
+    // Official Google AdMob Test Default Fallback
+    res.json({
+      bannerEnabled: true,
+      interstitialEnabled: true,
+      swipeInterval: 10,
+      levelCompleteAd: true,
+      cooldownSeconds: 60,
+      adMobAppId: 'ca-app-pub-3940256099942544~3347511713',
+      bannerUnitId: 'ca-app-pub-3940256099942544/6300978111',
+      interstitialUnitId: 'ca-app-pub-3940256099942544/1033173712',
+      rewardedUnitId: 'ca-app-pub-3940256099942544/5224354917',
+    });
+  });
+
   // Error handling middleware
   app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
     console.error('[Server Error]', err);
