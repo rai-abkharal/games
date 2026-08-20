@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Quantum Maze: Level Quest</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #fff; }
+    canvas { display: block; width: 100%; height: 100%; }
+    
+    /* Overlay HUD */
+    #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 20px 16px; }
+    .top-stats { display: flex; justify-content: space-between; align-items: center; }
+    .badge { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(10px); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 12px; padding: 6px 14px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+    .level-badge { color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); }
+    .moves-badge { color: #f59e0b; }
+    .score-badge { color: #34d399; }
+
+    /* In-Game Hint Button */
+    .hint-btn { pointer-events: auto; background: linear-gradient(135deg, #f59e0b, #d97706); border: none; border-radius: 20px; padding: 8px 16px; color: #fff; font-weight: 800; font-size: 13px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4); cursor: pointer; transition: transform 0.1s; }
+    .hint-btn:active { transform: scale(0.94); }
+
+    /* Modal Dialogs */
+    .modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 15, 25, 0.9); backdrop-filter: blur(12px); display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; z-index: 100; padding: 24px; text-align: center; }
+    .modal h2 { font-size: 28px; font-weight: 900; margin-bottom: 8px; }
+    .modal p { font-size: 15px; color: #94a3b8; margin-bottom: 24px; max-width: 280px; }
+    .btn { background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; border-radius: 14px; padding: 14px 28px; font-weight: 800; font-size: 16px; color: #fff; box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5); cursor: pointer; }
+    .btn:active { transform: scale(0.96); }
+  </style>
+</head>
+<body>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="ui-layer">
+    <div class="top-stats">
+      <div class="badge level-badge" id="hudLevel">LEVEL 1</div>
+      <div class="badge moves-badge" id="hudMoves">MOVES: 12</div>
+      <button class="hint-btn" id="btnInGameHint">💡 HINT</button>
+    </div>
+    <div style="display: flex; justify-content: center; margin-bottom: 10px;">
+      <div class="badge score-badge" id="hudScore">SCORE: 0</div>
+    </div>
+  </div>
+
+  <!-- Level Win Modal -->
+  <div class="modal" id="modalWin">
+    <h2 style="color: #34d399;">🎉 LEVEL CLEAR!</h2>
+    <p id="winMsg">Quantum Core Synchronized! Ready for the next sector?</p>
+    <button class="btn" id="btnNextLevel" style="background: linear-gradient(135deg, #10b981, #059669);">NEXT LEVEL ➔</button>
+  </div>
+
+  <!-- Game Over Modal -->
+  <div class="modal" id="modalLoss">
+    <h2 style="color: #ef4444;">💥 ENERGY DEPLETED</h2>
+    <p>You ran out of moves! Need a second chance?</p>
+    <div style="display: flex; gap: 12px;">
+      <button class="btn" id="btnRetry">RETRY</button>
+      <button class="hint-btn" id="btnHintLoss" style="padding: 14px 20px; font-size: 15px;">💡 WATCH AD &amp; +5 MOVES</button>
+    </div>
+  </div>
+
+  <script>
+    // --- 1. BRIDGE & COMMUNICATION ---
+    var Bridge = {
+      ready: function() { if (window.NativeBridge && window.NativeBridge.ready) window.NativeBridge.ready(); },
+      start: function() { if (window.NativeBridge && window.NativeBridge.gameStarted) window.NativeBridge.gameStarted(); },
+      completed: function(score, level) { if (window.NativeBridge && window.NativeBridge.completed) window.NativeBridge.completed(score, level); },
+      gameOver: function(score) { if (window.NativeBridge && window.NativeBridge.gameOver) window.NativeBridge.gameOver(score); },
+      haptic: function(type) { if (window.NativeBridge && window.NativeBridge.haptic) window.NativeBridge.haptic(type); },
+      requestHint: function() {
+        if (window.NativeBridge && window.NativeBridge.requestHint) {
+          window.NativeBridge.requestHint("reveal_path");
+        } else {
+          // Dev browser fallback
+          onHintRewardReceived();
+        }
+      },
+      saveLevel: function(level) { if (window.NativeBridge && window.NativeBridge.saveLevelState) window.NativeBridge.saveLevelState(level); }
+    };
+
+    // Listen for saved state & reward callbacks
+    window.addEventListener('message', function(e) {
+      var data = e.data;
+      if (typeof data === 'string') { try { data = JSON.parse(data); } catch(err){} }
+      if (!data) return;
+
+      if (data.type === 'LOAD_SAVED_STATE' && data.payload) {
+        if (data.payload.level && data.payload.level > Game.currentLevel) {
+          Game.loadLevel(data.payload.level);
+        }
+      }
+      if (data.type === 'REWARD_GRANTED') {
+        onHintRewardReceived();
+      }
+    });
+
+    // --- 2. GAME STATE & MAZE GENERATION ---
+    var canvas = document.getElementById('gameCanvas');
+    var ctx = canvas.getContext('2d');
+
+    var Game = {
+      currentLevel: 1,
+      maxLevels: 10,
+      score: 0,
+      movesLeft: 12,
+      gridSize: 5,
+      cellSize: 50,
+      offsetX: 0,
+      offsetY: 0,
+      player: { x: 0, y: 0 },
+      exit: { x: 4, y: 4 },
+      stars: [],
+      walls: [],
+      hintPath: [],
+      hintGlowTimer: 0,
+      isGameOver: false,
+
+      init: function() {
+        this.resize();
+        window.addEventListener('resize', this.resize.bind(this));
+        this.setupTouch();
+        this.loadLevel(this.currentLevel);
+        Bridge.ready();
+        Bridge.start();
+        requestAnimationFrame(this.render.bind(this));
+      },
+
+      resize: function() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        this.calculateGrid();
+      },
+
+      calculateGrid: function() {
+        var availableW = canvas.width - 40;
+        var availableH = canvas.height * 0.55;
+        this.cellSize = Math.min(availableW / this.gridSize, availableH / this.gridSize);
+        this.offsetX = (canvas.width - (this.cellSize * this.gridSize)) / 2;
+        this.offsetY = (canvas.height - (this.cellSize * this.gridSize)) / 2 - 20;
+      },
+
+      loadLevel: function(lvl) {
+        this.currentLevel = lvl;
+        this.gridSize = Math.min(4 + Math.floor(lvl / 2), 8);
+        this.movesLeft = 8 + (lvl * 3);
+        this.calculateGrid();
+        this.player = { x: 0, y: 0 };
+        this.exit = { x: this.gridSize - 1, y: this.gridSize - 1 };
+        this.hintPath = [];
+        this.hintGlowTimer = 0;
+        this.isGameOver = false;
+
+        // Generate Walls
+        this.walls = [];
+        var wallCount = Math.min(lvl * 2, (this.gridSize * this.gridSize) / 3);
+        while (this.walls.length < wallCount) {
+          var wx = Math.floor(Math.random() * this.gridSize);
+          var wy = Math.floor(Math.random() * this.gridSize);
+          if ((wx === 0 && wy === 0) || (wx === this.exit.x && wy === this.exit.y)) continue;
+          if (!this.hasWall(wx, wy)) this.walls.push({ x: wx, y: wy });
+        }
+
+        // Generate Collectible Stars
+        this.stars = [];
+        var starCount = Math.min(2 + Math.floor(lvl / 3), 4);
+        while (this.stars.length < starCount) {
+          var sx = Math.floor(Math.random() * this.gridSize);
+          var sy = Math.floor(Math.random() * this.gridSize);
+          if ((sx === 0 && sy === 0) || (sx === this.exit.x && sy === this.exit.y) || this.hasWall(sx, sy)) continue;
+          this.stars.push({ x: sx, y: sy, collected: false });
+        }
+
+        this.updateHUD();
+        document.getElementById('modalWin').style.display = 'none';
+        document.getElementById('modalLoss').style.display = 'none';
+      },
+
+      hasWall: function(x, y) {
+        return this.walls.some(function(w) { return w.x === x && w.y === y; });
+      },
+
+      move: function(dx, dy) {
+        if (this.isGameOver || this.movesLeft <= 0) return;
+
+        var nx = this.player.x + dx;
+        var ny = this.player.y + dy;
+
+        if (nx < 0 || nx >= this.gridSize || ny < 0 || ny >= this.gridSize) return;
+        if (this.hasWall(nx, ny)) {
+          Bridge.haptic('error');
+          return;
+        }
+
+        this.player.x = nx;
+        this.player.y = ny;
+        this.movesLeft--;
+        Bridge.haptic('light');
+
+        // Check Stars
+        this.stars.forEach(function(s) {
+          if (!s.collected && s.x === nx && s.y === ny) {
+            s.collected = true;
+            Game.score += 100;
+            Bridge.haptic('success');
+          }
+        });
+
+        // Check Win
+        if (this.player.x === this.exit.x && this.player.y === this.exit.y) {
+          this.score += 250 * this.currentLevel;
+          this.onWin();
+          return;
+        }
+
+        // Check Loss
+        if (this.movesLeft <= 0) {
+          this.onLoss();
+        }
+
+        this.updateHUD();
+      },
+
+      onWin: function() {
+        this.isGameOver = true;
+        Bridge.haptic('success');
+        Bridge.saveLevel(this.currentLevel + 1);
+        Bridge.completed(this.score, this.currentLevel);
+
+        document.getElementById('modalWin').style.display = 'flex';
+      },
+
+      onLoss: function() {
+        this.isGameOver = true;
+        Bridge.haptic('error');
+        Bridge.gameOver(this.score);
+
+        document.getElementById('modalLoss').style.display = 'flex';
+      },
+
+      updateHUD: function() {
+        document.getElementById('hudLevel').innerText = "LEVEL " + this.currentLevel;
+        document.getElementById('hudMoves').innerText = "MOVES: " + this.movesLeft;
+        document.getElementById('hudScore').innerText = "SCORE: " + this.score;
+      },
+
+      setupTouch: function() {
+        var startX = 0, startY = 0;
+        window.addEventListener('touchstart', function(e) {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+        }, { passive: true });
+
+        window.addEventListener('touchend', function(e) {
+          var dx = e.changedTouches[0].clientX - startX;
+          var dy = e.changedTouches[0].clientY - startY;
+          if (Math.abs(dx) > Math.abs(dy)) {
+            if (Math.abs(dx) > 30) Game.move(dx > 0 ? 1 : -1, 0);
+          } else {
+            if (Math.abs(dy) > 30) Game.move(0, dy > 0 ? 1 : -1);
+          }
+        }, { passive: true });
+
+        // Keyboard support
+        window.addEventListener('keydown', function(e) {
+          if (e.key === 'ArrowUp' || e.key === 'w') Game.move(0, -1);
+          if (e.key === 'ArrowDown' || e.key === 's') Game.move(0, 1);
+          if (e.key === 'ArrowLeft' || e.key === 'a') Game.move(-1, 0);
+          if (e.key === 'ArrowRight' || e.key === 'd') Game.move(1, 0);
+        });
+      },
+
+      render: function() {
+        ctx.fillStyle = '#0b0f19';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Grid
+        for (var r = 0; r < this.gridSize; r++) {
+          for (var c = 0; c < this.gridSize; c++) {
+            var px = this.offsetX + c * this.cellSize;
+            var py = this.offsetY + r * this.cellSize;
+
+            ctx.fillStyle = 'rgba(30, 41, 59, 0.6)';
+            ctx.strokeStyle = 'rgba(99, 102, 241, 0.15)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(px + 3, py + 3, this.cellSize - 6, this.cellSize - 6, 8);
+            ctx.fill();
+            ctx.stroke();
+          }
+        }
+
+        // Draw Walls
+        ctx.fillStyle = '#ef4444';
+        this.walls.forEach(function(w) {
+          var px = Game.offsetX + w.x * Game.cellSize;
+          var py = Game.offsetY + w.y * Game.cellSize;
+          ctx.beginPath();
+          ctx.roundRect(px + 4, py + 4, Game.cellSize - 8, Game.cellSize - 8, 8);
+          ctx.fill();
+        });
+
+        // Draw Hint Path (if active)
+        if (this.hintGlowTimer > 0) {
+          this.hintGlowTimer--;
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 4;
+          ctx.setLineDash([6, 6]);
+          ctx.beginPath();
+          ctx.moveTo(this.offsetX + (this.player.x + 0.5) * this.cellSize, this.offsetY + (this.player.y + 0.5) * this.cellSize);
+          ctx.lineTo(this.offsetX + (this.exit.x + 0.5) * this.cellSize, this.offsetY + (this.exit.y + 0.5) * this.cellSize);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // Draw Stars
+        this.stars.forEach(function(s) {
+          if (!s.collected) {
+            var px = Game.offsetX + (s.x + 0.5) * Game.cellSize;
+            var py = Game.offsetY + (s.y + 0.5) * Game.cellSize;
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = (Game.cellSize * 0.5) + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('⭐', px, py);
+          }
+        });
+
+        // Draw Exit Portal
+        var ex = this.offsetX + this.exit.x * this.cellSize;
+        var ey = this.offsetY + this.exit.y * this.cellSize;
+        ctx.fillStyle = '#10b981';
+        ctx.beginPath();
+        ctx.roundRect(ex + 4, ey + 4, this.cellSize - 8, this.cellSize - 8, 10);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = (this.cellSize * 0.45) + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🚪', ex + this.cellSize / 2, ey + this.cellSize / 2);
+
+        // Draw Player
+        var px = this.offsetX + this.player.x * this.cellSize;
+        var py = this.offsetY + this.player.y * this.cellSize;
+        ctx.fillStyle = '#6366f1';
+        ctx.shadowColor = '#818cf8';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(px + this.cellSize / 2, py + this.cellSize / 2, (this.cellSize - 14) / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        requestAnimationFrame(this.render.bind(this));
+      }
+    };
+
+    // --- 3. IN-GAME HINT REWARD HANDLER ---
+    function onHintRewardReceived() {
+      Game.movesLeft += 5;
+      Game.hintGlowTimer = 180; // Glow solution path for 3 seconds (180 frames)
+      Game.isGameOver = false;
+      document.getElementById('modalLoss').style.display = 'none';
+      Game.updateHUD();
+      Bridge.haptic('success');
+    }
+
+    document.getElementById('btnInGameHint').addEventListener('click', function() {
+      Bridge.requestHint();
+    });
+
+    document.getElementById('btnHintLoss').addEventListener('click', function() {
+      Bridge.requestHint();
+    });
+
+    document.getElementById('btnNextLevel').addEventListener('click', function() {
+      Game.loadLevel(Game.currentLevel + 1);
+    });
+
+    document.getElementById('btnRetry').addEventListener('click', function() {
+      Game.loadLevel(Game.currentLevel);
+    });
+
+    // Start Game on load
+    window.addEventListener('load', function() {
+      Game.init();
+    });
+  </script>
+</body>
+</html>

@@ -70,6 +70,9 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     private var interstitialEnabled = true
     private var swipeInterval = 10
     private var levelCompleteAd = true
+    private var levelWinInterval = 2
+    private var levelWinCount = 0
+    private var gameOverAdEnabled = true
     private var cooldownSeconds = 60
     private var bannerUnitId = "ca-app-pub-3940256099942544/6300978111" // Google Test Banner
     private var interstitialUnitId = "ca-app-pub-3940256099942544/1033173712" // Google Test Interstitial
@@ -328,6 +331,8 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                         interstitialEnabled = json.optBoolean("interstitialEnabled", true)
                         swipeInterval = json.optInt("swipeInterval", 10)
                         levelCompleteAd = json.optBoolean("levelCompleteAd", true)
+                        levelWinInterval = json.optInt("levelWinInterval", 2)
+                        gameOverAdEnabled = json.optBoolean("gameOverAdEnabled", true)
                         cooldownSeconds = json.optInt("cooldownSeconds", 60)
                         bannerUnitId = json.optString("bannerUnitId", bannerUnitId)
                         interstitialUnitId = json.optString("interstitialUnitId", interstitialUnitId)
@@ -446,6 +451,11 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                 progressManager.addCoins(score / 10)
                 updateTopBarForGame(currentPos)
             }
+
+            if (gameOverAdEnabled) {
+                checkAndShowInterstitialAd()
+            }
+
             showGameOverDialog(score)
         }
     }
@@ -461,8 +471,10 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                 updateTopBarForGame(currentPos)
             }
 
-            if (levelCompleteAd) {
+            levelWinCount++
+            if (levelCompleteAd && levelWinCount >= levelWinInterval) {
                 checkAndShowInterstitialAd()
+                levelWinCount = 0
             }
 
             showGameOverDialog(score)

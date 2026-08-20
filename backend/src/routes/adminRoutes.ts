@@ -584,6 +584,8 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
         interstitialEnabled: true,
         swipeInterval: 10,
         levelCompleteAd: true,
+        levelWinInterval: 2,
+        gameOverAdEnabled: true,
         cooldownSeconds: 60,
         adMobAppId: 'ca-app-pub-3940256099942544~3347511713',
         bannerUnitId: 'ca-app-pub-3940256099942544/6300978111',

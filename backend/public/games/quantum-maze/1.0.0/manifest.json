@@ -1,0 +1,23 @@
+{
+  "id": "quantum-maze",
+  "title": "Quantum Maze",
+  "version": "1.0.0",
+  "orientation": "portrait",
+  "engine": "canvas",
+  "category": "Puzzle",
+  "description": "Multi-level cyber maze quest! Navigate quantum portals, solve path puzzles, and unlock in-game hints.",
+  "features": {
+    "sound": true,
+    "vibration": true,
+    "hint": true
+  },
+  "touchZones": [
+    {
+      "name": "gameplay",
+      "x": 0,
+      "y": 0.15,
+      "width": 1,
+      "height": 0.7
+    }
+  ]
+}

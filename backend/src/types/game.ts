@@ -19,6 +19,8 @@ export const AdsConfigSchema = z.object({
   interstitialEnabled: z.boolean().default(true),
   swipeInterval: z.number().int().min(1).default(10),
   levelCompleteAd: z.boolean().default(true),
+  levelWinInterval: z.number().int().min(1).default(2),
+  gameOverAdEnabled: z.boolean().default(true),
   cooldownSeconds: z.number().int().min(0).default(60),
   adMobAppId: z.string().default('ca-app-pub-3940256099942544~3347511713'),
   bannerUnitId: z.string().default('ca-app-pub-3940256099942544/6300978111'),

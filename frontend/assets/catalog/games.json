@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "updatedAt": "2026-08-19T12:54:19.257Z",
+  "updatedAt": "2026-08-20T11:59:13.243Z",
   "games": [
     {
       "id": "tap-cannon",
@@ -367,6 +367,36 @@
       "features": {
         "sound": true,
         "vibration": false
+      }
+    },
+    {
+      "id": "quantum-maze",
+      "title": "Quantum Maze",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/quantum-maze/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/quantum-maze.webp",
+      "sizeBytes": 15356,
+      "orientation": "portrait",
+      "engine": "canvas",
+      "manifestUrl": "http://localhost:8080/games/quantum-maze/1.0.0/manifest.json",
+      "feedOrder": 99,
+      "category": "Puzzle",
+      "description": "Multi-level cyber maze quest! Navigate quantum portals, solve path puzzles, and unlock in-game hints.",
+      "sha256": "6aef7c5be74f8b067694334b763223fabbe5988c267c2ee4885cd13858c4d19c",
+      "status": "published",
+      "touchZones": [
+        {
+          "name": "gameplay",
+          "x": 0,
+          "y": 0.15,
+          "width": 1,
+          "height": 0.7
+        }
+      ],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": true
       }
     }
   ]

@@ -117,6 +117,8 @@ export default function App() {
     interstitialEnabled: true,
     swipeInterval: 10,
     levelCompleteAd: true,
+    levelWinInterval: 2,
+    gameOverAdEnabled: true,
     cooldownSeconds: 60,
     adMobAppId: 'ca-app-pub-3940256099942544~3347511713',
     bannerUnitId: 'ca-app-pub-3940256099942544/6300978111',
@@ -1588,13 +1590,48 @@ export default function App() {
                   {/* Level Complete Ad Switch */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
                     <div>
-                      <h4 style={{ fontSize: '15px', fontWeight: 700 }}>Ad on Next Level / Level Complete</h4>
-                      <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Trigger interstitial ad when player passes a level in level-based games</p>
+                      <h4 style={{ fontSize: '15px', fontWeight: 700 }}>Ad on Level Complete / Next Level</h4>
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Trigger interstitial ad when player completes levels in multi-level games</p>
                     </div>
                     <input
                       type="checkbox"
                       checked={adsConfig.levelCompleteAd}
                       onChange={(e) => setAdsConfig({ ...adsConfig, levelCompleteAd: e.target.checked })}
+                      style={{ width: '22px', height: '22px', accentColor: '#6366f1', cursor: 'pointer' }}
+                    />
+                  </div>
+
+                  {/* Level Win Interval Slider */}
+                  <div style={{ padding: '16px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 700 }}>Level Win Ad Frequency</span>
+                      <span style={{ fontSize: '14px', color: '#34d399', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
+                        Every {adsConfig.levelWinInterval} Wins
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="5"
+                      value={adsConfig.levelWinInterval}
+                      onChange={(e) => setAdsConfig({ ...adsConfig, levelWinInterval: parseInt(e.target.value) || 2 })}
+                      style={{ width: '100%' }}
+                    />
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                      Show interstitial ad after player wins N levels (e.g. every 2 wins or 3 wins, not on every single win).
+                    </p>
+                  </div>
+
+                  {/* Game Over / Loss Ad Switch */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                    <div>
+                      <h4 style={{ fontSize: '15px', fontWeight: 700 }}>Ad on Game Over / Loss</h4>
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Trigger interstitial ad when player loses or runs out of lives/time</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={adsConfig.gameOverAdEnabled}
+                      onChange={(e) => setAdsConfig({ ...adsConfig, gameOverAdEnabled: e.target.checked })}
                       style={{ width: '22px', height: '22px', accentColor: '#6366f1', cursor: 'pointer' }}
                     />
                   </div>
