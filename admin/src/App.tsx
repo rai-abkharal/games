@@ -23,7 +23,8 @@ import {
   ArrowRight,
   Sparkles,
   RefreshCw,
-  Power
+  Power,
+  Trash2
 } from 'lucide-react';
 
 interface TouchZone {
@@ -209,6 +210,25 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  // Permanently Delete Game from Catalog & Server
+  const deleteGame = async (gameId: string, gameTitle: string) => {
+    if (!window.confirm(`⚠️ Permanently Delete "${gameTitle}"?\n\nThis will remove the game from the catalog, app feed, and delete all files from the server.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/v1/admin/games/${gameId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        await fetchGames();
+      } else {
+        alert('Failed to delete game from server.');
+      }
+    } catch (err: any) {
+      alert(`Error deleting game: ${err.message}`);
     }
   };
 
@@ -620,7 +640,7 @@ export default function App() {
 
                         <td style={{ padding: '16px' }}>
                           <span className={`badge ${game.status === 'published' ? 'badge-published' : 'badge-archived'}`}>
-                            {game.status}
+                            {game.status === 'published' ? 'PUBLISHED' : 'DEACTIVATED'}
                           </span>
                         </td>
 
@@ -662,17 +682,17 @@ export default function App() {
                         </td>
 
                         <td style={{ padding: '16px' }}>
-                          <div style={{ display: 'flex', gap: '8px' }}>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                             <button
                               className="btn-secondary"
-                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                              style={{ padding: '6px 10px', fontSize: '12px' }}
                               onClick={() => openTouchEditor(game)}
                             >
-                              <ShieldCheck size={13} /> Touch Lock
+                              <ShieldCheck size={13} /> Touch
                             </button>
                             <button
                               className="btn-secondary"
-                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                              style={{ padding: '6px 10px', fontSize: '12px' }}
                               onClick={() => {
                                 setSimGame(game.slug);
                                 setActiveTab('simulator');
@@ -682,17 +702,25 @@ export default function App() {
                             </button>
                             <button
                               className="btn-secondary"
-                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                              style={{ padding: '6px 10px', fontSize: '12px' }}
                               onClick={() => viewValidation(game.id)}
                             >
                               <ShieldCheck size={13} /> Check
                             </button>
                             <button
-                              className={game.status === 'published' ? 'btn-danger' : 'btn-secondary'}
-                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                              className={game.status === 'published' ? 'btn-danger' : 'btn-primary'}
+                              style={{ padding: '6px 10px', fontSize: '12px' }}
                               onClick={() => toggleGameStatus(game.id, game.status)}
                             >
-                              <Power size={13} /> {game.status === 'published' ? 'Killswitch' : 'Publish'}
+                              <Power size={13} /> {game.status === 'published' ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button
+                              className="btn-danger"
+                              style={{ padding: '6px 10px', fontSize: '12px', background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444' }}
+                              onClick={() => deleteGame(game.id, game.title)}
+                              title="Permanently Delete Game"
+                            >
+                              <Trash2 size={13} /> Delete
                             </button>
                           </div>
                         </td>

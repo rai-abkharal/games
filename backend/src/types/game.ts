@@ -30,6 +30,7 @@ export const GameSchema = z.object({
   controls: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
   ageRating: z.string().optional(),
+  status: z.enum(['published', 'draft', 'archived', 'deactivated']).optional().default('published'),
   touchZones: z.array(TouchZoneSchema).optional().default([]),
   features: GameFeaturesSchema,
 });

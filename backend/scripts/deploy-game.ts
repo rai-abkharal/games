@@ -149,6 +149,7 @@ export function deployGame(options: DeployOptions): { success: boolean; message:
     category,
     description,
     sha256,
+    status: (manifest as any).status || existingGame?.status || 'published',
     touchZones: (manifest as any).touchZones || existingGame?.touchZones || [],
     features,
   };

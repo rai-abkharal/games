@@ -106,7 +106,7 @@ export function createApp(catalogPath?: string, baseUrl?: string): Express {
         catalogService.setBaseUrl(`${protocol}://${host}`);
       }
 
-      const catalog = catalogService.getCatalog();
+      const catalog = catalogService.getCatalog(true);
 
       // Caching headers
       res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');

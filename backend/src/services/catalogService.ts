@@ -74,11 +74,15 @@ export class CatalogService {
     return catalog;
   }
 
-  public getCatalog(): Catalog {
-    if (!this.cachedCatalog) {
-      return this.loadAndValidateCatalog();
+  public getCatalog(publishedOnly = false): Catalog {
+    const catalog = this.cachedCatalog || this.loadAndValidateCatalog();
+    if (publishedOnly) {
+      return {
+        ...catalog,
+        games: catalog.games.filter(g => (g as any).status !== 'archived' && (g as any).status !== 'deactivated' && (g as any).status !== 'draft')
+      };
     }
-    return this.cachedCatalog;
+    return catalog;
   }
 
   public getGameById(id: string): Game | undefined {

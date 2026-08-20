@@ -32,7 +32,7 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
         orientation: g.orientation || 'portrait',
         controls: g.controls || ['TAP'],
         tags: g.tags || ['arcade'],
-        status: 'published',
+        status: (g as any).status || 'published',
         sortWeight: g.feedOrder ?? (idx + 1),
         ageRating: g.ageRating || 'everyone',
         totalPlays: 1240 + idx * 315,
@@ -44,7 +44,7 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
             version: g.version,
             sizeBytes: g.sizeBytes,
             sha256: g.sha256 || '',
-            status: 'active',
+            status: ((g as any).status === 'archived' || (g as any).status === 'deactivated') ? 'inactive' : 'active',
             rolloutPercent: 100
           }
         ]
@@ -436,6 +436,142 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       });
     } catch (err) {
       res.status(500).json({ error: 'Failed to update touch zones', details: String(err) });
+    }
+  });
+
+  // 6. Toggle Game Status (Publish / Deactivate / Kill Switch)
+  router.post('/games/:id/publish', (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { status, rolloutPercent } = req.body;
+
+      let catalogData: any = { version: 1, games: [] };
+      if (fs.existsSync(catalogPath)) {
+        catalogData = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+      }
+
+      const game = (catalogData.games || []).find((g: any) => g.id === id);
+      if (!game) {
+        res.status(404).json({ error: 'Game not found in catalog' });
+        return;
+      }
+
+      if (status) {
+        game.status = status; // 'published' | 'archived' | 'deactivated'
+      }
+      if (rolloutPercent !== undefined) {
+        game.rolloutPercent = rolloutPercent;
+      }
+
+      fs.writeFileSync(catalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
+
+      // Sync to frontend assets catalog if present
+      const frontendCatalogPath = path.resolve(__dirname, '../../../frontend/assets/catalog/games.json');
+      if (fs.existsSync(path.dirname(frontendCatalogPath))) {
+        fs.writeFileSync(frontendCatalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
+      }
+
+      catalogService.loadAndValidateCatalog();
+
+      res.json({
+        success: true,
+        message: `Game "${game.title || id}" status changed to "${game.status}"`,
+        game
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to update game status', details: err.message });
+    }
+  });
+
+  // 7. Permanently Delete Game from Catalog & Server Disk
+  router.delete('/games/:id', (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      let catalogData: any = { version: 1, games: [] };
+      if (fs.existsSync(catalogPath)) {
+        catalogData = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+      }
+
+      const gameIdx = (catalogData.games || []).findIndex((g: any) => g.id === id);
+      if (gameIdx === -1) {
+        res.status(404).json({ error: 'Game not found in catalog' });
+        return;
+      }
+
+      const removedGame = catalogData.games.splice(gameIdx, 1)[0];
+      fs.writeFileSync(catalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
+
+      // Sync to frontend assets catalog if present
+      const frontendCatalogPath = path.resolve(__dirname, '../../../frontend/assets/catalog/games.json');
+      if (fs.existsSync(path.dirname(frontendCatalogPath))) {
+        fs.writeFileSync(frontendCatalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
+      }
+
+      // Delete game bundle files from public/games/<id>
+      const targetGameDir = path.join(gamesDir, id);
+      if (fs.existsSync(targetGameDir)) {
+        fs.rmSync(targetGameDir, { recursive: true, force: true });
+      }
+
+      // Delete thumbnails from public/thumbnails/<id>.*
+      for (const ext of ['.webp', '.svg', '.png', '.jpg']) {
+        const thumbFile = path.join(thumbnailsDir, `${id}${ext}`);
+        if (fs.existsSync(thumbFile)) {
+          fs.rmSync(thumbFile, { force: true });
+        }
+      }
+
+      catalogService.loadAndValidateCatalog();
+
+      res.json({
+        success: true,
+        message: `Game "${removedGame.title || id}" was permanently deleted from catalog and server disk!`,
+        deletedId: id
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to delete game', details: err.message });
+    }
+  });
+
+  // 8. Reorder Feed Sequence
+  router.put('/feed/order', (req: Request, res: Response) => {
+    try {
+      const { order } = req.body;
+      if (!Array.isArray(order)) {
+        res.status(400).json({ error: 'Order must be an array of { id, sortWeight }' });
+        return;
+      }
+
+      let catalogData: any = { version: 1, games: [] };
+      if (fs.existsSync(catalogPath)) {
+        catalogData = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+      }
+
+      for (const item of order) {
+        const g = (catalogData.games || []).find((game: any) => game.id === item.id);
+        if (g && typeof item.sortWeight === 'number') {
+          g.feedOrder = item.sortWeight;
+        }
+      }
+
+      // Sort catalog games by feedOrder
+      catalogData.games.sort((a: any, b: any) => (a.feedOrder ?? 0) - (b.feedOrder ?? 0));
+      fs.writeFileSync(catalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
+
+      const frontendCatalogPath = path.resolve(__dirname, '../../../frontend/assets/catalog/games.json');
+      if (fs.existsSync(path.dirname(frontendCatalogPath))) {
+        fs.writeFileSync(frontendCatalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
+      }
+
+      catalogService.loadAndValidateCatalog();
+
+      res.json({
+        success: true,
+        message: 'Feed sequence order updated successfully!',
+        games: catalogData.games
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to update feed order', details: err.message });
     }
   });
 
