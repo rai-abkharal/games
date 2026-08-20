@@ -259,15 +259,19 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         const gameName = data.game?.title || selectedGame?.title || 'Game';
-        const versionStr = data.version?.version || '1.0.0';
+        const versionStr = data.game?.version || data.version?.version || '1.0.0';
         setUploadSuccess(`✨ "${gameName}" (v${versionStr}) published successfully!`);
-        await fetchGames();
-        if (data.game?.id || selectedGame?.id) {
-          viewValidation(data.game?.id || selectedGame?.id);
+        if (data.validationReport) {
+          setValidationReport(data.validationReport);
         }
+        await fetchGames();
       } else {
         const errData = await res.json().catch(() => ({}));
-        setUploadSuccess(`❌ Upload failed: ${errData.error || 'Unknown error'}`);
+        const failureReason = errData.details || errData.error || 'Unknown error';
+        setUploadSuccess(`❌ Upload failed: ${failureReason}`);
+        if (errData.validationReport) {
+          setValidationReport(errData.validationReport);
+        }
       }
     } catch (err: any) {
       console.error('Upload failed:', err);
@@ -766,8 +770,27 @@ export default function App() {
                 </div>
 
                 {uploadSuccess && (
-                  <div style={{ marginTop: '16px', padding: '12px 16px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', borderRadius: '8px', color: '#34d399', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={16} /> {uploadSuccess}
+                  <div style={{
+                    marginTop: '16px',
+                    padding: '14px 18px',
+                    background: uploadSuccess.startsWith('✨') ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    border: `1px solid ${uploadSuccess.startsWith('✨') ? '#10b981' : '#ef4444'}`,
+                    borderRadius: '10px',
+                    color: uploadSuccess.startsWith('✨') ? '#34d399' : '#f87171',
+                    fontSize: '13px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
+                      {uploadSuccess.startsWith('✨') ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                      {uploadSuccess}
+                    </div>
+                    {!uploadSuccess.startsWith('✨') && (
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '26px' }}>
+                        👉 Please check the 7-Point Verification Checklist on the right to see which rule failed and fix your ZIP file.
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
