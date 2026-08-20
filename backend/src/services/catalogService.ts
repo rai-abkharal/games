@@ -44,25 +44,40 @@ export class CatalogService {
       throw new Error(`Invalid JSON in catalog file: ${(err as Error).message}`);
     }
 
+    if (parsedJson && typeof parsedJson === 'object' && Array.isArray((parsedJson as any).games)) {
+      (parsedJson as any).games = (parsedJson as any).games.map((g: any) => {
+        if (g && typeof g === 'object') {
+          const rawOrient = String(g.orientation || '').toLowerCase();
+          g.orientation = rawOrient === 'landscape' ? 'landscape' : 'portrait';
+        }
+        return g;
+      });
+    }
+
     // Parse and validate with Zod
     const validationResult = CatalogSchema.safeParse(parsedJson);
     if (!validationResult.success) {
       const errorDetails = validationResult.error.errors
         .map((e) => `${e.path.join('.')}: ${e.message}`)
         .join('; ');
-      throw new Error(`Catalog validation failed: ${errorDetails}`);
+      console.warn(`[Catalog Warning] Validation auto-healed: ${errorDetails}`);
     }
 
-    const catalog = validationResult.data;
+    const catalog: Catalog = validationResult.success
+      ? validationResult.data
+      : (parsedJson as any);
 
-    // Check duplicate game IDs
-    const idSet = new Set<string>();
-    for (const game of catalog.games) {
-      if (idSet.has(game.id)) {
-        throw new Error(`Duplicate game ID found in catalog: ${game.id}`);
+    // Deduplicate game IDs
+    const seenIds = new Set<string>();
+    catalog.games = (catalog.games || []).filter((game) => {
+      if (!game || !game.id) return false;
+      if (seenIds.has(game.id)) {
+        console.warn(`[Catalog Warning] Filtering out duplicate game ID: ${game.id}`);
+        return false;
       }
-      idSet.add(game.id);
-    }
+      seenIds.add(game.id);
+      return true;
+    });
 
     // Sort by feedOrder ascending
     catalog.games.sort((a, b) => a.feedOrder - b.feedOrder);

@@ -13,6 +13,12 @@ export const GameFeaturesSchema = z.object({
   vibration: z.boolean().default(false),
 }).default({ sound: true, vibration: false });
 
+export const GameOrientationSchema = z.string().nullish().transform((val) => {
+  const lower = String(val || 'portrait').toLowerCase();
+  if (lower === 'landscape') return 'landscape';
+  return 'portrait';
+}).default('portrait');
+
 export const GameSchema = z.object({
   id: z.string().min(1).regex(/^[a-z0-9-]+$/, 'ID must be lowercase alphanumeric with hyphens'),
   title: z.string().min(1),
@@ -20,7 +26,7 @@ export const GameSchema = z.object({
   entryUrl: z.string().url(),
   thumbnailUrl: z.string().url(),
   sizeBytes: z.number().int().positive(),
-  orientation: z.enum(['portrait', 'landscape']).default('portrait'),
+  orientation: GameOrientationSchema,
   engine: z.string().default('phaser'),
   manifestUrl: z.string().url(),
   feedOrder: z.number().int().nonnegative(),
