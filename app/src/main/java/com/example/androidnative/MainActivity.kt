@@ -448,8 +448,11 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             val game = this@MainActivity.adapter.getGame(currentPos)
             if (game != null) {
                 progressManager.saveHighScore(game.id, score)
-                progressManager.addCoins(score / 10)
+                val earnedCoins = if (score > 0) Math.max(score / 10, 5) else 2
+                progressManager.addCoins(earnedCoins)
+                updateCoinsDisplay()
                 updateTopBarForGame(currentPos)
+                Toast.makeText(this, "+$earnedCoins 🪙 Coins Earned for $score PTS!", Toast.LENGTH_SHORT).show()
             }
 
             if (gameOverAdEnabled) {
@@ -467,8 +470,11 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             if (game != null) {
                 progressManager.saveHighScore(game.id, score)
                 progressManager.saveLevel(game.id, level + 1)
-                progressManager.addCoins(50)
+                val earnedCoins = 50 + (if (score > 0) score / 10 else 0)
+                progressManager.addCoins(earnedCoins)
+                updateCoinsDisplay()
                 updateTopBarForGame(currentPos)
+                Toast.makeText(this, "🎉 Level Clear! +$earnedCoins 🪙 Coins Earned!", Toast.LENGTH_SHORT).show()
             }
 
             levelWinCount++

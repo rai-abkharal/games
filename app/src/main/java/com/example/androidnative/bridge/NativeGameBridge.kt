@@ -53,8 +53,31 @@ class NativeGameBridge(
     }
 
     @JavascriptInterface
+    fun gameOver(score: String) {
+        val s = parseNumber(score)
+        listener?.onGameOver(s, "")
+    }
+
+    @JavascriptInterface
     fun gameOver(score: Int) {
         listener?.onGameOver(score, "")
+    }
+
+    @JavascriptInterface
+    fun completed(score: Int, level: Int) {
+        listener?.onGameCompleted(score, level)
+    }
+
+    @JavascriptInterface
+    fun completed(score: String, level: String) {
+        val s = parseNumber(score)
+        val l = parseNumber(level).coerceAtLeast(1)
+        listener?.onGameCompleted(s, l)
+    }
+
+    @JavascriptInterface
+    fun completed(score: Int) {
+        listener?.onGameCompleted(score, 1)
     }
 
     @JavascriptInterface
@@ -73,6 +96,17 @@ class NativeGameBridge(
     }
 
     @JavascriptInterface
+    fun earnCoins(amount: String) {
+        val coins = parseNumber(amount).coerceAtLeast(1)
+        listener?.onCoinsEarned(coins)
+    }
+
+    @JavascriptInterface
+    fun addScore(points: Int) {
+        listener?.onCoinsEarned(points / 10)
+    }
+
+    @JavascriptInterface
     fun requestHint(action: String) {
         listener?.onRequestHint(action)
     }
@@ -83,8 +117,29 @@ class NativeGameBridge(
     }
 
     @JavascriptInterface
+    fun saveLevelState(level: String) {
+        val l = parseNumber(level).coerceAtLeast(1)
+        listener?.onSaveLevelState(l)
+    }
+
+    @JavascriptInterface
     fun showRewardedAd(type: String) {
         listener?.onRequestRewardedAd(type)
+    }
+
+    private fun parseNumber(raw: Any?): Int {
+        if (raw == null) return 0
+        return when (raw) {
+            is Number -> raw.toInt()
+            is String -> {
+                try {
+                    raw.trim().toInt()
+                } catch (_: Exception) {
+                    try { raw.trim().toDouble().toInt() } catch (_: Exception) { 0 }
+                }
+            }
+            else -> 0
+        }
     }
 
     private fun handleIncomingMessage(raw: String) {
@@ -96,13 +151,22 @@ class NativeGameBridge(
             when (action) {
                 "ready" -> {}
                 "gameStarted" -> listener?.onGameStarted()
-                "gameOver" -> {
-                    val score = payload?.optInt("score", obj.optInt("score", 0)) ?: 0
+                "gameOver", "GAME_OVER" -> {
+                    val s1 = payload?.optInt("score", -1) ?: -1
+                    val s2 = obj.optInt("score", -1)
+                    val s3 = payload?.optInt("finalScore", -1) ?: -1
+                    val score = listOf(s1, s2, s3).firstOrNull { it >= 0 } ?: 0
                     listener?.onGameOver(score, payload?.toString() ?: "")
                 }
-                "completed" -> {
-                    val score = payload?.optInt("score", 0) ?: 0
-                    val level = payload?.optInt("level", 1) ?: 1
+                "completed", "GAME_COMPLETED", "LEVEL_COMPLETED" -> {
+                    val s1 = payload?.optInt("score", -1) ?: -1
+                    val s2 = obj.optInt("score", -1)
+                    val score = if (s1 >= 0) s1 else if (s2 >= 0) s2 else 0
+
+                    val l1 = payload?.optInt("level", -1) ?: -1
+                    val l2 = obj.optInt("level", -1)
+                    val level = if (l1 >= 1) l1 else if (l2 >= 1) l2 else 1
+
                     listener?.onGameCompleted(score, level)
                 }
                 "setSwipeEnabled" -> {
@@ -113,9 +177,13 @@ class NativeGameBridge(
                     val type = payload?.optString("type", "light") ?: "light"
                     triggerHaptic(type)
                 }
-                "earnCoins", "COINS_EARNED" -> {
+                "earnCoins", "COINS_EARNED", "addCoins" -> {
                     val coins = payload?.optInt("amount", obj.optInt("amount", 10)) ?: 10
                     listener?.onCoinsEarned(coins)
+                }
+                "addScore", "SCORE_EARNED" -> {
+                    val points = payload?.optInt("points", obj.optInt("score", 10)) ?: 10
+                    listener?.onCoinsEarned((points / 10).coerceAtLeast(1))
                 }
                 "requestHint", "REQUEST_HINT" -> {
                     val hintAction = payload?.optString("action", "hint") ?: "hint"
