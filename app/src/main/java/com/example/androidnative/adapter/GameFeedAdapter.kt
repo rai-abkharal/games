@@ -103,20 +103,41 @@ class GameFeedAdapter(
             val isActive = (pos == position)
             val shouldPlaySound = isActive && !isSoundMuted
             
+            if (isActive) {
+                try { webView.onResume() } catch (_: Exception) {}
+            } else {
+                try { webView.onPause() } catch (_: Exception) {}
+            }
+
             webView.evaluateJavascript(
                 """
                 (function() {
+                    var wasActive = window.__GAME_ACTIVE__;
                     window.__GAME_ACTIVE__ = $isActive;
                     window.dispatchEvent(new Event(${if (isActive) "'focus'" else "'blur'"}));
 
-                    if (window.GameBridge) {
-                        if (typeof window.GameBridge.setSoundEnabled === 'function') {
-                            window.GameBridge.setSoundEnabled($shouldPlaySound);
-                        }
-                        if ($isActive) {
+                    if ($isActive) {
+                        // If game auto-ran and crashed/ended in background during preload, restart it fresh:
+                        if (window.GameBridge) {
+                            if (typeof window.GameBridge.setSoundEnabled === 'function') {
+                                window.GameBridge.setSoundEnabled($shouldPlaySound);
+                            }
                             if (typeof window.GameBridge.resume === 'function') window.GameBridge.resume();
                             if (typeof window.GameBridge.onResume === 'function') window.GameBridge.onResume();
-                        } else {
+                            
+                            if (window.__NEEDS_FRESH_START__ === true || window.__GAME_OVER_TRIGGERED__ === true) {
+                                window.__NEEDS_FRESH_START__ = false;
+                                window.__GAME_OVER_TRIGGERED__ = false;
+                                if (typeof window.GameBridge.restart === 'function') {
+                                    window.GameBridge.restart();
+                                }
+                            }
+                        }
+                    } else {
+                        if (window.GameBridge) {
+                            if (typeof window.GameBridge.setSoundEnabled === 'function') {
+                                window.GameBridge.setSoundEnabled(false);
+                            }
                             if (typeof window.GameBridge.pause === 'function') window.GameBridge.pause();
                             if (typeof window.GameBridge.onPause === 'function') window.GameBridge.onPause();
                         }
@@ -325,9 +346,11 @@ class GameFeedAdapter(
                         )
                     } else {
                         // Offscreen preloaded page: PAUSE & SLEEP IMMEDIATELY!
+                        try { view?.onPause() } catch (_: Exception) {}
                         view?.evaluateJavascript(
                             """
                             (function() {
+                                window.__GAME_ACTIVE__ = false;
                                 if (window.GameBridge) {
                                     window.GameBridge.setSoundEnabled(false);
                                     window.GameBridge.pause();
