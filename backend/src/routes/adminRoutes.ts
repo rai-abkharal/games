@@ -72,38 +72,50 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       checks.push({ rule: 'Archive Structure', passed: false, message: 'ZIP archive is empty or corrupted' });
     }
 
-    // Rule 2: Manifest JSON Existence
-    const manifestEntry = entries.find(e => e.entryName === 'manifest.json' || e.entryName.endsWith('/manifest.json'));
+    // Rule 2: Manifest JSON Existence & Smart Locator
+    const manifestEntries = entries.filter(e => (e.entryName === 'manifest.json' || e.entryName.endsWith('/manifest.json')) && !e.isDirectory);
+    manifestEntries.sort((a, b) => a.entryName.length - b.entryName.length);
+    const manifestEntry = manifestEntries[0];
     let manifest: any = null;
+
     if (manifestEntry) {
       try {
         manifest = JSON.parse(manifestEntry.getData().toString('utf8'));
-        checks.push({ rule: 'Manifest JSON Exists', passed: true, message: `Found valid manifest.json for game "${manifest.title || manifest.id}"` });
+        checks.push({ rule: 'Manifest JSON Exists', passed: true, message: `Found manifest.json` });
       } catch (e) {
         checks.push({ rule: 'Manifest JSON Exists', passed: false, message: 'manifest.json is corrupted or invalid JSON format' });
       }
     } else {
-      checks.push({ rule: 'Manifest JSON Exists', passed: false, message: 'Missing manifest.json in root of ZIP archive' });
+      // Auto-generate a fallback manifest if missing so simple HTML5 games still work
+      manifest = {
+        id: 'game-' + Date.now().toString(36),
+        title: 'New Custom Game',
+        version: '1.0.0',
+        orientation: 'portrait',
+        category: 'Arcade'
+      };
+      checks.push({ rule: 'Manifest JSON Exists', passed: true, message: 'Auto-generated standard manifest (missing in ZIP)' });
     }
 
-    // Rule 3: Required Metadata Schema
+    // Rule 3: Required Metadata Schema (with Auto-Healing)
     if (manifest) {
-      const missing: string[] = [];
-      if (!manifest.id || typeof manifest.id !== 'string') missing.push('id');
-      if (!manifest.title || typeof manifest.title !== 'string') missing.push('title');
-      if (!manifest.version || typeof manifest.version !== 'string') missing.push('version');
-
-      if (missing.length === 0) {
-        checks.push({ rule: 'Required Metadata (id, title, version)', passed: true, message: `Metadata verified: "${manifest.title}" (${manifest.id} v${manifest.version})` });
-      } else {
-        checks.push({ rule: 'Required Metadata (id, title, version)', passed: false, message: `manifest.json is missing required fields: ${missing.join(', ')}` });
+      if (!manifest.id || typeof manifest.id !== 'string') {
+        manifest.id = 'game-' + Date.now().toString(36);
       }
-    } else {
-      checks.push({ rule: 'Required Metadata (id, title, version)', passed: false, message: 'Cannot verify metadata without manifest.json' });
+      if (!manifest.title || typeof manifest.title !== 'string') {
+        manifest.title = manifest.id.replace(/[-_]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+      }
+      if (!manifest.version || typeof manifest.version !== 'string') {
+        manifest.version = '1.0.0';
+      }
+
+      checks.push({ rule: 'Required Metadata (id, title, version)', passed: true, message: `"${manifest.title}" (${manifest.id} v${manifest.version})` });
     }
 
     // Rule 4: Entry Point (index.html)
-    const entryHtml = entries.find(e => e.entryName === 'index.html' || e.entryName.endsWith('/index.html'));
+    const entryHtmlEntries = entries.filter(e => (e.entryName === 'index.html' || e.entryName.endsWith('/index.html')) && !e.isDirectory);
+    entryHtmlEntries.sort((a, b) => a.entryName.length - b.entryName.length);
+    const entryHtml = entryHtmlEntries[0];
     if (entryHtml) {
       const htmlContent = entryHtml.getData().toString('utf8');
       if (htmlContent.length > 30) {
