@@ -841,20 +841,28 @@ export default function App() {
 
                         <td style={{ padding: '16px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{
-                              fontSize: '13px',
-                              fontWeight: 800,
-                              color: 'var(--accent-cyan)',
-                              background: 'rgba(6, 182, 212, 0.15)',
-                              padding: '3px 8px',
-                              borderRadius: '6px',
-                              border: '1px solid rgba(6, 182, 212, 0.3)',
-                              fontFamily: 'var(--font-mono)',
-                              minWidth: '32px',
-                              textAlign: 'center'
-                            }}>
-                              #{game.sortWeight}
-                            </span>
+                            <select
+                              value={game.sortWeight}
+                              onChange={(e) => reorderGame(game.id, Number(e.target.value))}
+                              style={{
+                                padding: '4px 8px',
+                                fontSize: '13px',
+                                fontWeight: 800,
+                                color: 'var(--accent-cyan)',
+                                background: 'rgba(6, 182, 212, 0.15)',
+                                border: '1px solid rgba(6, 182, 212, 0.4)',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontFamily: 'var(--font-mono)'
+                              }}
+                              title="Set Exact Feed Position Number for App"
+                            >
+                              {games.map((_, i) => (
+                                <option key={i + 1} value={i + 1} style={{ background: '#0f172a', color: '#fff' }}>
+                                  #{i + 1} {i === 0 ? '(Top #1)' : ''}
+                                </option>
+                              ))}
+                            </select>
                             <button
                               className="btn-secondary"
                               style={{ padding: '4px 6px', fontSize: '10px' }}
@@ -1300,6 +1308,15 @@ export default function App() {
                   >
                     <RefreshCw size={14} /> Reload
                   </button>
+
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: '10px 14px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '6px', color: '#fca5a5', background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)', fontWeight: 700 }}
+                    onClick={() => sendSimulatorEvent('RESET_PROGRESS')}
+                    title="Reset game progress from Level 1 / 0 Score"
+                  >
+                    <RotateCcw size={14} color="#f87171" /> RESET (Level 1)
+                  </button>
                 </div>
 
                 {/* Device Bezel */}
@@ -1334,6 +1351,9 @@ export default function App() {
 
                 {/* Host Action Controls */}
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingBottom: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <button className="btn-secondary" style={{ padding: '8px 14px', fontSize: '12px', background: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.5)', color: '#fca5a5', fontWeight: 700 }} onClick={() => sendSimulatorEvent('RESET_PROGRESS')} title="Wipe all localStorage/cache progress and start from Level 1 / 0 Score">
+                    <RotateCcw size={13} color="#f87171" /> RESET (Level 1 & Storage)
+                  </button>
                   <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => sendSimulatorEvent('PAUSE_GAME')} title="Pause Game loop & blur focus">
                     <Pause size={13} /> PAUSE_GAME
                   </button>
@@ -1347,14 +1367,8 @@ export default function App() {
                   }} title="Toggle Sound / Audio Context Mute">
                     {simIsMuted ? <Volume2 size={13} /> : <VolumeX size={13} />} {simIsMuted ? 'UNMUTE_AUDIO' : 'MUTE_AUDIO'}
                   </button>
-                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => sendSimulatorEvent('RESTART_GAME')} title="Restart Current Level">
-                    <RotateCcw size={13} /> RESTART_GAME
-                  </button>
                   <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px', borderColor: 'rgba(234, 179, 8, 0.4)', color: '#fef08a' }} onClick={() => sendSimulatorEvent('TRIGGER_HINT')} title="Simulate rewarded ad hint grant">
                     <Lightbulb size={13} color="#facc15" /> TRIGGER_HINT
-                  </button>
-                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px', background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#fca5a5' }} onClick={() => sendSimulatorEvent('RESET_PROGRESS')} title="Wipe localStorage/cache and start from Level 1 / 0 Score">
-                    <Flame size={13} color="#f87171" /> RESET_GAME (Wipe Storage)
                   </button>
                   <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => setBridgeLogs([])} title="Clear stream history">
                     Clear Log
@@ -1467,6 +1481,31 @@ export default function App() {
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Position:</span>
+                          <select
+                            value={idx + 1}
+                            onChange={(e) => reorderGame(game.id, Number(e.target.value))}
+                            style={{
+                              padding: '6px 10px',
+                              fontSize: '13px',
+                              fontWeight: 800,
+                              color: '#38bdf8',
+                              background: 'rgba(56, 189, 248, 0.12)',
+                              border: '1px solid rgba(56, 189, 248, 0.4)',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              fontFamily: 'var(--font-mono)'
+                            }}
+                            title="Set exact running position number"
+                          >
+                            {games.map((_, i) => (
+                              <option key={i + 1} value={i + 1} style={{ background: '#0f172a', color: '#fff' }}>
+                                #{i + 1} {i === 0 ? '(First on App Load)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                         <button
                           className="btn-secondary"
                           style={{ padding: '8px 12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}
