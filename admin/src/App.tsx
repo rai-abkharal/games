@@ -343,8 +343,9 @@ export default function App() {
     const formData = new FormData();
     formData.append('file', file);
 
-    const uploadUrl = selectedGame?.id
-      ? `${API_BASE}/v1/admin/games/${selectedGame.id}/upload`
+    const targetGame = activeTab === 'update' ? (updateGameTarget || selectedGame) : null;
+    const uploadUrl = targetGame?.id
+      ? `${API_BASE}/v1/admin/games/${targetGame.id}/upload`
       : `${API_BASE}/v1/admin/games/upload`;
 
     try {
@@ -353,28 +354,36 @@ export default function App() {
         body: formData,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const gameName = data.game?.title || selectedGame?.title || 'Game';
+      const resText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(resText);
+      } catch {
+        data = { details: resText || `Server returned HTTP ${res.status} ${res.statusText}` };
+      }
+
+      if (res.ok && data.success !== false) {
+        const gameName = data.game?.title || targetGame?.title || 'Game';
         const versionStr = data.game?.version || data.version?.version || '1.0.0';
-        setUploadSuccess(`✨ "${gameName}" (v${versionStr}) published successfully!`);
+        setUploadSuccess(`✨ "${gameName}" (v${versionStr}) ${targetGame ? 'updated and deployed live' : 'published to top of feed'} successfully!`);
         if (data.validationReport) {
           setValidationReport(data.validationReport);
         }
         await fetchGames();
       } else {
-        const errData = await res.json().catch(() => ({}));
-        const failureReason = errData.details || errData.error || 'Unknown error';
+        const failureReason = data.details || data.error || `Upload failed (HTTP ${res.status}): Please check package contents.`;
         setUploadSuccess(`❌ Upload failed: ${failureReason}`);
-        if (errData.validationReport) {
-          setValidationReport(errData.validationReport);
+        if (data.validationReport) {
+          setValidationReport(data.validationReport);
         }
       }
     } catch (err: any) {
       console.error('Upload failed:', err);
-      setUploadSuccess(`❌ Network error: ${err.message}`);
+      setUploadSuccess(`❌ Network error: ${err.message}. Please verify the server is running on ${API_BASE}.`);
     } finally {
       setUploading(false);
+      // Reset input element value so same file can be re-uploaded if modified
+      if (e.target) e.target.value = '';
     }
   };
 

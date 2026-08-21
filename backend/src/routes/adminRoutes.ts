@@ -237,15 +237,16 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
   });
 
   // 3. Upload & Deploy Game Zip
-  router.post('/games/upload', upload.single('file'), (req: Request, res: Response) => {
+  // Unified Game Package Ingestion & Update Processor
+  function handleGameZipUpload(req: Request, res: Response, targetGameId?: string) {
     try {
       if (!req.file) {
         res.status(400).json({
-          error: 'No zip file uploaded',
-          details: 'Please select a valid .zip game package file.',
+          error: 'No ZIP file uploaded',
+          details: 'Please select a valid .zip game package file from your computer.',
           validationReport: {
-            gameId: 'unknown',
-            slug: 'unknown',
+            gameId: targetGameId || 'unknown',
+            slug: targetGameId || 'unknown',
             version: '1.0.0',
             allPassed: false,
             checks: [{ rule: 'ZIP Archive Provided', passed: false, message: 'No file received by server' }]
@@ -257,13 +258,13 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       let zip: AdmZip;
       try {
         zip = new AdmZip(req.file.buffer);
-      } catch (zipErr) {
+      } catch (zipErr: any) {
         res.status(400).json({
-          error: 'Corrupted ZIP archive file',
-          details: 'The uploaded file is not a valid ZIP format.',
+          error: 'Corrupted or unreadable ZIP archive',
+          details: `The uploaded file is not a valid ZIP format: ${zipErr.message}`,
           validationReport: {
-            gameId: 'unknown',
-            slug: 'unknown',
+            gameId: targetGameId || 'unknown',
+            slug: targetGameId || 'unknown',
             version: '1.0.0',
             allPassed: false,
             checks: [{ rule: 'Archive Structure', passed: false, message: 'Corrupted or unreadable ZIP archive format' }]
@@ -275,9 +276,10 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       // Run 7-Point Validation Checklist
       const validation = validateGameZip(zip, req.file.size);
       if (!validation.allPassed) {
-        const failedMessages = validation.checks.filter(c => !c.passed).map(c => `${c.rule}: ${c.message}`).join(' | ');
+        const failedChecks = validation.checks.filter(c => !c.passed);
+        const failedMessages = failedChecks.map(c => `${c.rule}: ${c.message}`).join(' | ');
         res.status(400).json({
-          error: `Game package failed checklist: ${failedMessages}`,
+          error: `Game package failed checklist (${failedChecks.length} rule${failedChecks.length > 1 ? 's' : ''} failed)`,
           details: failedMessages,
           validationReport: validation
         });
@@ -286,8 +288,21 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
 
       const entries = zip.getEntries();
       const manifest = validation.manifest;
-      const gameId = manifest.id;
-      const version = manifest.version || '1.1.0';
+      
+      // Load current catalog to check existing game
+      let catalogData: any = { schemaVersion: '1.0.0', games: [] };
+      if (fs.existsSync(catalogPath)) {
+        try {
+          catalogData = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+        } catch {}
+      }
+
+      const gameId = targetGameId || manifest.id;
+      const existingIndex = catalogData.games.findIndex((g: any) => g.id === gameId);
+      const existingGame = existingIndex >= 0 ? catalogData.games[existingIndex] : null;
+
+      // Version determination
+      const version = manifest.version || (existingGame ? (existingGame.version.includes('.') ? existingGame.version : '1.0.0') : '1.0.0');
 
       // Destination directory: public/games/<gameId>/<version>/
       const targetGameDir = path.join(gamesDir, gameId, version);
@@ -296,26 +311,38 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       }
       fs.mkdirSync(targetGameDir, { recursive: true });
 
-      // Extract entries
+      // Smart directory flattening (detects if zip was packaged with a root folder wrapper)
+      const nonDirEntries = entries.filter(e => !e.isDirectory);
+      const htmlEntry = nonDirEntries.find(e => e.entryName === 'index.html' || e.entryName.endsWith('/index.html'));
+      let rootPrefix = '';
+      if (htmlEntry && htmlEntry.entryName !== 'index.html') {
+        rootPrefix = htmlEntry.entryName.substring(0, htmlEntry.entryName.lastIndexOf('/') + 1);
+      }
+
+      // Extract entries cleanly
       for (const entry of entries) {
         if (entry.isDirectory) continue;
         
         let relativePath = entry.entryName;
-        // Strip leading parent directory if zipped with folder root
-        const slashIdx = relativePath.indexOf('/');
-        if (slashIdx !== -1 && !relativePath.startsWith('assets/')) {
-          const firstPart = relativePath.substring(0, slashIdx);
-          if (firstPart === gameId || firstPart === 'files (2)' || firstPart === 'dist' || firstPart === 'build') {
-            relativePath = relativePath.substring(slashIdx + 1);
+        if (rootPrefix && relativePath.startsWith(rootPrefix)) {
+          relativePath = relativePath.substring(rootPrefix.length);
+        } else {
+          const slashIdx = relativePath.indexOf('/');
+          if (slashIdx !== -1 && !relativePath.startsWith('assets/')) {
+            const firstPart = relativePath.substring(0, slashIdx);
+            if (firstPart === gameId || firstPart === 'dist' || firstPart === 'build') {
+              relativePath = relativePath.substring(slashIdx + 1);
+            }
           }
         }
 
+        if (!relativePath) continue;
         const targetFile = path.join(targetGameDir, relativePath);
         fs.mkdirSync(path.dirname(targetFile), { recursive: true });
         fs.writeFileSync(targetFile, entry.getData());
       }
 
-      // Handle thumbnail SVG/WebP/PNG
+      // Handle thumbnail
       const thumbnailEntry = entries.find(e => e.entryName.endsWith('.svg') || e.entryName.endsWith('.webp') || e.entryName.endsWith('.png'));
       const thumbExt = thumbnailEntry ? (thumbnailEntry.entryName.endsWith('.webp') ? '.webp' : thumbnailEntry.entryName.endsWith('.png') ? '.png' : '.svg') : '.svg';
       const thumbFileName = `${gameId}${thumbExt}`;
@@ -323,30 +350,20 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       if (thumbnailEntry) {
         fs.writeFileSync(targetThumbFile, thumbnailEntry.getData());
       } else if (!fs.existsSync(targetThumbFile)) {
-        // Generate a fallback clean SVG thumbnail
         const defaultSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%"><rect width="512" height="512" rx="96" fill="#0f172a"/><text x="256" y="270" fill="#38bdf8" font-size="64" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">${manifest.title || gameId}</text></svg>`;
         fs.writeFileSync(targetThumbFile, defaultSvg, 'utf8');
       }
 
-      // Calculate SHA256 of entry index.html or package
+      // Compute SHA-256 of entry file
       const indexFile = path.join(targetGameDir, 'index.html');
       let sha256 = '';
-      let sizeBytes = req.file.size;
+      const sizeBytes = req.file.size;
       if (fs.existsSync(indexFile)) {
         const fileBuffer = fs.readFileSync(indexFile);
         sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
       }
 
-      // Update catalog/games.json
-      let catalogData: any = { schemaVersion: '1.0.0', games: [] };
-      if (fs.existsSync(catalogPath)) {
-        catalogData = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
-      }
-
-      const existingIndex = catalogData.games.findIndex((g: any) => g.id === gameId);
       const nowIso = new Date().toISOString();
-      const existingGame = existingIndex >= 0 ? catalogData.games[existingIndex] : null;
-
       const newGameEntry = {
         id: gameId,
         title: manifest.title || (existingGame ? existingGame.title : gameId),
@@ -374,7 +391,7 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
         newGameEntry.feedOrder = existingGame.feedOrder || 1;
         catalogData.games[existingIndex] = newGameEntry;
       } else {
-        // NEW GAME: Insert at the very TOP of the feed (position #1)!
+        // NEW GAME: Insert at top (#1 position) and shift others down
         for (const g of catalogData.games) {
           g.feedOrder = (g.feedOrder ?? 1) + 1;
         }
@@ -391,7 +408,6 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       catalogData.updatedAt = nowIso;
       fs.writeFileSync(catalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
       
-      // Also sync to frontend catalog if it exists
       const frontendCatalogPath = path.resolve(__dirname, '../../../frontend/assets/catalog/games.json');
       if (fs.existsSync(path.dirname(frontendCatalogPath))) {
         fs.writeFileSync(frontendCatalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
@@ -400,16 +416,30 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       // Hot reload catalog service
       catalogService.loadAndValidateCatalog();
 
+      const actionWord = existingGame ? 'updated and deployed live' : 'published to top of feed';
       res.json({
         success: true,
-        message: `Game "${manifest.title || gameId}" v${version} deployed live to server and catalog!`,
+        message: `Game "${newGameEntry.title}" (v${version}) ${actionWord} successfully!`,
         game: newGameEntry,
         validationReport: validation
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Admin Upload Error]', err);
-      res.status(500).json({ error: 'Failed to upload and deploy game', details: String(err) });
+      res.status(500).json({ error: 'Failed to process game package', details: err.message });
     }
+  }
+
+  // 3. Upload & Deploy New Game Zip
+  router.post('/games/upload', upload.single('file'), (req: Request, res: Response) => {
+    handleGameZipUpload(req, res);
+  });
+
+  // 3.1 Update Existing Game Code Zip
+  router.post('/games/:id/upload', upload.single('file'), (req: Request, res: Response) => {
+    handleGameZipUpload(req, res, req.params.id);
+  });
+  router.put('/games/:id/upload', upload.single('file'), (req: Request, res: Response) => {
+    handleGameZipUpload(req, res, req.params.id);
   });
 
   // 4. Reports endpoint
