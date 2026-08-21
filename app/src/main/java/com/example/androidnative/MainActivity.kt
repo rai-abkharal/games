@@ -304,14 +304,25 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     }
 
     private fun loadCatalog() {
-        binding.progressBar.visibility = View.VISIBLE
-        lifecycleScope.launch {
-            fullGameList = repository.fetchCatalog()
+        // 1. Instant Zero-Latency Render from persistent local storage
+        val cached = repository.getCachedCatalog()
+        if (cached != null && cached.isNotEmpty()) {
+            fullGameList = cached
+            filterGamesByTab(currentTab)
             binding.progressBar.visibility = View.GONE
-            filterGamesByTab(FeedTab.ALL)
-            if (displayedGameList.isNotEmpty()) {
-                updateTopBarForGame(0)
-                cacheManager.preloadUpcomingGames(0, displayedGameList, lifecycleScope)
+            updateTopBarForGame(binding.viewPager.currentItem)
+        } else {
+            binding.progressBar.visibility = View.VISIBLE
+        }
+
+        // 2. Background Live Server Fetch (Updates catalog and syncs any new/updated games)
+        lifecycleScope.launch {
+            val liveCatalog = repository.fetchCatalog()
+            binding.progressBar.visibility = View.GONE
+            if (liveCatalog.isNotEmpty()) {
+                fullGameList = liveCatalog
+                filterGamesByTab(currentTab)
+                updateTopBarForGame(binding.viewPager.currentItem)
             }
         }
     }

@@ -135,19 +135,20 @@ class GameCacheManager(private val context: Context) {
     }
 
     /**
-     * Predictive background download: silently downloads current, next, and next+1 games
-     * so that user swiping lands on 100% locally cached games (0.01ms load time).
+     * Lazy on-demand preload: Gently pre-caches ONLY the immediate next game (N+1)
+     * after current game is active, avoiding any initial network congestion.
      */
     fun preloadUpcomingGames(currentIndex: Int, catalog: List<GameItem>, scope: kotlinx.coroutines.CoroutineScope) {
         if (catalog.isEmpty()) return
-        val indicesToPreload = listOf(currentIndex, currentIndex + 1, currentIndex + 2, currentIndex - 1)
-            .filter { it in catalog.indices }
-
-        for (idx in indicesToPreload) {
-            val game = catalog[idx]
+        val nextIndex = currentIndex + 1
+        if (nextIndex in catalog.indices) {
+            val game = catalog[nextIndex]
             if (!isGameCached(game)) {
                 scope.launch(Dispatchers.IO) {
-                    downloadGame(game)
+                    try {
+                        kotlinx.coroutines.delay(1500)
+                        downloadGame(game)
+                    } catch (_: Exception) {}
                 }
             }
         }

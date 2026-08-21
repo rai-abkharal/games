@@ -32,6 +32,20 @@ class GameRepository(private val context: Context) {
         )
     }
 
+    fun getCachedCatalog(): List<GameItem>? {
+        val cached = getCachedCatalogJson()
+        if (!cached.isNullOrEmpty()) {
+            try {
+                val catalog = gson.fromJson(cached, GameCatalog::class.java)
+                if (catalog.games.isNotEmpty()) {
+                    return catalog.games.map { normalizeGameUrls(it, BASE_URL) }
+                        .sortedBy { it.feedOrder }
+                }
+            } catch (_: Exception) {}
+        }
+        return null
+    }
+
     suspend fun fetchCatalog(): List<GameItem> = withContext(Dispatchers.IO) {
         // 1. Try candidate endpoints on live server
         for (endpoint in CANDIDATE_ENDPOINTS) {
@@ -64,18 +78,11 @@ class GameRepository(private val context: Context) {
             } catch (_: Exception) {}
         }
 
-        // 2. Fallback to locally cached catalog (from previous live server fetch)
-        val cached = getCachedCatalogJson()
-        if (!cached.isNullOrEmpty()) {
-            try {
-                val catalog = gson.fromJson(cached, GameCatalog::class.java)
-                if (catalog.games.isNotEmpty()) {
-                    val normalized = catalog.games.map { normalizeGameUrls(it, BASE_URL) }
-                        .sortedBy { it.feedOrder }
-                    cacheManager.syncCatalogUpdates(normalized)
-                    return@withContext normalized
-                }
-            } catch (_: Exception) {}
+        // 2. Fallback to locally cached catalog
+        val cached = getCachedCatalog()
+        if (cached != null && cached.isNotEmpty()) {
+            cacheManager.syncCatalogUpdates(cached)
+            return@withContext cached
         }
 
         // 3. Fallback to default catalog
