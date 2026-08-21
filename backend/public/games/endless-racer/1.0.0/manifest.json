@@ -1,0 +1,16 @@
+{
+  "id": "endless-racer",
+  "title": "Endless Racer",
+  "version": "1.0.0",
+  "description": "Weave through three lanes of traffic, scoop up coins and push your speed as far as the road lets you.",
+  "orientation": "portrait",
+  "engine": "canvas2d",
+  "category": "Arcade",
+  "feedOrder": 19,
+  "status": "published",
+  "touchZones": [],
+  "features": {
+    "sound": true,
+    "vibration": false
+  }
+}

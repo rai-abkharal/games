@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 480">
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#1d2a48"/><stop offset="1" stop-color="#0b0f18"/></linearGradient></defs>
+<rect width="360" height="480" fill="url(#g)"/><rect x="95" width="170" height="480" fill="#42464e"/>
+<rect x="88" width="7" height="480" fill="#e8e6dc"/><rect x="265" width="7" height="480" fill="#e8e6dc"/>
+<g fill="#f2f0e8"><rect x="147" y="30" width="6" height="42" rx="3"/><rect x="147" y="102" width="6" height="42" rx="3"/><rect x="147" y="174" width="6" height="42" rx="3"/><rect x="207" y="30" width="6" height="42" rx="3"/><rect x="207" y="102" width="6" height="42" rx="3"/><rect x="207" y="174" width="6" height="42" rx="3"/></g>
+<circle cx="238" cy="88" r="19" fill="#ffd24a" stroke="#fff3bd" stroke-width="4"/>
+<g transform="translate(120 165)"><rect x="-26" y="-40" width="52" height="80" rx="14" fill="#e8b52c"/><rect x="-19" y="-24" width="38" height="15" rx="4" fill="#a9c8e6"/><rect x="-19" y="12" width="38" height="13" rx="4" fill="#7fa3c4"/></g>
+<g transform="translate(180 255)"><rect x="-29" y="-45" width="58" height="90" rx="16" fill="#e0452a"/><rect x="-21" y="-27" width="42" height="17" rx="4" fill="#bcdcf7"/><rect x="-21" y="14" width="42" height="14" rx="4" fill="#8fb6d8"/><rect x="-4" y="-41" width="8" height="82" rx="3" fill="#ffffff" opacity="0.85"/></g>
+<text x="180" y="375" font-family="system-ui" font-size="28" font-weight="800" fill="#e9eef8" text-anchor="middle">Endless Racer</text>
+<text x="180" y="410" font-family="system-ui" font-size="14" font-weight="700" fill="#7ef0b6" text-anchor="middle">DODGE • COLLECT • SURVIVE</text>
+</svg>

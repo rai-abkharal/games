@@ -88,7 +88,9 @@ class GameRepository(private val context: Context) {
             GameItem("crown-arena", "Crown Arena", "1.1.0", "$BASE_URL/games/crown-arena/1.1.0/index.html", "$BASE_URL/thumbnails/crown-arena.webp", 51332, category = "Arcade", description = "Capture and hold the golden crown in 2D arena battle!"),
             GameItem("cyber-blade", "Cyber Blade", "1.0.0", "$BASE_URL/games/cyber-blade/1.0.0/index.html", "$BASE_URL/thumbnails/cyber-blade.webp", 12007, category = "Action", description = "High-speed neon blade slicing and precision reflex challenge."),
             GameItem("jetpack-surge", "Jetpack Surge", "1.0.0", "$BASE_URL/games/jetpack-surge/1.0.0/index.html", "$BASE_URL/thumbnails/jetpack-surge.webp", 10886, category = "Arcade", description = "High-velocity jetpack booster through electric sky barriers."),
-            GameItem("quantum-maze", "Quantum Maze", "1.0.0", "$BASE_URL/games/quantum-maze/1.0.0/index.html", "$BASE_URL/thumbnails/quantum-maze.webp", 15356, category = "Puzzle", description = "Multi-level cyber maze quest with in-game hints!")
+            GameItem("quantum-maze", "Quantum Maze", "1.0.0", "$BASE_URL/games/quantum-maze/1.0.0/index.html", "$BASE_URL/thumbnails/quantum-maze.webp", 15356, category = "Puzzle", description = "Multi-level cyber maze quest with in-game hints!"),
+            GameItem("water-sort", "Water Sort 3D", "1.0.0", "$BASE_URL/games/water-sort/1.0.0/index.html", "$BASE_URL/thumbnails/water-sort.webp", 79000, category = "Puzzle", description = "AAA 3D Liquid Sorting Puzzle with fluid physics."),
+            GameItem("endless-racer", "Endless Racer", "1.0.0", "$BASE_URL/games/endless-racer/1.0.0/index.html", "$BASE_URL/thumbnails/endless-racer.webp", 84000, category = "Arcade", description = "Weave through three lanes of traffic and scoop up coins.")
         )
     }
 }

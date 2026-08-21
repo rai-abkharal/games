@@ -228,6 +228,32 @@ class GameFeedAdapter(
                     return cacheManager.interceptRequest(url)
                 }
 
+                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                    super.onPageStarted(view, url, favicon)
+                    // Early Global AudioContext & rAF Interception
+                    view?.evaluateJavascript(
+                        """
+                        (function() {
+                            if (!window.__ALL_AUDIO_CONTEXTS__) {
+                                window.__ALL_AUDIO_CONTEXTS__ = [];
+                                var OrigCtx = window.AudioContext || window.webkitAudioContext;
+                                if (OrigCtx) {
+                                    var HookedCtx = function() {
+                                        var ctx = new OrigCtx();
+                                        window.__ALL_AUDIO_CONTEXTS__.push(ctx);
+                                        return ctx;
+                                    };
+                                    HookedCtx.prototype = OrigCtx.prototype;
+                                    window.AudioContext = HookedCtx;
+                                    window.webkitAudioContext = HookedCtx;
+                                }
+                            }
+                        })();
+                        """.trimIndent(),
+                        null
+                    )
+                }
+
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     
@@ -328,8 +354,15 @@ class GameFeedAdapter(
                     }
                 } catch(e) {}
 
-                // 5. Media & AudioContext Nuclear Silence
+                // 5. Universal AudioContext Nuclear Silence (Catches all AudioContexts)
                 try {
+                    if (window.__ALL_AUDIO_CONTEXTS__) {
+                        window.__ALL_AUDIO_CONTEXTS__.forEach(function(ctx) {
+                            if (ctx && typeof ctx.suspend === 'function' && ctx.state === 'running') {
+                                ctx.suspend();
+                            }
+                        });
+                    }
                     var media = document.querySelectorAll('audio, video');
                     for (var i = 0; i < media.length; i++) {
                         media[i].pause();
@@ -405,9 +438,16 @@ class GameFeedAdapter(
                     }
                 } catch(e) {}
 
-                // 5. Media & AudioContext Unmute (if enabled)
+                // 5. Universal AudioContext Resume
                 try {
                     if ($shouldPlaySound) {
+                        if (window.__ALL_AUDIO_CONTEXTS__) {
+                            window.__ALL_AUDIO_CONTEXTS__.forEach(function(ctx) {
+                                if (ctx && typeof ctx.resume === 'function' && ctx.state === 'suspended') {
+                                    ctx.resume();
+                                }
+                            });
+                        }
                         var media = document.querySelectorAll('audio, video');
                         for (var i = 0; i < media.length; i++) {
                             media[i].muted = false;

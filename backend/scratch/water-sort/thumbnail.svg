@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0F283E"/>
+      <stop offset="50%" stop-color="#091827"/>
+      <stop offset="100%" stop-color="#040D17"/>
+    </linearGradient>
+
+    <!-- Tube Glass Gradient -->
+    <linearGradient id="glassGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.4)"/>
+      <stop offset="50%" stop-color="rgba(255,255,255,0.08)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.25)"/>
+    </linearGradient>
+
+    <!-- Liquid Gradients -->
+    <linearGradient id="rubyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FF6F91"/>
+      <stop offset="40%" stop-color="#FF416C"/>
+      <stop offset="100%" stop-color="#C9184A"/>
+    </linearGradient>
+
+    <linearGradient id="aquaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#60EFFF"/>
+      <stop offset="40%" stop-color="#00D2FC"/>
+      <stop offset="100%" stop-color="#0083B0"/>
+    </linearGradient>
+
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#69F0AE"/>
+      <stop offset="40%" stop-color="#00E676"/>
+      <stop offset="100%" stop-color="#00897B"/>
+    </linearGradient>
+
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFDE59"/>
+      <stop offset="50%" stop-color="#FFB300"/>
+      <stop offset="100%" stop-color="#E65100"/>
+    </linearGradient>
+
+    <linearGradient id="starGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFF3B0"/>
+      <stop offset="50%" stop-color="#FFD700"/>
+      <stop offset="100%" stop-color="#FF8F00"/>
+    </linearGradient>
+
+    <!-- Glow Filter -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="90" fill="url(#bgGrad)"/>
+
+  <!-- Ambient Glow Orbs -->
+  <circle cx="160" cy="180" r="140" fill="#00D2FC" opacity="0.15" filter="url(#glow)"/>
+  <circle cx="360" cy="340" r="150" fill="#FF416C" opacity="0.12" filter="url(#glow)"/>
+
+  <!-- Left Tube (Straight) -->
+  <g transform="translate(130, 160)">
+    <!-- Shadow -->
+    <rect x="-3" y="10" width="76" height="230" rx="36" fill="rgba(0,0,0,0.4)"/>
+
+    <!-- Liquids Stack -->
+    <rect x="5" y="170" width="60" height="50" rx="26" fill="url(#emeraldGrad)"/>
+    <rect x="5" y="115" width="60" height="55" fill="url(#goldGrad)"/>
+    <rect x="5" y="60" width="60" height="55" fill="url(#aquaGrad)"/>
+
+    <!-- Glass Body -->
+    <rect x="0" y="0" width="70" height="225" rx="35" fill="url(#glassGrad)" stroke="rgba(255,255,255,0.9)" stroke-width="4"/>
+    <!-- Glass Lip -->
+    <rect x="-6" y="-6" width="82" height="14" rx="6" fill="#FFFFFF" stroke="rgba(255,255,255,0.8)" stroke-width="2"/>
+    <!-- Specular Highlight -->
+    <rect x="8" y="14" width="7" height="150" rx="3" fill="rgba(255,255,255,0.6)"/>
+    <!-- Pedestal -->
+    <rect x="-8" y="222" width="86" height="14" rx="7" fill="rgba(255,255,255,0.65)"/>
+  </g>
+
+  <!-- Right Tube (Straight) -->
+  <g transform="translate(310, 190)">
+    <!-- Shadow -->
+    <rect x="-3" y="10" width="76" height="200" rx="36" fill="rgba(0,0,0,0.4)"/>
+
+    <!-- Liquids Stack -->
+    <rect x="5" y="140" width="60" height="50" rx="26" fill="url(#aquaGrad)"/>
+    <rect x="5" y="85" width="60" height="55" fill="url(#rubyGrad)"/>
+
+    <!-- Glass Body -->
+    <rect x="0" y="0" width="70" height="195" rx="35" fill="url(#glassGrad)" stroke="rgba(255,255,255,0.9)" stroke-width="4"/>
+    <!-- Glass Lip -->
+    <rect x="-6" y="-6" width="82" height="14" rx="6" fill="#FFFFFF" stroke="rgba(255,255,255,0.8)" stroke-width="2"/>
+    <!-- Specular Highlight -->
+    <rect x="8" y="14" width="7" height="120" rx="3" fill="rgba(255,255,255,0.6)"/>
+    <!-- Pedestal -->
+    <rect x="-8" y="192" width="86" height="14" rx="7" fill="rgba(255,255,255,0.65)"/>
+  </g>
+
+  <!-- Center-Left Tilted Pouring Tube -->
+  <g transform="translate(265, 100) rotate(55)">
+    <!-- Liquids inside tilted tube -->
+    <rect x="5" y="100" width="56" height="70" rx="24" fill="url(#rubyGrad)"/>
+
+    <!-- Glass Body -->
+    <rect x="0" y="0" width="66" height="180" rx="33" fill="url(#glassGrad)" stroke="rgba(255,255,255,0.95)" stroke-width="4"/>
+    <rect x="-5" y="-5" width="76" height="12" rx="5" fill="#FFFFFF"/>
+    <rect x="7" y="12" width="6" height="120" rx="3" fill="rgba(255,255,255,0.7)"/>
+  </g>
+
+  <!-- Flowing Liquid Stream Bezier -->
+  <path d="M 230 145 Q 280 180 345 230" fill="none" stroke="url(#rubyGrad)" stroke-width="12" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M 230 145 Q 280 180 345 230" fill="none" stroke="#FF9A8B" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Bubbles & Sparkles -->
+  <circle cx="345" cy="225" r="8" fill="#FFF0F5" opacity="0.85"/>
+  <circle cx="355" cy="210" r="5" fill="#FF6F91" opacity="0.75"/>
+  <circle cx="335" cy="215" r="4" fill="#FFFFFF" opacity="0.9"/>
+  <circle cx="165" cy="330" r="6" fill="#A0F4FF" opacity="0.6"/>
+  <circle cx="172" cy="270" r="5" fill="#FFFFFF" opacity="0.7"/>
+
+  <!-- Golden Stars Celebration -->
+  <g transform="translate(90, 90)">
+    <polygon points="0,-22 6,-7 22,-7 9,3 14,18 0,9 -14,18 -9,3 -22,-7 -6,-7" fill="url(#starGrad)" stroke="#FFA000" stroke-width="2"/>
+  </g>
+  <g transform="translate(420, 110) scale(0.8)">
+    <polygon points="0,-22 6,-7 22,-7 9,3 14,18 0,9 -14,18 -9,3 -22,-7 -6,-7" fill="url(#starGrad)" stroke="#FFA000" stroke-width="2"/>
+  </g>
+
+  <!-- Title Badge Banner -->
+  <g transform="translate(256, 440)">
+    <rect x="-190" y="-34" width="380" height="68" rx="34" fill="rgba(12, 28, 44, 0.95)" stroke="rgba(0, 210, 252, 0.7)" stroke-width="3"/>
+    <text x="0" y="8" font-family="'Fredoka', 'Lilita One', sans-serif" font-weight="900" font-size="34" text-anchor="middle" fill="#FFFFFF">
+      WATER <tspan fill="#00D2FC">SORT</tspan> 3D
+    </text>
+  </g>
+</svg>

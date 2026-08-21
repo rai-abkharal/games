@@ -1,0 +1,17 @@
+{
+  "id": "water-sort",
+  "title": "Water Sort 3D",
+  "version": "1.0.0",
+  "description": "AAA luxury 3D Liquid Sorting Puzzle with realistic fluid physics, procedural audio synthesis, and guaranteed solvable levels.",
+  "orientation": "portrait",
+  "engine": "canvas2d",
+  "category": "Puzzle",
+  "feedOrder": 18,
+  "status": "published",
+  "touchZones": [],
+  "features": {
+    "sound": true,
+    "vibration": true,
+    "hint": true
+  }
+}
