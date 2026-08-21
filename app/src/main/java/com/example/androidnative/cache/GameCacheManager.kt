@@ -20,6 +20,7 @@ class GameCacheManager(private val context: Context) {
     private val tempCacheDir = File(context.cacheDir, "game_cache")
     private val offlineStorageDir = File(context.filesDir, "offline_games")
     private val downloadedGames = ConcurrentHashMap<String, Boolean>()
+    private val cacheMetaPrefs = context.getSharedPreferences("game_cache_meta_prefs", Context.MODE_PRIVATE)
 
     init {
         if (!tempCacheDir.exists()) tempCacheDir.mkdirs()
@@ -50,6 +51,23 @@ class GameCacheManager(private val context: Context) {
         }
     }
 
+    fun invalidateGameCache(gameId: String) {
+        try {
+            val f1 = File(offlineStorageDir, gameId)
+            if (f1.exists()) f1.deleteRecursively()
+            val f2 = File(tempCacheDir, gameId)
+            if (f2.exists()) f2.deleteRecursively()
+
+            val keysToRemove = downloadedGames.keys().toList().filter { it.startsWith("${gameId}_") }
+            for (k in keysToRemove) downloadedGames.remove(k)
+
+            cacheMetaPrefs.edit()
+                .remove("sha_$gameId")
+                .remove("version_$gameId")
+                .apply()
+        } catch (_: Exception) {}
+    }
+
     fun isGameCached(gameId: String, version: String): Boolean {
         val key = "${gameId}_$version"
         if (downloadedGames[key] == true) return true
@@ -61,6 +79,20 @@ class GameCacheManager(private val context: Context) {
     }
 
     fun isGameCached(game: GameItem): Boolean {
+        // Automatic Server Update Detection: Check if remote SHA-256 or version changed
+        val cachedSha = cacheMetaPrefs.getString("sha_${game.id}", null)
+        val cachedVer = cacheMetaPrefs.getString("version_${game.id}", null)
+
+        if (game.sha256 != null && cachedSha != null && game.sha256 != cachedSha) {
+            // Server has a new update! Invalidate old disk cache
+            invalidateGameCache(game.id)
+            return false
+        }
+        if (cachedVer != null && game.version != cachedVer) {
+            invalidateGameCache(game.id)
+            return false
+        }
+
         return isGameCached(game.id, game.version)
     }
 
@@ -269,6 +301,10 @@ class GameCacheManager(private val context: Context) {
             }
 
             downloadedGames["${game.id}_${game.version}"] = true
+            if (game.sha256 != null) {
+                cacheMetaPrefs.edit().putString("sha_${game.id}", game.sha256).apply()
+            }
+            cacheMetaPrefs.edit().putString("version_${game.id}", game.version).apply()
             onProgress(1.0f)
             true
         } catch (_: Exception) {

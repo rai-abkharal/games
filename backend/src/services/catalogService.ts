@@ -89,7 +89,19 @@ export class CatalogService {
     return catalog;
   }
 
+  private lastMtime: number = 0;
+
   public getCatalog(publishedOnly = false): Catalog {
+    try {
+      if (fs.existsSync(this.catalogPath)) {
+        const stats = fs.statSync(this.catalogPath);
+        if (stats.mtimeMs > this.lastMtime) {
+          this.cachedCatalog = null;
+          this.lastMtime = stats.mtimeMs;
+        }
+      }
+    } catch (_) {}
+
     const catalog = this.cachedCatalog || this.loadAndValidateCatalog();
     if (publishedOnly) {
       return {

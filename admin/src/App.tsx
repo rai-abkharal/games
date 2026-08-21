@@ -52,6 +52,8 @@ interface GameItem {
   totalReports: number;
   touchZones?: TouchZone[];
   features?: { sound?: boolean; vibration?: boolean; hint?: boolean };
+  createdAt?: string;
+  updatedAt?: string;
   versions: {
     id: string;
     version: string;
@@ -85,7 +87,7 @@ interface BridgeLogItem {
 const API_BASE = typeof window !== 'undefined' && window.location.origin.includes('5173') ? 'http://localhost:3000' : '';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'games' | 'upload' | 'simulator' | 'feed' | 'reports' | 'gestures' | 'ads'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'games' | 'upload' | 'update' | 'simulator' | 'feed' | 'reports' | 'gestures' | 'ads'>('dashboard');
   const [games, setGames] = useState<GameItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedGame, setSelectedGame] = useState<GameItem | null>(null);
@@ -459,9 +461,10 @@ export default function App() {
           {[
             { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
             { id: 'games', label: 'Game Catalog', icon: Layers },
+            { id: 'upload', label: 'Upload New Game', icon: UploadCloud },
+            { id: 'update', label: 'Update Game Code', icon: RefreshCw },
             { id: 'gestures', label: 'Touch & Swipe Locks', icon: ShieldCheck },
             { id: 'ads', label: 'Ads & Monetization', icon: Megaphone },
-            { id: 'upload', label: 'Upload & Validator', icon: UploadCloud },
             { id: 'simulator', label: 'Device Simulator', icon: Smartphone },
             { id: 'feed', label: 'Feed Sequencer', icon: ListOrdered },
             { id: 'reports', label: 'Reports Queue', icon: AlertTriangle, count: reports.length },
@@ -694,6 +697,7 @@ export default function App() {
                     <th style={{ padding: '12px 16px' }}>ROLLOUT</th>
                     <th style={{ padding: '12px 16px' }}>FEED WEIGHT</th>
                     <th style={{ padding: '12px 16px' }}>PACKAGE SIZE</th>
+                    <th style={{ padding: '12px 16px' }}>UPDATED</th>
                     <th style={{ padding: '12px 16px' }}>ACTIONS</th>
                   </tr>
                 </thead>
@@ -757,6 +761,21 @@ export default function App() {
                           {latest ? `${(latest.sizeBytes / 1024).toFixed(1)} KB` : 'N/A'}
                         </td>
 
+                        <td style={{ padding: '16px', fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                          {game.updatedAt ? (
+                            <div>
+                              <div style={{ color: '#e2e8f0', fontWeight: 600 }}>
+                                {new Date(game.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+                                {new Date(game.updatedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--text-dim)' }}>Pre-installed</span>
+                          )}
+                        </td>
+
                         <td style={{ padding: '16px' }}>
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                             <button
@@ -764,7 +783,7 @@ export default function App() {
                               style={{ padding: '6px 10px', fontSize: '12px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid #6366f1', color: '#a5b4fc' }}
                               onClick={() => {
                                 setUpdateGameTarget(game);
-                                setActiveTab('upload');
+                                setActiveTab('update');
                               }}
                               title="Upload New Code / Version for this game"
                             >
@@ -827,51 +846,25 @@ export default function App() {
             </div>
           )}
 
-          {/* 3. UPLOAD & VALIDATOR VIEW */}
+          {/* 3. UPLOAD NEW GAME VIEW */}
           {activeTab === 'upload' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
               {/* Upload Box */}
               <div className="glass-panel" style={{ padding: '28px' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>Ingest New Game Build</h3>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-                  Upload a packaged game .zip archive. The system automatically inspects entry, manifest schema, SHA-256 integrity, budgets, and network safety.
-                </p>
-
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Target Game Record</label>
-                  <select
-                    value={selectedGame?.id || ''}
-                    onChange={(e) => {
-                      if (!e.target.value) {
-                        setSelectedGame(null);
-                      } else {
-                        const found = games.find((g) => g.id === e.target.value);
-                        if (found) setSelectedGame(found);
-                      }
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      background: 'rgba(0,0,0,0.4)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px'
-                    }}
-                  >
-                    <option value="">✨ + Auto-Detect &amp; Publish as New Game (From ZIP Manifest)</option>
-                    <optgroup label="Or update existing game:">
-                      {games.map((g) => (
-                        <option key={g.id} value={g.id}>{g.title} ({g.slug})</option>
-                      ))}
-                    </optgroup>
-                  </select>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                  <div style={{ padding: '8px', background: 'rgba(99, 102, 241, 0.2)', borderRadius: '8px' }}>
+                    <UploadCloud size={20} color="#818cf8" />
+                  </div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Upload New Game Package</h3>
                 </div>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                  Upload a fresh .ZIP game package. The system auto-extracts manifest metadata, builds SHA-256 signatures, and publishes it into the catalog.
+                </p>
 
                 <div style={{
                   border: '2px dashed var(--border-active)',
                   borderRadius: '16px',
-                  padding: '40px 20px',
+                  padding: '44px 20px',
                   textAlign: 'center',
                   background: 'rgba(99, 102, 241, 0.03)',
                   cursor: 'pointer',
@@ -880,15 +873,18 @@ export default function App() {
                   <input
                     type="file"
                     accept=".zip"
-                    onChange={handleFileUpload}
+                    onChange={(e) => {
+                      setSelectedGame(null);
+                      handleFileUpload(e);
+                    }}
                     style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
                   />
-                  <UploadCloud size={40} color="#818cf8" style={{ marginBottom: '12px' }} />
-                  <div style={{ fontWeight: 600, fontSize: '15px' }}>
-                    {uploading ? 'Processing & Validating Build...' : 'Drag and Drop Game .ZIP Package Here'}
+                  <UploadCloud size={44} color="#818cf8" style={{ marginBottom: '12px' }} />
+                  <div style={{ fontWeight: 700, fontSize: '16px' }}>
+                    {uploading ? 'Processing & Validating Build...' : 'Drag and Drop New Game .ZIP Package Here'}
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '4px' }}>
-                    Vite/Phaser 3 relative path bundle (max 5 MB)
+                  <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '6px' }}>
+                    HTML5 / Canvas2D / Phaser bundle (&lt; 10 MB)
                   </div>
                 </div>
 
@@ -961,7 +957,180 @@ export default function App() {
                 ) : (
                   <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-dim)' }}>
                     <ShieldCheck size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
-                    <p>Select a game and click "Report" or upload a build to view the 7-point validation audit.</p>
+                    <p>Upload a game package to run the automatic 7-point validation audit.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 3.1 UPDATE EXISTING GAME CODE VIEW */}
+          {activeTab === 'update' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+              <div className="glass-panel" style={{ padding: '28px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                  <div style={{ padding: '8px', background: 'rgba(245, 158, 11, 0.2)', borderRadius: '8px' }}>
+                    <RefreshCw size={20} color="#f59e0b" />
+                  </div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Update Existing Game Code</h3>
+                </div>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                  Replace game code or release a new version for an existing game without deleting its stats, ratings, or ID.
+                </p>
+
+                {/* Game Selector Dropdown */}
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 700, display: 'block', marginBottom: '8px', color: '#e2e8f0' }}>
+                    Select Game to Update:
+                  </label>
+                  <select
+                    value={updateGameTarget?.id || selectedGame?.id || ''}
+                    onChange={(e) => {
+                      const found = games.find((g) => g.id === e.target.value);
+                      setUpdateGameTarget(found || null);
+                      setSelectedGame(found || null);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      background: 'rgba(0,0,0,0.5)',
+                      border: '1px solid var(--border-active)',
+                      borderRadius: '10px',
+                      color: '#fff',
+                      fontSize: '14px',
+                      fontWeight: 600
+                    }}
+                  >
+                    <option value="">-- Choose a Game from Catalog ({games.length} available) --</option>
+                    {games.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.title} ({g.slug}) — v{g.versions[0]?.version || '1.0.0'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Target Game Summary Card */}
+                {(updateGameTarget || selectedGame) && (
+                  <div style={{
+                    padding: '16px',
+                    background: 'rgba(99, 102, 241, 0.08)',
+                    border: '1px solid rgba(99, 102, 241, 0.3)',
+                    borderRadius: '12px',
+                    marginBottom: '20px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ width: '48px', height: '48px', borderRadius: '10px', background: '#1e293b', overflow: 'hidden' }}>
+                        <img
+                          src={(updateGameTarget || selectedGame)!.thumbnailUrl.startsWith('http') ? (updateGameTarget || selectedGame)!.thumbnailUrl : `${API_BASE}${(updateGameTarget || selectedGame)!.thumbnailUrl}`}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: '15px' }}>{(updateGameTarget || selectedGame)!.title}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          ID: <span style={{ fontFamily: 'var(--font-mono)', color: '#818cf8' }}>{(updateGameTarget || selectedGame)!.id}</span> • Current: <span style={{ color: '#34d399', fontWeight: 700 }}>v{(updateGameTarget || selectedGame)!.versions[0]?.version || '1.0.0'}</span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '3px' }}>
+                          Last Updated: {(updateGameTarget || selectedGame)!.updatedAt ? new Date((updateGameTarget || selectedGame)!.updatedAt!).toLocaleString() : 'Pre-installed'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Update Dropzone */}
+                <div style={{
+                  border: '2px dashed #f59e0b',
+                  borderRadius: '16px',
+                  padding: '36px 20px',
+                  textAlign: 'center',
+                  background: 'rgba(245, 158, 11, 0.03)',
+                  cursor: (updateGameTarget || selectedGame) ? 'pointer' : 'not-allowed',
+                  opacity: (updateGameTarget || selectedGame) ? 1 : 0.6,
+                  position: 'relative'
+                }}>
+                  <input
+                    type="file"
+                    accept=".zip"
+                    disabled={!updateGameTarget && !selectedGame}
+                    onChange={handleFileUpload}
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: (updateGameTarget || selectedGame) ? 'pointer' : 'not-allowed' }}
+                  />
+                  <RefreshCw size={40} color="#f59e0b" style={{ marginBottom: '12px' }} />
+                  <div style={{ fontWeight: 700, fontSize: '15px' }}>
+                    {(updateGameTarget || selectedGame) ? `Upload New ZIP for "${(updateGameTarget || selectedGame)!.title}"` : 'Please select a game first above'}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '6px' }}>
+                    Replaces game assets &amp; code live on the server
+                  </div>
+                </div>
+
+                {uploadSuccess && (
+                  <div style={{
+                    marginTop: '16px',
+                    padding: '14px 18px',
+                    background: uploadSuccess.startsWith('✨') ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    border: `1px solid ${uploadSuccess.startsWith('✨') ? '#10b981' : '#ef4444'}`,
+                    borderRadius: '10px',
+                    color: uploadSuccess.startsWith('✨') ? '#34d399' : '#f87171',
+                    fontSize: '13px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
+                      {uploadSuccess.startsWith('✨') ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                      {uploadSuccess}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 7-Point Automatic Validation Report */}
+              <div className="glass-panel" style={{ padding: '28px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Update Verification Report</h3>
+                  {validationReport && (
+                    <span className={`badge ${validationReport.allPassed ? 'badge-published' : 'badge-archived'}`}>
+                      {validationReport.allPassed ? 'UPDATE READY' : 'CHECK FAILED'}
+                    </span>
+                  )}
+                </div>
+
+                {validationReport ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                      Updated Target: <strong style={{ color: '#fff' }}>{validationReport.slug} (v{validationReport.version})</strong>
+                    </div>
+
+                    {validationReport.checks.map((check, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '12px 16px',
+                          borderRadius: '10px',
+                          background: 'rgba(0,0,0,0.25)',
+                          border: '1px solid var(--border-subtle)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          {check.passed ? <CheckCircle2 size={18} color="#34d399" /> : <XCircle size={18} color="#ef4444" />}
+                          <span style={{ fontSize: '14px', fontWeight: 600 }}>{check.rule}</span>
+                        </div>
+                        <span style={{ fontSize: '12px', color: check.passed ? 'var(--text-muted)' : '#f87171', fontFamily: 'var(--font-mono)' }}>
+                          {check.message}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-dim)' }}>
+                    <RefreshCw size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
+                    <p>Select a game and drop a new build to inspect the update validation checklist.</p>
                   </div>
                 )}
               </div>

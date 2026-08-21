@@ -344,23 +344,30 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       }
 
       const existingIndex = catalogData.games.findIndex((g: any) => g.id === gameId);
+      const nowIso = new Date().toISOString();
+      const existingGame = existingIndex >= 0 ? catalogData.games[existingIndex] : null;
+
       const newGameEntry = {
         id: gameId,
-        title: manifest.title || gameId,
+        title: manifest.title || (existingGame ? existingGame.title : gameId),
         version: version,
-        description: manifest.description || 'Fast, responsive instant 2D mini-game.',
-        category: (manifest.tags && manifest.tags[0]) ? manifest.tags[0].toUpperCase() : 'ARCADE',
-        orientation: manifest.orientation || 'portrait',
-        controls: manifest.controls || ['TAP'],
+        description: manifest.description || (existingGame ? existingGame.description : 'Fast, responsive instant 2D mini-game.'),
+        category: (manifest.tags && manifest.tags[0]) ? manifest.tags[0].toUpperCase() : (existingGame ? existingGame.category : 'ARCADE'),
+        orientation: manifest.orientation || (existingGame ? existingGame.orientation : 'portrait'),
+        controls: manifest.controls || (existingGame ? existingGame.controls : ['TAP']),
         sizeBytes: sizeBytes,
         sha256: sha256,
-        ageRating: manifest.ageRating || 'everyone',
-        tags: manifest.tags || ['arcade', 'casual'],
-        touchZones: manifest.touchZones || (existingIndex >= 0 ? catalogData.games[existingIndex].touchZones : []),
-        feedOrder: existingIndex >= 0 ? catalogData.games[existingIndex].feedOrder : (catalogData.games.length + 1),
+        ageRating: manifest.ageRating || (existingGame ? existingGame.ageRating : 'everyone'),
+        tags: manifest.tags || (existingGame ? existingGame.tags : ['arcade', 'casual']),
+        status: existingGame ? (existingGame.status || 'published') : 'published',
+        touchZones: manifest.touchZones || (existingGame ? existingGame.touchZones : []),
+        features: manifest.features || (existingGame ? existingGame.features : { sound: true, vibration: true, hint: false }),
+        feedOrder: existingGame ? existingGame.feedOrder : (catalogData.games.length + 1),
         entryUrl: `http://localhost:8080/games/${gameId}/${version}/index.html`,
         thumbnailUrl: `http://localhost:8080/thumbnails/${thumbFileName}`,
-        manifestUrl: `http://localhost:8080/games/${gameId}/${version}/manifest.json`
+        manifestUrl: `http://localhost:8080/games/${gameId}/${version}/manifest.json`,
+        createdAt: existingGame?.createdAt || nowIso,
+        updatedAt: nowIso
       };
 
       if (existingIndex >= 0) {
@@ -369,6 +376,7 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
         catalogData.games.push(newGameEntry);
       }
 
+      catalogData.updatedAt = nowIso;
       fs.writeFileSync(catalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
       
       // Also sync to frontend catalog if it exists

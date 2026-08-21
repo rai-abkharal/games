@@ -56,6 +56,8 @@ export const GameSchema = z.object({
   status: z.enum(['published', 'draft', 'archived', 'deactivated']).optional().default('published'),
   touchZones: z.array(TouchZoneSchema).optional().default([]),
   features: GameFeaturesSchema,
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
 });
 
 export const CatalogSchema = z.object({

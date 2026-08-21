@@ -112,12 +112,56 @@ class GameFeedAdapter(
             webView.evaluateJavascript(
                 """
                 (function() {
-                    var wasActive = window.__GAME_ACTIVE__;
                     window.__GAME_ACTIVE__ = $isActive;
                     window.dispatchEvent(new Event(${if (isActive) "'focus'" else "'blur'"}));
 
                     if ($isActive) {
-                        // If game auto-ran and crashed/ended in background during preload, restart it fresh:
+                        // 1. Unmute & Resume HTML5 Audio & Video elements
+                        try {
+                            var media = document.querySelectorAll('audio, video');
+                            for (var i = 0; i < media.length; i++) {
+                                media[i].muted = ${!shouldPlaySound};
+                            }
+                        } catch(e) {}
+
+                        // 2. Howler.js Unmute
+                        try {
+                            if (window.Howler && typeof window.Howler.mute === 'function') {
+                                window.Howler.mute(${!shouldPlaySound});
+                            }
+                        } catch(e) {}
+
+                        // 3. Custom AudioContexts Resume
+                        try {
+                            if ($shouldPlaySound) {
+                                if (window.audioCtx && window.audioCtx.state === 'suspended') window.audioCtx.resume();
+                                if (window.soundCtx && window.soundCtx.state === 'suspended') window.soundCtx.resume();
+                                if (window.audioContext && window.audioContext.state === 'suspended') window.audioContext.resume();
+                            }
+                        } catch(e) {}
+
+                        // 4. SoundFx Resume
+                        try {
+                            if (window.SoundFx && window.SoundFx.ctx) {
+                                if ($shouldPlaySound && window.SoundFx.ctx.state === 'suspended') window.SoundFx.ctx.resume();
+                                else if (!$shouldPlaySound && window.SoundFx.ctx.state === 'running') window.SoundFx.ctx.suspend();
+                            }
+                        } catch(e) {}
+
+                        // 5. Phaser Resume
+                        try {
+                            if (window.__PHASER_GAME__) {
+                                if (window.__PHASER_GAME__.loop) window.__PHASER_GAME__.loop.wake();
+                                if (window.__PHASER_GAME__.sound) {
+                                    window.__PHASER_GAME__.sound.mute = ${!shouldPlaySound};
+                                    if ($shouldPlaySound && window.__PHASER_GAME__.sound.context && window.__PHASER_GAME__.sound.context.state === 'suspended') {
+                                        window.__PHASER_GAME__.sound.context.resume();
+                                    }
+                                }
+                            }
+                        } catch(e) {}
+
+                        // 6. GameBridge Resume & Fresh Restart if crashed during background preload
                         if (window.GameBridge) {
                             if (typeof window.GameBridge.setSoundEnabled === 'function') {
                                 window.GameBridge.setSoundEnabled($shouldPlaySound);
@@ -134,33 +178,51 @@ class GameFeedAdapter(
                             }
                         }
                     } else {
+                        // OFFSCREEN / INACTIVE PAGE: Universal Nuclear Mute & Sleep
+                        // 1. Pause & Mute all HTML5 Audio & Video
+                        try {
+                            var media = document.querySelectorAll('audio, video');
+                            for (var i = 0; i < media.length; i++) {
+                                media[i].pause();
+                                media[i].muted = true;
+                            }
+                        } catch(e) {}
+
+                        // 2. Mute Howler.js
+                        try {
+                            if (window.Howler && typeof window.Howler.mute === 'function') {
+                                window.Howler.mute(true);
+                            }
+                        } catch(e) {}
+
+                        // 3. Suspend AudioContexts
+                        try {
+                            if (window.audioCtx && typeof window.audioCtx.suspend === 'function') window.audioCtx.suspend();
+                            if (window.soundCtx && typeof window.soundCtx.suspend === 'function') window.soundCtx.suspend();
+                            if (window.audioContext && typeof window.audioContext.suspend === 'function') window.audioContext.suspend();
+                            if (window.SoundFx && window.SoundFx.ctx && typeof window.SoundFx.ctx.suspend === 'function') window.SoundFx.ctx.suspend();
+                        } catch(e) {}
+
+                        // 4. Sleep Phaser
+                        try {
+                            if (window.__PHASER_GAME__) {
+                                if (window.__PHASER_GAME__.loop) window.__PHASER_GAME__.loop.sleep();
+                                if (window.__PHASER_GAME__.sound) {
+                                    window.__PHASER_GAME__.sound.mute = true;
+                                    if (window.__PHASER_GAME__.sound.context && typeof window.__PHASER_GAME__.sound.context.suspend === 'function') {
+                                        window.__PHASER_GAME__.sound.context.suspend();
+                                    }
+                                }
+                            }
+                        } catch(e) {}
+
+                        // 5. GameBridge Pause
                         if (window.GameBridge) {
                             if (typeof window.GameBridge.setSoundEnabled === 'function') {
                                 window.GameBridge.setSoundEnabled(false);
                             }
                             if (typeof window.GameBridge.pause === 'function') window.GameBridge.pause();
                             if (typeof window.GameBridge.onPause === 'function') window.GameBridge.onPause();
-                        }
-                    }
-
-                    if (window.__PHASER_GAME__) {
-                        if (window.__PHASER_GAME__.loop) {
-                            if ($isActive) window.__PHASER_GAME__.loop.wake();
-                            else window.__PHASER_GAME__.loop.sleep();
-                        }
-                        if (window.__PHASER_GAME__.sound) {
-                            window.__PHASER_GAME__.sound.mute = ${!shouldPlaySound};
-                            if ($isActive && window.__PHASER_GAME__.sound.context && window.__PHASER_GAME__.sound.context.state === 'suspended') {
-                                window.__PHASER_GAME__.sound.context.resume();
-                            }
-                        }
-                    }
-
-                    if (window.SoundFx && window.SoundFx.ctx) {
-                        if ($isActive) {
-                            if (window.SoundFx.ctx.state === 'suspended') window.SoundFx.ctx.resume();
-                        } else {
-                            if (window.SoundFx.ctx.state === 'running') window.SoundFx.ctx.suspend();
                         }
                     }
                 })();
@@ -172,22 +234,38 @@ class GameFeedAdapter(
 
     fun pauseAll() {
         for (webView in activeWebViews.values) {
+            try { webView.onPause() } catch (_: Exception) {}
             webView.evaluateJavascript(
                 """
                 (function() {
                     window.__GAME_ACTIVE__ = false;
                     window.dispatchEvent(new Event('blur'));
-                    if (window.GameBridge) {
-                        if (typeof window.GameBridge.setSoundEnabled === 'function') window.GameBridge.setSoundEnabled(false);
-                        if (typeof window.GameBridge.pause === 'function') window.GameBridge.pause();
-                        if (typeof window.GameBridge.onPause === 'function') window.GameBridge.onPause();
-                    }
+
+                    try {
+                        var media = document.querySelectorAll('audio, video');
+                        for (var i = 0; i < media.length; i++) {
+                            media[i].pause();
+                            media[i].muted = true;
+                        }
+                    } catch(e) {}
+
+                    try {
+                        if (window.Howler && typeof window.Howler.mute === 'function') window.Howler.mute(true);
+                        if (window.audioCtx && typeof window.audioCtx.suspend === 'function') window.audioCtx.suspend();
+                        if (window.soundCtx && typeof window.soundCtx.suspend === 'function') window.soundCtx.suspend();
+                        if (window.audioContext && typeof window.audioContext.suspend === 'function') window.audioContext.suspend();
+                        if (window.SoundFx && window.SoundFx.ctx && typeof window.SoundFx.ctx.suspend === 'function') window.SoundFx.ctx.suspend();
+                    } catch(e) {}
+
                     if (window.__PHASER_GAME__) {
                         if (window.__PHASER_GAME__.loop) window.__PHASER_GAME__.loop.sleep();
                         if (window.__PHASER_GAME__.sound) window.__PHASER_GAME__.sound.mute = true;
                     }
-                    if (window.SoundFx && window.SoundFx.ctx && window.SoundFx.ctx.state === 'running') {
-                        window.SoundFx.ctx.suspend();
+
+                    if (window.GameBridge) {
+                        if (typeof window.GameBridge.setSoundEnabled === 'function') window.GameBridge.setSoundEnabled(false);
+                        if (typeof window.GameBridge.pause === 'function') window.GameBridge.pause();
+                        if (typeof window.GameBridge.onPause === 'function') window.GameBridge.onPause();
                     }
                 })();
                 """.trimIndent(),
@@ -367,7 +445,12 @@ class GameFeedAdapter(
                 }
             }
 
-            webView.loadUrl(game.entryUrl)
+            val cacheBustUrl = if (game.entryUrl.contains("?")) {
+                "${game.entryUrl}&v=${game.version}&t=${game.updatedAt?.hashCode() ?: game.sha256?.take(8) ?: System.currentTimeMillis()}"
+            } else {
+                "${game.entryUrl}?v=${game.version}&t=${game.updatedAt?.hashCode() ?: game.sha256?.take(8) ?: System.currentTimeMillis()}"
+            }
+            webView.loadUrl(cacheBustUrl)
         }
 
         fun cleanup() {

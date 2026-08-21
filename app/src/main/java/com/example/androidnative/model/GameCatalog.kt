@@ -31,5 +31,7 @@ data class GameItem(
     @SerializedName("description") val description: String = "",
     @SerializedName("sha256") val sha256: String? = null,
     @SerializedName("touchZones") val touchZones: List<TouchZone> = emptyList(),
-    @SerializedName("features") val features: Map<String, Boolean>? = null
+    @SerializedName("features") val features: Map<String, Boolean>? = null,
+    @SerializedName("createdAt") val createdAt: String? = null,
+    @SerializedName("updatedAt") val updatedAt: String? = null
 )
