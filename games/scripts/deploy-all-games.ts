@@ -28,8 +28,26 @@ async function deployAll() {
     `🚀 Deploying all ${GAME_DIRS.length} mini-games (${force ? 'development force mode' : 'immutable mode'})...\n`,
   );
 
+  // Read deleted games blacklist
+  const deletedGamesPath = path.join(path.dirname(backendCatalog), 'deleted_games.json');
+  let deletedList: string[] = [];
+  if (fs.existsSync(deletedGamesPath)) {
+    try { deletedList = JSON.parse(fs.readFileSync(deletedGamesPath, 'utf8')); } catch {}
+  }
+
   for (const dirName of GAME_DIRS) {
     const gameDir = path.resolve(__dirname, '..', dirName);
+    const manifestPath = path.join(gameDir, 'manifest.json');
+    if (fs.existsSync(manifestPath)) {
+      try {
+        const m = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        if (deletedList.includes(m.id)) {
+          console.log(`🚫 Skipping blacklisted deleted game: ${m.title || m.id} (${m.id})`);
+          continue;
+        }
+      } catch {}
+    }
+
     deployGame({
       gameDir,
       force,
@@ -46,11 +64,21 @@ async function deployAll() {
       try { catalogObj = JSON.parse(fs.readFileSync(backendCatalog, 'utf8')); } catch {}
     }
 
+    // Filter out any blacklisted games from the catalog
+    catalogObj.games = (catalogObj.games || []).filter((g: any) => !deletedList.includes(g.id));
+
     const publishedFolders = fs.readdirSync(publishedGamesDir, { withFileTypes: true })
       .filter(d => d.isDirectory())
       .map(d => d.name);
 
     for (const pGameId of publishedFolders) {
+      if (deletedList.includes(pGameId)) {
+        // Clean up blacklisted game files on disk
+        const deadDir = path.join(publishedGamesDir, pGameId);
+        if (fs.existsSync(deadDir)) fs.rmSync(deadDir, { recursive: true, force: true });
+        continue;
+      }
+
       const pGameDir = path.join(publishedGamesDir, pGameId);
       const versions = fs.readdirSync(pGameDir, { withFileTypes: true })
         .filter(d => d.isDirectory())

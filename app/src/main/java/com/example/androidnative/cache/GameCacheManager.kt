@@ -74,9 +74,15 @@ class GameCacheManager(private val context: Context) {
     /**
      * Automatic synchronization: Compares remote catalog SHA256 & updatedAt with local cache.
      * If Admin Panel updated a game, this purges the old cache immediately!
+     * If a game was deleted from Admin Panel, this wipes it from phone storage forever!
      */
     fun syncCatalogUpdates(games: List<GameItem>) {
         val editor = cacheMetaPrefs.edit()
+        val activeIds = games.map { it.id }.toSet()
+
+        // Purge any deleted games from phone disk storage immediately
+        purgeDeletedGames(activeIds)
+
         for (game in games) {
             val cachedSha = cacheMetaPrefs.getString("sha_${game.id}", null)
             val cachedVer = cacheMetaPrefs.getString("version_${game.id}", null)
@@ -100,6 +106,21 @@ class GameCacheManager(private val context: Context) {
             if (remoteUpdated != null) editor.putString("updated_${game.id}", remoteUpdated)
         }
         editor.apply()
+    }
+
+    private fun purgeDeletedGames(activeIds: Set<String>) {
+        try {
+            val baseDirs = listOf(offlineStorageDir, tempCacheDir)
+            for (dir in baseDirs) {
+                val folders = dir.listFiles() ?: continue
+                for (folder in folders) {
+                    if (folder.isDirectory && folder.name != "shared" && !activeIds.contains(folder.name)) {
+                        folder.deleteRecursively()
+                    }
+                }
+            }
+            memoryCache.evictAll()
+        } catch (_: Exception) {}
     }
 
     fun isGameCached(gameId: String, version: String): Boolean {

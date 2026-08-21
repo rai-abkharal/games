@@ -407,6 +407,16 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
         g.feedOrder = idx + 1;
       });
 
+      // Unblacklist game ID if it was previously deleted
+      const deletedGamesPath = path.join(path.dirname(catalogPath), 'deleted_games.json');
+      if (fs.existsSync(deletedGamesPath)) {
+        try {
+          let deletedList: string[] = JSON.parse(fs.readFileSync(deletedGamesPath, 'utf8'));
+          deletedList = deletedList.filter(id => id !== gameId);
+          fs.writeFileSync(deletedGamesPath, JSON.stringify(deletedList, null, 2), 'utf8');
+        } catch {}
+      }
+
       catalogData.updatedAt = nowIso;
       fs.writeFileSync(catalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
       
@@ -559,13 +569,24 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
         fs.writeFileSync(frontendCatalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
       }
 
-      // Delete game bundle files from public/games/<id>
+      // 1. Maintain Tombstone Deleted Games Blacklist so deploy scripts never restore it
+      const deletedGamesPath = path.join(path.dirname(catalogPath), 'deleted_games.json');
+      let deletedList: string[] = [];
+      if (fs.existsSync(deletedGamesPath)) {
+        try { deletedList = JSON.parse(fs.readFileSync(deletedGamesPath, 'utf8')); } catch {}
+      }
+      if (!deletedList.includes(id)) {
+        deletedList.push(id);
+        fs.writeFileSync(deletedGamesPath, JSON.stringify(deletedList, null, 2), 'utf8');
+      }
+
+      // 2. Delete game bundle files from public/games/<id>
       const targetGameDir = path.join(gamesDir, id);
       if (fs.existsSync(targetGameDir)) {
         fs.rmSync(targetGameDir, { recursive: true, force: true });
       }
 
-      // Delete thumbnails from public/thumbnails/<id>.*
+      // 3. Delete thumbnails from public/thumbnails/<id>.*
       for (const ext of ['.webp', '.svg', '.png', '.jpg']) {
         const thumbFile = path.join(thumbnailsDir, `${id}${ext}`);
         if (fs.existsSync(thumbFile)) {
@@ -573,11 +594,15 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
         }
       }
 
+      // 4. Update catalog timestamp and reload service
+      catalogData.updatedAt = new Date().toISOString();
+      fs.writeFileSync(catalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
+
       catalogService.loadAndValidateCatalog();
 
       res.json({
         success: true,
-        message: `Game "${removedGame.title || id}" was permanently deleted from catalog and server disk!`,
+        message: `Game "${removedGame.title || id}" was permanently deleted from catalog, disk, and blacklisted!`,
         deletedId: id
       });
     } catch (err: any) {

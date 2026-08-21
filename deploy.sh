@@ -45,11 +45,20 @@ if [ -f /tmp/games_platform_backup/games.json ]; then
     const fs = require('fs');
     const curPath = '$PROJECT_DIR/backend/catalog/games.json';
     const bakPath = '/tmp/games_platform_backup/games.json';
+    const delPath = '$PROJECT_DIR/backend/catalog/deleted_games.json';
     try {
       const cur = JSON.parse(fs.readFileSync(curPath, 'utf8'));
       const bak = JSON.parse(fs.readFileSync(bakPath, 'utf8'));
+      let deletedList = [];
+      if (fs.existsSync(delPath)) {
+        try { deletedList = JSON.parse(fs.readFileSync(delPath, 'utf8')); } catch {}
+      }
       let merged = false;
       for (const g of (bak.games || [])) {
+        if (deletedList.includes(g.id)) {
+          console.log('🚫 Skipping permanently deleted game:', g.title, '(' + g.id + ')');
+          continue;
+        }
         if (!cur.games.some(cg => cg.id === g.id)) {
           console.log('🔄 Restoring Admin Uploaded Game:', g.title, '(' + g.id + ')');
           cur.games.push(g);
