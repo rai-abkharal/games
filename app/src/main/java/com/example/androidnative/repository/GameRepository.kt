@@ -13,51 +13,97 @@ import java.util.concurrent.TimeUnit
 class GameRepository(private val context: Context) {
 
     private val gson = Gson()
+    private val cacheManager = com.example.androidnative.cache.GameCacheManager(context)
     private val client = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(4, TimeUnit.SECONDS)
+        .readTimeout(8, TimeUnit.SECONDS)
         .build()
 
     companion object {
-        const val BASE_URL = "http://162.243.197.241:3000"
-        const val CATALOG_ENDPOINT = "$BASE_URL/api/games"
+        const val PRIMARY_HOST = "162.243.197.241"
+        const val BASE_URL = "http://$PRIMARY_HOST:3000"
+
+        val CANDIDATE_ENDPOINTS = listOf(
+            "http://$PRIMARY_HOST:3000/api/games",
+            "http://$PRIMARY_HOST/api/games",
+            "http://$PRIMARY_HOST:8080/api/games",
+            "http://10.0.2.2:3000/api/games",
+            "http://10.0.2.2:8080/api/games"
+        )
     }
 
     suspend fun fetchCatalog(): List<GameItem> = withContext(Dispatchers.IO) {
-        try {
-            val urlWithBuster = if (CATALOG_ENDPOINT.contains("?")) {
-                "$CATALOG_ENDPOINT&_t=${System.currentTimeMillis()}"
-            } else {
-                "$CATALOG_ENDPOINT?_t=${System.currentTimeMillis()}"
-            }
-            val request = Request.Builder()
-                .url(urlWithBuster)
-                .cacheControl(okhttp3.CacheControl.FORCE_NETWORK)
-                .build()
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val json = response.body?.string()
-                if (!json.isNullOrEmpty()) {
-                    val catalog = gson.fromJson(json, GameCatalog::class.java)
-                    if (catalog.games.isNotEmpty()) {
-                        saveCachedCatalogJson(json)
-                        return@withContext catalog.games
+        // 1. Try candidate endpoints on live server
+        for (endpoint in CANDIDATE_ENDPOINTS) {
+            try {
+                val urlWithBuster = if (endpoint.contains("?")) {
+                    "$endpoint&_t=${System.currentTimeMillis()}"
+                } else {
+                    "$endpoint?_t=${System.currentTimeMillis()}"
+                }
+                val request = Request.Builder()
+                    .url(urlWithBuster)
+                    .cacheControl(okhttp3.CacheControl.FORCE_NETWORK)
+                    .build()
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val json = response.body?.string()
+                    if (!json.isNullOrEmpty()) {
+                        val catalog = gson.fromJson(json, GameCatalog::class.java)
+                        if (catalog.games.isNotEmpty()) {
+                            val activeBase = endpoint.substringBefore("/api/games")
+                            val normalized = catalog.games.map { normalizeGameUrls(it, activeBase) }
+                                .sortedBy { it.feedOrder }
+
+                            saveCachedCatalogJson(gson.toJson(GameCatalog(catalog.version, catalog.updatedAt, normalized)))
+                            cacheManager.syncCatalogUpdates(normalized)
+                            return@withContext normalized
+                        }
                     }
                 }
-            }
-        } catch (_: Exception) {}
+            } catch (_: Exception) {}
+        }
 
-        // Fallback to locally cached catalog
+        // 2. Fallback to locally cached catalog (from previous live server fetch)
         val cached = getCachedCatalogJson()
         if (!cached.isNullOrEmpty()) {
             try {
                 val catalog = gson.fromJson(cached, GameCatalog::class.java)
-                if (catalog.games.isNotEmpty()) return@withContext catalog.games
+                if (catalog.games.isNotEmpty()) {
+                    val normalized = catalog.games.map { normalizeGameUrls(it, BASE_URL) }
+                        .sortedBy { it.feedOrder }
+                    cacheManager.syncCatalogUpdates(normalized)
+                    return@withContext normalized
+                }
             } catch (_: Exception) {}
         }
 
-        // Fallback to default catalog
-        return@withContext defaultCatalog()
+        // 3. Fallback to default catalog
+        val defaults = defaultCatalog()
+        cacheManager.syncCatalogUpdates(defaults)
+        return@withContext defaults
+    }
+
+    private fun normalizeGameUrls(game: GameItem, activeBaseUrl: String): GameItem {
+        fun fixUrl(url: String): String {
+            if (url.isEmpty()) return url
+            if (url.startsWith("/")) return "$activeBaseUrl$url"
+            try {
+                val uri = android.net.Uri.parse(url)
+                val host = uri.host
+                if (host == "localhost" || host == "127.0.0.1" || host == "10.0.2.2" || host == "games.example.com") {
+                    val pathAndQuery = if (uri.encodedQuery != null) "${uri.path}?${uri.encodedQuery}" else uri.path ?: ""
+                    return "$activeBaseUrl$pathAndQuery"
+                }
+            } catch (_: Exception) {}
+            return url
+        }
+
+        return game.copy(
+            entryUrl = fixUrl(game.entryUrl),
+            thumbnailUrl = fixUrl(game.thumbnailUrl),
+            manifestUrl = fixUrl(game.manifestUrl)
+        )
     }
 
     private fun saveCachedCatalogJson(json: String) {

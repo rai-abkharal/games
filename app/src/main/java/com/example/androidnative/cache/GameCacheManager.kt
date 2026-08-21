@@ -61,11 +61,45 @@ class GameCacheManager(private val context: Context) {
             val keysToRemove = downloadedGames.keys().toList().filter { it.startsWith("${gameId}_") }
             for (k in keysToRemove) downloadedGames.remove(k)
 
+            memoryCache.evictAll()
+
             cacheMetaPrefs.edit()
                 .remove("sha_$gameId")
                 .remove("version_$gameId")
+                .remove("updated_$gameId")
                 .apply()
         } catch (_: Exception) {}
+    }
+
+    /**
+     * Automatic synchronization: Compares remote catalog SHA256 & updatedAt with local cache.
+     * If Admin Panel updated a game, this purges the old cache immediately!
+     */
+    fun syncCatalogUpdates(games: List<GameItem>) {
+        val editor = cacheMetaPrefs.edit()
+        for (game in games) {
+            val cachedSha = cacheMetaPrefs.getString("sha_${game.id}", null)
+            val cachedVer = cacheMetaPrefs.getString("version_${game.id}", null)
+            val cachedUpdated = cacheMetaPrefs.getString("updated_${game.id}", null)
+
+            val remoteSha = game.sha256
+            val remoteVer = game.version
+            val remoteUpdated = game.updatedAt
+
+            val isUpdated = (remoteSha != null && cachedSha != null && remoteSha != cachedSha) ||
+                            (cachedVer != null && remoteVer != cachedVer) ||
+                            (remoteUpdated != null && cachedUpdated != null && remoteUpdated != cachedUpdated)
+
+            if (isUpdated) {
+                // Game updated on server! Purge stale cache immediately
+                invalidateGameCache(game.id)
+            }
+
+            if (remoteSha != null) editor.putString("sha_${game.id}", remoteSha)
+            editor.putString("version_${game.id}", remoteVer)
+            if (remoteUpdated != null) editor.putString("updated_${game.id}", remoteUpdated)
+        }
+        editor.apply()
     }
 
     fun isGameCached(gameId: String, version: String): Boolean {
