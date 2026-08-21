@@ -119,6 +119,10 @@ export class CatalogService {
 
   private normalizeGameUrls(game: Game): Game {
     const replaceHost = (url: string) => {
+      if (!url) return '';
+      if (url.startsWith('/')) {
+        return `${this.baseUrl}${url}`;
+      }
       if (url.startsWith('http://') || url.startsWith('https://')) {
         // If placeholder host like games.example.com or local host, adjust according to base URL if set
         try {

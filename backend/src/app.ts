@@ -108,8 +108,10 @@ export function createApp(catalogPath?: string, baseUrl?: string): Express {
 
       const catalog = catalogService.getCatalog(true);
 
-      // Caching headers
-      res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+      // Instant live headers: Never cache catalog on client/intermediary
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.json(catalog);
     } catch (err) {
       next(err);
