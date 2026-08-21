@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "updatedAt": "2026-08-21T06:31:31.227Z",
+  "updatedAt": "2026-08-21T06:47:38.691Z",
   "games": [
     {
       "id": "tap-cannon",
@@ -405,14 +405,14 @@
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/water-sort/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/water-sort.webp",
-      "sizeBytes": 81502,
+      "sizeBytes": 82175,
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/water-sort/1.0.0/manifest.json",
       "feedOrder": 18,
       "category": "Puzzle",
       "description": "AAA luxury 3D Liquid Sorting Puzzle with realistic fluid physics, procedural audio synthesis, and guaranteed solvable levels.",
-      "sha256": "a29f4273036e346f3582ee85fd95e7bf8b60ac0530602cb91f849efe269e2bff",
+      "sha256": "89bffc7886fcbea8c9bd42e2869e43679bff810f428d09ac43697faf4fcb89b6",
       "status": "published",
       "touchZones": [],
       "features": {

@@ -1567,6 +1567,12 @@
             const sourceTube = this.tubes[this.selectedTubeIndex];
             if (sourceTube.canPourInto(clickedTube)) {
               this.executePour(this.selectedTubeIndex, index);
+            } else if (!clickedTube.isEmpty && !clickedTube.isCompleted) {
+              // Switch selection to new tube
+              sourceTube.isSelected = false;
+              this.selectedTubeIndex = index;
+              clickedTube.isSelected = true;
+              this.synth.playSelect();
             } else {
               this.synth.playError();
               this.screenShake = 6;
@@ -2262,7 +2268,9 @@
         if (this.state === 'PLAYING') {
           for (let i = 0; i < this.tubes.length; i++) {
             const t = this.tubes[i];
-            if (x >= t.x - 8 && x <= t.x + t.width + 8 && y >= t.y - 25 && y <= t.y + t.height + 15) {
+            const padX = Math.max(14, t.width * 0.35);
+            const padY = Math.max(20, t.height * 0.25);
+            if (x >= t.x - padX && x <= t.x + t.width + padX && y >= t.y - padY && y <= t.y + t.height + padY) {
               this.onTubeTap(i);
               return;
             }
@@ -2323,7 +2331,11 @@
       setTimeout(resize, 150);
       setTimeout(resize, 400);
 
+      let lastTouchTime = 0;
       function handleTouch(clientX, clientY) {
+        const now = Date.now();
+        if (now - lastTouchTime < 120) return; // Prevent double-trigger from touchstart + simulated pointerdown
+        lastTouchTime = now;
         engine.handlePointerDown(clientX, clientY);
       }
 
@@ -2335,7 +2347,9 @@
       }, { passive: true });
 
       canvas.addEventListener('pointerdown', (e) => {
-        handleTouch(e.clientX, e.clientY);
+        if (e.pointerType !== 'touch') {
+          handleTouch(e.clientX, e.clientY);
+        }
       });
 
       window.addEventListener('pointerup', () => {
