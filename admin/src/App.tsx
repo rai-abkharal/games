@@ -25,7 +25,8 @@ import {
   RefreshCw,
   Power,
   Trash2,
-  Megaphone
+  Megaphone,
+  Lightbulb
 } from 'lucide-react';
 
 interface TouchZone {
@@ -232,7 +233,7 @@ export default function App() {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  // Simulator host action sender
+  // Simulator host action sender with direct GameBridge invocation & envelope dispatch
   const sendSimulatorEvent = (type: string, payload?: any) => {
     const envelope = {
       v: 1,
@@ -244,17 +245,77 @@ export default function App() {
     };
 
     if (simIframeRef.current && simIframeRef.current.contentWindow) {
-      simIframeRef.current.contentWindow.postMessage(JSON.stringify(envelope), '*');
-      
+      const cw = simIframeRef.current.contentWindow as any;
+      let actionResult = payload;
+
+      try {
+        if (type === 'PAUSE_GAME') {
+          if (cw.GameBridge?.pause) cw.GameBridge.pause();
+          cw.dispatchEvent(new Event('blur'));
+        } else if (type === 'RESUME_GAME') {
+          if (cw.GameBridge?.resume) cw.GameBridge.resume();
+          cw.dispatchEvent(new Event('focus'));
+        } else if (type === 'MUTE_AUDIO') {
+          if (cw.GameBridge?.setSoundEnabled) cw.GameBridge.setSoundEnabled(false);
+        } else if (type === 'UNMUTE_AUDIO') {
+          if (cw.GameBridge?.setSoundEnabled) cw.GameBridge.setSoundEnabled(true);
+        } else if (type === 'RESTART_GAME') {
+          if (cw.GameBridge?.restart) cw.GameBridge.restart();
+        } else if (type === 'TRIGGER_HINT') {
+          if (cw.GameBridge?.triggerHint) cw.GameBridge.triggerHint();
+          actionResult = { message: '💡 Rewarded Ad Hint Triggered into Game' };
+        } else if (type === 'RESET_PROGRESS') {
+          try {
+            cw.localStorage?.clear();
+            cw.sessionStorage?.clear();
+          } catch {}
+          if (cw.GameBridge?.restart) cw.GameBridge.restart();
+          setSimScore(0);
+          setSimLevel(1);
+          setSimRefreshKey(Date.now());
+          actionResult = { message: '✨ Cache & localStorage Wiped: Reset to Level 1 / 0 Score' };
+        }
+      } catch (err) {
+        console.warn('Simulator direct bridge call:', err);
+      }
+
+      cw.postMessage(JSON.stringify(envelope), '*');
+
       const newLog: BridgeLogItem = {
         id: Math.random().toString(36).substring(7),
         direction: 'out',
         type,
-        payload: payload || {},
+        payload: actionResult || {},
         ts: new Date().toLocaleTimeString(),
       };
       setBridgeLogs((prev) => [newLog, ...prev.slice(0, 49)]);
     }
+  };
+
+  const onSimIframeLoad = () => {
+    try {
+      if (simIframeRef.current && simIframeRef.current.contentWindow) {
+        const cw = simIframeRef.current.contentWindow as any;
+        cw.AndroidNative = {
+          postScore: (score: number) => {
+            setSimScore(score);
+            cw.postMessage(JSON.stringify({ v: 1, type: 'SCORE_UPDATED', payload: { score } }), '*');
+          },
+          onLevelCompleted: (level: number, score: number) => {
+            setSimLevel(level);
+            setSimScore(score);
+            cw.postMessage(JSON.stringify({ v: 1, type: 'LEVEL_COMPLETED', payload: { level, score } }), '*');
+          },
+          onGameOver: (score: number) => {
+            setSimScore(score);
+            cw.postMessage(JSON.stringify({ v: 1, type: 'GAME_OVER', payload: { score } }), '*');
+          },
+          requestHint: () => {
+            cw.postMessage(JSON.stringify({ v: 1, type: 'HINT_REQUESTED', payload: { action: 'rewarded_ad' } }), '*');
+          }
+        };
+      }
+    } catch {}
   };
 
   // Toggle kill switch
@@ -1250,6 +1311,7 @@ export default function App() {
                     src={`${API_BASE}/games/${simGame}/${games.find(g => g.slug === simGame || g.id === simGame)?.versions[0]?.version || '1.1.0'}/index.html?t=${simRefreshKey}`}
                     className="device-screen"
                     title="Game Preview"
+                    onLoad={onSimIframeLoad}
                   />
                 </div>
               </div>
@@ -1272,23 +1334,29 @@ export default function App() {
 
                 {/* Host Action Controls */}
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingBottom: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
-                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => sendSimulatorEvent('PAUSE_GAME')}>
+                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => sendSimulatorEvent('PAUSE_GAME')} title="Pause Game loop & blur focus">
                     <Pause size={13} /> PAUSE_GAME
                   </button>
-                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => sendSimulatorEvent('RESUME_GAME')}>
+                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => sendSimulatorEvent('RESUME_GAME')} title="Resume Game loop & audio">
                     <Play size={13} /> RESUME_GAME
                   </button>
                   <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => {
                     const nextMute = !simIsMuted;
                     setSimIsMuted(nextMute);
                     sendSimulatorEvent(nextMute ? 'MUTE_AUDIO' : 'UNMUTE_AUDIO');
-                  }}>
+                  }} title="Toggle Sound / Audio Context Mute">
                     {simIsMuted ? <Volume2 size={13} /> : <VolumeX size={13} />} {simIsMuted ? 'UNMUTE_AUDIO' : 'MUTE_AUDIO'}
                   </button>
-                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => sendSimulatorEvent('RESTART_GAME')}>
+                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => sendSimulatorEvent('RESTART_GAME')} title="Restart Current Level">
                     <RotateCcw size={13} /> RESTART_GAME
                   </button>
-                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => setBridgeLogs([])}>
+                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px', borderColor: 'rgba(234, 179, 8, 0.4)', color: '#fef08a' }} onClick={() => sendSimulatorEvent('TRIGGER_HINT')} title="Simulate rewarded ad hint grant">
+                    <Lightbulb size={13} color="#facc15" /> TRIGGER_HINT
+                  </button>
+                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px', background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#fca5a5' }} onClick={() => sendSimulatorEvent('RESET_PROGRESS')} title="Wipe localStorage/cache and start from Level 1 / 0 Score">
+                    <Flame size={13} color="#f87171" /> RESET_GAME (Wipe Storage)
+                  </button>
+                  <button className="btn-secondary" style={{ padding: '8px 12px', fontSize: '12px' }} onClick={() => setBridgeLogs([])} title="Clear stream history">
                     Clear Log
                   </button>
                 </div>
