@@ -105,172 +105,18 @@ class GameFeedAdapter(
             
             if (isActive) {
                 try { webView.onResume() } catch (_: Exception) {}
+                webView.evaluateJavascript(buildGameResumeScript(shouldPlaySound), null)
             } else {
                 try { webView.onPause() } catch (_: Exception) {}
+                webView.evaluateJavascript(buildGamePauseScript(), null)
             }
-
-            webView.evaluateJavascript(
-                """
-                (function() {
-                    window.__GAME_ACTIVE__ = $isActive;
-                    window.dispatchEvent(new Event(${if (isActive) "'focus'" else "'blur'"}));
-
-                    if ($isActive) {
-                        // 1. Unmute & Resume HTML5 Audio & Video elements
-                        try {
-                            var media = document.querySelectorAll('audio, video');
-                            for (var i = 0; i < media.length; i++) {
-                                media[i].muted = ${!shouldPlaySound};
-                            }
-                        } catch(e) {}
-
-                        // 2. Howler.js Unmute
-                        try {
-                            if (window.Howler && typeof window.Howler.mute === 'function') {
-                                window.Howler.mute(${!shouldPlaySound});
-                            }
-                        } catch(e) {}
-
-                        // 3. Custom AudioContexts Resume
-                        try {
-                            if ($shouldPlaySound) {
-                                if (window.audioCtx && window.audioCtx.state === 'suspended') window.audioCtx.resume();
-                                if (window.soundCtx && window.soundCtx.state === 'suspended') window.soundCtx.resume();
-                                if (window.audioContext && window.audioContext.state === 'suspended') window.audioContext.resume();
-                            }
-                        } catch(e) {}
-
-                        // 4. SoundFx Resume
-                        try {
-                            if (window.SoundFx && window.SoundFx.ctx) {
-                                if ($shouldPlaySound && window.SoundFx.ctx.state === 'suspended') window.SoundFx.ctx.resume();
-                                else if (!$shouldPlaySound && window.SoundFx.ctx.state === 'running') window.SoundFx.ctx.suspend();
-                            }
-                        } catch(e) {}
-
-                        // 5. Phaser Resume
-                        try {
-                            if (window.__PHASER_GAME__) {
-                                if (window.__PHASER_GAME__.loop) window.__PHASER_GAME__.loop.wake();
-                                if (window.__PHASER_GAME__.sound) {
-                                    window.__PHASER_GAME__.sound.mute = ${!shouldPlaySound};
-                                    if ($shouldPlaySound && window.__PHASER_GAME__.sound.context && window.__PHASER_GAME__.sound.context.state === 'suspended') {
-                                        window.__PHASER_GAME__.sound.context.resume();
-                                    }
-                                }
-                            }
-                        } catch(e) {}
-
-                        // 6. GameBridge Resume & Fresh Restart if crashed during background preload
-                        if (window.GameBridge) {
-                            if (typeof window.GameBridge.setSoundEnabled === 'function') {
-                                window.GameBridge.setSoundEnabled($shouldPlaySound);
-                            }
-                            if (typeof window.GameBridge.resume === 'function') window.GameBridge.resume();
-                            if (typeof window.GameBridge.onResume === 'function') window.GameBridge.onResume();
-                            
-                            if (window.__NEEDS_FRESH_START__ === true || window.__GAME_OVER_TRIGGERED__ === true) {
-                                window.__NEEDS_FRESH_START__ = false;
-                                window.__GAME_OVER_TRIGGERED__ = false;
-                                if (typeof window.GameBridge.restart === 'function') {
-                                    window.GameBridge.restart();
-                                }
-                            }
-                        }
-                    } else {
-                        // OFFSCREEN / INACTIVE PAGE: Universal Nuclear Mute & Sleep
-                        // 1. Pause & Mute all HTML5 Audio & Video
-                        try {
-                            var media = document.querySelectorAll('audio, video');
-                            for (var i = 0; i < media.length; i++) {
-                                media[i].pause();
-                                media[i].muted = true;
-                            }
-                        } catch(e) {}
-
-                        // 2. Mute Howler.js
-                        try {
-                            if (window.Howler && typeof window.Howler.mute === 'function') {
-                                window.Howler.mute(true);
-                            }
-                        } catch(e) {}
-
-                        // 3. Suspend AudioContexts
-                        try {
-                            if (window.audioCtx && typeof window.audioCtx.suspend === 'function') window.audioCtx.suspend();
-                            if (window.soundCtx && typeof window.soundCtx.suspend === 'function') window.soundCtx.suspend();
-                            if (window.audioContext && typeof window.audioContext.suspend === 'function') window.audioContext.suspend();
-                            if (window.SoundFx && window.SoundFx.ctx && typeof window.SoundFx.ctx.suspend === 'function') window.SoundFx.ctx.suspend();
-                        } catch(e) {}
-
-                        // 4. Sleep Phaser
-                        try {
-                            if (window.__PHASER_GAME__) {
-                                if (window.__PHASER_GAME__.loop) window.__PHASER_GAME__.loop.sleep();
-                                if (window.__PHASER_GAME__.sound) {
-                                    window.__PHASER_GAME__.sound.mute = true;
-                                    if (window.__PHASER_GAME__.sound.context && typeof window.__PHASER_GAME__.sound.context.suspend === 'function') {
-                                        window.__PHASER_GAME__.sound.context.suspend();
-                                    }
-                                }
-                            }
-                        } catch(e) {}
-
-                        // 5. GameBridge Pause
-                        if (window.GameBridge) {
-                            if (typeof window.GameBridge.setSoundEnabled === 'function') {
-                                window.GameBridge.setSoundEnabled(false);
-                            }
-                            if (typeof window.GameBridge.pause === 'function') window.GameBridge.pause();
-                            if (typeof window.GameBridge.onPause === 'function') window.GameBridge.onPause();
-                        }
-                    }
-                })();
-                """.trimIndent(),
-                null
-            )
         }
     }
 
     fun pauseAll() {
         for (webView in activeWebViews.values) {
             try { webView.onPause() } catch (_: Exception) {}
-            webView.evaluateJavascript(
-                """
-                (function() {
-                    window.__GAME_ACTIVE__ = false;
-                    window.dispatchEvent(new Event('blur'));
-
-                    try {
-                        var media = document.querySelectorAll('audio, video');
-                        for (var i = 0; i < media.length; i++) {
-                            media[i].pause();
-                            media[i].muted = true;
-                        }
-                    } catch(e) {}
-
-                    try {
-                        if (window.Howler && typeof window.Howler.mute === 'function') window.Howler.mute(true);
-                        if (window.audioCtx && typeof window.audioCtx.suspend === 'function') window.audioCtx.suspend();
-                        if (window.soundCtx && typeof window.soundCtx.suspend === 'function') window.soundCtx.suspend();
-                        if (window.audioContext && typeof window.audioContext.suspend === 'function') window.audioContext.suspend();
-                        if (window.SoundFx && window.SoundFx.ctx && typeof window.SoundFx.ctx.suspend === 'function') window.SoundFx.ctx.suspend();
-                    } catch(e) {}
-
-                    if (window.__PHASER_GAME__) {
-                        if (window.__PHASER_GAME__.loop) window.__PHASER_GAME__.loop.sleep();
-                        if (window.__PHASER_GAME__.sound) window.__PHASER_GAME__.sound.mute = true;
-                    }
-
-                    if (window.GameBridge) {
-                        if (typeof window.GameBridge.setSoundEnabled === 'function') window.GameBridge.setSoundEnabled(false);
-                        if (typeof window.GameBridge.pause === 'function') window.GameBridge.pause();
-                        if (typeof window.GameBridge.onPause === 'function') window.GameBridge.onPause();
-                    }
-                })();
-                """.trimIndent(),
-                null
-            )
+            webView.evaluateJavascript(buildGamePauseScript(), null)
         }
     }
 
@@ -399,48 +245,11 @@ class GameFeedAdapter(
 
                     if (isCurrent) {
                         // Current active page: Resume & Unmute & Wake Up
-                        view?.evaluateJavascript(
-                            """
-                            (function() {
-                                if (window.GameBridge) {
-                                    window.GameBridge.setSoundEnabled(${!isSoundMuted});
-                                    window.GameBridge.resume();
-                                }
-                                if (window.__PHASER_GAME__) {
-                                    if (window.__PHASER_GAME__.loop) window.__PHASER_GAME__.loop.wake();
-                                    if (window.__PHASER_GAME__.sound) {
-                                        window.__PHASER_GAME__.sound.mute = $isSoundMuted;
-                                        if (window.__PHASER_GAME__.sound.context && window.__PHASER_GAME__.sound.context.state === 'suspended') {
-                                            window.__PHASER_GAME__.sound.context.resume();
-                                        }
-                                    }
-                                }
-                                if (window.SoundFx && window.SoundFx.ctx && window.SoundFx.ctx.state === 'suspended') {
-                                    window.SoundFx.ctx.resume();
-                                }
-                            })();
-                            """.trimIndent(),
-                            null
-                        )
+                        view?.evaluateJavascript(buildGameResumeScript(!isSoundMuted), null)
                     } else {
                         // Offscreen preloaded page: PAUSE & SLEEP IMMEDIATELY!
                         try { view?.onPause() } catch (_: Exception) {}
-                        view?.evaluateJavascript(
-                            """
-                            (function() {
-                                window.__GAME_ACTIVE__ = false;
-                                if (window.GameBridge) {
-                                    window.GameBridge.setSoundEnabled(false);
-                                    window.GameBridge.pause();
-                                }
-                                if (window.__PHASER_GAME__) {
-                                    if (window.__PHASER_GAME__.loop) window.__PHASER_GAME__.loop.sleep();
-                                    if (window.__PHASER_GAME__.sound) window.__PHASER_GAME__.sound.mute = true;
-                                }
-                            })();
-                            """.trimIndent(),
-                            null
-                        )
+                        view?.evaluateJavascript(buildGamePauseScript(), null)
                     }
                 }
             }
@@ -461,6 +270,176 @@ class GameFeedAdapter(
                 )
                 binding.webView.loadUrl("about:blank")
             } catch (_: Exception) {}
+        }
+    }
+
+    companion object {
+        fun buildGamePauseScript(): String {
+            return """
+            (function() {
+                window.__GAME_ACTIVE__ = false;
+
+                // 1. Dispatch Visibility & Blur Events
+                try {
+                    Object.defineProperty(document, 'hidden', { value: true, writable: true, configurable: true });
+                    Object.defineProperty(document, 'visibilityState', { value: 'hidden', writable: true, configurable: true });
+                    document.dispatchEvent(new Event('visibilitychange'));
+                    window.dispatchEvent(new Event('blur'));
+                    if (window.onblur) window.onblur();
+                } catch(e) {}
+
+                // 2. Global CSS Animation & Transition Freeze (0 GPU / CPU load)
+                try {
+                    var styleEl = document.getElementById('__freeze_css_style__');
+                    if (!styleEl) {
+                        styleEl = document.createElement('style');
+                        styleEl.id = '__freeze_css_style__';
+                        document.head.appendChild(styleEl);
+                    }
+                    styleEl.textContent = '* { animation-play-state: paused !important; -webkit-animation-play-state: paused !important; transition: none !important; }';
+                } catch(e) {}
+
+                // 3. Phaser 3 Total Engine, Loop, Tweens, Anims & Physics Freeze
+                try {
+                    if (window.__PHASER_GAME__) {
+                        if (window.__PHASER_GAME__.loop) window.__PHASER_GAME__.loop.sleep();
+                        if (window.__PHASER_GAME__.sound) {
+                            window.__PHASER_GAME__.sound.mute = true;
+                            if (window.__PHASER_GAME__.sound.context && typeof window.__PHASER_GAME__.sound.context.suspend === 'function') {
+                                window.__PHASER_GAME__.sound.context.suspend();
+                            }
+                        }
+                        if (window.__PHASER_GAME__.scene && window.__PHASER_GAME__.scene.scenes) {
+                            window.__PHASER_GAME__.scene.scenes.forEach(function(s) {
+                                if (s.scene && typeof s.scene.pause === 'function') s.scene.pause();
+                                if (s.tweens && typeof s.tweens.pauseAll === 'function') s.tweens.pauseAll();
+                                if (s.anims && typeof s.anims.pauseAll === 'function') s.anims.pauseAll();
+                                if (s.time && s.time.paused !== undefined) s.time.paused = true;
+                                if (s.physics && s.physics.world && typeof s.physics.world.pause === 'function') s.physics.world.pause();
+                            });
+                        }
+                    }
+                } catch(e) {}
+
+                // 4. PixiJS Ticker Stop
+                try {
+                    if (window.PIXI && window.PIXI.Ticker && window.PIXI.Ticker.shared) {
+                        window.PIXI.Ticker.shared.stop();
+                    }
+                } catch(e) {}
+
+                // 5. Media & AudioContext Nuclear Silence
+                try {
+                    var media = document.querySelectorAll('audio, video');
+                    for (var i = 0; i < media.length; i++) {
+                        media[i].pause();
+                        media[i].muted = true;
+                    }
+                    if (window.Howler && typeof window.Howler.mute === 'function') window.Howler.mute(true);
+                    if (window.audioCtx && typeof window.audioCtx.suspend === 'function') window.audioCtx.suspend();
+                    if (window.soundCtx && typeof window.soundCtx.suspend === 'function') window.soundCtx.suspend();
+                    if (window.audioContext && typeof window.audioContext.suspend === 'function') window.audioContext.suspend();
+                    if (window.SoundFx && window.SoundFx.ctx && typeof window.SoundFx.ctx.suspend === 'function') window.SoundFx.ctx.suspend();
+                } catch(e) {}
+
+                // 6. GameBridge onPause Hook
+                try {
+                    if (window.GameBridge) {
+                        if (typeof window.GameBridge.setSoundEnabled === 'function') window.GameBridge.setSoundEnabled(false);
+                        if (typeof window.GameBridge.pause === 'function') window.GameBridge.pause();
+                        if (typeof window.GameBridge.onPause === 'function') window.GameBridge.onPause();
+                    }
+                } catch(e) {}
+            })();
+            """.trimIndent()
+        }
+
+        fun buildGameResumeScript(shouldPlaySound: Boolean): String {
+            return """
+            (function() {
+                window.__GAME_ACTIVE__ = true;
+
+                // 1. Dispatch Visibility & Focus Events
+                try {
+                    Object.defineProperty(document, 'hidden', { value: false, writable: true, configurable: true });
+                    Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true, configurable: true });
+                    document.dispatchEvent(new Event('visibilitychange'));
+                    window.dispatchEvent(new Event('focus'));
+                    if (window.onfocus) window.onfocus();
+                } catch(e) {}
+
+                // 2. Remove CSS Freeze Style (Resume fluid animations)
+                try {
+                    var styleEl = document.getElementById('__freeze_css_style__');
+                    if (styleEl && styleEl.parentNode) {
+                        styleEl.parentNode.removeChild(styleEl);
+                    }
+                } catch(e) {}
+
+                // 3. Phaser 3 Engine, Loop, Tweens, Anims & Physics Wake
+                try {
+                    if (window.__PHASER_GAME__) {
+                        if (window.__PHASER_GAME__.loop) window.__PHASER_GAME__.loop.wake();
+                        if (window.__PHASER_GAME__.sound) {
+                            window.__PHASER_GAME__.sound.mute = ${!shouldPlaySound};
+                            if ($shouldPlaySound && window.__PHASER_GAME__.sound.context && window.__PHASER_GAME__.sound.context.state === 'suspended') {
+                                window.__PHASER_GAME__.sound.context.resume();
+                            }
+                        }
+                        if (window.__PHASER_GAME__.scene && window.__PHASER_GAME__.scene.scenes) {
+                            window.__PHASER_GAME__.scene.scenes.forEach(function(s) {
+                                if (s.scene && typeof s.scene.resume === 'function') s.scene.resume();
+                                if (s.tweens && typeof s.tweens.resumeAll === 'function') s.tweens.resumeAll();
+                                if (s.anims && typeof s.anims.resumeAll === 'function') s.anims.resumeAll();
+                                if (s.time && s.time.paused !== undefined) s.time.paused = false;
+                                if (s.physics && s.physics.world && typeof s.physics.world.resume === 'function') s.physics.world.resume();
+                            });
+                        }
+                    }
+                } catch(e) {}
+
+                // 4. PixiJS Ticker Resume
+                try {
+                    if (window.PIXI && window.PIXI.Ticker && window.PIXI.Ticker.shared) {
+                        window.PIXI.Ticker.shared.start();
+                    }
+                } catch(e) {}
+
+                // 5. Media & AudioContext Unmute (if enabled)
+                try {
+                    if ($shouldPlaySound) {
+                        var media = document.querySelectorAll('audio, video');
+                        for (var i = 0; i < media.length; i++) {
+                            media[i].muted = false;
+                        }
+                        if (window.Howler && typeof window.Howler.mute === 'function') window.Howler.mute(false);
+                        if (window.audioCtx && window.audioCtx.state === 'suspended') window.audioCtx.resume();
+                        if (window.soundCtx && window.soundCtx.state === 'suspended') window.soundCtx.resume();
+                        if (window.audioContext && window.audioContext.state === 'suspended') window.audioContext.resume();
+                        if (window.SoundFx && window.SoundFx.ctx && window.SoundFx.ctx.state === 'suspended') window.SoundFx.ctx.resume();
+                    }
+                } catch(e) {}
+
+                // 6. GameBridge onResume Hook & Fresh Restart if crashed during preload
+                try {
+                    if (window.GameBridge) {
+                        if (typeof window.GameBridge.setSoundEnabled === 'function') {
+                            window.GameBridge.setSoundEnabled($shouldPlaySound);
+                        }
+                        if (typeof window.GameBridge.resume === 'function') window.GameBridge.resume();
+                        if (typeof window.GameBridge.onResume === 'function') window.GameBridge.onResume();
+
+                        if (window.__NEEDS_FRESH_START__ === true || window.__GAME_OVER_TRIGGERED__ === true) {
+                            window.__NEEDS_FRESH_START__ = false;
+                            window.__GAME_OVER_TRIGGERED__ = false;
+                            if (typeof window.GameBridge.restart === 'function') {
+                                window.GameBridge.restart();
+                            }
+                        }
+                    }
+                } catch(e) {}
+            })();
+            """.trimIndent()
         }
     }
 }
