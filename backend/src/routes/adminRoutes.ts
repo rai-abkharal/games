@@ -305,10 +305,12 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       const version = manifest.version || (existingGame ? (existingGame.version.includes('.') ? existingGame.version : '1.0.0') : '1.0.0');
 
       // Destination directory: public/games/<gameId>/<version>/
-      const targetGameDir = path.join(gamesDir, gameId, version);
-      if (fs.existsSync(targetGameDir)) {
-        fs.rmSync(targetGameDir, { recursive: true, force: true });
+      // Completely wipe any previous versions or obsolete files for this game on the server
+      const gameBaseDir = path.join(gamesDir, gameId);
+      if (fs.existsSync(gameBaseDir)) {
+        fs.rmSync(gameBaseDir, { recursive: true, force: true });
       }
+      const targetGameDir = path.join(gamesDir, gameId, version);
       fs.mkdirSync(targetGameDir, { recursive: true });
 
       // Smart directory flattening (detects if zip was packaged with a root folder wrapper)
