@@ -378,16 +378,45 @@ export default function App() {
     }
   };
 
-  // Handle Feed Sort Weight Change
-  const updateFeedWeight = async (gameId: string, weight: number) => {
+  // Move game up, down, pin to top (#1), or set exact position
+  const reorderGame = async (gameId: string, action: 'up' | 'down' | 'top' | number) => {
+    const currentList = [...games].sort((a, b) => (a.sortWeight ?? 0) - (b.sortWeight ?? 0));
+    const index = currentList.findIndex((g) => g.id === gameId);
+    if (index < 0) return;
+
+    const item = currentList.splice(index, 1)[0];
+
+    if (action === 'top') {
+      currentList.unshift(item);
+    } else if (action === 'up') {
+      const newIdx = Math.max(0, index - 1);
+      currentList.splice(newIdx, 0, item);
+    } else if (action === 'down') {
+      const newIdx = Math.min(currentList.length, index + 1);
+      currentList.splice(newIdx, 0, item);
+    } else if (typeof action === 'number') {
+      const targetIdx = Math.max(0, Math.min(currentList.length, action - 1));
+      currentList.splice(targetIdx, 0, item);
+    }
+
+    const payload = currentList.map((g, idx) => ({
+      id: g.id,
+      sortWeight: idx + 1,
+    }));
+
     try {
       await fetch(`${API_BASE}/v1/admin/feed/order`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: [{ id: gameId, sortWeight: weight }] }),
+        body: JSON.stringify({ order: payload }),
       });
-      fetchGames();
+      await fetchGames();
     } catch (err) {}
+  };
+
+  // Handle Feed Sort Weight Change
+  const updateFeedWeight = async (gameId: string, weight: number) => {
+    await reorderGame(gameId, weight);
   };
 
   // Open Touch Zone Configuration for a Game
@@ -695,14 +724,14 @@ export default function App() {
                     <th style={{ padding: '12px 16px' }}>GAME</th>
                     <th style={{ padding: '12px 16px' }}>STATUS</th>
                     <th style={{ padding: '12px 16px' }}>ROLLOUT</th>
-                    <th style={{ padding: '12px 16px' }}>FEED WEIGHT</th>
+                    <th style={{ padding: '12px 16px' }}>FEED POSITION</th>
                     <th style={{ padding: '12px 16px' }}>PACKAGE SIZE</th>
                     <th style={{ padding: '12px 16px' }}>UPDATED</th>
                     <th style={{ padding: '12px 16px' }}>ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {games.map((game) => {
+                  {games.slice().sort((a, b) => (a.sortWeight ?? 0) - (b.sortWeight ?? 0)).map((game) => {
                     const latest = game.versions[0];
                     return (
                       <tr key={game.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '14px' }}>
@@ -741,20 +770,46 @@ export default function App() {
                         </td>
 
                         <td style={{ padding: '16px' }}>
-                          <input
-                            type="number"
-                            value={game.sortWeight}
-                            onChange={(e) => updateFeedWeight(game.id, parseInt(e.target.value) || 0)}
-                            style={{
-                              width: '70px',
-                              background: 'rgba(0,0,0,0.3)',
-                              border: '1px solid var(--border-subtle)',
-                              color: '#fff',
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{
+                              fontSize: '13px',
+                              fontWeight: 800,
+                              color: 'var(--accent-cyan)',
+                              background: 'rgba(6, 182, 212, 0.15)',
+                              padding: '3px 8px',
                               borderRadius: '6px',
-                              padding: '6px 8px',
-                              fontFamily: 'var(--font-mono)'
-                            }}
-                          />
+                              border: '1px solid rgba(6, 182, 212, 0.3)',
+                              fontFamily: 'var(--font-mono)',
+                              minWidth: '32px',
+                              textAlign: 'center'
+                            }}>
+                              #{game.sortWeight}
+                            </span>
+                            <button
+                              className="btn-secondary"
+                              style={{ padding: '4px 6px', fontSize: '10px' }}
+                              onClick={() => reorderGame(game.id, 'up')}
+                              title="Move Up in Feed"
+                            >
+                              ▲
+                            </button>
+                            <button
+                              className="btn-secondary"
+                              style={{ padding: '4px 6px', fontSize: '10px' }}
+                              onClick={() => reorderGame(game.id, 'down')}
+                              title="Move Down in Feed"
+                            >
+                              ▼
+                            </button>
+                            <button
+                              className="btn-secondary"
+                              style={{ padding: '4px 8px', fontSize: '11px', color: '#fbbf24', background: 'rgba(251, 191, 36, 0.1)' }}
+                              onClick={() => reorderGame(game.id, 'top')}
+                              title="Pin to Top (#1 Position on App Feed)"
+                            >
+                              📌 #1
+                            </button>
+                          </div>
                         </td>
 
                         <td style={{ padding: '16px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
@@ -1268,15 +1323,22 @@ export default function App() {
           {/* 5. FEED SEQUENCER VIEW */}
           {activeTab === 'feed' && (
             <div className="glass-panel" style={{ padding: '28px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>TikTok Feed Running Order</h3>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '24px' }}>
-                Higher sort weights appear earlier in user feeds. The backend applies a 7-day new-game boost and cursor-based pagination.
-              </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '6px' }}>App Swipe Feed Sequencer & Running Order</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                    Control the exact order games appear in the mobile app feed. <strong>Position #1</strong> is the first game shown when the app opens. Newly uploaded games automatically start at <strong>#1</strong>.
+                  </p>
+                </div>
+                <div style={{ background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.3)', padding: '8px 16px', borderRadius: '10px', fontSize: '13px', color: 'var(--accent-cyan)', fontWeight: 600 }}>
+                  🎮 Total Games: {games.length}
+                </div>
+              </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {games
                   .slice()
-                  .sort((a, b) => b.sortWeight - a.sortWeight)
+                  .sort((a, b) => (a.sortWeight ?? 0) - (b.sortWeight ?? 0))
                   .map((game, idx) => (
                     <div
                       key={game.id}
@@ -1285,44 +1347,77 @@ export default function App() {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         padding: '16px 20px',
-                        background: 'rgba(0,0,0,0.3)',
+                        background: idx === 0 ? 'rgba(6, 182, 212, 0.08)' : 'rgba(0,0,0,0.3)',
                         borderRadius: '12px',
-                        border: '1px solid var(--border-subtle)'
+                        border: idx === 0 ? '1px solid rgba(6, 182, 212, 0.4)' : '1px solid var(--border-subtle)',
+                        transition: 'all 0.2s ease'
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--accent-cyan)', width: '28px' }}>
+                        <div style={{
+                          fontSize: '16px',
+                          fontWeight: 800,
+                          color: idx === 0 ? '#fbbf24' : 'var(--accent-cyan)',
+                          background: idx === 0 ? 'rgba(251, 191, 36, 0.15)' : 'rgba(6, 182, 212, 0.12)',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: idx === 0 ? '1px solid rgba(251, 191, 36, 0.3)' : '1px solid rgba(6, 182, 212, 0.2)',
+                          minWidth: '46px',
+                          textAlign: 'center',
+                          fontFamily: 'var(--font-mono)'
+                        }}>
                           #{idx + 1}
                         </div>
                         <div style={{ width: '48px', height: '60px', borderRadius: '8px', background: '#1e293b', overflow: 'hidden' }}>
                           <img src={game.thumbnailUrl.startsWith('http') ? game.thumbnailUrl : `${API_BASE}${game.thumbnailUrl}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                         <div>
-                          <h4 style={{ fontSize: '16px', fontWeight: 700 }}>{game.title}</h4>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                            Tags: {game.tags.join(', ')} • Rating: {game.ageRating}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <h4 style={{ fontSize: '16px', fontWeight: 700 }}>{game.title}</h4>
+                            {idx === 0 && (
+                              <span style={{ fontSize: '11px', background: 'rgba(251, 191, 36, 0.2)', color: '#fbbf24', border: '1px solid #f59e0b', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
+                                🌟 FIRST ON APP LOAD
+                              </span>
+                            )}
+                            <span className={`badge ${game.status === 'published' ? 'badge-published' : 'badge-archived'}`} style={{ fontSize: '10px', padding: '2px 6px' }}>
+                              {game.status}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {game.slug} • Tags: {game.tags.join(', ')} • Engine: {game.orientation}
                           </div>
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <label style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Weight:</label>
-                        <input
-                          type="number"
-                          value={game.sortWeight}
-                          onChange={(e) => updateFeedWeight(game.id, parseInt(e.target.value) || 0)}
-                          style={{
-                            width: '80px',
-                            background: 'rgba(0,0,0,0.5)',
-                            border: '1px solid var(--border-subtle)',
-                            color: '#fff',
-                            borderRadius: '8px',
-                            padding: '8px 12px',
-                            fontFamily: 'var(--font-mono)',
-                            fontSize: '14px',
-                            fontWeight: 700
-                          }}
-                        />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <button
+                          className="btn-secondary"
+                          style={{ padding: '8px 12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          onClick={() => reorderGame(game.id, 'up')}
+                          disabled={idx === 0}
+                          title="Move Up 1 Position"
+                        >
+                          ▲ Up
+                        </button>
+                        <button
+                          className="btn-secondary"
+                          style={{ padding: '8px 12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          onClick={() => reorderGame(game.id, 'down')}
+                          disabled={idx === games.length - 1}
+                          title="Move Down 1 Position"
+                        >
+                          ▼ Down
+                        </button>
+                        {idx !== 0 && (
+                          <button
+                            className="btn-secondary"
+                            style={{ padding: '8px 14px', fontSize: '13px', color: '#fbbf24', background: 'rgba(251, 191, 36, 0.12)', border: '1px solid rgba(251, 191, 36, 0.3)', fontWeight: 600 }}
+                            onClick={() => reorderGame(game.id, 'top')}
+                            title="Make this the #1 Game in App"
+                          >
+                            📌 Pin #1
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}

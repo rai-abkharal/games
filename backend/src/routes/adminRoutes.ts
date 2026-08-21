@@ -362,7 +362,7 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
         status: existingGame ? (existingGame.status || 'published') : 'published',
         touchZones: manifest.touchZones || (existingGame ? existingGame.touchZones : []),
         features: manifest.features || (existingGame ? existingGame.features : { sound: true, vibration: true, hint: false }),
-        feedOrder: existingGame ? existingGame.feedOrder : (catalogData.games.length + 1),
+        feedOrder: existingGame ? (existingGame.feedOrder || 1) : 1,
         entryUrl: `http://localhost:8080/games/${gameId}/${version}/index.html`,
         thumbnailUrl: `http://localhost:8080/thumbnails/${thumbFileName}`,
         manifestUrl: `http://localhost:8080/games/${gameId}/${version}/manifest.json`,
@@ -371,10 +371,22 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       };
 
       if (existingIndex >= 0) {
+        newGameEntry.feedOrder = existingGame.feedOrder || 1;
         catalogData.games[existingIndex] = newGameEntry;
       } else {
-        catalogData.games.push(newGameEntry);
+        // NEW GAME: Insert at the very TOP of the feed (position #1)!
+        for (const g of catalogData.games) {
+          g.feedOrder = (g.feedOrder ?? 1) + 1;
+        }
+        newGameEntry.feedOrder = 1;
+        catalogData.games.unshift(newGameEntry);
       }
+
+      // Re-sort catalog games by feedOrder and normalize sequentially 1, 2, 3...
+      catalogData.games.sort((a: any, b: any) => (a.feedOrder ?? 0) - (b.feedOrder ?? 0));
+      catalogData.games.forEach((g: any, idx: number) => {
+        g.feedOrder = idx + 1;
+      });
 
       catalogData.updatedAt = nowIso;
       fs.writeFileSync(catalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
