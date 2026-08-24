@@ -2964,7 +2964,11 @@
         }
 
         Art.drawBase(ctx, bx, bolt.baseY, bolt.rx * 1.06, bolt.ry);
-        Art.drawShaft(ctx, bx, bolt.shaftTopY, bolt.baseY, bolt.shaftW, bolt.threadPhase);
+
+        // When bolt is completed/full, the shaft only exists under the nuts down to base
+        const topSlotY = bolt.nuts.length > 0 ? bolt.nutSlotY(bolt.nuts.length - 1) : bolt.shaftTopY;
+        const shaftTop = (bolt.complete && bolt.nuts.length >= bolt.capacity) ? topSlotY : bolt.shaftTopY;
+        Art.drawShaft(ctx, bx, shaftTop, bolt.baseY, bolt.shaftW, bolt.threadPhase);
 
         const heldTopOnly = (this.selected === index && bolt.nuts.length > 0) ? 1 : 0;
         const liftFrom = bolt.nuts.length - heldTopOnly;
@@ -3005,11 +3009,9 @@
           this.paintNut(ctx, bx, y, bolt, nut, spin, alpha, true, 0);
         }
 
-        // 4. When bolt is completed, render clean metallic cap on top that perfectly seals and conceals the shaft!
+        // 4. When bolt is completed, render clean metallic cap directly on the top face of the topmost nut!
         if (bolt.complete && bolt.nuts.length >= bolt.capacity) {
-          const topSlotY = bolt.nutSlotY(bolt.nuts.length - 1);
-          const capY = Math.min(bolt.shaftTopY, topSlotY - bolt.ry * 0.22);
-          Art.drawBoltCap(ctx, bx, capY, bolt.rx, bolt.ry, bolt.completeGlow);
+          Art.drawBoltCap(ctx, bx, topSlotY, bolt.rx, bolt.ry, bolt.completeGlow);
         }
 
         // Local shine that wipes across the bolt when its colour completes.
