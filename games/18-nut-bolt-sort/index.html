@@ -77,61 +77,62 @@
     // 1. PALETTES & CONFIGURATION
     // ========================================================================
     // Hex-nut colours sampled exactly from reference screenshots. Vibrant, glossy,
-    // saturated 3D shaded prisms with distinct top specular, face, and side facets.
+    // Hex-nut colours matching reference screenshot media_1787569029108.png.
+    // Rich, saturated, single-shade vibrant tones with smooth rounded chamfers and soft top sheen.
     const NUT_PALETTE = [
       {
         id: 0, name: 'Amber Gold',
-        top: '#FFD700', face: '#FFB300', side: '#FF8F00', rim: '#FFF59D',
-        glow: 'rgba(255, 179, 0, 0.55)',
-        sparks: ['#FFF59D', '#FFD700', '#FFFFFF', '#FFA000']
+        body: '#FFC700', top: '#FFD54F', shadow: '#FFA000', rim: '#FFF9C4',
+        glow: 'rgba(255, 199, 0, 0.55)',
+        sparks: ['#FFF9C4', '#FFC700', '#FFFFFF', '#FFA000']
       },
       {
         id: 1, name: 'Azure Blue',
-        top: '#29B6F6', face: '#039BE5', side: '#0277BD', rim: '#B3E5FC',
-        glow: 'rgba(3, 155, 229, 0.55)',
-        sparks: ['#B3E5FC', '#29B6F6', '#FFFFFF', '#0288D1']
+        body: '#29B6F6', top: '#81D4FA', shadow: '#0288D1', rim: '#E1F5FE',
+        glow: 'rgba(41, 182, 246, 0.55)',
+        sparks: ['#E1F5FE', '#29B6F6', '#FFFFFF', '#0288D1']
       },
       {
         id: 2, name: 'Pearl Silver',
-        top: '#FFFFFF', face: '#E4E7ED', side: '#B8C0D2', rim: '#FFFFFF',
-        glow: 'rgba(240, 243, 250, 0.55)',
-        sparks: ['#FFFFFF', '#ECEFF4', '#D8DEE9', '#B8C0D2']
+        body: '#DDE3EA', top: '#FFFFFF', shadow: '#B0BEC5', rim: '#FFFFFF',
+        glow: 'rgba(221, 227, 234, 0.55)',
+        sparks: ['#FFFFFF', '#ECEFF4', '#D8DEE9', '#B0BEC5']
       },
       {
         id: 3, name: 'Ember Orange',
-        top: '#FF5722', face: '#F4511E', side: '#D84315', rim: '#FFAB91',
-        glow: 'rgba(244, 81, 30, 0.55)',
-        sparks: ['#FFAB91', '#FF5722', '#FFFFFF', '#D84315']
+        body: '#FF5722', top: '#FF8A65', shadow: '#E64A19', rim: '#FFCCBC',
+        glow: 'rgba(255, 87, 34, 0.55)',
+        sparks: ['#FFCCBC', '#FF5722', '#FFFFFF', '#E64A19']
       },
       {
         id: 4, name: 'Lime Green',
-        top: '#76FF03', face: '#64DD17', side: '#33691E', rim: '#CCFF90',
-        glow: 'rgba(100, 221, 23, 0.55)',
-        sparks: ['#CCFF90', '#76FF03', '#FFFFFF', '#64DD17']
+        body: '#76FF03', top: '#B2FF59', shadow: '#64DD17', rim: '#F4FF81',
+        glow: 'rgba(118, 255, 3, 0.55)',
+        sparks: ['#F4FF81', '#76FF03', '#FFFFFF', '#64DD17']
       },
       {
         id: 5, name: 'Orchid Purple',
-        top: '#AB47BC', face: '#8E24AA', side: '#6A1B9A', rim: '#E1BEE7',
-        glow: 'rgba(142, 36, 170, 0.55)',
-        sparks: ['#E1BEE7', '#AB47BC', '#FFFFFF', '#8E24AA']
+        body: '#AB47BC', top: '#CE93D8', shadow: '#8E24AA', rim: '#F3E5F5',
+        glow: 'rgba(171, 71, 188, 0.55)',
+        sparks: ['#F3E5F5', '#AB47BC', '#FFFFFF', '#8E24AA']
       },
       {
         id: 6, name: 'Turquoise',
-        top: '#00E5FF', face: '#00B0FF', side: '#0091EA', rim: '#80D8FF',
-        glow: 'rgba(0, 176, 255, 0.55)',
-        sparks: ['#80D8FF', '#00E5FF', '#FFFFFF', '#0091EA']
+        body: '#00E5FF', top: '#80D8FF', shadow: '#00B0FF', rim: '#E0F7FA',
+        glow: 'rgba(0, 229, 255, 0.55)',
+        sparks: ['#E0F7FA', '#00E5FF', '#FFFFFF', '#00B0FF']
       },
       {
         id: 7, name: 'Hot Coral Pink',
-        top: '#FF4081', face: '#F50057', side: '#C51162', rim: '#FF80AB',
-        glow: 'rgba(245, 0, 87, 0.55)',
-        sparks: ['#FF80AB', '#FF4081', '#FFFFFF', '#C51162']
+        body: '#FF4081', top: '#FF80AB', shadow: '#F50057', rim: '#FCE4EC',
+        glow: 'rgba(255, 64, 129, 0.55)',
+        sparks: ['#FCE4EC', '#FF4081', '#FFFFFF', '#F50057']
       }
     ];
 
     // Undiscovered nuts hide behind clean machined steel grey shell with crisp "?" badge.
     const HIDDEN_SKIN = {
-      top: '#CFD8DC', face: '#B0BEC5', side: '#78909C', rim: '#ECEFF1'
+      body: '#B0BEC5', top: '#CFD8DC', shadow: '#90A4AE', rim: '#ECEFF1'
     };
 
     // Shared metal tones for clean white threaded shafts and washer bases.
@@ -143,29 +144,29 @@
       baseTop: '#FFFFFF',
       baseMid: '#F0F3F8',
       baseEdge: '#CDD5E2',
-      baseShadow: 'rgba(30, 45, 80, 0.18)',
+      baseShadow: 'rgba(4, 6, 28, 0.40)',
       lockedTop: '#78909C',
       lockedFace: '#546E7A',
       lockedEdge: '#37474F'
     };
 
     const THEME = {
-      bgTop: '#F8F9FD',
-      bgMid: '#EEF2F8',
-      bgBottom: '#E2E7F0',
-      vignette: 'rgba(180, 195, 220, 0.25)',
-      panel: '#6C47D6',
-      panelDeep: '#4824A8',
-      panelEdge: '#8C69EE',
-      capsuleFill: '#FFFFFF',
-      capsuleEdge: '#D2D9E8',
+      bgTop: '#0D1248',
+      bgMid: '#080D35',
+      bgBottom: '#040620',
+      vignette: 'rgba(2, 4, 20, 0.60)',
+      panel: '#582CAE',
+      panelDeep: '#3F1A88',
+      panelEdge: '#7B45DD',
+      capsuleFill: '#F4EEFF',
+      capsuleEdge: '#BA9CEE',
       chipFill: '#8E24AA',
       chipDeep: '#6A1B9A',
       chipEdge: '#BA68C8',
-      text: '#1E2548',
-      textDim: 'rgba(40, 50, 90, 0.68)',
-      good: '#2E7D32',
-      bad: '#D32F2F'
+      text: '#FFFFFF',
+      textDim: 'rgba(230, 225, 255, 0.75)',
+      good: '#76FF03',
+      bad: '#FF3B5C'
     };
 
     const STORE_KEYS = {
@@ -862,119 +863,122 @@
         ctx.closePath();
       },
 
-      // A single hex nut drawn as an extruded prism. Glossy front top chamfer cut
-      // and dynamically reacting reflections provide ultra-realistic tactile depth!
+      // A single hex nut matching reference image media_1787569029108.png:
+      // Single vibrant solid shade, smooth rounded hexagonal body, central white threaded bolt core, and soft top sheen.
       drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
         const o = opts || {};
         const pts = this.hexPoints(cx, cy, rx, ry, spin);
-        const holeRx = rx * 0.42, holeRy = ry * 0.42;
+        const holeRx = rx * 0.40, holeRy = ry * 0.40;
 
-        // Extruded bottom silhouette keeps the prism solid at any rotation.
+        // 1. Extruded solid body in single rich vibrant color
         this.tracePoly(ctx, pts, bandH);
-        ctx.fillStyle = skin.side;
+        ctx.fillStyle = skin.shadow || skin.body;
         ctx.fill();
 
-        // Side facets, lit dynamically relative to light source (-45 degrees)
+        // 2. Front vertical facets with smooth, soft rounded shading (single cohesive shade)
         for (let i = 0; i < 6; i++) {
           const p0 = pts[i];
           const p1 = pts[(i + 1) % 6];
-          const midX = (p0.x + p1.x) / 2;
           const midY = (p0.y + p1.y) / 2;
-          const nx = (midX - cx) / rx;
-          const ny = (midY - cy) / ry;
-          if (ny < -0.15) continue; // Face is oriented away from camera
+          if (midY < cy - ry * 0.2) continue; // back faces
 
-          // Dynamic light calculation based on spin angle
-          const faceAngle = (spin || 0) + i * (Math.PI / 3) + (Math.PI / 6);
-          const light = clamp(0.52 + Math.cos(faceAngle - Math.PI * 0.75) * 0.45, 0, 1);
           ctx.beginPath();
           ctx.moveTo(p0.x, p0.y);
           ctx.lineTo(p1.x, p1.y);
           ctx.lineTo(p1.x, p1.y + bandH);
           ctx.lineTo(p0.x, p0.y + bandH);
           ctx.closePath();
-          ctx.fillStyle = mixHex(skin.side, skin.face, light);
+          ctx.fillStyle = skin.body;
           ctx.fill();
         }
 
-        // Bottom shadow line grounds the nut against the one below it.
+        // 3. Subtle bottom grounding shadow
         ctx.save();
         this.tracePoly(ctx, pts, bandH);
         ctx.clip();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-        ctx.fillRect(cx - rx, cy + bandH - ry * 0.55, rx * 2, ry * 1.2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.20)';
+        ctx.fillRect(cx - rx * 1.1, cy + bandH - ry * 0.45, rx * 2.2, ry * 1.1);
         ctx.restore();
 
-        // Top face with rotating glossy gradient
+        // 4. Smooth top face (single vibrant shade with matching soft gradient)
         this.tracePoly(ctx, pts, 0);
-        const lightDir = (spin || 0) - Math.PI * 0.75;
-        const lx0 = cx + rx * Math.cos(lightDir) * 0.6;
-        const ly0 = cy + ry * Math.sin(lightDir) * 0.6;
-        const lx1 = cx - rx * Math.cos(lightDir) * 0.6;
-        const ly1 = cy - ry * Math.sin(lightDir) * 0.6;
-        const grad = ctx.createLinearGradient(lx0, ly0, lx1, ly1);
-        grad.addColorStop(0, skin.rim);
-        grad.addColorStop(0.42, skin.top);
-        grad.addColorStop(1, skin.face);
-        ctx.fillStyle = grad;
+        const topGrad = ctx.createLinearGradient(cx, cy - ry, cx, cy + ry);
+        topGrad.addColorStop(0, skin.top);
+        topGrad.addColorStop(1, skin.body);
+        ctx.fillStyle = topGrad;
         ctx.fill();
 
-        // Top rim subtle outline
-        ctx.lineWidth = Math.max(1, rx * 0.04);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.stroke();
-
-        // Bright glossy specular highlight line strictly on the main front horizontal top chamfer cut
+        // 5. Soft white crescent specular sheen on front top chamfer edge
+        ctx.beginPath();
         for (let i = 0; i < 6; i++) {
           const p0 = pts[i];
           const p1 = pts[(i + 1) % 6];
           const midY = (p0.y + p1.y) / 2;
-          if (midY > cy - ry * 0.15) { // Front horizontal top chamfer edge
-            ctx.beginPath();
+          if (midY > cy - ry * 0.1) {
             ctx.moveTo(p0.x, p0.y);
             ctx.lineTo(p1.x, p1.y);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.lineWidth = Math.max(1.5, rx * 0.07);
-            ctx.lineCap = 'round';
-            ctx.stroke();
           }
         }
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.lineWidth = Math.max(1.4, rx * 0.06);
+        ctx.lineCap = 'round';
+        ctx.stroke();
 
-        // Threaded bore. A seated nut shows the shaft, a flying one shows a hole.
-        if (!o.shaftThrough) {
+        // 6. Central Bore Hole:
+        // Seated nuts show the white threaded bolt core (as in reference screenshot);
+        // Flying/lifted nuts show the dark hollow cylindrical bore.
+        if (o.shaftThrough !== false && !o.isFlying) {
+          // White threaded bolt core visible through center
           ctx.beginPath();
           ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
-          ctx.fillStyle = mixHex(skin.side, '#000000', 0.35);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fill();
+
+          // Soft inner rim shadow
+          ctx.lineWidth = 1.2;
+          ctx.strokeStyle = 'rgba(160, 175, 200, 0.85)';
+          ctx.stroke();
+
+          // Thread groove inside core
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, holeRx * 0.65, holeRy * 0.5, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(200, 210, 230, 0.7)';
+          ctx.stroke();
+        } else {
+          // Dark hollow bore for flying / lifting nuts
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
+          ctx.fillStyle = '#1D2436';
           ctx.fill();
           ctx.beginPath();
-          ctx.ellipse(cx, cy - holeRy * 0.12, holeRx * 0.86, holeRy * 0.8, 0, 0, Math.PI * 2);
-          ctx.fillStyle = shade('#000000', 0.3);
+          ctx.ellipse(cx, cy - holeRy * 0.15, holeRx * 0.85, holeRy * 0.75, 0, 0, Math.PI * 2);
+          ctx.fillStyle = '#0F1320';
           ctx.fill();
         }
 
-        // Question Mark on Hidden Nuts: Lowered deeply into front facet for 100% full unclipped visibility
+        // 7. Question Mark on Hidden Steel Nuts (Level 7 reference match)
         if (o.questionMark) {
           ctx.save();
-          const qy = cy + bandH * 0.78;
+          const qy = cy + bandH * 0.68;
           const qr = Math.min(rx * 0.40, bandH * 0.40);
 
           // Subtle shadow behind the badge
           ctx.beginPath();
           ctx.ellipse(cx, qy + 1.2, qr * 1.05, qr * 0.95, 0, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.38)';
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
           ctx.fill();
 
-          // Machined steel badge background
+          // Steel badge background
           ctx.beginPath();
           ctx.ellipse(cx, qy, qr, qr * 0.9, 0, 0, Math.PI * 2);
           ctx.fillStyle = '#90A4AE';
           ctx.fill();
-          ctx.lineWidth = 1.4;
+          ctx.lineWidth = 1.3;
           ctx.strokeStyle = '#FFFFFF';
           ctx.stroke();
 
           // Crisp bold centered white question mark
-          ctx.font = '900 ' + Math.round(rx * 0.82) + 'px "Fredoka", "Lilita One", sans-serif';
+          ctx.font = '900 ' + Math.round(rx * 0.84) + 'px "Fredoka", "Lilita One", sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillStyle = 'rgba(38, 50, 56, 0.65)';
@@ -1410,7 +1414,7 @@
         const ax = pad + rx;
         const ay = pad + ry;
         const skin = hidden ? HIDDEN_SKIN : NUT_PALETTE[cid];
-        Art.drawNut(c, ax, ay, rx, ry, band, 0, skin, { questionMark: hidden });
+        Art.drawNut(c, ax, ay, rx, ry, band, 0, skin, { questionMark: hidden, shaftThrough: true });
 
         sprite = { canvas: cv, w: w, h: h, ax: ax, ay: ay };
         this.map.set(key, sprite);
@@ -2816,14 +2820,14 @@
         c.fillStyle = g;
         c.fillRect(0, 0, w, h);
 
-        // Soft warm creamy glow under the play area
-        const glow = c.createRadialGradient(w * 0.5, h * 0.46, 0, w * 0.5, h * 0.46, w * 0.85);
-        glow.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
-        glow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        // Soft blue radial glow under the play area matching reference screenshot
+        const glow = c.createRadialGradient(w * 0.5, h * 0.44, 0, w * 0.5, h * 0.44, w * 0.82);
+        glow.addColorStop(0, 'rgba(80, 110, 240, 0.16)');
+        glow.addColorStop(1, 'rgba(80, 110, 240, 0)');
         c.fillStyle = glow;
         c.fillRect(0, 0, w, h);
 
-        const vig = c.createRadialGradient(w * 0.5, h * 0.5, w * 0.4, w * 0.5, h * 0.5, w * 1.05);
+        const vig = c.createRadialGradient(w * 0.5, h * 0.5, w * 0.35, w * 0.5, h * 0.5, w * 1.05);
         vig.addColorStop(0, 'rgba(0,0,0,0)');
         vig.addColorStop(1, THEME.vignette);
         c.fillStyle = vig;
@@ -3041,11 +3045,11 @@
           ctx.translate(-x, -(y + band * 0.5));
           Art.drawNut(ctx, x, y, rx, ry, band, 0, pal, {});
         } else if (live || Math.abs(spin) > 0.002) {
-          Art.drawNut(ctx, x, y, rx, ry, band, spin, nut.hidden ? HIDDEN_SKIN : pal, { questionMark: nut.hidden });
+          Art.drawNut(ctx, x, y, rx, ry, band, spin, nut.hidden ? HIDDEN_SKIN : pal, { questionMark: nut.hidden, isFlying: true, shaftThrough: false });
         } else {
           const sp = this.sprites.get(nut.c, nut.hidden, rx, ry, band);
           if (sp) ctx.drawImage(sp.canvas, x - sp.ax, y - sp.ay, sp.w, sp.h);
-          else Art.drawNut(ctx, x, y, rx, ry, band, 0, nut.hidden ? HIDDEN_SKIN : pal, { questionMark: nut.hidden });
+          else Art.drawNut(ctx, x, y, rx, ry, band, 0, nut.hidden ? HIDDEN_SKIN : pal, { questionMark: nut.hidden, shaftThrough: true });
         }
 
         ctx.restore();
@@ -3233,7 +3237,7 @@
         ctx.font = '900 ' + Math.round(27 * s) + 'px Fredoka, Lilita One, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#1E2548';
+        ctx.fillStyle = '#FFFFFF';
         ctx.fillText(title, this.width / 2, this.titleY);
         ctx.restore();
       }
