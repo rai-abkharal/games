@@ -865,131 +865,186 @@
         ctx.closePath();
       },
 
-      // A single real hex nut: solid 3D hexagonal prism with VERTICAL corner facet lines,
-      // no middle horizontal cut, central white bolt core, and lowered question mark.
      drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
-    const o = opts || {};
-    const pts = this.hexPoints(cx, cy, rx, ry, spin);
-    const holeRx = rx * 0.38, holeRy = ry * 0.38;
-    const color = skin.body || '#FFC700';
-    const light = skin.top || '#FFD54F';
-    const dark = skin.shadow || '#FFA000';
-    
-    // ===== SIDE FACES - REAL 3D HEXAGON =====
-    for (let i = 0; i < 6; i++) {
-        const p1 = pts[i];
-        const p2 = pts[(i + 1) % 6];
-        
-        // Only draw visible faces (facing viewer)
-        const midX = (p1.x + p2.x) / 2;
-        if (midX > cx - rx * 0.2) {
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.lineTo(p2.x, p2.y + bandH);
-            ctx.lineTo(p1.x, p1.y + bandH);
-            ctx.closePath();
-            
-            // Face lighting based on angle
-            const angle = (i / 6) * Math.PI * 2;
-            const bright = 0.5 + 0.5 * Math.cos(angle - Math.PI/6);
-            const faceColor = i % 2 === 0 ? 
-                mixHex(color, dark, 0.2 * (1 - bright)) :
-                mixHex(color, light, 0.3 * bright);
-            ctx.fillStyle = faceColor;
-            ctx.fill();
-            
-            // Edge lines for definition
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-            ctx.stroke();
-        }
-    }
-    
-    // ===== TOP FACE - WITH SHINE =====
-    this.tracePoly(ctx, pts, 0);
-    const topGrad = ctx.createRadialGradient(
-        cx - rx*0.3, cy - ry*0.3, 0,
-        cx, cy, rx
-    );
-    topGrad.addColorStop(0, light);
-    topGrad.addColorStop(0.5, color);
-    topGrad.addColorStop(1, dark);
-    ctx.fillStyle = topGrad;
-    ctx.fill();
-    
-    // Top shine spot
-    ctx.beginPath();
-    ctx.ellipse(cx - rx*0.2, cy - ry*0.3, rx*0.25, ry*0.18, -0.3, 0, Math.PI*2);
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.fill();
-    
-    // ===== BOTTOM SHADOW =====
-    this.tracePoly(ctx, pts, bandH);
-    ctx.fillStyle = 'rgba(0,0,0,0.15)';
-    ctx.fill();
-    
-    // ===== HOLE - BOLT CORE =====
-    if (o.shaftThrough !== false && !o.isFlying) {
-        // White bolt shaft visible through hole
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
-        ctx.fillStyle = '#F0F4FA';
-        ctx.fill();
-        
-        // Thread lines inside hole
-        for (let t = -2; t <= 2; t++) {
-            ctx.beginPath();
-            ctx.ellipse(cx, cy + t * holeRy * 0.3, holeRx * 0.8, holeRy * 0.15, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(180,195,215,0.5)';
-            ctx.lineWidth = 0.8;
-            ctx.stroke();
-        }
-    } else {
-        // Dark hollow
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
-        ctx.fillStyle = '#1A2035';
-        ctx.fill();
-    }
-    
-    // ===== CORNER HIGHLIGHTS =====
-    for (let i = 0; i < 6; i++) {
-        const p = pts[i];
-        if (p.y < cy) {
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p.x + 1, p.y + bandH * 0.2);
-            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-        }
-    }
-    
-    // ===== QUESTION MARK =====
-    if (o.questionMark) {
+        const o = opts || {};
+        const color = skin.body || '#FFC700';
+        const light = skin.top || '#FFD54F';
+        const dark = skin.shadow || '#FFA000';
+        const holeRx = rx * 0.34;
+        const holeRy = ry * 0.34;
+        const bevel = Math.max(1.8, rx * 0.10);
+        const sideDepth = Math.max(3, bandH * 0.62);
+        const topRy = Math.max(ry * 0.72, ry - bevel * 0.35);
+
         ctx.save();
-        const qy = cy + bandH * 0.7;
-        const qr = Math.min(rx * 0.32, bandH * 0.32);
-        
-        // Circle background
+        ctx.translate(cx, cy);
+        ctx.rotate(spin || 0);
+        ctx.translate(-cx, -cy);
+
+        // Ground/contact shadow gives stacked nuts a real separation from one another.
+        ctx.save();
+        ctx.globalAlpha = 0.18;
+        ctx.filter = 'blur(' + Math.max(1, rx * 0.08).toFixed(1) + 'px)';
+        ctx.fillStyle = '#07102E';
         ctx.beginPath();
-        ctx.ellipse(cx, qy, qr, qr * 0.85, 0, 0, Math.PI * 2);
-        ctx.fillStyle = '#90A4AE';
+        ctx.ellipse(cx, cy + bandH * 0.92, rx * 0.88, ry * 0.28, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        
-        // Question text
-        ctx.font = '900 ' + Math.round(rx * 0.7) + 'px "Fredoka", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillText('?', cx, qy + 1);
         ctx.restore();
-    }
-}
+
+        const pts = this.hexPoints(cx, cy, rx, topRy, 0);
+        const innerPts = this.hexPoints(cx, cy, holeRx * 1.22, holeRy * 1.08, 0);
+        const innerDarkPts = this.hexPoints(cx, cy, holeRx * 0.86, holeRy * 0.82, 0);
+
+        // Deep lower body / side wall. Draw several slightly darker layers so the
+        // object keeps its thickness even when the top face is rotating.
+        for (let layer = 3; layer >= 0; layer--) {
+          const off = sideDepth * (0.55 + layer * 0.16);
+          const sidePts = pts.map(q => ({x:q.x, y:q.y + off}));
+          this.tracePoly(ctx, sidePts, 0);
+          const t = 0.42 + layer * 0.07;
+          ctx.fillStyle = mixHex(dark, color, t);
+          ctx.fill();
+        }
+
+        // Visible front side faces with alternating light/shadow.
+        for (let i = 0; i < 6; i++) {
+          const a = pts[i];
+          const b = pts[(i + 1) % 6];
+          if ((a.y + b.y) * 0.5 < cy - ry * 0.05) continue;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.lineTo(b.x, b.y + sideDepth);
+          ctx.lineTo(a.x, a.y + sideDepth);
+          ctx.closePath();
+          const f = 0.5 + 0.5 * Math.cos((i - 1) * Math.PI / 3);
+          ctx.fillStyle = mixHex(dark, light, 0.18 + f * 0.22);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(0,0,0,0.14)';
+          ctx.lineWidth = Math.max(0.7, rx * 0.018);
+          ctx.stroke();
+        }
+
+        // Bottom lip.
+        this.tracePoly(ctx, pts, sideDepth);
+        ctx.fillStyle = 'rgba(10,18,45,0.20)';
+        ctx.fill();
+
+        // Main top face.
+        this.tracePoly(ctx, pts, 0);
+        const topGrad = ctx.createLinearGradient(cx - rx, cy - ry, cx + rx, cy + ry);
+        topGrad.addColorStop(0, light);
+        topGrad.addColorStop(0.32, color);
+        topGrad.addColorStop(0.72, color);
+        topGrad.addColorStop(1, dark);
+        ctx.fillStyle = topGrad;
+        ctx.fill();
+
+        // Beveled outer rim: a slightly smaller face gives the chunky reference look.
+        const rimPts = pts.map(q => ({
+          x: cx + (q.x - cx) * 0.88,
+          y: cy + (q.y - cy) * 0.84
+        }));
+        this.tracePoly(ctx, rimPts, -0.35);
+        const rimGrad = ctx.createRadialGradient(cx - rx*0.35, cy - ry*0.35, 0, cx, cy, rx);
+        rimGrad.addColorStop(0, light);
+        rimGrad.addColorStop(0.58, color);
+        rimGrad.addColorStop(1, dark);
+        ctx.fillStyle = rimGrad;
+        ctx.fill();
+
+        // Central recessed opening.
+        this.tracePoly(ctx, innerPts, 0.5);
+        const holeGrad = ctx.createRadialGradient(cx - holeRx*0.22, cy - holeRy*0.25, 0, cx, cy, holeRx * 1.3);
+        holeGrad.addColorStop(0, '#0D1734');
+        holeGrad.addColorStop(0.72, '#182343');
+        holeGrad.addColorStop(1, '#050B20');
+        ctx.fillStyle = holeGrad;
+        ctx.fill();
+
+        // Metallic inner wall / rim.
+        ctx.save();
+        ctx.globalAlpha = 0.72;
+        this.tracePoly(ctx, innerPts, -0.2);
+        ctx.strokeStyle = light;
+        ctx.lineWidth = Math.max(1.5, rx * 0.055);
+        ctx.stroke();
+        ctx.restore();
+
+        // Deep inner opening.
+        this.tracePoly(ctx, innerDarkPts, 1.1);
+        ctx.fillStyle = '#050A1B';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.13)';
+        ctx.lineWidth = Math.max(0.8, rx * 0.025);
+        ctx.stroke();
+
+        // A little metallic inner reflection makes the hole read as a real cavity.
+        ctx.save();
+        ctx.globalAlpha = 0.28;
+        ctx.beginPath();
+        ctx.ellipse(cx - holeRx * 0.26, cy - holeRy * 0.22, holeRx * 0.38, holeRy * 0.16, -0.25, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.restore();
+
+        // Bolt/shaft visible through a resting nut. Flying nuts intentionally hide
+        // the shaft so the nut looks like a separate physical object in transit.
+        if (o.shaftThrough !== false && !o.isFlying) {
+          ctx.save();
+          ctx.globalAlpha = 0.98;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy + 0.8, holeRx * 0.67, holeRy * 0.67, 0, 0, Math.PI * 2);
+          const shaftGrad = ctx.createLinearGradient(cx - holeRx, cy, cx + holeRx, cy);
+          shaftGrad.addColorStop(0, '#AAB5CA');
+          shaftGrad.addColorStop(0.28, '#F3F6FC');
+          shaftGrad.addColorStop(0.52, '#FFFFFF');
+          shaftGrad.addColorStop(0.78, '#D8E0EE');
+          shaftGrad.addColorStop(1, '#8F9BB1');
+          ctx.fillStyle = shaftGrad;
+          ctx.fill();
+          for (let t = -2; t <= 2; t++) {
+            ctx.beginPath();
+            ctx.ellipse(cx, cy + t * holeRy * 0.24, holeRx * 0.60, holeRy * 0.075, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(105,120,145,0.55)';
+            ctx.lineWidth = Math.max(0.65, rx * 0.018);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // Soft top highlight, kept restrained so it does not look like a flat white sticker.
+        ctx.save();
+        ctx.globalAlpha = 0.23;
+        ctx.beginPath();
+        ctx.ellipse(cx - rx * 0.25, cy - ry * 0.30, rx * 0.32, ry * 0.14, -0.22, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.restore();
+
+        // Question-mark state for hidden nuts.
+        if (o.questionMark) {
+          ctx.save();
+          const qy = cy + bandH * 0.55;
+          const qr = Math.min(rx * 0.30, bandH * 0.31);
+          ctx.globalAlpha = 0.94;
+          ctx.beginPath();
+          ctx.ellipse(cx, qy, qr, qr * 0.82, 0, 0, Math.PI * 2);
+          ctx.fillStyle = '#9CA8B9';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.72)';
+          ctx.lineWidth = Math.max(1, rx * 0.035);
+          ctx.stroke();
+          ctx.font = '900 ' + Math.round(rx * 0.64) + 'px Fredoka, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText('?', cx, qy + 0.5);
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
     };
 
     Object.assign(Art, {
