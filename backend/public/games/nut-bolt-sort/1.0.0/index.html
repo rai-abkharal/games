@@ -862,8 +862,8 @@
         ctx.closePath();
       },
 
-      // A single hex nut drawn as an extruded prism. Facets and specular reflections
-      // dynamically react to rotation (spin) so 3D rotation is vividly visible!
+      // A single hex nut drawn as an extruded prism. Crisp 3D facet creases, specular top rim,
+      // and dynamically reacting reflections provide ultra-realistic tactile depth!
       drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
         const o = opts || {};
         const pts = this.hexPoints(cx, cy, rx, ry, spin);
@@ -895,17 +895,25 @@
           ctx.closePath();
           ctx.fillStyle = mixHex(skin.side, skin.face, light);
           ctx.fill();
+
+          // Crisp vertical facet corner edge highlight
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p0.x, p0.y + bandH);
+          ctx.strokeStyle = light > 0.5 ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.25)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
         }
 
         // Bottom shadow line grounds the nut against the one below it.
         ctx.save();
         this.tracePoly(ctx, pts, bandH);
         ctx.clip();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
         ctx.fillRect(cx - rx, cy + bandH - ry * 0.55, rx * 2, ry * 1.2);
         ctx.restore();
 
-        // Top face with rotating specular rim highlight.
+        // Top face with rotating glossy specular rim highlight.
         this.tracePoly(ctx, pts, 0);
         const lightDir = (spin || 0) - Math.PI * 0.75;
         const lx0 = cx + rx * Math.cos(lightDir) * 0.6;
@@ -914,13 +922,14 @@
         const ly1 = cy - ry * Math.sin(lightDir) * 0.6;
         const grad = ctx.createLinearGradient(lx0, ly0, lx1, ly1);
         grad.addColorStop(0, skin.rim);
-        grad.addColorStop(0.45, skin.top);
+        grad.addColorStop(0.42, skin.top);
         grad.addColorStop(1, skin.face);
         ctx.fillStyle = grad;
         ctx.fill();
 
-        ctx.lineWidth = Math.max(1, rx * 0.05);
-        ctx.strokeStyle = shade('#FFFFFF', 0.35);
+        // Sharp 3D top rim stroke
+        ctx.lineWidth = Math.max(1.2, rx * 0.055);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
         ctx.stroke();
 
         // Threaded bore. A seated nut shows the shaft, a flying one shows a hole.
@@ -935,16 +944,16 @@
           ctx.fill();
         }
 
-        // Question Mark on Hidden Nuts: Centered steel badge with bold white "?" matching reference screenshot!
+        // Question Mark on Hidden Nuts: Lowered perfectly in visible front facet
         if (o.questionMark) {
           ctx.save();
-          const qy = cy + bandH * 0.58;
-          const qr = Math.min(rx * 0.42, bandH * 0.44);
+          const qy = cy + bandH * 0.66;
+          const qr = Math.min(rx * 0.42, bandH * 0.42);
 
           // Subtle shadow behind the badge
           ctx.beginPath();
           ctx.ellipse(cx, qy + 1.2, qr * 1.05, qr * 0.95, 0, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.38)';
           ctx.fill();
 
           // Machined steel badge background
@@ -957,7 +966,7 @@
           ctx.stroke();
 
           // Crisp bold centered white question mark
-          ctx.font = '900 ' + Math.round(rx * 0.88) + 'px "Fredoka", "Lilita One", sans-serif';
+          ctx.font = '900 ' + Math.round(rx * 0.86) + 'px "Fredoka", "Lilita One", sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillStyle = 'rgba(38, 50, 56, 0.65)';
@@ -1550,8 +1559,10 @@
           } else if (p.type === 'STAR') {
             p.vy += 180 * dt;
             p.vx *= 0.97;
+          } else if (p.type === 'SIDE_TWINKLE') {
+            p.y += p.vy * dt;
+            p.x += p.vx * dt;
           } else if (p.type === 'STAR_SWEEP') {
-            // Move inward towards middle and softly dim
             const distToMid = Math.abs(p.x - p.midX);
             const midFrac = clamp(distToMid / (p.midX * 0.88), 0, 1);
             p.alpha = midFrac * Math.min(1, p.life / (p.maxLife * 0.25));
@@ -1591,6 +1602,12 @@
             ctx.translate(p.x, p.y);
             ctx.rotate(p.rot);
             Art.glyphStar(ctx, 0, 0, p.size * (0.4 + k * 0.6), p.color, null);
+          } else if (p.type === 'SIDE_TWINKLE') {
+            const twinkle = Math.abs(Math.sin((p.maxLife - p.life) * 8 + (p.pulseOffset || 0)));
+            ctx.globalAlpha = Math.min(1, k * 1.6) * (0.3 + twinkle * 0.7);
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot);
+            Art.glyphStar(ctx, 0, 0, p.size * (0.4 + twinkle * 0.6), p.color, '#FFFFFF');
           } else if (p.type === 'STAR_SWEEP') {
             const starAlpha = p.alpha !== undefined ? p.alpha : Math.min(1, k * 1.5);
             ctx.globalAlpha = starAlpha;
@@ -1812,6 +1829,49 @@
             size: 7 + Math.random() * 8,
             rot: Math.random() * 6.28,
             vRot: (Math.random() - 0.5) * 8,
+            color: colors[Math.floor(Math.random() * colors.length)]
+          });
+        }
+      }
+
+      // Dynamic shimmering star dust that flashes on left and right margins upon bolt completion
+      sideTwinkleBurst(w, h) {
+        const colors = ['#FFE9A0', '#FFFFFF', '#B6E4FF', '#FFD3E4', '#DCF7B4', '#FFA726', '#EA80FC'];
+        // Left margin shimmering stars
+        for (let i = 0; i < 22; i++) {
+          const px = Math.random() * w * 0.16;
+          const py = h * 0.16 + Math.random() * h * 0.68;
+          this.items.push({
+            type: 'SIDE_TWINKLE',
+            x: px,
+            y: py,
+            vx: (Math.random() - 0.5) * 6,
+            vy: -8 - Math.random() * 14,
+            life: 1.4 + Math.random() * 0.4,
+            maxLife: 1.8,
+            size: 6 + Math.random() * 7,
+            pulseOffset: Math.random() * Math.PI * 2,
+            rot: Math.random() * 6.28,
+            vRot: (Math.random() - 0.5) * 4,
+            color: colors[Math.floor(Math.random() * colors.length)]
+          });
+        }
+        // Right margin shimmering stars
+        for (let i = 0; i < 22; i++) {
+          const px = w * 0.84 + Math.random() * w * 0.16;
+          const py = h * 0.16 + Math.random() * h * 0.68;
+          this.items.push({
+            type: 'SIDE_TWINKLE',
+            x: px,
+            y: py,
+            vx: (Math.random() - 0.5) * 6,
+            vy: -8 - Math.random() * 14,
+            life: 1.4 + Math.random() * 0.4,
+            maxLife: 1.8,
+            size: 6 + Math.random() * 7,
+            pulseOffset: Math.random() * Math.PI * 2,
+            rot: Math.random() * 6.28,
+            vRot: (Math.random() - 0.5) * 4,
             color: colors[Math.floor(Math.random() * colors.length)]
           });
         }
@@ -2468,7 +2528,7 @@
         bolt.shine = 0;
         this.sweep = 0;
         this.particles.capConfettiBurst(bolt.x, bolt.shaftTopY);
-        this.particles.starSweepInward(this.width, this.height);
+        this.particles.sideTwinkleBurst(this.width, this.height);
         this.synth.playGroupComplete();
         this.screenShake = Math.max(this.screenShake, 3.2);
         this.haptic('success');
@@ -2752,30 +2812,6 @@
         const glow = c.createRadialGradient(w * 0.5, h * 0.46, 0, w * 0.5, h * 0.46, w * 0.85);
         glow.addColorStop(0, 'rgba(96, 128, 255, 0.16)');
         glow.addColorStop(1, 'rgba(96, 128, 255, 0)');
-        c.fillStyle = glow;
-        c.fillRect(0, 0, w, h);
-
-        // Ambient twinkling margin star dust matching reference screenshots
-        for (let i = 0; i < 40; i++) {
-          // Left side margin sparkles
-          const lx = Math.random() * w * 0.16;
-          const ly = h * 0.18 + Math.random() * h * 0.65;
-          const lr = Math.random() * 2.2 + 0.8;
-          c.beginPath();
-          c.arc(lx, ly, lr, 0, Math.PI * 2);
-          c.fillStyle = 'rgba(255, 235, 180, ' + (0.15 + Math.random() * 0.35).toFixed(3) + ')';
-          c.fill();
-
-          // Right side margin sparkles
-          const rx = w * 0.84 + Math.random() * w * 0.16;
-          const ry = h * 0.18 + Math.random() * h * 0.65;
-          const rr = Math.random() * 2.2 + 0.8;
-          c.beginPath();
-          c.arc(rx, ry, rr, 0, Math.PI * 2);
-          c.fillStyle = 'rgba(255, 235, 180, ' + (0.15 + Math.random() * 0.35).toFixed(3) + ')';
-          c.fill();
-        }
-
         const vig = c.createRadialGradient(w * 0.5, h * 0.5, w * 0.35, w * 0.5, h * 0.5, w * 1.05);
         vig.addColorStop(0, 'rgba(0,0,0,0)');
         vig.addColorStop(1, THEME.vignette);
@@ -2895,42 +2931,47 @@
 
         const heldRun = this.selected === index ? bolt.topRun() : 0;
         const liftFrom = bolt.nuts.length - heldRun;
-        let topY = null;
 
-        for (let i = 0; i < bolt.nuts.length; i++) {
+        // 1. Draw resting (non-lifted) nuts first
+        for (let i = 0; i < liftFrom; i++) {
+          const nut = bolt.nuts[i];
+          const y = bolt.nutSlotY(i);
+          this.paintNut(ctx, bx, y, bolt, nut, 0, 1, false, 0);
+        }
+
+        // 2. Redraw the exposed thread shaft emerging above the highest resting nut
+        if (!bolt.complete || bolt.nuts.length < bolt.capacity) {
+          const restingTopY = liftFrom > 0 ? bolt.nutSlotY(liftFrom - 1) : null;
+          const capBottom = restingTopY === null ? bolt.baseY : Math.min(bolt.baseY, restingTopY + bolt.ry * 0.2);
+          if (capBottom > bolt.shaftTopY + 1) {
+            Art.drawShaft(ctx, bx, bolt.shaftTopY, capBottom, bolt.shaftW, bolt.threadPhase);
+          }
+        }
+
+        // 3. Draw lifted (hovering) nuts with proper clearance above the shaft
+        for (let i = liftFrom; i < bolt.nuts.length; i++) {
           const nut = bolt.nuts[i];
           let y = bolt.nutSlotY(i);
           let spin = 0;
           let alpha = 1;
-          let live = false;
 
           if (nut.introT !== undefined && nut.introT < 1) {
-            // Assembly cascade: the nut screws down onto its post.
             const e = easeOutCubic(nut.introT);
             y -= (1 - e) * (bolt.band * 4 + bolt.rx * 1.6);
             spin = -(1 - e) * Math.PI * 2 * 1.3;
             alpha = clamp(nut.introT * 4, 0, 1);
-            live = true;
-          } else if (heldRun > 0 && i >= liftFrom) {
+          } else if (heldRun > 0) {
             y -= bolt.lift + Math.sin(this.time * 4.2) * bolt.ry * 0.14;
             spin = Math.sin(this.time * 3.1) * 0.13;
-            live = true;
           }
 
-          this.paintNut(ctx, bx, y, bolt, nut, spin, alpha, live, 0);
-          topY = y;
+          this.paintNut(ctx, bx, y, bolt, nut, spin, alpha, true, 0);
         }
 
-        // When bolt is completed, render shining metallic cap on top!
+        // 4. When bolt is completed, render clean metallic cap on top!
         if (bolt.complete && bolt.nuts.length >= bolt.capacity) {
           const topSlotY = bolt.nutSlotY(bolt.nuts.length - 1);
           Art.drawBoltCap(ctx, bx, topSlotY - bolt.ry * 0.16, bolt.rx, bolt.ry, bolt.completeGlow);
-        } else {
-          // Redraw the tip so the thread emerges through the top nut bore.
-          const capBottom = topY === null ? bolt.baseY : Math.min(bolt.baseY, topY + bolt.ry * 0.2);
-          if (capBottom > bolt.shaftTopY + 1) {
-            Art.drawShaft(ctx, bx, bolt.shaftTopY, capBottom, bolt.shaftW, bolt.threadPhase);
-          }
         }
 
         // Local shine that wipes across the bolt when its colour completes.
