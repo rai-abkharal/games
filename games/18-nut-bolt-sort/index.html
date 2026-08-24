@@ -865,107 +865,151 @@
 
       // A single real hex nut: solid 3D hexagonal prism with VERTICAL corner facet lines,
       // no middle horizontal cut, central white bolt core, and lowered question mark.
-      drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
-        const o = opts || {};
-        const pts = this.hexPoints(cx, cy, rx, ry, spin);
-        const holeRx = rx * 0.40, holeRy = ry * 0.40;
-        const color = skin.body || skin.top || '#FFC700';
-
-        // 1. Solid extruded hexagonal prism body in 1 uniform color
-        this.tracePoly(ctx, pts, bandH);
-        ctx.fillStyle = color;
+     drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
+    const o = opts || {};
+    const pts = this.hexPoints(cx, cy, rx, ry, spin);
+    const holeRx = rx * 0.35, holeRy = ry * 0.35;
+    const color = skin.body || skin.top || '#FFC700';
+    const lightColor = skin.top || '#FFD54F';
+    const darkColor = skin.shadow || '#FFA000';
+    
+    // ===== EXTRUDED BODY (SIDE FACES) =====
+    // Draw each side face individually for realistic 3D effect
+    for (let i = 0; i < 6; i++) {
+        const p1 = pts[i];
+        const p2 = pts[(i + 1) % 6];
+        
+        // Determine if face is visible (facing front)
+        const midX = (p1.x + p2.x) / 2;
+        const faceVisible = midX > cx - rx * 0.3;
+        
+        if (faceVisible) {
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.lineTo(p2.x, p2.y + bandH);
+            ctx.lineTo(p1.x, p1.y + bandH);
+            ctx.closePath();
+            
+            // Light angle determines face brightness
+            const angle = Math.atan2(midX - cx, 0);
+            const brightness = 0.6 + 0.4 * (Math.cos(angle) * 0.5 + 0.5);
+            
+            // Mix base color with shadow/top for depth
+            const faceColor = i % 2 === 0 ? 
+                mixHex(color, darkColor, 0.15 * (1 - brightness)) :
+                mixHex(color, lightColor, 0.2 * brightness);
+            ctx.fillStyle = faceColor;
+            ctx.fill();
+            
+            // Sharp edge highlight on corners
+            ctx.lineWidth = 1.2;
+            ctx.strokeStyle = i % 2 === 0 ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+            ctx.stroke();
+        }
+    }
+    
+    // ===== TOP FACE =====
+    this.tracePoly(ctx, pts, 0);
+    const topGrad = ctx.createRadialGradient(cx - rx*0.2, cy - ry*0.3, 0, cx, cy, rx);
+    topGrad.addColorStop(0, lightColor);
+    topGrad.addColorStop(0.6, color);
+    topGrad.addColorStop(1, darkColor);
+    ctx.fillStyle = topGrad;
+    ctx.fill();
+    
+    // Top face highlight (shiny reflection)
+    ctx.beginPath();
+    ctx.ellipse(cx - rx*0.25, cy - ry*0.25, rx*0.3, ry*0.2, -0.5, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fill();
+    
+    // ===== BOTTOM SHADOW =====
+    this.tracePoly(ctx, pts, bandH);
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fill();
+    
+    // ===== CENTRAL BORE HOLE =====
+    if (o.shaftThrough !== false && !o.isFlying) {
+        // White bolt core visible
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
         ctx.fill();
-
-        // 2. Top face seamlessly filled in the exact same uniform color (no middle line)
-        this.tracePoly(ctx, pts, 0);
-        ctx.fillStyle = color;
+        
+        // Bolt thread detail inside hole
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, holeRx * 0.7, holeRy * 0.55, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(180,190,210,0.6)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        
+        // Center dot
+        ctx.beginPath();
+        ctx.arc(cx, cy, holeRx * 0.15, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(200,210,230,0.4)';
         ctx.fill();
-
-        // 3. Vertical facet corner crease lines (top to bottom on visible front corners)
-        for (let i = 0; i < 6; i++) {
-          const p = pts[i];
-          if (p.y >= cy - ry * 0.4) {
+    } else {
+        // Dark hollow bore
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
+        const holeGrad = ctx.createRadialGradient(cx - holeRx*0.3, cy - holeRy*0.3, 0, cx, cy, holeRx);
+        holeGrad.addColorStop(0, '#3A4055');
+        holeGrad.addColorStop(0.6, '#1A2030');
+        holeGrad.addColorStop(1, '#0A0F1A');
+        ctx.fillStyle = holeGrad;
+        ctx.fill();
+    }
+    
+    // ===== EDGE HIGHLIGHT (chamfered look) =====
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    for (let i = 0; i < 6; i++) {
+        const p = pts[i];
+        if (p.y < cy + ry * 0.2) {
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p.x, p.y + bandH);
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.14)';
-            ctx.lineWidth = 1.2;
+            ctx.lineTo(p.x, p.y + bandH * 0.15);
             ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(p.x + 0.8, p.y);
-            ctx.lineTo(p.x + 0.8, p.y + bandH);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-            ctx.lineWidth = 0.8;
-            ctx.stroke();
-          }
         }
-
-        // 4. Subtle bottom rounding shadow
+    }
+    
+    // ===== QUESTION MARK FOR HIDDEN NUTS =====
+    if (o.questionMark) {
         ctx.save();
-        this.tracePoly(ctx, pts, bandH);
-        ctx.clip();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
-        ctx.fillRect(cx - rx * 1.1, cy + bandH - ry * 0.4, rx * 2.2, ry * 0.9);
+        const qy = cy + bandH * 0.6;
+        const qr = Math.min(rx * 0.35, bandH * 0.35);
+        
+        // Shadow
+        ctx.beginPath();
+        ctx.ellipse(cx, qy + 2, qr * 1.1, qr * 0.9, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fill();
+        
+        // Question mark circle
+        ctx.beginPath();
+        ctx.ellipse(cx, qy, qr, qr * 0.85, 0, 0, Math.PI * 2);
+        const qGrad = ctx.createRadialGradient(cx - qr*0.3, qy - qr*0.3, 0, cx, qy, qr);
+        qGrad.addColorStop(0, '#D5DCE8');
+        qGrad.addColorStop(0.7, '#90A4AE');
+        qGrad.addColorStop(1, '#607D8B');
+        ctx.fillStyle = qGrad;
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.stroke();
+        
+        // Question mark text
+        ctx.font = '900 ' + Math.round(rx * 0.8) + 'px "Fredoka", "Lilita One", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(30,40,50,0.6)';
+        ctx.fillText('?', cx + 1, qy + 1.5);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('?', cx, qy);
         ctx.restore();
-
-        // 5. Central Bore Hole:
-        // Seated nuts show the white threaded bolt core;
-        // Flying/lifted nuts show the dark hollow bore.
-        if (o.shaftThrough !== false && !o.isFlying) {
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fill();
-
-          ctx.lineWidth = 1.2;
-          ctx.strokeStyle = 'rgba(160, 175, 200, 0.85)';
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, holeRx * 0.65, holeRy * 0.5, 0, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(200, 210, 230, 0.7)';
-          ctx.stroke();
-        } else {
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#1D2436';
-          ctx.fill();
-          ctx.beginPath();
-          ctx.ellipse(cx, cy - holeRy * 0.15, holeRx * 0.85, holeRy * 0.75, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#0F1320';
-          ctx.fill();
-        }
-
-        // 6. Question Mark on Hidden Steel Nuts (Lowered to 1.20)
-        if (o.questionMark) {
-          ctx.save();
-          const qy = cy + bandH * 1.20;
-          const qr = Math.min(rx * 0.38, bandH * 0.38);
-
-          ctx.beginPath();
-          ctx.ellipse(cx, qy + 1.2, qr * 1.05, qr * 0.95, 0, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.ellipse(cx, qy, qr, qr * 0.9, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#90A4AE';
-          ctx.fill();
-          ctx.lineWidth = 1.3;
-          ctx.strokeStyle = '#FFFFFF';
-          ctx.stroke();
-
-          ctx.font = '900 ' + Math.round(rx * 0.82) + 'px "Fredoka", "Lilita One", sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillStyle = 'rgba(38, 50, 56, 0.65)';
-          ctx.fillText('?', cx + 0.6, qy + 1.2);
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillText('?', cx, qy);
-          ctx.restore();
-        }
-      }
+    }
+}
     };
 
     Object.assign(Art, {
