@@ -1,0 +1,3354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Nut &amp; Bolt Sort - 3D Screw Puzzle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800;900&family=Lilita+One&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0a1046;
+      font-family: 'Fredoka', 'Lilita One', 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    #gameCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+  (function() {
+    'use strict';
+
+    // Universal Bulletproof roundRect Implementation for 100% Android WebView Compatibility
+    CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, radii) {
+      if (w === 0 || h === 0) return this;
+      if (!radii) radii = 0;
+      if (typeof radii === 'number') {
+        radii = [radii, radii, radii, radii];
+      } else if (Array.isArray(radii)) {
+        if (radii.length === 1) radii = [radii[0], radii[0], radii[0], radii[0]];
+        else if (radii.length === 2) radii = [radii[0], radii[1], radii[0], radii[1]];
+        else if (radii.length === 3) radii = [radii[0], radii[1], radii[2], radii[1]];
+        else if (radii.length >= 4) radii = [radii[0], radii[1], radii[2], radii[3]];
+      } else {
+        radii = [0, 0, 0, 0];
+      }
+
+      var maxR = Math.min(Math.abs(w) / 2, Math.abs(h) / 2);
+      var rTL = Math.min(Math.max(0, Number(radii[0]) || 0), maxR);
+      var rTR = Math.min(Math.max(0, Number(radii[1]) || 0), maxR);
+      var rBR = Math.min(Math.max(0, Number(radii[2]) || 0), maxR);
+      var rBL = Math.min(Math.max(0, Number(radii[3]) || 0), maxR);
+
+      this.moveTo(x + rTL, y);
+      this.lineTo(x + w - rTR, y);
+      if (rTR > 0) this.quadraticCurveTo(x + w, y, x + w, y + rTR);
+      this.lineTo(x + w, y + h - rBR);
+      if (rBR > 0) this.quadraticCurveTo(x + w, y + h, x + w - rBR, y + h);
+      this.lineTo(x + rBL, y + h);
+      if (rBL > 0) this.quadraticCurveTo(x, y + h, x, y + h - rBL);
+      this.lineTo(x, y + rTL);
+      if (rTL > 0) this.quadraticCurveTo(x, y, x + rTL, y);
+      this.closePath();
+      return this;
+    };
+
+    // ========================================================================
+    // 1. PALETTES & CONFIGURATION
+    // ========================================================================
+    // Hex-nut colours sampled from the reference art. Every nut is shaded as a
+    // small extruded prism, so each entry carries a top face, a lit side, a
+    // shadowed side and a rim tint.
+    const NUT_PALETTE = [
+      {
+        id: 0, name: 'Amber Gold',
+        top: '#FFD84D', face: '#FFC01F', side: '#E8A100', rim: '#FFE9A0',
+        glow: 'rgba(255, 192, 31, 0.45)',
+        sparks: ['#FFE9A0', '#FFC01F', '#FFFFFF', '#FFAA00']
+      },
+      {
+        id: 1, name: 'Azure Blue',
+        top: '#5EC2F7', face: '#2AA5F0', side: '#0F7CC4', rim: '#B6E4FF',
+        glow: 'rgba(42, 165, 240, 0.45)',
+        sparks: ['#B6E4FF', '#2AA5F0', '#FFFFFF', '#0F7CC4']
+      },
+      {
+        id: 2, name: 'Pearl Lavender',
+        top: '#E4E1F2', face: '#CBC7E2', side: '#A7A2C4', rim: '#FFFFFF',
+        glow: 'rgba(203, 199, 226, 0.42)',
+        sparks: ['#FFFFFF', '#E4E1F2', '#CBC7E2', '#A7A2C4']
+      },
+      {
+        id: 3, name: 'Ember Orange',
+        top: '#FF8459', face: '#FF5B2E', side: '#D13A12', rim: '#FFC7B2',
+        glow: 'rgba(255, 91, 46, 0.45)',
+        sparks: ['#FFC7B2', '#FF5B2E', '#FFFFFF', '#D13A12']
+      },
+      {
+        id: 4, name: 'Lime Green',
+        top: '#A5E85C', face: '#7FD525', side: '#57A80C', rim: '#DCF7B4',
+        glow: 'rgba(127, 213, 37, 0.45)',
+        sparks: ['#DCF7B4', '#7FD525', '#FFFFFF', '#57A80C']
+      },
+      {
+        id: 5, name: 'Orchid Magenta',
+        top: '#DA74D6', face: '#C348C0', side: '#932690', rim: '#F2C4F0',
+        glow: 'rgba(195, 72, 192, 0.45)',
+        sparks: ['#F2C4F0', '#C348C0', '#FFFFFF', '#932690']
+      },
+      {
+        id: 6, name: 'Turquoise',
+        top: '#54DFD2', face: '#18C8B8', side: '#079C8F', rim: '#B7F4EE',
+        glow: 'rgba(24, 200, 184, 0.45)',
+        sparks: ['#B7F4EE', '#18C8B8', '#FFFFFF', '#079C8F']
+      },
+      {
+        id: 7, name: 'Rose Pink',
+        top: '#FF9BC2', face: '#FF6FA8', side: '#DB3F7F', rim: '#FFD3E4',
+        glow: 'rgba(255, 111, 168, 0.45)',
+        sparks: ['#FFD3E4', '#FF6FA8', '#FFFFFF', '#DB3F7F']
+      }
+    ];
+
+    // Undiscovered nuts hide behind a machined steel shell with a "?" stamp.
+    const HIDDEN_SKIN = {
+      top: '#B9BDCE', face: '#9198AE', side: '#6B7288', rim: '#D7DAE6'
+    };
+
+    // Shared metal tones for threaded shafts and washer bases.
+    const METAL = {
+      shaftLight: '#FFFFFF',
+      shaftMid: '#E7EAF3',
+      shaftDark: '#B9BFD2',
+      threadLine: 'rgba(120, 128, 152, 0.55)',
+      baseTop: '#FFFFFF',
+      baseMid: '#EDEFF7',
+      baseEdge: '#C3C8DA',
+      baseShadow: 'rgba(4, 8, 40, 0.45)',
+      lockedTop: '#5A6086',
+      lockedFace: '#464C72',
+      lockedEdge: '#33385C'
+    };
+
+    const THEME = {
+      bgTop: '#141C6B',
+      bgMid: '#0C1350',
+      bgBottom: '#060A2E',
+      vignette: 'rgba(2, 4, 24, 0.55)',
+      panel: '#4B1FA8',
+      panelDeep: '#37147F',
+      panelEdge: '#6B34D6',
+      capsuleFill: '#F3EEFF',
+      capsuleEdge: '#B79BEE',
+      chipFill: '#A625DC',
+      chipDeep: '#7A129F',
+      chipEdge: '#D46BF5',
+      text: '#F2EEFF',
+      textDim: 'rgba(226, 219, 255, 0.72)',
+      good: '#6BE04B',
+      bad: '#FF3B5C'
+    };
+
+    const STORE_KEYS = {
+      level: 'nut_bolt_level',
+      coins: 'nut_bolt_coins',
+      best: 'nut_bolt_best_level'
+    };
+
+    const COINS_PER_LEVEL = 15;
+
+    // Timing table for the multi-phase screw animation. Values are fractions of
+    // one move so the whole sequence can be eased from a single 0..1 progress.
+    const MOVE_PHASE = {
+      unscrewEnd: 0.24,
+      travelEnd: 0.62,
+      screwEnd: 0.92
+    };
+
+    // ========================================================================
+    // 2. PROCEDURAL SOUND SYNTHESIZER (Web Audio API)
+    // ========================================================================
+    // Every effect is synthesised on the fly: the bundle ships zero audio files
+    // so it stays inside the mini-game size budget and works fully offline.
+    class SoundSynth {
+      constructor() {
+        this.ctx = null;
+        this.isMuted = false;
+        this.noiseBuffer = null;
+        this.master = null;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          try {
+            this.ctx = new AudioCtx();
+          } catch (e) {
+            this.ctx = null;
+            return;
+          }
+          try {
+            this.master = this.ctx.createGain();
+            this.master.gain.value = 0.9;
+            this.master.connect(this.ctx.destination);
+          } catch (e) {
+            this.master = null;
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      get out() {
+        return this.master || (this.ctx ? this.ctx.destination : null);
+      }
+
+      ready() {
+        if (this.isMuted) return false;
+        this.init();
+        return !!this.ctx;
+      }
+
+      toggleMute() {
+        this.isMuted = !this.isMuted;
+        return this.isMuted;
+      }
+
+      getNoiseBuffer() {
+        if (this.noiseBuffer || !this.ctx) return this.noiseBuffer;
+        const len = Math.floor(this.ctx.sampleRate * 0.35);
+        const buffer = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < len; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        this.noiseBuffer = buffer;
+        return buffer;
+      }
+
+      // One short filtered noise click - the atom of every metallic ratchet.
+      click(time, freq, gainValue, dur) {
+        const buffer = this.getNoiseBuffer();
+        if (!buffer) return;
+        const src = this.ctx.createBufferSource();
+        const filter = this.ctx.createBiquadFilter();
+        const gain = this.ctx.createGain();
+        src.buffer = buffer;
+        src.playbackRate.value = 1.4;
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(freq, time);
+        filter.Q.value = 6;
+        gain.gain.setValueAtTime(gainValue, time);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+        src.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.out);
+        src.start(time);
+        src.stop(time + dur + 0.01);
+      }
+
+      tone(time, type, f0, f1, gainValue, dur, glideShape) {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(f0, time);
+        if (glideShape === 'linear') {
+          osc.frequency.linearRampToValueAtTime(f1, time + dur);
+        } else {
+          osc.frequency.exponentialRampToValueAtTime(Math.max(20, f1), time + dur);
+        }
+        gain.gain.setValueAtTime(0.0001, time);
+        gain.gain.exponentialRampToValueAtTime(gainValue, time + Math.min(0.02, dur * 0.2));
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+        osc.connect(gain);
+        gain.connect(this.out);
+        osc.start(time);
+        osc.stop(time + dur + 0.02);
+      }
+
+      // Threaded ratchet: evenly spaced clicks whose pitch tracks the direction
+      // of travel, so unscrewing and screwing read as opposite motions.
+      ratchet(dur, clicks, startFreq, endFreq, gainValue) {
+        if (!this.ready()) return;
+        const t = this.ctx.currentTime;
+        for (let i = 0; i < clicks; i++) {
+          const k = clicks <= 1 ? 0 : i / (clicks - 1);
+          const at = t + k * dur;
+          const freq = startFreq + (endFreq - startFreq) * k;
+          this.click(at, freq, gainValue * (0.75 + 0.25 * (1 - k)), 0.045);
+        }
+      }
+
+      playUnscrew(units) {
+        if (!this.ready()) return;
+        const n = Math.max(1, Math.min(4, units || 1));
+        this.ratchet(0.2 + n * 0.03, 8 + n * 2, 2600, 1250, 0.2);
+        this.tone(this.ctx.currentTime, 'triangle', 620, 300, 0.12, 0.24, 'exp');
+      }
+
+      playScrew(units) {
+        if (!this.ready()) return;
+        const n = Math.max(1, Math.min(4, units || 1));
+        this.ratchet(0.22 + n * 0.03, 9 + n * 2, 1200, 2800, 0.19);
+        this.tone(this.ctx.currentTime, 'triangle', 320, 700, 0.12, 0.26, 'exp');
+      }
+
+      // The satisfying thunk of a nut bottoming out against the washer.
+      playSeat() {
+        if (!this.ready()) return;
+        const t = this.ctx.currentTime;
+        this.tone(t, 'sine', 260, 120, 0.3, 0.14, 'exp');
+        this.click(t, 3400, 0.16, 0.05);
+        this.tone(t + 0.01, 'square', 900, 560, 0.05, 0.08, 'exp');
+      }
+
+      playSelect() {
+        if (!this.ready()) return;
+        const t = this.ctx.currentTime;
+        this.tone(t, 'triangle', 420, 780, 0.18, 0.13, 'exp');
+        this.click(t, 2800, 0.1, 0.04);
+      }
+
+      playTap() {
+        if (!this.ready()) return;
+        this.tone(this.ctx.currentTime, 'sine', 520, 800, 0.16, 0.08, 'exp');
+      }
+
+      playButton() {
+        if (!this.ready()) return;
+        const t = this.ctx.currentTime;
+        this.tone(t, 'sine', 660, 990, 0.2, 0.09, 'exp');
+        this.tone(t + 0.05, 'sine', 990, 1320, 0.12, 0.09, 'exp');
+      }
+
+      playError() {
+        if (!this.ready()) return;
+        const t = this.ctx.currentTime;
+        this.tone(t, 'sawtooth', 190, 110, 0.14, 0.18, 'linear');
+        this.tone(t + 0.06, 'sawtooth', 160, 92, 0.11, 0.16, 'linear');
+        this.click(t, 700, 0.1, 0.06);
+      }
+
+      playReveal() {
+        if (!this.ready()) return;
+        const t = this.ctx.currentTime;
+        this.tone(t, 'sine', 900, 1500, 0.13, 0.16, 'exp');
+        this.tone(t + 0.05, 'sine', 1500, 2100, 0.09, 0.14, 'exp');
+      }
+
+      playUnlock() {
+        if (!this.ready()) return;
+        const t = this.ctx.currentTime;
+        this.click(t, 1800, 0.2, 0.07);
+        this.tone(t + 0.04, 'triangle', 520, 1040, 0.18, 0.2, 'exp');
+        this.tone(t + 0.14, 'sine', 1040, 1560, 0.12, 0.18, 'exp');
+      }
+
+      playHint() {
+        if (!this.ready()) return;
+        const t = this.ctx.currentTime;
+        [880, 1108, 1318].forEach((f, i) => {
+          this.tone(t + i * 0.06, 'sine', f, f * 1.5, 0.11, 0.16, 'exp');
+        });
+      }
+
+      // Fires when one bolt has been sorted into a single solid colour.
+      playGroupComplete() {
+        if (!this.ready()) return;
+        const t = this.ctx.currentTime;
+        const notes = [784, 988, 1175, 1568];
+        notes.forEach((f, i) => {
+          this.tone(t + i * 0.055, 'sine', f, f, 0.14, 0.38, 'linear');
+          this.tone(t + i * 0.055, 'triangle', f * 2, f * 2, 0.045, 0.22, 'linear');
+        });
+        this.click(t, 5200, 0.08, 0.09);
+      }
+
+      playLevelWin() {
+        if (!this.ready()) return;
+        const t = this.ctx.currentTime;
+        const melody = [523, 659, 784, 1047, 1319];
+        melody.forEach((f, i) => {
+          this.tone(t + i * 0.09, 'triangle', f, f, 0.16, 0.42, 'linear');
+          this.tone(t + i * 0.09, 'sine', f * 2, f * 2, 0.06, 0.3, 'linear');
+        });
+        this.tone(t + 0.46, 'sine', 1568, 1568, 0.18, 0.7, 'linear');
+        for (let i = 0; i < 6; i++) {
+          this.click(t + 0.42 + i * 0.045, 4200 + i * 400, 0.06, 0.1);
+        }
+      }
+
+      playSpecialWin() {
+        if (!this.ready()) return;
+        const t = this.ctx.currentTime;
+        const chord = [523, 659, 784, 1047];
+        chord.forEach((f) => this.tone(t, 'triangle', f, f, 0.12, 0.9, 'linear'));
+        [1047, 1319, 1568, 2093].forEach((f, i) => {
+          this.tone(t + 0.18 + i * 0.08, 'sine', f, f, 0.14, 0.5, 'linear');
+        });
+        for (let i = 0; i < 10; i++) {
+          this.click(t + 0.2 + i * 0.05, 3800 + Math.random() * 2600, 0.05, 0.12);
+        }
+      }
+
+      playTick() {
+        if (!this.ready()) return;
+        this.click(this.ctx.currentTime, 2100, 0.13, 0.055);
+      }
+
+      playCoin() {
+        if (!this.ready()) return;
+        const t = this.ctx.currentTime;
+        this.tone(t, 'square', 1318, 1318, 0.07, 0.07, 'linear');
+        this.tone(t + 0.05, 'square', 1760, 1760, 0.06, 0.12, 'linear');
+      }
+    }
+
+    // ========================================================================
+    // 3. LEVEL GENERATOR (guaranteed solvable via reverse simulation)
+    // ========================================================================
+    class LevelGenerator {
+      // Difficulty curve. Bolts grow longer, colours multiply, guidance fades
+      // and hidden nuts appear so the ramp never spikes.
+      static config(level) {
+        const lvl = Math.max(1, level | 0);
+        const isSpecial = lvl >= 10 && lvl % 10 === 0;
+
+        // Bolt length (nuts per bolt) climbs with progression. Special levels
+        // deliberately use the short 3-nut bolts from the reference art.
+        let capacity = 4;
+        if (isSpecial) capacity = 3;
+        else if (lvl >= 25) capacity = 6;
+        else if (lvl >= 13) capacity = 5;
+
+        let colorCount;
+        if (lvl === 1) colorCount = 1;
+        else if (lvl === 2) colorCount = 2;
+        else if (lvl <= 4) colorCount = 3;
+        else if (lvl <= 6) colorCount = 4;
+        else if (lvl <= 9) colorCount = 5;
+        else if (lvl <= 14) colorCount = 6;
+        else if (lvl <= 20) colorCount = 7;
+        else colorCount = 8;
+        if (isSpecial) colorCount = Math.min(NUT_PALETTE.length, colorCount + 1);
+
+        // Free bolts the player can stage nuts on.
+        let emptyBolts = lvl <= 2 ? 1 : 2;
+        if (lvl >= 15 && !isSpecial) emptyBolts = 2;
+
+        // The side storage bolt starts locked and is opened with the +BOLT booster.
+        const lockedSlots = lvl >= 3 ? 1 : 0;
+
+        // Hidden question-mark nuts from level 7 onward.
+        let hiddenNuts = 0;
+        if (lvl >= 7) {
+          const total = colorCount * capacity;
+          hiddenNuts = Math.min(Math.floor(total * 0.32), 2 + Math.floor((lvl - 7) / 2));
+        }
+
+        const scramble = Math.min(72, 12 + lvl * 3);
+        const guidance = lvl <= 2;
+
+        return {
+          level: lvl, isSpecial, capacity, colorCount,
+          emptyBolts, lockedSlots, hiddenNuts, scramble, guidance
+        };
+      }
+
+      static makeNut(colorId) {
+        return { c: colorId, hidden: false, reveal: 1 };
+      }
+
+      // Level 1 and 2 are hand authored so the tutorial beats land exactly:
+      // one obvious move, then one colour-rule lesson with a spare bolt.
+      static handcrafted(level) {
+        if (level === 1) {
+          return [[1], [1, 1, 1]];
+        }
+        if (level === 2) {
+          return [[0, 1, 1, 1], [1, 0, 0, 0], []];
+        }
+        return null;
+      }
+
+      static generate(level) {
+        const cfg = this.config(level);
+        const scripted = this.handcrafted(cfg.level);
+        if (scripted) {
+          return {
+            cfg,
+            bolts: scripted.map(stack => stack.map(c => this.makeNut(c)))
+          };
+        }
+
+        const capacity = cfg.capacity;
+        const totalBolts = cfg.colorCount + cfg.emptyBolts;
+
+        // Reverse scrambling alone can occasionally strand a board, because the
+        // player must move a whole run while the scramble could move part of
+        // one. Candidates are therefore rejected only when provably unsolvable.
+        let raw = null;
+        for (let attempt = 0; attempt < 12 && !raw; attempt++) {
+          const candidate = this.scramble(cfg, capacity, totalBolts);
+          if (candidate && this.verify(candidate, capacity, 1500) !== 'UNSOLVABLE') raw = candidate;
+        }
+        for (let attempt = 0; attempt < 8 && !raw; attempt++) {
+          const candidate = this.fallback(cfg, capacity, totalBolts);
+          if (this.verify(candidate, capacity, 1500) !== 'UNSOLVABLE') raw = candidate;
+        }
+        if (!raw) raw = this.fallback(cfg, capacity, totalBolts);
+
+        const bolts = raw.map(stack => stack.map(c => this.makeNut(c)));
+        this.applyHidden(bolts, cfg, capacity);
+        return { cfg, bolts };
+      }
+
+      // Start from the solved board and walk legal moves backwards. Because
+      // every scramble step is itself a legal move, the reverse path is always
+      // a valid solution - the level can never be unsolvable.
+      static scramble(cfg, capacity, totalBolts) {
+        const bolts = [];
+        for (let c = 0; c < cfg.colorCount; c++) {
+          bolts.push(Array(capacity).fill(c));
+        }
+        for (let e = 0; e < cfg.emptyBolts; e++) {
+          bolts.push([]);
+        }
+
+        let lastFrom = -1;
+        let lastTo = -1;
+
+        for (let step = 0; step < cfg.scramble; step++) {
+          const moves = [];
+          for (let i = 0; i < totalBolts; i++) {
+            if (bolts[i].length === 0) continue;
+            const color = bolts[i][bolts[i].length - 1];
+
+            let topRun = 0;
+            for (let k = bolts[i].length - 1; k >= 0; k--) {
+              if (bolts[i][k] === color) topRun++;
+              else break;
+            }
+
+            for (let j = 0; j < totalBolts; j++) {
+              if (i === j) continue;
+              if (i === lastTo && j === lastFrom) continue;
+              if (bolts[j].length >= capacity) continue;
+              const space = capacity - bolts[j].length;
+              const count = Math.min(space, topRun, Math.random() < 0.72 ? 1 : 2);
+              if (count > 0) moves.push({ from: i, to: j, count });
+            }
+          }
+
+          if (moves.length === 0) break;
+          const pick = moves[Math.floor(Math.random() * moves.length)];
+          for (let m = 0; m < pick.count; m++) {
+            bolts[pick.to].push(bolts[pick.from].pop());
+          }
+          lastFrom = pick.from;
+          lastTo = pick.to;
+        }
+
+        // Reject degenerate boards: wrong nut counts or an already solved layout.
+        const counts = new Map();
+        for (const stack of bolts) {
+          for (const c of stack) counts.set(c, (counts.get(c) || 0) + 1);
+        }
+        for (let c = 0; c < cfg.colorCount; c++) {
+          if (counts.get(c) !== capacity) return null;
+        }
+        const solved = bolts.every(s => s.length === 0 || (s.length === capacity && s.every(c => c === s[0])));
+        if (solved) return null;
+
+        return bolts;
+      }
+
+      static fallback(cfg, capacity, totalBolts) {
+        const units = [];
+        for (let c = 0; c < cfg.colorCount; c++) {
+          for (let i = 0; i < capacity; i++) units.push(c);
+        }
+        for (let i = units.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          const tmp = units[i];
+          units[i] = units[j];
+          units[j] = tmp;
+        }
+        const bolts = [];
+        for (let i = 0; i < cfg.colorCount; i++) {
+          bolts.push(units.slice(i * capacity, (i + 1) * capacity));
+        }
+        for (let e = 0; e < cfg.emptyBolts; e++) bolts.push([]);
+        return bolts;
+      }
+
+      // Mask a share of the buried nuts. Only covered nuts may hide, so the
+      // player always sees what is currently movable and uncovers the rest by
+      // clearing whatever sits on top.
+      static applyHidden(bolts, cfg, capacity) {
+        if (cfg.hiddenNuts <= 0) return;
+        const candidates = [];
+        for (let b = 0; b < bolts.length; b++) {
+          const stack = bolts[b];
+          if (stack.length === capacity && stack.every(n => n.c === stack[0].c)) continue;
+          for (let i = 0; i < stack.length - 1; i++) {
+            candidates.push({ b, i });
+          }
+        }
+        for (let i = candidates.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          const tmp = candidates[i];
+          candidates[i] = candidates[j];
+          candidates[j] = tmp;
+        }
+        const take = Math.min(cfg.hiddenNuts, candidates.length);
+        for (let k = 0; k < take; k++) {
+          const spot = candidates[k];
+          bolts[spot.b][spot.i].hidden = true;
+          bolts[spot.b][spot.i].reveal = 0;
+        }
+      }
+
+      // Best next move, preferring pours that finish or grow a matching run
+      // before falling back to simply freeing a buried colour.
+      static findHint(stacks, capacity) {
+        const topColor = (s) => (s.length ? s[s.length - 1].c : null);
+        const topRun = (s) => {
+          if (!s.length) return 0;
+          const c = topColor(s);
+          let n = 0;
+          for (let k = s.length - 1; k >= 0; k--) {
+            if (s[k].c === c) n++;
+            else break;
+          }
+          return n;
+        };
+        const isDone = (s) => s.length === capacity && s.every(n => n.c === s[0].c);
+
+        let best = null;
+        let bestScore = -1;
+        for (let i = 0; i < stacks.length; i++) {
+          const from = stacks[i];
+          if (!from.length || isDone(from)) continue;
+          const color = topColor(from);
+          const run = topRun(from);
+
+          for (let j = 0; j < stacks.length; j++) {
+            if (i === j) continue;
+            const to = stacks[j];
+            const space = capacity - to.length;
+            if (space <= 0) continue;
+            if (to.length > 0 && topColor(to) !== color) continue;
+
+            const moved = Math.min(run, space);
+            if (moved <= 0) continue;
+
+            let score = 0;
+            if (to.length > 0) score += 40;                              // merges runs
+            if (to.length + moved === capacity && to.length > 0) score += 60; // completes a bolt
+            if (run === from.length && to.length === 0) score -= 35;     // pointless shuffle
+            if (from.length - moved > 0 && from[from.length - moved - 1].hidden) score += 25; // uncovers
+            score += moved * 6;
+
+            if (score > bestScore) {
+              bestScore = score;
+              best = { from: i, to: j };
+            }
+          }
+        }
+        return best;
+      }
+
+      // Bounded search that proves whether a candidate board can actually be
+      // finished under the player rule (whole top run, clipped to free space).
+      // Nodes are never discarded, so an emptied frontier is real proof of
+      // failure; running out of budget only means "not proven" and such boards
+      // are accepted. Cost buckets keep the pop cheap enough to run on level
+      // start without a visible hitch.
+      static verify(stacks, capacity, budget) {
+        const isDone = (st) => st.every(s => s.length === 0 || (s.length === capacity && s.every(c => c === s[0])));
+        if (isDone(stacks)) return 'SOLVED';
+
+        const keyOf = (st) => {
+          const parts = [];
+          for (let i = 0; i < st.length; i++) parts.push(st[i].join(','));
+          parts.sort();
+          return parts.join('|');
+        };
+        const cost = (st) => {
+          let bad = 0;
+          for (const s of st) {
+            if (!s.length) continue;
+            let base = 1;
+            while (base < s.length && s[base] === s[0]) base++;
+            bad += s.length - base;
+          }
+          return bad;
+        };
+
+        const buckets = [];
+        let frontierSize = 0;
+        let minCost = Infinity;
+        const push = (st) => {
+          const h = cost(st);
+          if (!buckets[h]) buckets[h] = [];
+          buckets[h].push(st);
+          frontierSize++;
+          if (h < minCost) minCost = h;
+        };
+        const pop = () => {
+          if (frontierSize === 0) return null;
+          while (!buckets[minCost] || buckets[minCost].length === 0) minCost++;
+          frontierSize--;
+          return buckets[minCost].pop();
+        };
+
+        const seen = new Set();
+        seen.add(keyOf(stacks));
+        push(stacks.map(s => s.slice()));
+
+        let visits = 0;
+        while (frontierSize > 0) {
+          if (visits >= budget) return 'UNKNOWN';
+          const st = pop();
+          visits++;
+
+          for (let i = 0; i < st.length; i++) {
+            const from = st[i];
+            if (!from.length) continue;
+            const color = from[from.length - 1];
+            let run = 0;
+            for (let k = from.length - 1; k >= 0; k--) {
+              if (from[k] === color) run++;
+              else break;
+            }
+            if (from.length === capacity && run === capacity) continue;
+
+            for (let j = 0; j < st.length; j++) {
+              if (i === j) continue;
+              const to = st[j];
+              const space = capacity - to.length;
+              if (space <= 0) continue;
+              if (to.length > 0 && to[to.length - 1] !== color) continue;
+              // Relocating a whole single-colour stack onto a bare post yields
+              // an equivalent board, so it is pruned to stop endless shuffling.
+              if (run === from.length && to.length === 0) continue;
+
+              const moved = Math.min(run, space);
+              const next = st.map(s => s.slice());
+              const taken = next[i].splice(next[i].length - moved, moved);
+              for (let q = 0; q < taken.length; q++) next[j].push(taken[q]);
+              if (isDone(next)) return 'SOLVED';
+              const nk = keyOf(next);
+              if (seen.has(nk)) continue;
+              seen.add(nk);
+              push(next);
+            }
+          }
+        }
+        return 'UNSOLVABLE';
+      }
+
+      static isSolved(stacks, capacity) {
+        return stacks.every(s => s.length === 0 || (s.length === capacity && s.every(n => n.c === s[0].c)));
+      }
+    }
+
+    // ========================================================================
+    // 4. VECTOR ART - NUTS, THREADED BOLTS, WASHERS & UI GLYPHS
+    // ========================================================================
+    function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+    function easeInCubic(t) { return t * t * t; }
+    function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+    function easeOutBack(t) {
+      const c1 = 1.70158, c3 = c1 + 1;
+      return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    }
+    function easeOutElastic(t) {
+      if (t <= 0) return 0;
+      if (t >= 1) return 1;
+      const p = 0.32;
+      return Math.pow(2, -10 * t) * Math.sin((t - p / 4) * (Math.PI * 2) / p) + 1;
+    }
+
+    const HEX_CACHE = new Map();
+    function parseHex(hex) {
+      let v = HEX_CACHE.get(hex);
+      if (v) return v;
+      const h = hex.replace('#', '');
+      v = {
+        r: parseInt(h.substring(0, 2), 16),
+        g: parseInt(h.substring(2, 4), 16),
+        b: parseInt(h.substring(4, 6), 16)
+      };
+      HEX_CACHE.set(hex, v);
+      return v;
+    }
+    function mixHex(a, b, t) {
+      const ca = parseHex(a), cb = parseHex(b);
+      const r = Math.round(lerp(ca.r, cb.r, t));
+      const g = Math.round(lerp(ca.g, cb.g, t));
+      const bl = Math.round(lerp(ca.b, cb.b, t));
+      return 'rgb(' + r + ',' + g + ',' + bl + ')';
+    }
+    function shade(hex, alpha) {
+      const c = parseHex(hex);
+      return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + alpha + ')';
+    }
+
+    const Art = {
+      // Flattened hexagon: the isometric footprint every nut is built from.
+      hexPoints(cx, cy, rx, ry, spin) {
+        const pts = [];
+        const base = spin || 0;
+        for (let i = 0; i < 6; i++) {
+          const a = base + i * (Math.PI / 3);
+          pts.push({ x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) });
+        }
+        return pts;
+      },
+
+      tracePoly(ctx, pts, dy) {
+        const off = dy || 0;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y + off);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y + off);
+        ctx.closePath();
+      },
+
+      // A single hex nut drawn as an extruded prism. Facets are shaded from a
+      // fixed upper-left light so a rotating nut reads as a solid object.
+      drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
+        const o = opts || {};
+        const pts = this.hexPoints(cx, cy, rx, ry, spin);
+        const holeRx = rx * 0.42, holeRy = ry * 0.42;
+
+        // Extruded bottom silhouette keeps the prism solid at any rotation.
+        this.tracePoly(ctx, pts, bandH);
+        ctx.fillStyle = skin.side;
+        ctx.fill();
+
+        // Side facets, lit from the upper left.
+        for (let i = 0; i < 6; i++) {
+          const p0 = pts[i];
+          const p1 = pts[(i + 1) % 6];
+          const midX = (p0.x + p1.x) / 2;
+          const midY = (p0.y + p1.y) / 2;
+          const nx = (midX - cx) / rx;
+          const ny = (midY - cy) / ry;
+          // Only the facets facing the camera are worth painting.
+          if (ny < -0.15) continue;
+          const light = clamp(0.5 - nx * 0.42 + ny * 0.1, 0, 1);
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p1.x, p1.y);
+          ctx.lineTo(p1.x, p1.y + bandH);
+          ctx.lineTo(p0.x, p0.y + bandH);
+          ctx.closePath();
+          ctx.fillStyle = mixHex(skin.side, skin.face, light);
+          ctx.fill();
+        }
+
+        // Bottom shadow line grounds the nut against the one below it.
+        ctx.save();
+        this.tracePoly(ctx, pts, bandH);
+        ctx.clip();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+        ctx.fillRect(cx - rx, cy + bandH - ry * 0.55, rx * 2, ry * 1.2);
+        ctx.restore();
+
+        // Top face with a rim highlight.
+        this.tracePoly(ctx, pts, 0);
+        const grad = ctx.createLinearGradient(cx - rx * 0.5, cy - ry, cx + rx * 0.6, cy + ry);
+        grad.addColorStop(0, skin.rim);
+        grad.addColorStop(0.45, skin.top);
+        grad.addColorStop(1, skin.face);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        ctx.lineWidth = Math.max(1, rx * 0.05);
+        ctx.strokeStyle = shade('#FFFFFF', 0.35);
+        ctx.stroke();
+
+        // Threaded bore. A seated nut shows the shaft, a flying one shows a hole.
+        if (!o.shaftThrough) {
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
+          ctx.fillStyle = mixHex(skin.side, '#000000', 0.35);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(cx, cy - holeRy * 0.12, holeRx * 0.86, holeRy * 0.8, 0, 0, Math.PI * 2);
+          ctx.fillStyle = shade('#000000', 0.3);
+          ctx.fill();
+        }
+
+        if (o.questionMark) {
+          ctx.save();
+          ctx.font = '900 ' + Math.round(rx * 0.95) + 'px Fredoka, Lilita One, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = 'rgba(20, 24, 48, 0.35)';
+          ctx.fillText('?', cx, cy + bandH * 0.52 + ry * 0.16);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText('?', cx, cy + bandH * 0.5 + ry * 0.1);
+          ctx.restore();
+        }
+      }
+    };
+
+    Object.assign(Art, {
+      // Threaded shaft. The ridge phase is animated while a nut travels so the
+      // thread appears to drive the nut up or down.
+      drawShaft(ctx, cx, topY, bottomY, w, phase) {
+        const h = bottomY - topY;
+        if (h <= 1 || w <= 1) return;
+        const x = cx - w / 2;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(x, topY, w, h, [w * 0.5, w * 0.5, w * 0.18, w * 0.18]);
+        const body = ctx.createLinearGradient(x, 0, x + w, 0);
+        body.addColorStop(0, METAL.shaftDark);
+        body.addColorStop(0.22, METAL.shaftMid);
+        body.addColorStop(0.46, METAL.shaftLight);
+        body.addColorStop(0.72, METAL.shaftMid);
+        body.addColorStop(1, METAL.shaftDark);
+        ctx.fillStyle = body;
+        ctx.fill();
+
+        // Ridges are clipped to the shaft so they curve with the cylinder.
+        ctx.clip();
+        const step = Math.max(3.2, w * 0.34);
+        const bow = w * 0.16;
+        const off = ((phase || 0) % step + step) % step;
+        ctx.lineWidth = Math.max(1, step * 0.28);
+        for (let y = topY + off - step; y < bottomY + step; y += step) {
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.quadraticCurveTo(cx, y + bow, x + w, y);
+          ctx.strokeStyle = METAL.threadLine;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x, y - ctx.lineWidth * 0.85);
+          ctx.quadraticCurveTo(cx, y + bow - ctx.lineWidth * 0.85, x + w, y - ctx.lineWidth * 0.85);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // Domed tip catches the light.
+        ctx.beginPath();
+        ctx.ellipse(cx - w * 0.06, topY + w * 0.24, w * 0.26, w * 0.16, -0.3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.fill();
+      },
+
+      // The washer plate every bolt stands on.
+      drawBase(ctx, cx, cy, rx, ry) {
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + ry * 0.55, rx * 1.02, ry * 0.7, 0, 0, Math.PI * 2);
+        ctx.fillStyle = METAL.baseShadow;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + ry * 0.32, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fillStyle = METAL.baseEdge;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        const g = ctx.createLinearGradient(cx - rx, cy - ry, cx + rx * 0.6, cy + ry);
+        g.addColorStop(0, METAL.baseTop);
+        g.addColorStop(0.55, METAL.baseMid);
+        g.addColorStop(1, METAL.baseEdge);
+        ctx.fillStyle = g;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.ellipse(cx - rx * 0.12, cy - ry * 0.18, rx * 0.62, ry * 0.52, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.fill();
+      },
+
+      // Dormant side-storage socket: a capped stub the +BOLT booster opens.
+      drawLockedSocket(ctx, cx, cy, rx, ry, pulse) {
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + ry * 0.5, rx * 0.98, ry * 0.66, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(4, 8, 40, 0.5)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        const g = ctx.createLinearGradient(cx - rx, cy - ry, cx + rx * 0.5, cy + ry);
+        g.addColorStop(0, METAL.lockedTop);
+        g.addColorStop(1, METAL.lockedEdge);
+        ctx.fillStyle = g;
+        ctx.fill();
+
+        // Capped screw stub with a few visible ridges.
+        const stubW = rx * 0.44;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(cx - stubW / 2, cy - ry * 1.5, stubW, ry * 1.7, stubW * 0.32);
+        ctx.fillStyle = METAL.lockedFace;
+        ctx.fill();
+        ctx.clip();
+        ctx.lineWidth = 1.6;
+        ctx.strokeStyle = 'rgba(180, 188, 220, 0.42)';
+        for (let y = cy - ry * 1.42; y < cy + ry * 0.2; y += Math.max(3, stubW * 0.34)) {
+          ctx.beginPath();
+          ctx.moveTo(cx - stubW, y);
+          ctx.lineTo(cx + stubW, y + stubW * 0.14);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        if (pulse > 0) {
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, rx * (1 + pulse * 0.25), ry * (1 + pulse * 0.25), 0, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(180, 140, 255, ' + (0.5 * (1 - pulse)).toFixed(3) + ')';
+          ctx.lineWidth = 2.4;
+          ctx.stroke();
+        }
+      }
+    });
+
+    Object.assign(Art, {
+      // --- UI glyphs: all vector paths, no emoji or bitmap assets ----------
+      glyphNut(ctx, cx, cy, r, fill, stroke) {
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const a = -Math.PI / 2 + i * (Math.PI / 3);
+          const x = cx + r * Math.cos(a);
+          const y = cy + r * Math.sin(a);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = fill;
+        ctx.fill();
+        if (stroke) {
+          ctx.lineWidth = Math.max(1.2, r * 0.16);
+          ctx.strokeStyle = stroke;
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.36, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+        ctx.fill();
+      },
+
+      glyphCoin(ctx, cx, cy, r) {
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+        ctx.shadowBlur = r * 0.5;
+        ctx.shadowOffsetY = r * 0.16;
+        this.glyphNut(ctx, cx, cy, r, '#FFC01F', '#E08A00');
+        ctx.restore();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.34, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFF3C4';
+        ctx.fill();
+      },
+
+      glyphRestart(ctx, cx, cy, r, color) {
+        ctx.save();
+        ctx.lineWidth = Math.max(2, r * 0.3);
+        ctx.strokeStyle = color;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, Math.PI * 0.62, Math.PI * 2.18);
+        ctx.stroke();
+        // Arrow head on the open end of the loop.
+        const a = Math.PI * 0.62;
+        const hx = cx + r * Math.cos(a);
+        const hy = cy + r * Math.sin(a);
+        ctx.beginPath();
+        ctx.moveTo(hx - r * 0.42, hy - r * 0.1);
+        ctx.lineTo(hx + r * 0.12, hy + r * 0.34);
+        ctx.lineTo(hx + r * 0.2, hy - r * 0.42);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.restore();
+      },
+
+      glyphUndo(ctx, cx, cy, r, color) {
+        ctx.save();
+        ctx.lineWidth = Math.max(2.4, r * 0.34);
+        ctx.strokeStyle = color;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(cx + r * 0.1, cy + r * 0.06, r * 0.86, Math.PI * 1.15, Math.PI * 0.35);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx - r * 0.98, cy - r * 0.62);
+        ctx.lineTo(cx - r * 0.2, cy - r * 0.42);
+        ctx.lineTo(cx - r * 0.7, cy + r * 0.3);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.restore();
+      },
+
+      glyphAddBolt(ctx, cx, cy, r, color) {
+        ctx.save();
+        // Miniature bolt: washer, shaft and two stacked nuts.
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.ellipse(cx + r * 0.12, cy + r * 0.82, r * 0.7, r * 0.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.roundRect(cx - r * 0.12, cy - r * 0.75, r * 0.46, r * 1.5, r * 0.2);
+        ctx.fill();
+        ctx.globalAlpha = 0.55;
+        ctx.lineWidth = Math.max(1, r * 0.12);
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        for (let i = 0; i < 4; i++) {
+          const y = cy - r * 0.62 + i * r * 0.3;
+          ctx.beginPath();
+          ctx.moveTo(cx - r * 0.12, y);
+          ctx.lineTo(cx + r * 0.34, y + r * 0.08);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        ctx.beginPath();
+        ctx.roundRect(cx - r * 0.5, cy + r * 0.14, r * 1.22, r * 0.34, r * 0.12);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.roundRect(cx - r * 0.44, cy - r * 0.28, r * 1.1, r * 0.32, r * 0.12);
+        ctx.fill();
+        // Plus badge.
+        const px = cx - r * 0.82, py = cy - r * 0.62;
+        ctx.lineWidth = Math.max(2, r * 0.26);
+        ctx.strokeStyle = color;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(px - r * 0.3, py);
+        ctx.lineTo(px + r * 0.3, py);
+        ctx.moveTo(px, py - r * 0.3);
+        ctx.lineTo(px, py + r * 0.3);
+        ctx.stroke();
+        ctx.restore();
+      },
+
+      glyphLock(ctx, cx, cy, r, fill, accent) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        ctx.lineWidth = Math.max(1.6, r * 0.24);
+        ctx.strokeStyle = accent;
+        ctx.beginPath();
+        ctx.arc(cx, cy - r * 0.16, r * 0.34, Math.PI, 0);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.roundRect(cx - r * 0.46, cy - r * 0.16, r * 0.92, r * 0.72, r * 0.2);
+        ctx.fillStyle = accent;
+        ctx.fill();
+        ctx.restore();
+      },
+
+      glyphStar(ctx, cx, cy, r, fill, stroke) {
+        ctx.beginPath();
+        for (let i = 0; i < 10; i++) {
+          const rad = i % 2 === 0 ? r : r * 0.46;
+          const a = -Math.PI / 2 + i * (Math.PI / 5);
+          const x = cx + rad * Math.cos(a);
+          const y = cy + rad * Math.sin(a);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = fill;
+        ctx.fill();
+        if (stroke) {
+          ctx.lineWidth = Math.max(1.2, r * 0.12);
+          ctx.strokeStyle = stroke;
+          ctx.stroke();
+        }
+      },
+
+      glyphCheck(ctx, cx, cy, r, color) {
+        ctx.save();
+        ctx.lineWidth = Math.max(3, r * 0.42);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(cx - r * 0.8, cy);
+        ctx.lineTo(cx - r * 0.16, cy + r * 0.62);
+        ctx.lineTo(cx + r * 0.86, cy - r * 0.66);
+        ctx.stroke();
+        ctx.restore();
+      },
+
+      glyphCross(ctx, cx, cy, r, color) {
+        ctx.save();
+        ctx.lineWidth = Math.max(3, r * 0.42);
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(cx - r * 0.68, cy - r * 0.68);
+        ctx.lineTo(cx + r * 0.68, cy + r * 0.68);
+        ctx.moveTo(cx + r * 0.68, cy - r * 0.68);
+        ctx.lineTo(cx - r * 0.68, cy + r * 0.68);
+        ctx.stroke();
+        ctx.restore();
+      },
+
+      // Tutorial finger. Points up-left exactly like the reference art.
+      glyphHand(ctx, cx, cy, size) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(size, size);
+        ctx.beginPath();
+        ctx.moveTo(-0.30, -0.02);
+        ctx.lineTo(-0.14, -0.94);
+        ctx.quadraticCurveTo(0.02, -1.14, 0.18, -0.94);
+        ctx.lineTo(0.15, -0.12);
+        ctx.quadraticCurveTo(0.40, -0.30, 0.58, -0.16);
+        ctx.quadraticCurveTo(0.74, -0.02, 0.60, 0.12);
+        ctx.quadraticCurveTo(0.80, 0.20, 0.64, 0.36);
+        ctx.quadraticCurveTo(0.78, 0.48, 0.56, 0.62);
+        ctx.quadraticCurveTo(0.38, 0.88, 0.02, 0.90);
+        ctx.quadraticCurveTo(-0.44, 0.90, -0.62, 0.52);
+        ctx.quadraticCurveTo(-0.76, 0.22, -0.56, 0.00);
+        ctx.closePath();
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 0.14;
+        ctx.strokeStyle = '#8A45E8';
+        ctx.stroke();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.restore();
+      },
+
+      glyphChevron(ctx, cx, cy, r, color) {
+        ctx.save();
+        ctx.lineWidth = Math.max(2.4, r * 0.34);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(cx + r * 0.34, cy - r * 0.66);
+        ctx.lineTo(cx - r * 0.34, cy);
+        ctx.lineTo(cx + r * 0.34, cy + r * 0.66);
+        ctx.stroke();
+        ctx.restore();
+      }
+    });
+
+    // ========================================================================
+    // 5. NUT SPRITE CACHE
+    // ========================================================================
+    // Resting nuts never rotate, so each colour/size pair is rasterised once
+    // and blitted afterwards. Only the handful of nuts in flight are redrawn
+    // per frame, which keeps large boards cheap on low-end WebViews.
+    class NutSpriteCache {
+      constructor() {
+        this.map = new Map();
+        this.dpr = 1;
+      }
+
+      configure(dpr) {
+        if (Math.abs(dpr - this.dpr) > 0.01) {
+          this.dpr = dpr;
+          this.map.clear();
+        }
+      }
+
+      invalidate() {
+        this.map.clear();
+      }
+
+      get(colorId, hidden, rx, ry, band) {
+        const cid = hidden ? 0 : (colorId % NUT_PALETTE.length);
+        const rxI = Math.round(rx * 2) / 2;
+        const bandI = Math.round(band * 2) / 2;
+        const key = cid + '|' + (hidden ? 1 : 0) + '|' + rxI + '|' + bandI;
+        let sprite = this.map.get(key);
+        if (sprite) return sprite;
+
+        const pad = Math.ceil(rx * 0.3) + 3;
+        const w = Math.ceil(rx * 2 + pad * 2);
+        const h = Math.ceil(ry * 2 + band + pad * 2);
+        const cv = document.createElement('canvas');
+        cv.width = Math.max(2, Math.ceil(w * this.dpr));
+        cv.height = Math.max(2, Math.ceil(h * this.dpr));
+        const c = cv.getContext('2d');
+        if (!c) return null;
+        c.scale(this.dpr, this.dpr);
+
+        const ax = pad + rx;
+        const ay = pad + ry;
+        const skin = hidden ? HIDDEN_SKIN : NUT_PALETTE[cid];
+        Art.drawNut(c, ax, ay, rx, ry, band, 0, skin, { questionMark: hidden });
+
+        sprite = { canvas: cv, w: w, h: h, ax: ax, ay: ay };
+        this.map.set(key, sprite);
+        return sprite;
+      }
+    }
+
+    // ========================================================================
+    // 6. BOLT (one threaded post plus the nuts stacked on it)
+    // ========================================================================
+    class Bolt {
+      constructor(nuts, capacity, opts) {
+        const o = opts || {};
+        this.nuts = nuts || [];
+        this.capacity = capacity;
+        this.locked = !!o.locked;
+        this.isSide = !!o.isSide;
+
+        // Layout, refreshed on every resize.
+        this.x = 0;
+        this.baseY = 0;
+        this.rx = 26;
+        this.ry = 13;
+        this.band = 15;
+        this.shaftExtra = 22;
+        this.shaftW = 16;
+
+        // Animation state.
+        this.complete = false;
+        this.completeGlow = 0;
+        this.shine = -1;
+        this.lift = 0;
+        this.liftTarget = 0;
+        this.shake = 0;
+        this.unlockPulse = 0;
+        this.hintPulse = 0;
+        this.isHintSource = false;
+        this.isHintTarget = false;
+        this.spawnScale = 1;
+        this.threadPhase = 0;
+        this.guideMark = 0; // 1 valid, -1 invalid, 0 none
+      }
+
+      get length() { return this.nuts.length; }
+      get isEmpty() { return this.nuts.length === 0; }
+      get isFull() { return this.nuts.length >= this.capacity; }
+      get freeSpace() { return this.capacity - this.nuts.length; }
+      get topColor() { return this.nuts.length ? this.nuts[this.nuts.length - 1].c : null; }
+
+      topRun() {
+        if (!this.nuts.length) return 0;
+        const c = this.topColor;
+        let n = 0;
+        for (let i = this.nuts.length - 1; i >= 0; i--) {
+          if (this.nuts[i].c === c) n++;
+          else break;
+        }
+        return n;
+      }
+
+      refreshComplete() {
+        const done = this.nuts.length === this.capacity &&
+          this.nuts.every(n => n.c === this.nuts[0].c && !n.hidden);
+        const justFinished = done && !this.complete;
+        this.complete = done;
+        return justFinished;
+      }
+
+      // A nut may land here when the post is unlocked, has room, and the
+      // landing surface is either bare metal or the same colour.
+      canAccept(colorId) {
+        if (this.locked || this.isFull) return false;
+        if (this.isEmpty) return true;
+        return this.topColor === colorId;
+      }
+
+      // Geometry -----------------------------------------------------------
+      nutSlotY(index) {
+        return this.baseY - this.ry * 0.1 - this.band * (index + 1);
+      }
+
+      get shaftTopY() {
+        return this.baseY - this.ry * 0.1 - this.band * this.capacity - this.shaftExtra;
+      }
+
+      hoverY() {
+        return this.shaftTopY - this.band * 1.9;
+      }
+
+      // Hit box spans the washer plus the whole shaft so taps feel generous.
+      hitTest(px, py) {
+        const halfW = this.rx * 1.25;
+        const top = this.shaftTopY - this.band * 0.6;
+        const bottom = this.baseY + this.ry * 1.6;
+        return px >= this.x - halfW && px <= this.x + halfW && py >= top && py <= bottom;
+      }
+
+      update(dt) {
+        this.lift += (this.liftTarget - this.lift) * Math.min(1, dt * 16);
+        if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 5.5);
+        if (this.unlockPulse > 0) this.unlockPulse = Math.max(0, this.unlockPulse - dt * 1.6);
+        if (this.shine >= 0) {
+          this.shine += dt * 1.75;
+          if (this.shine > 1) this.shine = -1;
+        }
+        if (this.complete) {
+          this.completeGlow = Math.min(1, this.completeGlow + dt * 3);
+        } else {
+          this.completeGlow = Math.max(0, this.completeGlow - dt * 4);
+        }
+        if (this.isHintSource || this.isHintTarget) {
+          this.hintPulse += dt * 3.4;
+        } else {
+          this.hintPulse = 0;
+        }
+        if (this.spawnScale < 1) {
+          this.spawnScale = Math.min(1, this.spawnScale + dt * 4.2);
+        }
+        for (const nut of this.nuts) {
+          if (nut.reveal < 1) nut.reveal = Math.min(1, nut.reveal + dt * 3.6);
+        }
+      }
+    }
+
+    // ========================================================================
+    // 7. PARTICLE SYSTEM
+    // ========================================================================
+    class ParticleSystem {
+      constructor() {
+        this.items = [];
+      }
+
+      clear() { this.items = []; }
+
+      update(dt) {
+        for (let i = this.items.length - 1; i >= 0; i--) {
+          const p = this.items[i];
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+
+          if (p.type === 'SPARK' || p.type === 'CONFETTI') {
+            p.vy += 640 * dt;
+            p.vx *= 0.985;
+          } else if (p.type === 'STAR') {
+            p.vy += 180 * dt;
+            p.vx *= 0.97;
+          } else if (p.type === 'GLINT') {
+            p.vy += 12 * dt;
+          } else if (p.type === 'POP') {
+            p.vy *= 0.93;
+          } else if (p.type === 'RING') {
+            p.radius += p.grow * dt;
+          }
+
+          if (p.vRot) p.rot += p.vRot * dt;
+          p.life -= dt;
+          if (p.life <= 0) this.items.splice(i, 1);
+        }
+      }
+
+      render(ctx) {
+        for (const p of this.items) {
+          const k = Math.max(0, p.life / p.maxLife);
+          ctx.save();
+
+          if (p.type === 'SPARK') {
+            ctx.globalAlpha = Math.min(1, k * 1.6);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * (0.35 + k * 0.65), 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.fill();
+          } else if (p.type === 'CONFETTI') {
+            ctx.globalAlpha = Math.min(1, k * 1.5);
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.size * 0.5, -p.size * 0.22, p.size, p.size * 0.44);
+          } else if (p.type === 'STAR') {
+            ctx.globalAlpha = Math.min(1, k * 1.5);
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot);
+            Art.glyphStar(ctx, 0, 0, p.size * (0.4 + k * 0.6), p.color, null);
+          } else if (p.type === 'GLINT') {
+            // Four-point twinkle used for the board-wide celebration sparkle.
+            const s = p.size * (0.35 + Math.sin(k * Math.PI) * 0.75);
+            ctx.globalAlpha = Math.sin(Math.min(1, k) * Math.PI) * 0.95;
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot);
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.moveTo(0, -s);
+            ctx.quadraticCurveTo(s * 0.16, -s * 0.16, s, 0);
+            ctx.quadraticCurveTo(s * 0.16, s * 0.16, 0, s);
+            ctx.quadraticCurveTo(-s * 0.16, s * 0.16, -s, 0);
+            ctx.quadraticCurveTo(-s * 0.16, -s * 0.16, 0, -s);
+            ctx.closePath();
+            ctx.fill();
+          } else if (p.type === 'RING') {
+            ctx.globalAlpha = k * 0.6;
+            ctx.beginPath();
+            ctx.ellipse(p.x, p.y, p.radius, p.radius * 0.42, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = Math.max(1.2, p.size * k);
+            ctx.stroke();
+          } else if (p.type === 'POP') {
+            const scale = 1 + (1 - k) * 0.35;
+            ctx.globalAlpha = Math.min(1, k * 1.8);
+            ctx.translate(p.x, p.y);
+            ctx.scale(scale, scale);
+            ctx.font = '900 ' + Math.round(p.size) + 'px Fredoka, Lilita One, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'rgba(6, 8, 34, 0.5)';
+            ctx.fillText(p.text, 2, 2);
+            ctx.fillStyle = p.color;
+            ctx.fillText(p.text, 0, 0);
+          }
+
+          ctx.restore();
+        }
+      }
+
+      // Metal-on-metal sparks when a nut seats onto a bolt.
+      seatSparks(x, y, colorId, count) {
+        const pal = NUT_PALETTE[colorId % NUT_PALETTE.length];
+        const n = count || 10;
+        for (let i = 0; i < n; i++) {
+          const a = -Math.PI * 0.9 + Math.random() * Math.PI * 0.8;
+          const sp = 60 + Math.random() * 150;
+          this.items.push({
+            type: 'SPARK', x: x + (Math.random() - 0.5) * 14, y: y,
+            vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+            life: 0.28 + Math.random() * 0.26, maxLife: 0.54,
+            size: 1.8 + Math.random() * 2.6,
+            color: pal.sparks[Math.floor(Math.random() * pal.sparks.length)]
+          });
+        }
+      }
+
+      dustRing(x, y, colorId, radius) {
+        const pal = NUT_PALETTE[colorId % NUT_PALETTE.length];
+        this.items.push({
+          type: 'RING', x: x, y: y, vx: 0, vy: 0,
+          radius: radius * 0.4, grow: radius * 2.6,
+          life: 0.42, maxLife: 0.42, size: 3, color: pal.rim
+        });
+      }
+
+      // Burst that celebrates one bolt being fully sorted.
+      groupBurst(x, y, colorId) {
+        const pal = NUT_PALETTE[colorId % NUT_PALETTE.length];
+        for (let i = 0; i < 20; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const sp = 70 + Math.random() * 190;
+          this.items.push({
+            type: Math.random() < 0.55 ? 'STAR' : 'SPARK',
+            x: x, y: y,
+            vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40,
+            life: 0.5 + Math.random() * 0.5, maxLife: 1.0,
+            size: 3.4 + Math.random() * 4.6, rot: Math.random() * 6.28,
+            vRot: (Math.random() - 0.5) * 9,
+            color: pal.sparks[Math.floor(Math.random() * pal.sparks.length)]
+          });
+        }
+      }
+
+      // Sparkle field that sweeps in from the left on a successful sort.
+      sparkleSweep(w, h, delayBias) {
+        const colors = ['#FFFFFF', '#FFE9A0', '#B6E4FF', '#FFD3E4', '#DCF7B4'];
+        for (let i = 0; i < 34; i++) {
+          const px = Math.random() * w;
+          const py = h * 0.12 + Math.random() * h * 0.72;
+          this.items.push({
+            type: 'GLINT', x: px, y: py,
+            vx: 26 + Math.random() * 34, vy: -8 + Math.random() * 16,
+            life: 0.5 + (px / w) * 0.5 + (delayBias || 0),
+            maxLife: 0.5 + (px / w) * 0.5 + (delayBias || 0),
+            size: 3 + Math.random() * 6, rot: Math.random() * 1.2,
+            vRot: (Math.random() - 0.5) * 1.6,
+            color: colors[Math.floor(Math.random() * colors.length)]
+          });
+        }
+      }
+
+      fireworks(w, h) {
+        const colors = ['#FFC01F', '#2AA5F0', '#7FD525', '#FF5B2E', '#C348C0', '#FFFFFF', '#18C8B8'];
+        for (let f = 0; f < 3; f++) {
+          const cx = w * 0.2 + Math.random() * w * 0.6;
+          const cy = h * 0.18 + Math.random() * h * 0.34;
+          for (let i = 0; i < 30; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const sp = 100 + Math.random() * 280;
+            this.items.push({
+              type: Math.random() < 0.5 ? 'CONFETTI' : 'STAR',
+              x: cx, y: cy,
+              vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 70,
+              life: 0.9 + Math.random() * 0.8, maxLife: 1.7,
+              size: 6 + Math.random() * 6, rot: Math.random() * 6.28,
+              vRot: (Math.random() - 0.5) * 10,
+              color: colors[Math.floor(Math.random() * colors.length)]
+            });
+          }
+        }
+      }
+
+      popText(x, y, text, color, size) {
+        this.items.push({
+          type: 'POP', x: x, y: y, vx: 0, vy: -52,
+          life: 0.95, maxLife: 0.95, size: size || 20,
+          color: color || '#FFE9A0', text: text
+        });
+      }
+    }
+
+    // ========================================================================
+    // 8. GAME ENGINE
+    // ========================================================================
+    class GameEngine {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d', { alpha: false }) || canvas.getContext('2d');
+        this.synth = new SoundSynth();
+        this.particles = new ParticleSystem();
+        this.sprites = new NutSpriteCache();
+
+        this.width = 390;
+        this.height = 844;
+        this.dpr = 1;
+        this.time = 0;
+        this.paused = false;
+
+        this.state = 'INTRO';
+        this.level = 1;
+        this.bestLevel = 1;
+        this.coins = 0;
+        this.coinsShown = 0;
+        this.moves = 0;
+
+        this.cfg = null;
+        this.bolts = [];
+        this.selected = null;
+        this.move = null;
+        this.undoStack = [];
+        this.undosLeft = 0;
+        this.addBoltsLeft = 0;
+
+        this.introTime = 0;
+        this.introDuration = 0;
+        this.screenShake = 0;
+        this.sweep = -1;
+        this.bgCache = null;
+
+        this.victory = { stars: 0, t: 0, coins: 0, starAnim: [0, 0, 0], special: false };
+        this.tutorStage = 0;
+        this.handPulse = 0;
+        this.hintTimer = 0;
+        this.toast = null;
+
+        this.soundBtn = { x: 0, y: 0, r: 22 };
+        this.restartBtn = { x: 0, y: 0, r: 22 };
+        this.actionButtons = [];
+        this.nextBtn = { x: 0, y: 0, w: 200, h: 54, press: 0 };
+
+        this.loadProgress();
+        this.startLevel(this.level);
+      }
+
+      // --- Persistence ----------------------------------------------------
+      loadProgress() {
+        try {
+          const lvl = parseInt(localStorage.getItem(STORE_KEYS.level) || '1', 10);
+          const coins = parseInt(localStorage.getItem(STORE_KEYS.coins) || '0', 10);
+          const best = parseInt(localStorage.getItem(STORE_KEYS.best) || '1', 10);
+          if (Number.isFinite(lvl) && lvl >= 1) this.level = lvl;
+          if (Number.isFinite(coins) && coins >= 0) this.coins = coins;
+          if (Number.isFinite(best) && best >= 1) this.bestLevel = best;
+        } catch (e) {}
+        this.coinsShown = this.coins;
+      }
+
+      saveProgress(levelOverride) {
+        try {
+          localStorage.setItem(STORE_KEYS.level, String(levelOverride || this.level));
+          localStorage.setItem(STORE_KEYS.coins, String(this.coins));
+          localStorage.setItem(STORE_KEYS.best, String(Math.max(this.bestLevel, levelOverride || this.level)));
+        } catch (e) {}
+      }
+
+      // --- Level lifecycle -------------------------------------------------
+      startLevel(level) {
+        const data = LevelGenerator.generate(level);
+        this.level = data.cfg.level;
+        this.cfg = data.cfg;
+        this.bestLevel = Math.max(this.bestLevel, this.level);
+
+        this.bolts = data.bolts.map(nuts => new Bolt(nuts, data.cfg.capacity, {}));
+        for (let i = 0; i < data.cfg.lockedSlots; i++) {
+          this.bolts.push(new Bolt([], data.cfg.capacity, { locked: true, isSide: true }));
+        }
+
+        this.selected = null;
+        this.move = null;
+        this.undoStack = [];
+        this.moves = 0;
+        this.undosLeft = this.cfg.guidance ? 0 : 2;
+        this.addBoltsLeft = this.cfg.guidance ? 0 : 2;
+        this.particles.clear();
+        this.screenShake = 0;
+        this.sweep = -1;
+        this.tutorStage = 0;
+        this.handPulse = 0;
+        this.toast = null;
+        this.victory = { stars: 0, t: 0, coins: 0, starAnim: [0, 0, 0], special: !!this.cfg.isSpecial };
+
+        this.bolts.forEach(b => b.refreshComplete());
+        this.layout();
+        this.beginIntro();
+        this.saveProgress();
+      }
+
+      restartLevel() {
+        this.synth.playButton();
+        this.startLevel(this.level);
+      }
+
+      nextLevel() {
+        this.startLevel(this.level + 1);
+      }
+
+      // Nuts fly onto their posts on entry so the board assembles itself.
+      // Later levels use a tighter, faster cascade to stay out of the way.
+      beginIntro() {
+        const fast = this.level > 4;
+        const stagger = fast ? 0.026 : 0.055;
+        const flight = fast ? 0.26 : 0.36;
+        let order = 0;
+        for (const bolt of this.bolts) {
+          bolt.spawnScale = 0.55;
+          for (let i = 0; i < bolt.nuts.length; i++) {
+            const nut = bolt.nuts[i];
+            nut.introDelay = order * stagger;
+            nut.introDur = flight;
+            nut.introT = 0;
+            nut.introSeated = false;
+            order++;
+          }
+        }
+        this.introTime = 0;
+        this.introDuration = order * stagger + flight + 0.08;
+        if (order > 0 && this.synth.ctx) this.synth.playScrew(3);
+        this.state = order > 0 ? 'INTRO' : 'PLAYING';
+        if (this.state === 'PLAYING') this.notifyStarted();
+      }
+
+      notifyStarted() {
+        if (this.startedOnce) return;
+        this.startedOnce = true;
+        try {
+          if (Host && typeof Host.gameStarted === 'function') {
+            Host.gameStarted();
+          }
+        } catch (e) {}
+      }
+
+      // --- Layout ----------------------------------------------------------
+      setSize(w, h, dpr) {
+        this.width = w;
+        this.height = h;
+        this.dpr = dpr;
+        this.sprites.configure(dpr);
+        this.bgCache = null;
+        this.layout();
+      }
+
+      layout() {
+        const w = this.width;
+        const h = this.height;
+        const s = clamp(w / 390, 0.78, 1.4);
+        this.s = s;
+
+        const btnR = 23 * s;
+        const topInset = 16 * s;
+        this.hudY = topInset + btnR;
+        this.soundBtn = { x: 18 * s + btnR, y: this.hudY, r: btnR };
+        this.restartBtn = { x: w - 18 * s - btnR, y: this.hudY, r: btnR };
+        this.capsule = { w: 128 * s, h: 38 * s, x: (w - 128 * s) / 2, y: this.hudY - 19 * s };
+        this.titleY = this.hudY + btnR + 30 * s;
+
+        const panelH = 68 * s;
+        const panelW = 172 * s;
+        const bottomInset = 74 * s;
+        this.panel = { x: (w - panelW) / 2, y: h - bottomInset - panelH, w: panelW, h: panelH };
+        this.progressBar = { x: w * 0.22, y: this.panel.y - 26 * s, w: w * 0.56, h: 7 * s };
+        this.messageY = this.progressBar.y - 44 * s;
+
+        const boardTop = this.titleY + 22 * s;
+        const boardBottom = this.messageY - 34 * s;
+        this.boardTop = boardTop;
+        this.setupActionButtons();
+
+        const count = this.bolts.length;
+        if (count === 0) return;
+
+        const rows = count <= 3 ? 1 : (count <= 10 ? 2 : 3);
+        const perRow = [];
+        let left = count;
+        for (let r = 0; r < rows; r++) {
+          const n = Math.ceil(left / (rows - r));
+          perRow.push(n);
+          left -= n;
+        }
+        const maxCols = perRow.reduce((a, b) => Math.max(a, b), 1);
+
+        const availW = w - 20 * s;
+        const availH = Math.max(120, boardBottom - boardTop);
+        const capacity = this.cfg ? this.cfg.capacity : 4;
+
+        // Fit horizontally first, then shrink if the taller bolts overflow.
+        let boltW = Math.min(64 * s, availW / (maxCols * 1.3));
+        const metrics = (bw) => {
+          const rx = bw / 2;
+          const ry = rx * 0.52;
+          const band = rx * 0.7;
+          const shaftExtra = rx * 0.9;
+          const tipToBase = ry * 0.1 + band * capacity + shaftExtra;
+          const fullH = tipToBase + ry * 1.8;
+          return { rx, ry, band, shaftExtra, tipToBase, fullH };
+        };
+        let m = metrics(boltW);
+        let rowPitch = m.fullH * 1.1;
+        if (rows * rowPitch > availH) {
+          boltW *= availH / (rows * rowPitch);
+          m = metrics(boltW);
+          rowPitch = m.fullH * 1.1;
+        }
+
+        const cellPitch = boltW * 1.3;
+        const gridH = rows * rowPitch;
+        const gridTop = boardTop + Math.max(0, (availH - gridH) / 2);
+        const stagger = this.cfg && this.cfg.isSpecial ? m.fullH * 0.11 : 0;
+
+        let idx = 0;
+        for (let r = 0; r < rows; r++) {
+          const n = perRow[r];
+          const rowW = n * cellPitch;
+          const startX = (w - rowW) / 2 + cellPitch / 2;
+          const boxTop = gridTop + r * rowPitch;
+          for (let c = 0; c < n; c++) {
+            const bolt = this.bolts[idx++];
+            if (!bolt) break;
+            bolt.rx = m.rx;
+            bolt.ry = m.ry;
+            bolt.band = m.band;
+            bolt.shaftExtra = m.shaftExtra;
+            bolt.shaftW = m.rx * 0.62;
+            bolt.x = startX + c * cellPitch;
+            bolt.baseY = boxTop + m.tipToBase + (stagger ? (c % 2 === 0 ? stagger : -stagger) : 0);
+          }
+        }
+      }
+
+      setupActionButtons() {
+        const s = this.s || 1;
+        const bw = 66 * s;
+        const bh = 52 * s;
+        const gap = 16 * s;
+        const totalW = bw * 2 + gap;
+        const x0 = this.panel.x + (this.panel.w - totalW) / 2;
+        const y = this.panel.y + (this.panel.h - bh) / 2;
+        this.actionButtons = [
+          { id: 'undo', x: x0, y: y, w: bw, h: bh, press: 0 },
+          { id: 'addbolt', x: x0 + bw + gap, y: y, w: bw, h: bh, press: 0 }
+        ];
+        const cardW = Math.min(this.width - 44 * s, 326 * s);
+        const cardH = 300 * s;
+        this.card = { w: cardW, h: cardH, x: (this.width - cardW) / 2, y: this.height * 0.5 - cardH * 0.56 };
+        this.nextBtn.w = cardW * 0.66;
+        this.nextBtn.h = 54 * s;
+        this.nextBtn.x = (this.width - this.nextBtn.w) / 2;
+        this.nextBtn.y = this.card.y + cardH - 54 * s - 24 * s;
+      }
+
+      // --- Input -----------------------------------------------------------
+      toLocal(clientX, clientY) {
+        const rect = this.canvas.getBoundingClientRect();
+        const rw = rect.width || this.width;
+        const rh = rect.height || this.height;
+        return {
+          x: (clientX - rect.left) * (this.width / rw),
+          y: (clientY - rect.top) * (this.height / rh)
+        };
+      }
+
+      handlePointerDown(clientX, clientY) {
+        this.synth.init();
+        const p = this.toLocal(clientX, clientY);
+
+        if (this.state === 'VICTORY') {
+          if (this.victory.t > 0.5) {
+            this.nextBtn.press = 1;
+            this.synth.playButton();
+            this.nextLevel();
+          }
+          return;
+        }
+
+        // A tap during the assembly cascade snaps the board straight to play.
+        if (this.state === 'INTRO') {
+          this.skipIntro();
+          return;
+        }
+
+        if (this.hitCircle(p, this.soundBtn)) {
+          const muted = this.synth.toggleMute();
+          if (!muted) this.synth.playButton();
+          return;
+        }
+        if (this.hitCircle(p, this.restartBtn)) {
+          this.restartLevel();
+          return;
+        }
+
+        if (this.state !== 'PLAYING') return;
+
+        for (const btn of this.actionButtons) {
+          if (p.x >= btn.x && p.x <= btn.x + btn.w && p.y >= btn.y && p.y <= btn.y + btn.h) {
+            btn.press = 1;
+            if (btn.id === 'undo') this.undo();
+            else if (btn.id === 'addbolt') this.useAddBolt();
+            return;
+          }
+        }
+
+        for (let i = 0; i < this.bolts.length; i++) {
+          if (this.bolts[i].hitTest(p.x, p.y)) {
+            this.tapBolt(i);
+            return;
+          }
+        }
+
+        // Tapping empty space cancels a pending pick-up.
+        if (this.selected !== null) this.deselect(true);
+      }
+
+      handlePointerUp() {
+        this.actionButtons.forEach(b => { b.press = 0; });
+        this.nextBtn.press = 0;
+      }
+
+      hitCircle(p, c) {
+        const dx = p.x - c.x;
+        const dy = p.y - c.y;
+        const pad = c.r * 1.35;
+        return dx * dx + dy * dy <= pad * pad;
+      }
+
+      tapBolt(index) {
+        const bolt = this.bolts[index];
+
+        if (bolt.locked) {
+          bolt.shake = 1;
+          bolt.unlockPulse = 1;
+          this.synth.playError();
+          this.showToast('Use +BOLT to open this slot');
+          this.haptic('warning');
+          return;
+        }
+
+        if (this.selected === null) {
+          if (bolt.isEmpty) {
+            this.synth.playTap();
+            return;
+          }
+          if (bolt.complete) {
+            bolt.shake = 0.5;
+            this.synth.playTap();
+            return;
+          }
+          this.select(index);
+          return;
+        }
+
+        if (this.selected === index) {
+          this.deselect(true);
+          return;
+        }
+
+        this.tryMove(this.selected, index);
+      }
+
+      select(index) {
+        const bolt = this.bolts[index];
+        this.selected = index;
+        bolt.liftTarget = bolt.band * 1.15;
+        this.synth.playSelect();
+        this.haptic('light');
+        this.clearHints();
+        this.refreshGuideMarks();
+        if (this.cfg.guidance) this.tutorStage = 1;
+      }
+
+      deselect(withSound) {
+        if (this.selected === null) return;
+        const bolt = this.bolts[this.selected];
+        bolt.liftTarget = 0;
+        this.selected = null;
+        this.clearGuideMarks();
+        if (withSound) this.synth.playTap();
+        if (this.cfg.guidance) this.tutorStage = 0;
+      }
+
+      // Level 2 paints a tick or a cross over every post while a nut is held,
+      // teaching the colour rule before guidance is withdrawn.
+      refreshGuideMarks() {
+        this.clearGuideMarks();
+        if (this.cfg.level !== 2 || this.selected === null) return;
+        const color = this.bolts[this.selected].topColor;
+        if (color === null) return;
+        for (let i = 0; i < this.bolts.length; i++) {
+          if (i === this.selected) continue;
+          const b = this.bolts[i];
+          if (b.locked) continue;
+          b.guideMark = b.canAccept(color) ? 1 : -1;
+        }
+      }
+
+      clearGuideMarks() {
+        this.bolts.forEach(b => { b.guideMark = 0; });
+      }
+
+      clearHints() {
+        this.bolts.forEach(b => { b.isHintSource = false; b.isHintTarget = false; });
+      }
+
+      // --- Moves -----------------------------------------------------------
+      tryMove(fromIdx, toIdx) {
+        const from = this.bolts[fromIdx];
+        const to = this.bolts[toIdx];
+        const color = from.topColor;
+
+        if (color === null) {
+          this.deselect(false);
+          return;
+        }
+
+        // Capacity and colour validation happen before anything animates, so a
+        // nut is never shown entering a post it cannot physically fit on.
+        if (!to.canAccept(color)) {
+          this.rejectMove(to, to.isFull ? 'No space on that bolt' : 'Colours must match');
+          return;
+        }
+
+        const count = Math.min(from.topRun(), to.freeSpace);
+        if (count <= 0) {
+          this.rejectMove(to, 'No space on that bolt');
+          return;
+        }
+
+        this.pushUndo();
+        this.startMove(fromIdx, toIdx, count);
+      }
+
+      // Invalid target: the held nuts settle back down with a shake and a buzz.
+      rejectMove(targetBolt, message) {
+        targetBolt.shake = 1;
+        if (this.selected !== null) this.bolts[this.selected].shake = 0.6;
+        this.deselect(false);
+        this.synth.playError();
+        this.haptic('error');
+        this.showToast(message);
+        this.screenShake = Math.max(this.screenShake, 2.4);
+      }
+
+      startMove(fromIdx, toIdx, count) {
+        const from = this.bolts[fromIdx];
+        const to = this.bolts[toIdx];
+        const nuts = from.nuts.splice(from.nuts.length - count, count);
+
+        this.move = {
+          fromIdx: fromIdx,
+          toIdx: toIdx,
+          count: count,
+          colorId: nuts[0].c,
+          nuts: nuts,
+          srcIndexBase: from.nuts.length,
+          dstIndexBase: to.nuts.length,
+          t: 0,
+          dur: 0.54 + count * 0.05,
+          playedScrew: false,
+          playedSeat: false
+        };
+
+        from.lift = 0;
+        from.liftTarget = 0;
+        this.selected = null;
+        this.clearGuideMarks();
+        this.clearHints();
+        this.state = 'MOVING';
+        this.moves++;
+        this.synth.playUnscrew(count);
+        this.haptic('light');
+
+        // Whatever was buried under the lifted run is now on show.
+        this.revealTop(from);
+        if (this.cfg.guidance) this.tutorStage = 2;
+      }
+
+      revealTop(bolt) {
+        if (!bolt.nuts.length) return;
+        const top = bolt.nuts[bolt.nuts.length - 1];
+        if (top.hidden) {
+          top.hidden = false;
+          top.reveal = 0;
+          this.synth.playReveal();
+          this.particles.seatSparks(bolt.x, bolt.nutSlotY(bolt.nuts.length - 1), top.c, 8);
+        }
+      }
+
+      // Pose of one in-flight nut. A single 0..1 progress drives unscrew, arc,
+      // screw-down and settle so motion and sound stay locked together.
+      flyingPose(j) {
+        const m = this.move;
+        const from = this.bolts[m.fromIdx];
+        const to = this.bolts[m.toIdx];
+        const band = to.band;
+        const startY = from.nutSlotY(m.srcIndexBase + j);
+        const srcHover = from.hoverY() - j * band;
+        const dstHover = to.hoverY() - j * band;
+        const endY = to.nutSlotY(m.dstIndexBase + j);
+        const t = m.t;
+        const P = MOVE_PHASE;
+        const spinOut = -Math.PI * 2 * 1.15;
+
+        let x, y, spin, squash = 0;
+
+        if (t < P.unscrewEnd) {
+          const p = t / P.unscrewEnd;
+          const e = easeOutCubic(p);
+          x = from.x;
+          y = lerp(startY, srcHover, e);
+          spin = spinOut * e;
+        } else if (t < P.travelEnd) {
+          const p = (t - P.unscrewEnd) / (P.travelEnd - P.unscrewEnd);
+          const e = easeInOutCubic(p);
+          x = lerp(from.x, to.x, e);
+          y = lerp(srcHover, dstHover, e) - Math.sin(Math.PI * p) * band * 1.15;
+          spin = spinOut - Math.PI * 0.75 * p;
+        } else if (t < P.screwEnd) {
+          const p = (t - P.travelEnd) / (P.screwEnd - P.travelEnd);
+          x = to.x;
+          y = lerp(dstHover, endY, easeInOutCubic(p));
+          spin = spinOut - Math.PI * 0.75 + Math.PI * 2 * 1.3 * easeOutCubic(p);
+        } else {
+          const p = clamp((t - P.screwEnd) / (1 - P.screwEnd), 0, 1);
+          x = to.x;
+          y = endY;
+          spin = spinOut - Math.PI * 0.75 + Math.PI * 2 * 1.3;
+          squash = Math.sin(Math.PI * p) * 0.16 / (1 + j * 0.6);
+        }
+
+        return { x: x, y: y, spin: spin, squash: squash };
+      }
+
+      advanceMove(dt) {
+        const m = this.move;
+        if (!m) return;
+        const to = this.bolts[m.toIdx];
+        m.t = Math.min(1, m.t + dt / m.dur);
+
+        if (!m.playedScrew && m.t >= MOVE_PHASE.travelEnd) {
+          m.playedScrew = true;
+          this.synth.playScrew(m.count);
+        }
+
+        if (!m.playedSeat && m.t >= MOVE_PHASE.screwEnd) {
+          m.playedSeat = true;
+          const y = to.nutSlotY(m.dstIndexBase);
+          this.synth.playSeat();
+          this.particles.seatSparks(to.x, y + to.band * 0.5, m.colorId, 12);
+          this.particles.dustRing(to.x, y + to.band * 0.6, m.colorId, to.rx);
+          this.screenShake = Math.max(this.screenShake, 2.2);
+          this.haptic('medium');
+        }
+
+        if (m.t >= 1) this.commitMove();
+      }
+
+      commitMove() {
+        const m = this.move;
+        const to = this.bolts[m.toIdx];
+        for (const nut of m.nuts) to.nuts.push(nut);
+        this.move = null;
+        this.state = 'PLAYING';
+
+        if (to.refreshComplete()) this.celebrateGroup(to);
+        this.bolts.forEach(b => b.refreshComplete());
+
+        if (LevelGenerator.isSolved(this.bolts.map(b => b.nuts), this.cfg.capacity)) {
+          this.triggerVictory();
+        }
+      }
+
+      // One colour fully gathered: shine sweep, burst, glow and a chime.
+      celebrateGroup(bolt) {
+        const cy = bolt.nutSlotY(Math.floor(bolt.capacity / 2));
+        bolt.shine = 0;
+        this.sweep = 0;
+        this.particles.groupBurst(bolt.x, cy, bolt.nuts[0].c);
+        this.particles.sparkleSweep(this.width, this.height, 0);
+        this.particles.popText(bolt.x, bolt.shaftTopY - bolt.band, 'SORTED!', '#FFE9A0', 18 * (this.s || 1));
+        this.synth.playGroupComplete();
+        this.screenShake = Math.max(this.screenShake, 4);
+        this.haptic('success');
+      }
+
+      // --- Boosters ---------------------------------------------------------
+      pushUndo() {
+        this.undoStack.push({
+          stacks: this.bolts.map(b => b.nuts.map(n => ({ c: n.c, hidden: n.hidden, reveal: n.reveal }))),
+          moves: this.moves
+        });
+        if (this.undoStack.length > 40) this.undoStack.shift();
+      }
+
+      undo() {
+        if (this.undosLeft <= 0) {
+          this.synth.playError();
+          this.showToast(this.cfg.guidance ? 'Unlocks after the tutorial' : 'No undos left');
+          return;
+        }
+        if (!this.undoStack.length || this.state !== 'PLAYING') {
+          this.synth.playError();
+          this.showToast('Nothing to undo');
+          return;
+        }
+
+        const snap = this.undoStack.pop();
+        this.deselect(false);
+        for (let i = 0; i < this.bolts.length; i++) {
+          const saved = snap.stacks[i];
+          if (!saved) continue;
+          this.bolts[i].nuts = saved.map(n => ({ c: n.c, hidden: n.hidden, reveal: n.reveal }));
+          this.bolts[i].complete = false;
+          this.bolts[i].refreshComplete();
+        }
+        this.moves = snap.moves;
+        this.undosLeft--;
+        this.synth.playButton();
+        this.haptic('light');
+        this.showToast('Move undone');
+      }
+
+      // Opens the dormant side socket, or grows the board by one spare post.
+      // Structural changes invalidate the move history, so it is cleared.
+      useAddBolt() {
+        if (this.addBoltsLeft <= 0) {
+          this.synth.playError();
+          this.showToast(this.cfg.guidance ? 'Unlocks after the tutorial' : 'No spare bolts left');
+          return;
+        }
+        if (this.state !== 'PLAYING') return;
+
+        const socket = this.bolts.find(b => b.locked);
+        if (socket) {
+          socket.locked = false;
+          socket.unlockPulse = 1;
+          socket.spawnScale = 0.5;
+          this.particles.groupBurst(socket.x, socket.baseY - socket.band, 2);
+        } else {
+          const fresh = new Bolt([], this.cfg.capacity, { isSide: true });
+          fresh.spawnScale = 0.4;
+          this.bolts.push(fresh);
+          this.layout();
+        }
+
+        this.addBoltsLeft--;
+        this.undoStack = [];
+        this.deselect(false);
+        this.synth.playUnlock();
+        this.haptic('success');
+        this.showToast('Extra bolt ready');
+      }
+
+      // Host-driven hint (rewarded ad). Flags the best source and target.
+      triggerHint() {
+        if (this.state !== 'PLAYING' && this.state !== 'INTRO') return;
+        if (this.state === 'INTRO') this.skipIntro();
+        const hint = LevelGenerator.findHint(this.bolts.filter(b => !b.locked).map(b => b.nuts), this.cfg.capacity);
+        if (!hint) {
+          this.synth.playError();
+          this.showToast('No move available - try +BOLT');
+          return;
+        }
+        const open = this.bolts.filter(b => !b.locked);
+        this.clearHints();
+        this.deselect(false);
+        if (open[hint.from]) open[hint.from].isHintSource = true;
+        if (open[hint.to]) open[hint.to].isHintTarget = true;
+        this.hintTimer = 3.4;
+        this.synth.playHint();
+        this.showToast('Move the glowing nuts');
+      }
+
+      skipIntro() {
+        for (const bolt of this.bolts) {
+          bolt.spawnScale = 1;
+          for (const nut of bolt.nuts) {
+            nut.introT = 1;
+            nut.introSeated = true;
+          }
+        }
+        this.introTime = this.introDuration;
+        this.state = 'PLAYING';
+        this.notifyStarted();
+      }
+
+      // --- Scoring & completion --------------------------------------------
+      addCoins(amount) {
+        this.coins = Math.max(0, this.coins + amount);
+      }
+
+      triggerVictory() {
+        this.state = 'VICTORY';
+        this.victory.t = 0;
+        this.victory.starAnim = [0, 0, 0];
+        this.victory.special = !!this.cfg.isSpecial;
+
+        // Star rating from move efficiency against a generous par.
+        const par = Math.max(4, Math.round(this.cfg.colorCount * 2.4));
+        if (this.moves <= par) this.victory.stars = 3;
+        else if (this.moves <= Math.round(par * 1.55)) this.victory.stars = 2;
+        else this.victory.stars = 1;
+
+        this.victory.coins = COINS_PER_LEVEL + (this.victory.stars - 1) * 5;
+        this.addCoins(this.victory.coins);
+
+        this.particles.fireworks(this.width, this.height);
+        this.particles.sparkleSweep(this.width, this.height, 0.25);
+        this.screenShake = 7;
+        if (this.cfg.isSpecial) this.synth.playSpecialWin();
+        else this.synth.playLevelWin();
+        this.haptic('success');
+
+        this.bestLevel = Math.max(this.bestLevel, this.level + 1);
+        this.saveProgress(this.level + 1);
+
+        this.notifyLevelComplete();
+      }
+
+      notifyLevelComplete() {
+        try {
+          const native = window.AndroidNative;
+          if (native) {
+            if (typeof native.postScore === 'function') native.postScore(this.coins);
+            if (typeof native.onLevelCompleted === 'function') native.onLevelCompleted(this.level, this.coins);
+          }
+          if (Host && typeof Host.completed === 'function') {
+            Host.completed({
+              score: this.coins,
+              level: this.level,
+              stats: { moves: this.moves, stars: this.victory.stars, special: !!this.cfg.isSpecial }
+            });
+          }
+        } catch (e) {}
+      }
+
+      showToast(text) {
+        this.toast = { text: text, t: 1.6, max: 1.6 };
+      }
+
+      haptic(type) {
+        try {
+          if (Host && typeof Host.haptic === 'function') {
+            Host.haptic(type);
+          }
+        } catch (e) {}
+      }
+
+      // --- Update -----------------------------------------------------------
+      update(dt) {
+        if (this.paused) return;
+        this.time += dt;
+
+        if (this.screenShake > 0) this.screenShake = Math.max(0, this.screenShake - dt * 22);
+        if (this.sweep >= 0) {
+          this.sweep += dt * 1.45;
+          if (this.sweep > 1) this.sweep = -1;
+        }
+        if (this.toast) {
+          this.toast.t -= dt;
+          if (this.toast.t <= 0) this.toast = null;
+        }
+        if (this.hintTimer > 0) {
+          this.hintTimer -= dt;
+          if (this.hintTimer <= 0) this.clearHints();
+        }
+
+        const diff = this.coins - this.coinsShown;
+        if (Math.abs(diff) < 0.6) this.coinsShown = this.coins;
+        else this.coinsShown += diff * Math.min(1, dt * 6);
+
+        for (const bolt of this.bolts) bolt.update(dt);
+        this.particles.update(dt);
+
+        for (const btn of this.actionButtons) {
+          if (btn.press > 0) btn.press = Math.max(0, btn.press - dt * 5);
+        }
+
+        if (this.state === 'INTRO') {
+          this.updateIntro(dt);
+        } else if (this.state === 'MOVING') {
+          // Spinning the target thread while a nut drives down reinforces the
+          // direction of travel.
+          const to = this.bolts[this.move ? this.move.toIdx : 0];
+          if (to) to.threadPhase += dt * 120;
+          this.advanceMove(dt);
+        } else if (this.state === 'VICTORY') {
+          this.victory.t += dt;
+          for (let i = 0; i < 3; i++) {
+            if (this.victory.t > 0.35 + i * 0.2 && i < this.victory.stars) {
+              this.victory.starAnim[i] = Math.min(1, this.victory.starAnim[i] + dt * 3.2);
+            }
+          }
+          // Natural roll into the next level once the celebration has landed.
+          if (this.victory.t > 3.4) this.nextLevel();
+        }
+
+        if (this.state === 'PLAYING') {
+          this.handPulse += dt * 2.6;
+        }
+      }
+
+      updateIntro(dt) {
+        this.introTime += dt;
+        let pending = false;
+
+        for (const bolt of this.bolts) {
+          for (const nut of bolt.nuts) {
+            if (nut.introT >= 1) continue;
+            const local = this.introTime - (nut.introDelay || 0);
+            if (local <= 0) { pending = true; continue; }
+            nut.introT = clamp(local / (nut.introDur || 0.3), 0, 1);
+            if (nut.introT >= 1 && !nut.introSeated) {
+              nut.introSeated = true;
+              this.introSeatCount = (this.introSeatCount || 0) + 1;
+              if (this.introSeatCount % 2 === 1) this.synth.playTick();
+              this.particles.seatSparks(bolt.x, bolt.baseY - bolt.band * 0.4, nut.c, 3);
+            }
+            if (nut.introT < 1) pending = true;
+          }
+        }
+
+        if (!pending && this.introTime >= this.introDuration - 0.06) {
+          this.state = 'PLAYING';
+          this.notifyStarted();
+        }
+      }
+
+      sortedGroups() {
+        let done = 0;
+        for (const b of this.bolts) if (b.complete) done++;
+        return done;
+      }
+
+      // --- Render: background ----------------------------------------------
+      buildBackground() {
+        const w = Math.max(2, Math.ceil(this.width));
+        const h = Math.max(2, Math.ceil(this.height));
+        const cv = document.createElement('canvas');
+        cv.width = w;
+        cv.height = h;
+        const c = cv.getContext('2d');
+        if (!c) return null;
+
+        const g = c.createLinearGradient(0, 0, w * 0.3, h);
+        g.addColorStop(0, THEME.bgTop);
+        g.addColorStop(0.52, THEME.bgMid);
+        g.addColorStop(1, THEME.bgBottom);
+        c.fillStyle = g;
+        c.fillRect(0, 0, w, h);
+
+        // Soft pool of light under the play area.
+        const glow = c.createRadialGradient(w * 0.5, h * 0.46, 0, w * 0.5, h * 0.46, w * 0.85);
+        glow.addColorStop(0, 'rgba(96, 128, 255, 0.16)');
+        glow.addColorStop(1, 'rgba(96, 128, 255, 0)');
+        c.fillStyle = glow;
+        c.fillRect(0, 0, w, h);
+
+        // Faint starfield for depth, baked once.
+        for (let i = 0; i < 70; i++) {
+          const x = Math.random() * w;
+          const y = Math.random() * h;
+          const r = Math.random() * 1.3 + 0.3;
+          c.beginPath();
+          c.arc(x, y, r, 0, Math.PI * 2);
+          c.fillStyle = 'rgba(255, 255, 255, ' + (0.05 + Math.random() * 0.16).toFixed(3) + ')';
+          c.fill();
+        }
+
+        const vig = c.createRadialGradient(w * 0.5, h * 0.5, w * 0.35, w * 0.5, h * 0.5, w * 1.05);
+        vig.addColorStop(0, 'rgba(0,0,0,0)');
+        vig.addColorStop(1, THEME.vignette);
+        c.fillStyle = vig;
+        c.fillRect(0, 0, w, h);
+
+        return cv;
+      }
+
+      render() {
+        const ctx = this.ctx;
+        if (!ctx) return;
+        ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+
+        if (!this.bgCache) this.bgCache = this.buildBackground();
+        if (this.bgCache) ctx.drawImage(this.bgCache, 0, 0, this.width, this.height);
+        else {
+          ctx.fillStyle = THEME.bgMid;
+          ctx.fillRect(0, 0, this.width, this.height);
+        }
+
+        ctx.save();
+        if (this.screenShake > 0.05) {
+          ctx.translate((Math.random() - 0.5) * this.screenShake, (Math.random() - 0.5) * this.screenShake);
+        }
+        this.drawBoard(ctx);
+        this.particles.render(ctx);
+        ctx.restore();
+
+        this.drawHud(ctx);
+        this.drawFooter(ctx);
+        if (this.sweep >= 0) this.drawScreenSweep(ctx);
+        if (this.state === 'VICTORY') this.drawVictory(ctx);
+      }
+
+      // A light band that enters from the left and crosses the board whenever a
+      // colour is sorted, matching the reference celebration.
+      drawScreenSweep(ctx) {
+        const p = clamp(this.sweep, 0, 1);
+        const bandW = this.width * 0.42;
+        const x = lerp(-bandW, this.width + bandW, easeInOutCubic(p));
+        const fade = Math.sin(Math.PI * p);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const g = ctx.createLinearGradient(x - bandW / 2, 0, x + bandW / 2, 0);
+        g.addColorStop(0, 'rgba(255,255,255,0)');
+        g.addColorStop(0.5, 'rgba(190, 220, 255, ' + (0.2 * fade).toFixed(3) + ')');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(x - bandW, this.boardTop - 20, bandW * 2, this.height * 0.62);
+        ctx.restore();
+      }
+
+      drawBoard(ctx) {
+        for (let i = 0; i < this.bolts.length; i++) {
+          this.drawBolt(ctx, this.bolts[i], i);
+        }
+        if (this.move) this.drawFlyingNuts(ctx);
+        this.drawGuides(ctx);
+      }
+
+      // --- Render: one bolt --------------------------------------------------
+      drawBolt(ctx, bolt, index) {
+        const shakeX = bolt.shake > 0 ? Math.sin(this.time * 46) * bolt.shake * 5 : 0;
+        const bx = bolt.x + shakeX;
+        const sc = bolt.spawnScale;
+
+        ctx.save();
+        if (sc < 1) {
+          ctx.translate(bx, bolt.baseY);
+          ctx.scale(sc, sc);
+          ctx.translate(-bx, -bolt.baseY);
+        }
+
+        if (bolt.locked) {
+          Art.drawLockedSocket(ctx, bx, bolt.baseY, bolt.rx * 1.02, bolt.ry, bolt.unlockPulse);
+          Art.glyphLock(ctx, bx, bolt.baseY - bolt.ry * 3.1, bolt.rx * 0.4, 'rgba(20, 24, 60, 0.9)', '#98A0D0');
+          ctx.restore();
+          return;
+        }
+
+        // Sorted bolts keep a restrained halo so they read as finished without
+        // washing out the board.
+        if (bolt.completeGlow > 0.01 && bolt.nuts.length) {
+          const pal = NUT_PALETTE[bolt.nuts[0].c % NUT_PALETTE.length];
+          const midY = bolt.nutSlotY(Math.floor(bolt.capacity / 2));
+          const rad = bolt.rx * 2.5;
+          const g = ctx.createRadialGradient(bx, midY, 0, bx, midY, rad);
+          g.addColorStop(0, pal.glow);
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.save();
+          ctx.globalAlpha = 0.5 * bolt.completeGlow;
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.ellipse(bx, midY, rad, rad * 0.9, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Selection and hint rings sit on the washer.
+        const ringPulse = 0.5 + 0.5 * Math.sin(bolt.hintPulse);
+        if (this.selected === index || bolt.isHintSource || bolt.isHintTarget) {
+          const col = bolt.isHintTarget ? 'rgba(120, 235, 130, ' : 'rgba(255, 226, 140, ';
+          ctx.save();
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = col + (0.45 + 0.45 * ringPulse).toFixed(3) + ')';
+          ctx.beginPath();
+          ctx.ellipse(bx, bolt.baseY, bolt.rx * (1.2 + 0.06 * ringPulse), bolt.ry * (1.25 + 0.06 * ringPulse), 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        Art.drawBase(ctx, bx, bolt.baseY, bolt.rx * 1.06, bolt.ry);
+        Art.drawShaft(ctx, bx, bolt.shaftTopY, bolt.baseY, bolt.shaftW, bolt.threadPhase);
+
+        const heldRun = this.selected === index ? bolt.topRun() : 0;
+        const liftFrom = bolt.nuts.length - heldRun;
+        let topY = null;
+
+        for (let i = 0; i < bolt.nuts.length; i++) {
+          const nut = bolt.nuts[i];
+          let y = bolt.nutSlotY(i);
+          let spin = 0;
+          let alpha = 1;
+          let live = false;
+
+          if (nut.introT !== undefined && nut.introT < 1) {
+            // Assembly cascade: the nut screws down onto its post.
+            const e = easeOutCubic(nut.introT);
+            y -= (1 - e) * (bolt.band * 4 + bolt.rx * 1.6);
+            spin = -(1 - e) * Math.PI * 2 * 1.3;
+            alpha = clamp(nut.introT * 4, 0, 1);
+            live = true;
+          } else if (heldRun > 0 && i >= liftFrom) {
+            y -= bolt.lift + Math.sin(this.time * 4.2) * bolt.ry * 0.14;
+            spin = Math.sin(this.time * 3.1) * 0.13;
+            live = true;
+          }
+
+          this.paintNut(ctx, bx, y, bolt, nut, spin, alpha, live, 0);
+          topY = y;
+        }
+
+        // Redraw the tip so the thread emerges through the top nut bore.
+        const capBottom = topY === null ? bolt.baseY : Math.min(bolt.baseY, topY + bolt.ry * 0.2);
+        if (capBottom > bolt.shaftTopY + 1) {
+          Art.drawShaft(ctx, bx, bolt.shaftTopY, capBottom, bolt.shaftW, bolt.threadPhase);
+        }
+
+        // Local shine that wipes across the bolt when its colour completes.
+        if (bolt.shine >= 0) {
+          const p = clamp(bolt.shine, 0, 1);
+          const boxX = bx - bolt.rx * 1.5;
+          const boxY = bolt.shaftTopY - bolt.band;
+          const boxW = bolt.rx * 3;
+          const boxH = bolt.baseY + bolt.ry * 2 - boxY;
+          const bandW = boxW * 0.5;
+          const sx = lerp(boxX - bandW, boxX + boxW + bandW, p);
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(boxX, boxY, boxW, boxH);
+          ctx.clip();
+          ctx.globalCompositeOperation = 'lighter';
+          const g = ctx.createLinearGradient(sx - bandW * 0.5, boxY, sx + bandW * 0.5, boxY + boxH);
+          g.addColorStop(0, 'rgba(255,255,255,0)');
+          g.addColorStop(0.5, 'rgba(255,255,255,' + (0.5 * Math.sin(Math.PI * p)).toFixed(3) + ')');
+          g.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(boxX, boxY, boxW, boxH);
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
+
+      // Cached blit for resting nuts, live vector draw for anything animating.
+      paintNut(ctx, x, y, bolt, nut, spin, alpha, live, squash) {
+        const rx = bolt.rx;
+        const ry = bolt.ry;
+        const band = bolt.band;
+        const pal = NUT_PALETTE[nut.c % NUT_PALETTE.length];
+
+        ctx.save();
+        if (alpha < 1) ctx.globalAlpha = alpha;
+        if (squash > 0.001) {
+          const pivot = y + band;
+          ctx.translate(x, pivot);
+          ctx.scale(1 + squash * 0.55, 1 - squash);
+          ctx.translate(-x, -pivot);
+        }
+
+        if (nut.reveal < 1) {
+          // Steel shell dissolves into the real colour as it is uncovered.
+          const hid = this.sprites.get(0, true, rx, ry, band);
+          if (hid) {
+            ctx.globalAlpha = alpha * (1 - nut.reveal);
+            ctx.drawImage(hid.canvas, x - hid.ax, y - hid.ay, hid.w, hid.h);
+          }
+          const pop = 1 + Math.sin(Math.PI * nut.reveal) * 0.12;
+          ctx.globalAlpha = alpha * nut.reveal;
+          ctx.translate(x, y + band * 0.5);
+          ctx.scale(pop, pop);
+          ctx.translate(-x, -(y + band * 0.5));
+          Art.drawNut(ctx, x, y, rx, ry, band, 0, pal, {});
+        } else if (live || Math.abs(spin) > 0.002) {
+          Art.drawNut(ctx, x, y, rx, ry, band, spin, nut.hidden ? HIDDEN_SKIN : pal, { questionMark: nut.hidden });
+        } else {
+          const sp = this.sprites.get(nut.c, nut.hidden, rx, ry, band);
+          if (sp) ctx.drawImage(sp.canvas, x - sp.ax, y - sp.ay, sp.w, sp.h);
+          else Art.drawNut(ctx, x, y, rx, ry, band, 0, nut.hidden ? HIDDEN_SKIN : pal, { questionMark: nut.hidden });
+        }
+
+        ctx.restore();
+      }
+
+      drawFlyingNuts(ctx) {
+        const m = this.move;
+        const to = this.bolts[m.toIdx];
+        if (!to) return;
+        for (let j = 0; j < m.nuts.length; j++) {
+          const pose = this.flyingPose(j);
+          this.paintNut(ctx, pose.x, pose.y, to, m.nuts[j], pose.spin, 1, true, pose.squash);
+        }
+      }
+
+      // --- Render: guidance overlays -----------------------------------------
+      smallestMoveSource() {
+        let best = null;
+        let bestCount = Infinity;
+        for (let i = 0; i < this.bolts.length; i++) {
+          const from = this.bolts[i];
+          if (from.locked || from.isEmpty || from.complete) continue;
+          const run = from.topRun();
+          for (let j = 0; j < this.bolts.length; j++) {
+            if (i === j) continue;
+            const to = this.bolts[j];
+            if (!to.canAccept(from.topColor)) continue;
+            const moved = Math.min(run, to.freeSpace);
+            if (moved > 0 && moved < bestCount) {
+              bestCount = moved;
+              best = i;
+            }
+          }
+        }
+        return best;
+      }
+
+      // Where the tutorial finger should point next.
+      tutorTarget() {
+        if (this.selected !== null) {
+          const color = this.bolts[this.selected].topColor;
+          for (let i = 0; i < this.bolts.length; i++) {
+            if (i === this.selected) continue;
+            const b = this.bolts[i];
+            if (!b.locked && b.canAccept(color)) return i;
+          }
+          return null;
+        }
+        return this.smallestMoveSource();
+      }
+
+      guidanceText() {
+        if (!this.cfg) return null;
+        if (this.cfg.level === 1) {
+          return this.selected === null ? 'Click to move the nut' : 'Now tap the other bolt';
+        }
+        if (this.cfg.level === 2) {
+          return 'Only nuts of the same color can be stacked on top of each other';
+        }
+        return null;
+      }
+
+      drawGuides(ctx) {
+        // Level 2: tick over every post that accepts the held colour, cross
+        // over the rest.
+        for (const bolt of this.bolts) {
+          if (!bolt.guideMark) continue;
+          const cy = bolt.shaftTopY - bolt.band * 1.4;
+          const r = bolt.rx * 0.52;
+          if (bolt.guideMark > 0) Art.glyphCheck(ctx, bolt.x, cy, r, THEME.good);
+          else Art.glyphCross(ctx, bolt.x, cy, r, THEME.bad);
+        }
+
+        // Level 1: pointing finger that bobs toward the next tap.
+        if (this.cfg && this.cfg.level === 1 && this.state === 'PLAYING') {
+          const target = this.tutorTarget();
+          if (target !== null && this.bolts[target]) {
+            const bolt = this.bolts[target];
+            const bob = Math.sin(this.handPulse * 2.1) * bolt.ry * 0.6;
+            ctx.save();
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 5;
+            Art.glyphHand(ctx, bolt.x + bolt.rx * 0.42, bolt.baseY + bolt.ry * 3.4 + bob, bolt.rx * 1.2);
+            ctx.restore();
+          }
+        }
+
+        // Hint: bouncing arrow over the recommended destination.
+        for (const bolt of this.bolts) {
+          if (!bolt.isHintTarget) continue;
+          const bounce = Math.abs(Math.sin(bolt.hintPulse)) * bolt.ry * 0.7;
+          const y = bolt.shaftTopY - bolt.band * 1.6 - bounce;
+          ctx.save();
+          ctx.fillStyle = 'rgba(120, 235, 130, 0.95)';
+          ctx.beginPath();
+          ctx.moveTo(bolt.x, y + bolt.rx * 0.5);
+          ctx.lineTo(bolt.x - bolt.rx * 0.36, y - bolt.rx * 0.2);
+          ctx.lineTo(bolt.x + bolt.rx * 0.36, y - bolt.rx * 0.2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      // --- Render: HUD -------------------------------------------------------
+      drawRoundButton(ctx, cx, cy, r, pressed) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy + r * 0.12, r, 0, Math.PI * 2);
+        ctx.fillStyle = THEME.chipDeep;
+        ctx.fill();
+
+        const g = ctx.createLinearGradient(cx, cy - r, cx, cy + r);
+        g.addColorStop(0, THEME.chipEdge);
+        g.addColorStop(0.45, THEME.chipFill);
+        g.addColorStop(1, THEME.chipDeep);
+        ctx.beginPath();
+        ctx.arc(cx, cy - (pressed ? 0 : r * 0.04), r, 0, Math.PI * 2);
+        ctx.fillStyle = g;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - r * 0.42, r * 0.62, r * 0.3, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+        ctx.fill();
+        ctx.restore();
+      }
+
+      drawHud(ctx) {
+        const s = this.s || 1;
+
+        // Sound toggle, drawn as the game mark.
+        this.drawRoundButton(ctx, this.soundBtn.x, this.soundBtn.y, this.soundBtn.r, false);
+        Art.glyphNut(ctx, this.soundBtn.x, this.soundBtn.y, this.soundBtn.r * 0.5, '#FFFFFF', null);
+        if (this.synth.isMuted) {
+          ctx.save();
+          ctx.lineWidth = 3 * s;
+          ctx.lineCap = 'round';
+          ctx.strokeStyle = '#FF5B6E';
+          ctx.beginPath();
+          ctx.moveTo(this.soundBtn.x - this.soundBtn.r * 0.55, this.soundBtn.y - this.soundBtn.r * 0.55);
+          ctx.lineTo(this.soundBtn.x + this.soundBtn.r * 0.55, this.soundBtn.y + this.soundBtn.r * 0.55);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        this.drawRoundButton(ctx, this.restartBtn.x, this.restartBtn.y, this.restartBtn.r, false);
+        Art.glyphRestart(ctx, this.restartBtn.x, this.restartBtn.y, this.restartBtn.r * 0.46, '#FFFFFF');
+
+        // Coin capsule.
+        const cap = this.capsule;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(cap.x, cap.y + 3 * s, cap.w, cap.h, cap.h / 2);
+        ctx.fillStyle = 'rgba(20, 16, 60, 0.45)';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.roundRect(cap.x, cap.y, cap.w, cap.h, cap.h / 2);
+        const capG = ctx.createLinearGradient(cap.x, cap.y, cap.x, cap.y + cap.h);
+        capG.addColorStop(0, '#FFFFFF');
+        capG.addColorStop(1, THEME.capsuleFill);
+        ctx.fillStyle = capG;
+        ctx.fill();
+        ctx.lineWidth = 2 * s;
+        ctx.strokeStyle = THEME.capsuleEdge;
+        ctx.stroke();
+        ctx.restore();
+
+        Art.glyphCoin(ctx, cap.x + cap.h * 0.44, cap.y + cap.h / 2, cap.h * 0.5);
+
+        ctx.save();
+        ctx.font = '900 ' + Math.round(19 * s) + 'px Fredoka, Lilita One, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#3A2A6B';
+        ctx.fillText(String(Math.round(this.coinsShown)), cap.x + cap.w * 0.58, cap.y + cap.h / 2 + 1);
+        ctx.restore();
+
+        // Level title.
+        const title = this.cfg && this.cfg.isSpecial
+          ? 'Special level ' + Math.ceil(this.level / 10)
+          : 'Level ' + this.level;
+        ctx.save();
+        ctx.font = '900 ' + Math.round(27 * s) + 'px Fredoka, Lilita One, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(8, 10, 40, 0.45)';
+        ctx.fillText(title, this.width / 2, this.titleY + 2 * s);
+        ctx.fillStyle = THEME.text;
+        ctx.fillText(title, this.width / 2, this.titleY);
+        ctx.restore();
+      }
+
+      // --- Render: footer ----------------------------------------------------
+      wrapLines(ctx, text, maxWidth) {
+        const words = text.split(' ');
+        const lines = [];
+        let line = '';
+        for (const word of words) {
+          const test = line ? line + ' ' + word : word;
+          if (ctx.measureText(test).width > maxWidth && line) {
+            lines.push(line);
+            line = word;
+          } else {
+            line = test;
+          }
+        }
+        if (line) lines.push(line);
+        return lines;
+      }
+
+      drawFooter(ctx) {
+        const s = this.s || 1;
+
+        // Sorting progress for the level.
+        const total = this.cfg ? this.cfg.colorCount : 1;
+        const done = this.sortedGroups();
+        const pb = this.progressBar;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(pb.x, pb.y, pb.w, pb.h, pb.h / 2);
+        ctx.fillStyle = 'rgba(10, 12, 48, 0.55)';
+        ctx.fill();
+        const ratio = clamp(done / Math.max(1, total), 0, 1);
+        if (ratio > 0) {
+          ctx.beginPath();
+          ctx.roundRect(pb.x, pb.y, Math.max(pb.h, pb.w * ratio), pb.h, pb.h / 2);
+          const g = ctx.createLinearGradient(pb.x, pb.y, pb.x + pb.w, pb.y);
+          g.addColorStop(0, '#7FD525');
+          g.addColorStop(1, '#18C8B8');
+          ctx.fillStyle = g;
+          ctx.fill();
+        }
+        ctx.font = '800 ' + Math.round(11 * s) + 'px Nunito, Fredoka, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = THEME.textDim;
+        ctx.fillText(done + ' / ' + total + ' SORTED', this.width / 2, pb.y + pb.h + 4 * s);
+        ctx.restore();
+
+        // Booster panel.
+        const p = this.panel;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(p.x, p.y + 4 * s, p.w, p.h, 20 * s);
+        ctx.fillStyle = 'rgba(14, 10, 50, 0.5)';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.roundRect(p.x, p.y, p.w, p.h, 20 * s);
+        const pg = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.h);
+        pg.addColorStop(0, THEME.panelEdge);
+        pg.addColorStop(0.35, THEME.panel);
+        pg.addColorStop(1, THEME.panelDeep);
+        ctx.fillStyle = pg;
+        ctx.fill();
+        ctx.restore();
+
+        for (const btn of this.actionButtons) {
+          const locked = btn.id === 'undo' ? this.undosLeft <= 0 : this.addBoltsLeft <= 0;
+          const count = btn.id === 'undo' ? this.undosLeft : this.addBoltsLeft;
+          this.drawActionButton(ctx, btn, locked, count);
+        }
+
+        // Tutorial copy, then transient feedback toasts on top of it.
+        const guide = this.guidanceText();
+        if (guide) {
+          ctx.save();
+          ctx.font = '800 ' + Math.round(21 * s) + 'px Fredoka, Nunito, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const lines = this.wrapLines(ctx, guide, this.width - 48 * s);
+          const lh = 27 * s;
+          const startY = this.messageY - (lines.length - 1) * lh / 2;
+          lines.forEach((ln, i) => {
+            ctx.fillStyle = 'rgba(6, 8, 34, 0.5)';
+            ctx.fillText(ln, this.width / 2, startY + i * lh + 2);
+            ctx.fillStyle = THEME.text;
+            ctx.fillText(ln, this.width / 2, startY + i * lh);
+          });
+          ctx.restore();
+        }
+
+        if (this.toast) {
+          const k = clamp(this.toast.t / 0.35, 0, 1);
+          const rise = (1 - clamp(this.toast.t / this.toast.max, 0, 1)) * 8 * s;
+          ctx.save();
+          ctx.globalAlpha = k;
+          ctx.font = '800 ' + Math.round(15 * s) + 'px Nunito, Fredoka, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const tw = ctx.measureText(this.toast.text).width + 28 * s;
+          const th = 32 * s;
+          const tx = (this.width - tw) / 2;
+          const ty = this.progressBar.y - 62 * s - rise;
+          ctx.beginPath();
+          ctx.roundRect(tx, ty, tw, th, th / 2);
+          ctx.fillStyle = 'rgba(12, 14, 52, 0.88)';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(150, 130, 240, 0.6)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.fillStyle = '#EDE8FF';
+          ctx.fillText(this.toast.text, this.width / 2, ty + th / 2);
+          ctx.restore();
+        }
+      }
+
+      drawActionButton(ctx, btn, locked, count) {
+        const s = this.s || 1;
+        const r = 16 * s;
+        const dy = btn.press > 0 ? 2 * s : 0;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(btn.x, btn.y + 4 * s, btn.w, btn.h, r);
+        ctx.fillStyle = locked ? 'rgba(80, 84, 120, 0.85)' : 'rgba(88, 30, 160, 0.95)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.roundRect(btn.x, btn.y + dy, btn.w, btn.h, r);
+        const g = ctx.createLinearGradient(btn.x, btn.y, btn.x, btn.y + btn.h);
+        if (locked) {
+          g.addColorStop(0, '#D8DAE6');
+          g.addColorStop(0.5, '#B4B8CC');
+          g.addColorStop(1, '#8F94AE');
+        } else {
+          g.addColorStop(0, '#D77BFF');
+          g.addColorStop(0.45, '#A625DC');
+          g.addColorStop(1, '#7A129F');
+        }
+        ctx.fillStyle = g;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.roundRect(btn.x + btn.w * 0.14, btn.y + dy + 4 * s, btn.w * 0.72, btn.h * 0.3, r * 0.5);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.fill();
+        ctx.restore();
+
+        const cx = btn.x + btn.w / 2;
+        const cy = btn.y + btn.h / 2 + dy;
+        const icon = locked ? 'rgba(94, 98, 132, 0.95)' : '#FFFFFF';
+        if (btn.id === 'undo') Art.glyphUndo(ctx, cx, cy, btn.h * 0.26, icon);
+        else Art.glyphAddBolt(ctx, cx, cy, btn.h * 0.28, icon);
+
+        // Badge: remaining charges, or a padlock while still tutorial-locked.
+        const bx = btn.x + btn.w - 4 * s;
+        const by = btn.y + btn.h - 2 * s + dy;
+        if (locked && count <= 0) {
+          Art.glyphLock(ctx, bx, by - 2 * s, 10 * s, '#5A6086', '#E4E7F5');
+        } else {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(bx, by, 11 * s, 0, Math.PI * 2);
+          ctx.fillStyle = '#FF3B5C';
+          ctx.fill();
+          ctx.lineWidth = 2 * s;
+          ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+          ctx.stroke();
+          ctx.font = '900 ' + Math.round(13 * s) + 'px Fredoka, Nunito, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText(String(count), bx, by + 0.5 * s);
+          ctx.restore();
+        }
+      }
+
+      // --- Render: victory card ----------------------------------------------
+      drawVictory(ctx) {
+        const s = this.s || 1;
+        const card = this.card;
+        if (!card) return;
+        const fade = clamp(this.victory.t / 0.32, 0, 1);
+        const pop = easeOutBack(clamp(this.victory.t / 0.42, 0, 1));
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(5, 7, 32, ' + (0.74 * fade).toFixed(3) + ')';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        const midX = this.width / 2;
+        const midY = card.y + card.h / 2;
+        ctx.translate(midX, midY);
+        ctx.scale(pop, pop);
+        ctx.translate(-midX, -midY);
+
+        ctx.beginPath();
+        ctx.roundRect(card.x, card.y + 8 * s, card.w, card.h, 30 * s);
+        ctx.fillStyle = 'rgba(10, 8, 44, 0.7)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.roundRect(card.x, card.y, card.w, card.h, 30 * s);
+        const cg = ctx.createLinearGradient(card.x, card.y, card.x, card.y + card.h);
+        cg.addColorStop(0, '#6B34D6');
+        cg.addColorStop(0.5, '#4B1FA8');
+        cg.addColorStop(1, '#2E1173');
+        ctx.fillStyle = cg;
+        ctx.fill();
+        ctx.lineWidth = 3 * s;
+        ctx.strokeStyle = 'rgba(214, 178, 255, 0.65)';
+        ctx.stroke();
+
+        const heading = this.victory.special ? 'SPECIAL CLEARED!' : 'LEVEL COMPLETE!';
+        ctx.font = '900 ' + Math.round((this.victory.special ? 25 : 27) * s) + 'px Fredoka, Lilita One, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(6, 8, 34, 0.4)';
+        ctx.fillText(heading, midX, card.y + 44 * s + 2);
+        ctx.fillStyle = '#FFF3C4';
+        ctx.fillText(heading, midX, card.y + 44 * s);
+
+        // Star rating, each star popping in turn.
+        const starY = card.y + 108 * s;
+        const gap = 62 * s;
+        for (let i = 0; i < 3; i++) {
+          const x = midX + (i - 1) * gap;
+          const anim = this.victory.starAnim[i];
+          Art.glyphStar(ctx, x, starY, 24 * s, 'rgba(255,255,255,0.14)', 'rgba(255,255,255,0.25)');
+          if (anim > 0) {
+            const sp = easeOutBack(anim);
+            ctx.save();
+            ctx.translate(x, starY - (i === 1 ? 8 * s : 0));
+            ctx.scale(sp, sp);
+            Art.glyphStar(ctx, 0, 0, 27 * s, '#FFD34D', '#E08A00');
+            ctx.restore();
+          }
+        }
+
+        ctx.font = '800 ' + Math.round(15 * s) + 'px Nunito, Fredoka, sans-serif';
+        ctx.fillStyle = 'rgba(232, 224, 255, 0.85)';
+        ctx.fillText('Sorted in ' + this.moves + ' moves', midX, card.y + 160 * s);
+
+        // Coin reward row.
+        const rowY = card.y + 196 * s;
+        Art.glyphCoin(ctx, midX - 34 * s, rowY, 15 * s);
+        ctx.font = '900 ' + Math.round(24 * s) + 'px Fredoka, Lilita One, sans-serif';
+        ctx.fillStyle = '#FFE9A0';
+        ctx.textAlign = 'left';
+        ctx.fillText('+' + this.victory.coins, midX - 12 * s, rowY + 1);
+        ctx.textAlign = 'center';
+
+        const btn = this.nextBtn;
+        ctx.beginPath();
+        ctx.roundRect(btn.x, btn.y + 5 * s, btn.w, btn.h, btn.h / 2);
+        ctx.fillStyle = 'rgba(20, 90, 20, 0.8)';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.roundRect(btn.x, btn.y, btn.w, btn.h, btn.h / 2);
+        const bg = ctx.createLinearGradient(btn.x, btn.y, btn.x, btn.y + btn.h);
+        bg.addColorStop(0, '#A6EE5C');
+        bg.addColorStop(0.5, '#6BC42A');
+        bg.addColorStop(1, '#4C9612');
+        ctx.fillStyle = bg;
+        ctx.fill();
+        ctx.font = '900 ' + Math.round(20 * s) + 'px Fredoka, Lilita One, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('NEXT LEVEL', btn.x + btn.w / 2, btn.y + btn.h / 2 + 1);
+
+        ctx.restore();
+      }
+
+      // --- Host lifecycle ----------------------------------------------------
+      setPaused(paused) {
+        this.paused = !!paused;
+      }
+    }
+
+    // ========================================================================
+    // 9. HOST BRIDGE (Flutter WebView / admin simulator / plain iframe)
+    // ========================================================================
+    const Host = {
+      post(action, payload) {
+        const body = payload || {};
+        const message = JSON.stringify({ action: action, payload: body });
+        try {
+          if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+            window.flutter_inappwebview.callHandler('GameBridgeChannel', message);
+          }
+        } catch (e) {}
+        try {
+          if (window.FlutterGameBridge && window.FlutterGameBridge.postMessage) {
+            window.FlutterGameBridge.postMessage(message);
+          }
+        } catch (e) {}
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ source: 'GameBridge', action: action, payload: body }, '*');
+          }
+        } catch (e) {}
+      },
+      ready() { this.post('ready'); },
+      gameStarted() { this.post('gameStarted'); },
+      completed(payload) { this.post('completed', payload); },
+      haptic(type) { this.post('haptic', { type: type }); }
+    };
+
+    // ========================================================================
+    // 10. BOOTSTRAP, RESIZE & MAIN LOOP
+    // ========================================================================
+    function initGame() {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+
+      const engine = new GameEngine(canvas);
+      window.__ENGINE__ = engine;
+
+      let rafId = 0;
+      let running = false;
+      let lastTime = 0;
+
+      function frame(now) {
+        rafId = 0;
+        try {
+          const dt = Math.min(0.064, Math.max(0, (now - lastTime) / 1000));
+          lastTime = now;
+          engine.update(dt);
+          engine.render();
+        } catch (err) {
+          console.error('NutBoltSort frame error:', err);
+        }
+        if (running) rafId = requestAnimationFrame(frame);
+      }
+
+      function startLoop() {
+        if (running) return;
+        running = true;
+        lastTime = performance.now();
+        rafId = requestAnimationFrame(frame);
+      }
+
+      // A swiped-away game stops its loop outright rather than idling, so
+      // off-screen WebViews cost nothing while another game is being played.
+      function stopLoop() {
+        running = false;
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = 0;
+        }
+      }
+
+      window.GameBridge = {
+        ready: () => Host.ready(),
+        restart: () => { engine.restartLevel(); },
+        pause: () => { engine.setPaused(true); stopLoop(); },
+        resume: () => { engine.setPaused(false); engine.synth.init(); startLoop(); },
+        setSoundEnabled: (enabled) => {
+          engine.synth.isMuted = !enabled;
+          if (enabled) engine.synth.init();
+        },
+        triggerHint: () => { engine.triggerHint(); },
+        getState: () => ({ level: engine.level, coins: engine.coins, moves: engine.moves })
+      };
+
+      function resize() {
+        let width = window.innerWidth ||
+          (window.visualViewport ? window.visualViewport.width : 0) ||
+          document.documentElement.clientWidth || document.body.clientWidth || 360;
+        let height = window.innerHeight ||
+          (window.visualViewport ? window.visualViewport.height : 0) ||
+          document.documentElement.clientHeight || document.body.clientHeight || 640;
+        if (width <= 0) width = 360;
+        if (height <= 0) height = 640;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        engine.setSize(width, height, dpr);
+
+        // Keep the frozen frame correct while the loop is stopped.
+        if (!running) {
+          try { engine.render(); } catch (e) {}
+        }
+      }
+
+      window.addEventListener('resize', resize);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', resize);
+      }
+      window.addEventListener('orientationchange', resize);
+      window.addEventListener('load', resize);
+
+      // Multi-stage layout passes eliminate the WebView zero-height black screen.
+      resize();
+      setTimeout(resize, 50);
+      setTimeout(resize, 150);
+      setTimeout(resize, 400);
+
+      let lastTouchAt = 0;
+      function press(clientX, clientY) {
+        const now = Date.now();
+        if (now - lastTouchAt < 120) return; // touchstart plus synthetic pointerdown
+        lastTouchAt = now;
+        engine.handlePointerDown(clientX, clientY);
+      }
+
+      canvas.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches.length > 0) {
+          press(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      }, { passive: true });
+
+      canvas.addEventListener('pointerdown', (e) => {
+        if (e.pointerType !== 'touch') press(e.clientX, e.clientY);
+      });
+
+      window.addEventListener('pointerup', () => engine.handlePointerUp());
+      window.addEventListener('touchend', () => engine.handlePointerUp());
+      window.addEventListener('pointercancel', () => engine.handlePointerUp());
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          engine.setPaused(true);
+          stopLoop();
+        } else {
+          engine.setPaused(false);
+          startLoop();
+        }
+      });
+
+      startLoop();
+      Host.ready();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initGame);
+    } else {
+      initGame();
+    }
+  })();
+  </script>
+</body>
+</html>

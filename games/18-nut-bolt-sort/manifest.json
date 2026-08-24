@@ -1,0 +1,17 @@
+{
+  "id": "nut-bolt-sort",
+  "title": "Nut & Bolt Sort",
+  "version": "1.0.0",
+  "description": "Unscrew, spin and stack colour-matched hex nuts across threaded bolts. Guided tutorial, hidden question-mark nuts, spare-bolt boosters and 3-nut special levels.",
+  "orientation": "portrait",
+  "engine": "canvas2d",
+  "category": "Puzzle",
+  "feedOrder": 20,
+  "status": "published",
+  "touchZones": [],
+  "features": {
+    "sound": true,
+    "vibration": true,
+    "hint": true
+  }
+}

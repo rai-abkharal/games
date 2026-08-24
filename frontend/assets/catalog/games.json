@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "updatedAt": "2026-08-21T06:47:38.694Z",
+  "updatedAt": "2026-08-24T07:16:14.768Z",
   "games": [
     {
       "id": "tap-cannon",
@@ -227,6 +227,71 @@
       }
     },
     {
+      "id": "water-sort",
+      "title": "Water Sort 3D",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/water-sort/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/water-sort.webp",
+      "sizeBytes": 82175,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/water-sort/1.0.0/manifest.json",
+      "feedOrder": 18,
+      "category": "Puzzle",
+      "description": "AAA luxury 3D Liquid Sorting Puzzle with realistic fluid physics, procedural audio synthesis, and guaranteed solvable levels.",
+      "sha256": "89bffc7886fcbea8c9bd42e2869e43679bff810f428d09ac43697faf4fcb89b6",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": true
+      }
+    },
+    {
+      "id": "endless-racer",
+      "title": "Endless Racer",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/endless-racer/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/endless-racer.webp",
+      "sizeBytes": 85791,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/endless-racer/1.0.0/manifest.json",
+      "feedOrder": 19,
+      "category": "Arcade",
+      "description": "Weave through three lanes of traffic, scoop up coins and push your speed as far as the road lets you.",
+      "sha256": "026fc1ccb9bc491e6ae8b5518bcd40758b65c9eeda2a01e1acd88ad14879d98c",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": false
+      }
+    },
+    {
+      "id": "nut-bolt-sort",
+      "title": "Nut & Bolt Sort",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/nut-bolt-sort/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/nut-bolt-sort.webp",
+      "sizeBytes": 121432,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/nut-bolt-sort/1.0.0/manifest.json",
+      "feedOrder": 20,
+      "category": "Puzzle",
+      "description": "Unscrew, spin and stack colour-matched hex nuts across threaded bolts. Guided tutorial, hidden question-mark nuts, spare-bolt boosters and 3-nut special levels.",
+      "sha256": "bb878878b8826e2aced995558c556625f525e98ffff91c51bc27999861aa4e1d",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": true
+      }
+    },
+    {
       "id": "fruit-frenzy",
       "title": "Fruit Frenzy",
       "version": "1.0.0",
@@ -397,49 +462,6 @@
         "sound": true,
         "vibration": true,
         "hint": true
-      }
-    },
-    {
-      "id": "water-sort",
-      "title": "Water Sort 3D",
-      "version": "1.0.0",
-      "entryUrl": "http://localhost:8080/games/water-sort/1.0.0/index.html",
-      "thumbnailUrl": "http://localhost:8080/thumbnails/water-sort.webp",
-      "sizeBytes": 82175,
-      "orientation": "portrait",
-      "engine": "canvas2d",
-      "manifestUrl": "http://localhost:8080/games/water-sort/1.0.0/manifest.json",
-      "feedOrder": 18,
-      "category": "Puzzle",
-      "description": "AAA luxury 3D Liquid Sorting Puzzle with realistic fluid physics, procedural audio synthesis, and guaranteed solvable levels.",
-      "sha256": "89bffc7886fcbea8c9bd42e2869e43679bff810f428d09ac43697faf4fcb89b6",
-      "status": "published",
-      "touchZones": [],
-      "features": {
-        "sound": true,
-        "vibration": true,
-        "hint": true
-      }
-    },
-    {
-      "id": "endless-racer",
-      "title": "Endless Racer",
-      "version": "1.0.0",
-      "entryUrl": "http://localhost:8080/games/endless-racer/1.0.0/index.html",
-      "thumbnailUrl": "http://localhost:8080/thumbnails/endless-racer.webp",
-      "sizeBytes": 85791,
-      "orientation": "portrait",
-      "engine": "canvas2d",
-      "manifestUrl": "http://localhost:8080/games/endless-racer/1.0.0/manifest.json",
-      "feedOrder": 19,
-      "category": "Arcade",
-      "description": "Weave through three lanes of traffic, scoop up coins and push your speed as far as the road lets you.",
-      "sha256": "026fc1ccb9bc491e6ae8b5518bcd40758b65c9eeda2a01e1acd88ad14879d98c",
-      "status": "published",
-      "touchZones": [],
-      "features": {
-        "sound": true,
-        "vibration": false
       }
     }
   ]
