@@ -329,28 +329,31 @@
         this.tone(t, 'triangle', 720, 340, 0.14, 0.26, 'exp');
       }
 
-      // Rich solid resonant steel clink: high-frequency metallic impulse + dual harmonic ring
+      // Solid weighted physical metal placement clunk (minimal, heavy, satisfying)
       playSeat() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.click(t, 4800, 0.25, 0.025);
-        this.tone(t, 'sine', 540, 360, 0.30, 0.12, 'exp');
-        this.tone(t + 0.004, 'sine', 1080, 720, 0.18, 0.10, 'exp');
-        this.tone(t + 0.008, 'triangle', 1620, 1080, 0.09, 0.08, 'exp');
+        this.click(t, 1600, 0.28, 0.035);
+        this.click(t + 0.005, 3200, 0.14, 0.02);
+        this.tone(t, 'sine', 340, 200, 0.22, 0.08, 'exp');
+        this.tone(t + 0.003, 'triangle', 680, 400, 0.10, 0.06, 'exp');
       }
 
+      // Heavy solid metal pick-up impact click (simulating lifting a weighted physical nut)
       playSelect() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.click(t, 3800, 0.26, 0.025);
-        this.tone(t, 'sine', 640, 960, 0.26, 0.08, 'exp');
+        this.click(t, 2200, 0.30, 0.035);
+        this.click(t + 0.006, 4400, 0.16, 0.02);
+        this.tone(t, 'triangle', 260, 480, 0.24, 0.08, 'exp');
+        this.tone(t + 0.005, 'sine', 520, 980, 0.14, 0.06, 'exp');
       }
 
       playTap() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.click(t, 3200, 0.18, 0.02);
-        this.tone(t, 'sine', 520, 760, 0.18, 0.06, 'exp');
+        this.click(t, 2600, 0.20, 0.025);
+        this.tone(t, 'sine', 480, 680, 0.16, 0.06, 'exp');
       }
 
       playButton() {
@@ -391,15 +394,14 @@
         });
       }
 
-      // Melodic glockenspiel sparkle arpeggio on bolt completion
+      // Minimal, pleasant sparkle chime on bolt sorted
       playGroupComplete() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        const notes = [659, 784, 1047, 1319];
+        const notes = [659, 880, 1047, 1319];
         notes.forEach((f, i) => {
-          this.tone(t + i * 0.065, 'sine', f, f, 0.18, 0.42, 'linear');
-          this.tone(t + i * 0.065, 'triangle', f * 2, f * 2, 0.06, 0.24, 'linear');
-          this.click(t + i * 0.065, 4800, 0.05, 0.03);
+          this.tone(t + i * 0.055, 'sine', f, f, 0.12, 0.32, 'exp');
+          this.click(t + i * 0.055, 4200, 0.03, 0.02);
         });
       }
 
@@ -2511,6 +2513,7 @@
           if (rawT >= 0.94 && !m.seatedNuts[j]) {
             m.seatedNuts[j] = true;
             const y = to.nutSlotY(m.dstIndexBase + j);
+            this.synth.playSeat();
             this.particles.seatSparks(to.x, y + to.band * 0.5, m.colorId, 8);
             this.particles.dustRing(to.x, y + to.band * 0.6, m.colorId, to.rx);
             this.screenShake = Math.max(this.screenShake, 1.8);
@@ -2542,6 +2545,7 @@
         this.sweep = 0;
         this.particles.capConfettiBurst(bolt.x, bolt.shaftTopY);
         this.particles.sideTwinkleBurst(this.width, this.height);
+        this.synth.playGroupComplete();
         this.screenShake = Math.max(this.screenShake, 3.2);
         this.haptic('success');
       }

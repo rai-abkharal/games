@@ -329,28 +329,31 @@
         this.tone(t, 'triangle', 720, 340, 0.14, 0.26, 'exp');
       }
 
-      // Rich solid resonant steel clink: high-frequency metallic impulse + dual harmonic ring
+      // Solid weighted physical metal placement clunk (minimal, heavy, satisfying)
       playSeat() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.click(t, 4800, 0.25, 0.025);
-        this.tone(t, 'sine', 540, 360, 0.30, 0.12, 'exp');
-        this.tone(t + 0.004, 'sine', 1080, 720, 0.18, 0.10, 'exp');
-        this.tone(t + 0.008, 'triangle', 1620, 1080, 0.09, 0.08, 'exp');
+        this.click(t, 1600, 0.28, 0.035);
+        this.click(t + 0.005, 3200, 0.14, 0.02);
+        this.tone(t, 'sine', 340, 200, 0.22, 0.08, 'exp');
+        this.tone(t + 0.003, 'triangle', 680, 400, 0.10, 0.06, 'exp');
       }
 
+      // Heavy solid metal pick-up impact click (simulating lifting a weighted physical nut)
       playSelect() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.click(t, 3800, 0.26, 0.025);
-        this.tone(t, 'sine', 640, 960, 0.26, 0.08, 'exp');
+        this.click(t, 2200, 0.30, 0.035);
+        this.click(t + 0.006, 4400, 0.16, 0.02);
+        this.tone(t, 'triangle', 260, 480, 0.24, 0.08, 'exp');
+        this.tone(t + 0.005, 'sine', 520, 980, 0.14, 0.06, 'exp');
       }
 
       playTap() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.click(t, 3200, 0.18, 0.02);
-        this.tone(t, 'sine', 520, 760, 0.18, 0.06, 'exp');
+        this.click(t, 2600, 0.20, 0.025);
+        this.tone(t, 'sine', 480, 680, 0.16, 0.06, 'exp');
       }
 
       playButton() {
@@ -391,15 +394,14 @@
         });
       }
 
-      // Melodic glockenspiel sparkle arpeggio on bolt completion
+      // Minimal, pleasant sparkle chime on bolt sorted
       playGroupComplete() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        const notes = [659, 784, 1047, 1319];
+        const notes = [659, 880, 1047, 1319];
         notes.forEach((f, i) => {
-          this.tone(t + i * 0.065, 'sine', f, f, 0.18, 0.42, 'linear');
-          this.tone(t + i * 0.065, 'triangle', f * 2, f * 2, 0.06, 0.24, 'linear');
-          this.click(t + i * 0.065, 4800, 0.05, 0.03);
+          this.tone(t + i * 0.055, 'sine', f, f, 0.12, 0.32, 'exp');
+          this.click(t + i * 0.055, 4200, 0.03, 0.02);
         });
       }
 
@@ -865,107 +867,129 @@
 
       // A single real hex nut: solid 3D hexagonal prism with VERTICAL corner facet lines,
       // no middle horizontal cut, central white bolt core, and lowered question mark.
-      drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
-        const o = opts || {};
-        const pts = this.hexPoints(cx, cy, rx, ry, spin);
-        const holeRx = rx * 0.40, holeRy = ry * 0.40;
-        const color = skin.body || skin.top || '#FFC700';
-
-        // 1. Solid extruded hexagonal prism body in 1 uniform color
-        this.tracePoly(ctx, pts, bandH);
-        ctx.fillStyle = color;
-        ctx.fill();
-
-        // 2. Top face seamlessly filled in the exact same uniform color (no middle line)
-        this.tracePoly(ctx, pts, 0);
-        ctx.fillStyle = color;
-        ctx.fill();
-
-        // 3. Vertical facet corner crease lines (top to bottom on visible front corners)
-        for (let i = 0; i < 6; i++) {
-          const p = pts[i];
-          if (p.y >= cy - ry * 0.4) {
+     drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
+    const o = opts || {};
+    const pts = this.hexPoints(cx, cy, rx, ry, spin);
+    const holeRx = rx * 0.38, holeRy = ry * 0.38;
+    const color = skin.body || '#FFC700';
+    const light = skin.top || '#FFD54F';
+    const dark = skin.shadow || '#FFA000';
+    
+    // ===== SIDE FACES - REAL 3D HEXAGON =====
+    for (let i = 0; i < 6; i++) {
+        const p1 = pts[i];
+        const p2 = pts[(i + 1) % 6];
+        
+        // Only draw visible faces (facing viewer)
+        const midX = (p1.x + p2.x) / 2;
+        if (midX > cx - rx * 0.2) {
             ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p.x, p.y + bandH);
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.14)';
-            ctx.lineWidth = 1.2;
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.lineTo(p2.x, p2.y + bandH);
+            ctx.lineTo(p1.x, p1.y + bandH);
+            ctx.closePath();
+            
+            // Face lighting based on angle
+            const angle = (i / 6) * Math.PI * 2;
+            const bright = 0.5 + 0.5 * Math.cos(angle - Math.PI/6);
+            const faceColor = i % 2 === 0 ? 
+                mixHex(color, dark, 0.2 * (1 - bright)) :
+                mixHex(color, light, 0.3 * bright);
+            ctx.fillStyle = faceColor;
+            ctx.fill();
+            
+            // Edge lines for definition
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'rgba(0,0,0,0.1)';
             ctx.stroke();
-
+        }
+    }
+    
+    // ===== TOP FACE - WITH SHINE =====
+    this.tracePoly(ctx, pts, 0);
+    const topGrad = ctx.createRadialGradient(
+        cx - rx*0.3, cy - ry*0.3, 0,
+        cx, cy, rx
+    );
+    topGrad.addColorStop(0, light);
+    topGrad.addColorStop(0.5, color);
+    topGrad.addColorStop(1, dark);
+    ctx.fillStyle = topGrad;
+    ctx.fill();
+    
+    // Top shine spot
+    ctx.beginPath();
+    ctx.ellipse(cx - rx*0.2, cy - ry*0.3, rx*0.25, ry*0.18, -0.3, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fill();
+    
+    // ===== BOTTOM SHADOW =====
+    this.tracePoly(ctx, pts, bandH);
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fill();
+    
+    // ===== HOLE - BOLT CORE =====
+    if (o.shaftThrough !== false && !o.isFlying) {
+        // White bolt shaft visible through hole
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#F0F4FA';
+        ctx.fill();
+        
+        // Thread lines inside hole
+        for (let t = -2; t <= 2; t++) {
             ctx.beginPath();
-            ctx.moveTo(p.x + 0.8, p.y);
-            ctx.lineTo(p.x + 0.8, p.y + bandH);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+            ctx.ellipse(cx, cy + t * holeRy * 0.3, holeRx * 0.8, holeRy * 0.15, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(180,195,215,0.5)';
             ctx.lineWidth = 0.8;
             ctx.stroke();
-          }
         }
-
-        // 4. Subtle bottom rounding shadow
+    } else {
+        // Dark hollow
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#1A2035';
+        ctx.fill();
+    }
+    
+    // ===== CORNER HIGHLIGHTS =====
+    for (let i = 0; i < 6; i++) {
+        const p = pts[i];
+        if (p.y < cy) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x + 1, p.y + bandH * 0.2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+    }
+    
+    // ===== QUESTION MARK =====
+    if (o.questionMark) {
         ctx.save();
-        this.tracePoly(ctx, pts, bandH);
-        ctx.clip();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
-        ctx.fillRect(cx - rx * 1.1, cy + bandH - ry * 0.4, rx * 2.2, ry * 0.9);
+        const qy = cy + bandH * 0.7;
+        const qr = Math.min(rx * 0.32, bandH * 0.32);
+        
+        // Circle background
+        ctx.beginPath();
+        ctx.ellipse(cx, qy, qr, qr * 0.85, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#90A4AE';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        // Question text
+        ctx.font = '900 ' + Math.round(rx * 0.7) + 'px "Fredoka", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('?', cx, qy + 1);
         ctx.restore();
-
-        // 5. Central Bore Hole:
-        // Seated nuts show the white threaded bolt core;
-        // Flying/lifted nuts show the dark hollow bore.
-        if (o.shaftThrough !== false && !o.isFlying) {
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fill();
-
-          ctx.lineWidth = 1.2;
-          ctx.strokeStyle = 'rgba(160, 175, 200, 0.85)';
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, holeRx * 0.65, holeRy * 0.5, 0, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(200, 210, 230, 0.7)';
-          ctx.stroke();
-        } else {
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#1D2436';
-          ctx.fill();
-          ctx.beginPath();
-          ctx.ellipse(cx, cy - holeRy * 0.15, holeRx * 0.85, holeRy * 0.75, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#0F1320';
-          ctx.fill();
-        }
-
-        // 6. Question Mark on Hidden Steel Nuts (Lowered to 1.20)
-        if (o.questionMark) {
-          ctx.save();
-          const qy = cy + bandH * 1.20;
-          const qr = Math.min(rx * 0.38, bandH * 0.38);
-
-          ctx.beginPath();
-          ctx.ellipse(cx, qy + 1.2, qr * 1.05, qr * 0.95, 0, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.ellipse(cx, qy, qr, qr * 0.9, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#90A4AE';
-          ctx.fill();
-          ctx.lineWidth = 1.3;
-          ctx.strokeStyle = '#FFFFFF';
-          ctx.stroke();
-
-          ctx.font = '900 ' + Math.round(rx * 0.82) + 'px "Fredoka", "Lilita One", sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillStyle = 'rgba(38, 50, 56, 0.65)';
-          ctx.fillText('?', cx + 0.6, qy + 1.2);
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillText('?', cx, qy);
-          ctx.restore();
-        }
-      }
+    }
+}
     };
 
     Object.assign(Art, {
@@ -2489,6 +2513,7 @@
           if (rawT >= 0.94 && !m.seatedNuts[j]) {
             m.seatedNuts[j] = true;
             const y = to.nutSlotY(m.dstIndexBase + j);
+            this.synth.playSeat();
             this.particles.seatSparks(to.x, y + to.band * 0.5, m.colorId, 8);
             this.particles.dustRing(to.x, y + to.band * 0.6, m.colorId, to.rx);
             this.screenShake = Math.max(this.screenShake, 1.8);
@@ -2520,6 +2545,7 @@
         this.sweep = 0;
         this.particles.capConfettiBurst(bolt.x, bolt.shaftTopY);
         this.particles.sideTwinkleBurst(this.width, this.height);
+        this.synth.playGroupComplete();
         this.screenShake = Math.max(this.screenShake, 3.2);
         this.haptic('success');
       }
