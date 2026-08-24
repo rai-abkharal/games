@@ -139,33 +139,33 @@
       shaftLight: '#FFFFFF',
       shaftMid: '#F5F7FA',
       shaftDark: '#DCE2EC',
-      threadLine: 'rgba(175, 185, 205, 0.65)',
+      threadLine: 'rgba(160, 175, 200, 0.70)',
       baseTop: '#FFFFFF',
       baseMid: '#F0F3F8',
-      baseEdge: '#D0D7E4',
-      baseShadow: 'rgba(4, 6, 28, 0.38)',
-      lockedTop: '#455A64',
-      lockedFace: '#37474F',
-      lockedEdge: '#263238'
+      baseEdge: '#CDD5E2',
+      baseShadow: 'rgba(30, 45, 80, 0.18)',
+      lockedTop: '#78909C',
+      lockedFace: '#546E7A',
+      lockedEdge: '#37474F'
     };
 
     const THEME = {
-      bgTop: '#141C6B',
-      bgMid: '#0C1350',
-      bgBottom: '#060A2E',
-      vignette: 'rgba(2, 4, 24, 0.55)',
-      panel: '#4B1FA8',
-      panelDeep: '#37147F',
-      panelEdge: '#6B34D6',
-      capsuleFill: '#F3EEFF',
-      capsuleEdge: '#B79BEE',
-      chipFill: '#A625DC',
-      chipDeep: '#7A129F',
-      chipEdge: '#D46BF5',
-      text: '#F2EEFF',
-      textDim: 'rgba(226, 219, 255, 0.72)',
-      good: '#6BE04B',
-      bad: '#FF3B5C'
+      bgTop: '#F8F9FD',
+      bgMid: '#EEF2F8',
+      bgBottom: '#E2E7F0',
+      vignette: 'rgba(180, 195, 220, 0.25)',
+      panel: '#6C47D6',
+      panelDeep: '#4824A8',
+      panelEdge: '#8C69EE',
+      capsuleFill: '#FFFFFF',
+      capsuleEdge: '#D2D9E8',
+      chipFill: '#8E24AA',
+      chipDeep: '#6A1B9A',
+      chipEdge: '#BA68C8',
+      text: '#1E2548',
+      textDim: 'rgba(40, 50, 90, 0.68)',
+      good: '#2E7D32',
+      bad: '#D32F2F'
     };
 
     const STORE_KEYS = {
@@ -341,15 +341,15 @@
       playSelect() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.click(t, 3200, 0.12, 0.02);
-        this.tone(t, 'sine', 580, 920, 0.22, 0.11, 'exp');
-        this.tone(t + 0.01, 'sine', 1160, 1840, 0.09, 0.09, 'exp');
+        this.click(t, 3800, 0.26, 0.025);
+        this.tone(t, 'sine', 640, 960, 0.26, 0.08, 'exp');
       }
 
       playTap() {
         if (!this.ready()) return;
-        this.click(this.ctx.currentTime, 2800, 0.08, 0.02);
-        this.tone(this.ctx.currentTime, 'sine', 480, 720, 0.14, 0.07, 'exp');
+        const t = this.ctx.currentTime;
+        this.click(t, 3200, 0.18, 0.02);
+        this.tone(t, 'sine', 520, 760, 0.18, 0.06, 'exp');
       }
 
       playButton() {
@@ -2538,7 +2538,6 @@
         this.sweep = 0;
         this.particles.capConfettiBurst(bolt.x, bolt.shaftTopY);
         this.particles.sideTwinkleBurst(this.width, this.height);
-        this.synth.playGroupComplete();
         this.screenShake = Math.max(this.screenShake, 3.2);
         this.haptic('success');
       }
@@ -2810,18 +2809,21 @@
         const c = cv.getContext('2d');
         if (!c) return null;
 
-        const g = c.createLinearGradient(0, 0, w * 0.3, h);
+        const g = c.createLinearGradient(0, 0, w * 0.2, h);
         g.addColorStop(0, THEME.bgTop);
-        g.addColorStop(0.52, THEME.bgMid);
+        g.addColorStop(0.50, THEME.bgMid);
         g.addColorStop(1, THEME.bgBottom);
         c.fillStyle = g;
         c.fillRect(0, 0, w, h);
 
-        // Soft pool of light under the play area.
+        // Soft warm creamy glow under the play area
         const glow = c.createRadialGradient(w * 0.5, h * 0.46, 0, w * 0.5, h * 0.46, w * 0.85);
-        glow.addColorStop(0, 'rgba(96, 128, 255, 0.16)');
-        glow.addColorStop(1, 'rgba(96, 128, 255, 0)');
-        const vig = c.createRadialGradient(w * 0.5, h * 0.5, w * 0.35, w * 0.5, h * 0.5, w * 1.05);
+        glow.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+        glow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        c.fillStyle = glow;
+        c.fillRect(0, 0, w, h);
+
+        const vig = c.createRadialGradient(w * 0.5, h * 0.5, w * 0.4, w * 0.5, h * 0.5, w * 1.05);
         vig.addColorStop(0, 'rgba(0,0,0,0)');
         vig.addColorStop(1, THEME.vignette);
         c.fillStyle = vig;
@@ -3231,9 +3233,7 @@
         ctx.font = '900 ' + Math.round(27 * s) + 'px Fredoka, Lilita One, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = 'rgba(8, 10, 40, 0.45)';
-        ctx.fillText(title, this.width / 2, this.titleY + 2 * s);
-        ctx.fillStyle = THEME.text;
+        ctx.fillStyle = '#1E2548';
         ctx.fillText(title, this.width / 2, this.titleY);
         ctx.restore();
       }
@@ -3266,7 +3266,7 @@
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(pb.x, pb.y, pb.w, pb.h, pb.h / 2);
-        ctx.fillStyle = 'rgba(10, 12, 48, 0.55)';
+        ctx.fillStyle = 'rgba(195, 205, 225, 0.6)';
         ctx.fill();
         const ratio = clamp(done / Math.max(1, total), 0, 1);
         if (ratio > 0) {
