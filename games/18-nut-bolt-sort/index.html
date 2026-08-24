@@ -301,87 +301,104 @@
         }
       }
 
+      // Realistic mechanical unscrew sound: thread friction + ascending metal resonance
       playUnscrew(units) {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.tone(t, 'sine', 380, 720, 0.16, 0.16, 'exp');
-        this.click(t, 2400, 0.08, 0.03);
+        const n = Math.max(1, Math.min(4, units || 1));
+        // Upward mechanical thread tone
+        this.tone(t, 'triangle', 360, 680, 0.18, 0.28, 'exp');
+        this.tone(t, 'sine', 720, 1360, 0.08, 0.24, 'exp');
+        // Rhythmic micro-clicks of thread teeth
+        for (let i = 0; i < 5 + n * 2; i++) {
+          this.click(t + i * 0.032, 2200 + i * 180, 0.09, 0.025);
+        }
       }
 
+      // Realistic mechanical screw-in sound: downward insertion pitch + lock click
       playScrew(units) {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.tone(t, 'sine', 680, 420, 0.14, 0.14, 'exp');
-        this.click(t, 2600, 0.08, 0.03);
+        const n = Math.max(1, Math.min(4, units || 1));
+        this.tone(t, 'triangle', 640, 360, 0.18, 0.26, 'exp');
+        this.tone(t, 'sine', 1280, 720, 0.08, 0.22, 'exp');
+        for (let i = 0; i < 5 + n * 2; i++) {
+          this.click(t + i * 0.03, 3200 - i * 160, 0.09, 0.025);
+        }
       }
 
-      // Crisp metallic clack when a nut seats down onto the washer/stack.
+      // Rich resonant steel clink: high-frequency impulse tap + dual harmonic ring (480Hz & 960Hz)
       playSeat() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.tone(t, 'sine', 540, 220, 0.24, 0.08, 'exp');
-        this.tone(t, 'triangle', 880, 440, 0.12, 0.06, 'exp');
-        this.click(t, 3600, 0.12, 0.025);
+        this.click(t, 4200, 0.18, 0.02);
+        this.tone(t, 'sine', 520, 340, 0.28, 0.12, 'exp');
+        this.tone(t + 0.005, 'sine', 1040, 680, 0.16, 0.10, 'exp');
+        this.tone(t + 0.01, 'triangle', 1560, 1040, 0.08, 0.08, 'exp');
       }
 
       playSelect() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.tone(t, 'sine', 580, 940, 0.18, 0.09, 'exp');
+        this.click(t, 3200, 0.12, 0.02);
+        this.tone(t, 'sine', 580, 920, 0.22, 0.11, 'exp');
+        this.tone(t + 0.01, 'sine', 1160, 1840, 0.09, 0.09, 'exp');
       }
 
       playTap() {
         if (!this.ready()) return;
-        this.tone(this.ctx.currentTime, 'sine', 480, 700, 0.14, 0.06, 'exp');
+        this.click(this.ctx.currentTime, 2800, 0.08, 0.02);
+        this.tone(this.ctx.currentTime, 'sine', 480, 720, 0.14, 0.07, 'exp');
       }
 
       playButton() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.tone(t, 'sine', 660, 990, 0.18, 0.07, 'exp');
+        this.tone(t, 'sine', 660, 990, 0.20, 0.08, 'exp');
+        this.tone(t + 0.04, 'sine', 990, 1320, 0.14, 0.08, 'exp');
       }
 
       playError() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.tone(t, 'sawtooth', 190, 110, 0.14, 0.18, 'linear');
-        this.tone(t + 0.06, 'sawtooth', 160, 92, 0.11, 0.16, 'linear');
-        this.click(t, 700, 0.1, 0.06);
+        this.tone(t, 'triangle', 220, 140, 0.16, 0.16, 'linear');
+        this.tone(t + 0.05, 'triangle', 180, 110, 0.13, 0.14, 'linear');
       }
 
       playReveal() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.tone(t, 'sine', 900, 1500, 0.13, 0.16, 'exp');
-        this.tone(t + 0.05, 'sine', 1500, 2100, 0.09, 0.14, 'exp');
+        this.tone(t, 'sine', 920, 1480, 0.16, 0.16, 'exp');
+        this.tone(t + 0.04, 'sine', 1480, 2200, 0.12, 0.14, 'exp');
+        this.click(t + 0.02, 4800, 0.08, 0.03);
       }
 
       playUnlock() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.click(t, 1800, 0.2, 0.07);
-        this.tone(t + 0.04, 'triangle', 520, 1040, 0.18, 0.2, 'exp');
-        this.tone(t + 0.14, 'sine', 1040, 1560, 0.12, 0.18, 'exp');
+        this.click(t, 2400, 0.18, 0.05);
+        this.tone(t + 0.03, 'triangle', 520, 1040, 0.18, 0.18, 'exp');
+        this.tone(t + 0.12, 'sine', 1040, 1560, 0.14, 0.16, 'exp');
       }
 
       playHint() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
         [880, 1108, 1318].forEach((f, i) => {
-          this.tone(t + i * 0.06, 'sine', f, f * 1.5, 0.11, 0.16, 'exp');
+          this.tone(t + i * 0.06, 'sine', f, f * 1.4, 0.12, 0.16, 'exp');
         });
       }
 
-      // Fires when one bolt has been sorted into a single solid colour.
+      // Melodic glockenspiel sparkle arpeggio on bolt completion
       playGroupComplete() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        const notes = [784, 988, 1175, 1568];
+        const notes = [659, 784, 1047, 1319];
         notes.forEach((f, i) => {
-          this.tone(t + i * 0.055, 'sine', f, f, 0.14, 0.38, 'linear');
-          this.tone(t + i * 0.055, 'triangle', f * 2, f * 2, 0.045, 0.22, 'linear');
+          this.tone(t + i * 0.065, 'sine', f, f, 0.18, 0.42, 'linear');
+          this.tone(t + i * 0.065, 'triangle', f * 2, f * 2, 0.06, 0.24, 'linear');
+          this.click(t + i * 0.065, 4800, 0.05, 0.03);
         });
-        this.click(t, 5200, 0.08, 0.09);
       }
 
       playLevelWin() {
@@ -389,12 +406,12 @@
         const t = this.ctx.currentTime;
         const melody = [523, 659, 784, 1047, 1319];
         melody.forEach((f, i) => {
-          this.tone(t + i * 0.09, 'triangle', f, f, 0.16, 0.42, 'linear');
-          this.tone(t + i * 0.09, 'sine', f * 2, f * 2, 0.06, 0.3, 'linear');
+          this.tone(t + i * 0.085, 'triangle', f, f, 0.18, 0.44, 'linear');
+          this.tone(t + i * 0.085, 'sine', f * 2, f * 2, 0.08, 0.32, 'linear');
         });
-        this.tone(t + 0.46, 'sine', 1568, 1568, 0.18, 0.7, 'linear');
-        for (let i = 0; i < 6; i++) {
-          this.click(t + 0.42 + i * 0.045, 4200 + i * 400, 0.06, 0.1);
+        this.tone(t + 0.44, 'sine', 1568, 1568, 0.22, 0.75, 'linear');
+        for (let i = 0; i < 8; i++) {
+          this.click(t + 0.38 + i * 0.04, 4200 + i * 350, 0.06, 0.08);
         }
       }
 
@@ -402,25 +419,25 @@
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
         const chord = [523, 659, 784, 1047];
-        chord.forEach((f) => this.tone(t, 'triangle', f, f, 0.12, 0.9, 'linear'));
+        chord.forEach((f) => this.tone(t, 'triangle', f, f, 0.14, 0.9, 'linear'));
         [1047, 1319, 1568, 2093].forEach((f, i) => {
-          this.tone(t + 0.18 + i * 0.08, 'sine', f, f, 0.14, 0.5, 'linear');
+          this.tone(t + 0.16 + i * 0.08, 'sine', f, f, 0.16, 0.5, 'linear');
         });
         for (let i = 0; i < 10; i++) {
-          this.click(t + 0.2 + i * 0.05, 3800 + Math.random() * 2600, 0.05, 0.12);
+          this.click(t + 0.18 + i * 0.05, 3800 + Math.random() * 2400, 0.05, 0.10);
         }
       }
 
       playTick() {
         if (!this.ready()) return;
-        this.click(this.ctx.currentTime, 2100, 0.13, 0.055);
+        this.click(this.ctx.currentTime, 2200, 0.12, 0.04);
       }
 
       playCoin() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.tone(t, 'square', 1318, 1318, 0.07, 0.07, 'linear');
-        this.tone(t + 0.05, 'square', 1760, 1760, 0.06, 0.12, 'linear');
+        this.tone(t, 'sine', 1318, 1760, 0.12, 0.09, 'exp');
+        this.tone(t + 0.05, 'sine', 1760, 2349, 0.10, 0.12, 'exp');
       }
     }
 
@@ -569,7 +586,7 @@
           lastTo = pick.to;
         }
 
-        // Reject degenerate boards: wrong nut counts or an already solved layout.
+        // Enforce exact nut counts, full stacks on filled bolts, and clean empty bolts
         const counts = new Map();
         for (const stack of bolts) {
           for (const c of stack) counts.set(c, (counts.get(c) || 0) + 1);
@@ -577,6 +594,12 @@
         for (let c = 0; c < cfg.colorCount; c++) {
           if (counts.get(c) !== capacity) return null;
         }
+
+        const filledBolts = bolts.filter(b => b.length > 0);
+        const emptyCount = bolts.filter(b => b.length === 0).length;
+        if (filledBolts.length !== cfg.colorCount || emptyCount !== cfg.emptyBolts) return null;
+        if (!filledBolts.every(b => b.length === capacity)) return null;
+
         const solved = bolts.every(s => s.length === 0 || (s.length === capacity && s.every(c => c === s[0])));
         if (solved) return null;
 
@@ -838,8 +861,8 @@
         ctx.closePath();
       },
 
-      // A single hex nut drawn as an extruded prism. Facets are shaded from a
-      // fixed upper-left light so a rotating nut reads as a solid object.
+      // A single hex nut drawn as an extruded prism. Facets and specular reflections
+      // dynamically react to rotation (spin) so 3D rotation is vividly visible!
       drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
         const o = opts || {};
         const pts = this.hexPoints(cx, cy, rx, ry, spin);
@@ -850,7 +873,7 @@
         ctx.fillStyle = skin.side;
         ctx.fill();
 
-        // Side facets, lit from the upper left.
+        // Side facets, lit dynamically relative to light source (-45 degrees)
         for (let i = 0; i < 6; i++) {
           const p0 = pts[i];
           const p1 = pts[(i + 1) % 6];
@@ -858,9 +881,11 @@
           const midY = (p0.y + p1.y) / 2;
           const nx = (midX - cx) / rx;
           const ny = (midY - cy) / ry;
-          // Only the facets facing the camera are worth painting.
-          if (ny < -0.15) continue;
-          const light = clamp(0.5 - nx * 0.42 + ny * 0.1, 0, 1);
+          if (ny < -0.15) continue; // Face is oriented away from camera
+
+          // Dynamic light calculation based on spin angle
+          const faceAngle = (spin || 0) + i * (Math.PI / 3) + (Math.PI / 6);
+          const light = clamp(0.52 + Math.cos(faceAngle - Math.PI * 0.75) * 0.45, 0, 1);
           ctx.beginPath();
           ctx.moveTo(p0.x, p0.y);
           ctx.lineTo(p1.x, p1.y);
@@ -875,13 +900,18 @@
         ctx.save();
         this.tracePoly(ctx, pts, bandH);
         ctx.clip();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
         ctx.fillRect(cx - rx, cy + bandH - ry * 0.55, rx * 2, ry * 1.2);
         ctx.restore();
 
-        // Top face with a rim highlight.
+        // Top face with rotating specular rim highlight.
         this.tracePoly(ctx, pts, 0);
-        const grad = ctx.createLinearGradient(cx - rx * 0.5, cy - ry, cx + rx * 0.6, cy + ry);
+        const lightDir = (spin || 0) - Math.PI * 0.75;
+        const lx0 = cx + rx * Math.cos(lightDir) * 0.6;
+        const ly0 = cy + ry * Math.sin(lightDir) * 0.6;
+        const lx1 = cx - rx * Math.cos(lightDir) * 0.6;
+        const ly1 = cy - ry * Math.sin(lightDir) * 0.6;
+        const grad = ctx.createLinearGradient(lx0, ly0, lx1, ly1);
         grad.addColorStop(0, skin.rim);
         grad.addColorStop(0.45, skin.top);
         grad.addColorStop(1, skin.face);
@@ -904,30 +934,31 @@
           ctx.fill();
         }
 
+        // Question Mark on Hidden Nuts: Centered in the visible lower facet so it's 100% visible while stacked!
         if (o.questionMark) {
           ctx.save();
-          const qy = cy + bandH * 0.52;
-          const qr = Math.min(rx * 0.44, bandH * 0.44);
+          const qy = cy + bandH * 0.62;
+          const qr = Math.min(rx * 0.44, bandH * 0.42);
 
           // Embossed circular plate badge in the front facet
           ctx.beginPath();
           ctx.ellipse(cx, qy + 1, qr, qr * 0.88, 0, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
           ctx.fill();
 
           ctx.beginPath();
           ctx.ellipse(cx, qy, qr, qr * 0.88, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#4E556E';
+          ctx.fillStyle = '#4A526E';
           ctx.fill();
           ctx.lineWidth = 1.2;
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
           ctx.stroke();
 
-          // Crisp bold white question mark with sharp shadow
-          ctx.font = '900 ' + Math.round(rx * 0.82) + 'px "Fredoka", "Lilita One", sans-serif';
+          // Crisp bold white question mark (top hook, stem, and bottom dot fully clear!)
+          ctx.font = '900 ' + Math.round(rx * 0.85) + 'px "Fredoka", "Lilita One", sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillStyle = 'rgba(10, 14, 30, 0.7)';
+          ctx.fillStyle = 'rgba(8, 10, 26, 0.8)';
           ctx.fillText('?', cx + 0.5, qy + 1.2);
           ctx.fillStyle = '#FFFFFF';
           ctx.fillText('?', cx, qy);
@@ -1008,61 +1039,44 @@
         ctx.fill();
       },
 
-      // Domed metallic cap placed on top of a sorted bolt.
+      // Clean, elegant metallic white dome cap seamlessly matching the bolt
       drawBoltCap(ctx, cx, cy, rx, ry, glow) {
         // Drop shadow under cap
         ctx.beginPath();
-        ctx.ellipse(cx, cy + ry * 0.28, rx * 0.72, ry * 0.46, 0, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+        ctx.ellipse(cx, cy + ry * 0.22, rx * 0.68, ry * 0.42, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
         ctx.fill();
 
-        // Silver washer cap base
+        // Silver-white washer cap rim
         ctx.beginPath();
-        ctx.ellipse(cx, cy + ry * 0.14, rx * 0.68, ry * 0.44, 0, 0, Math.PI * 2);
-        ctx.fillStyle = '#BAC2D6';
+        ctx.ellipse(cx, cy + ry * 0.10, rx * 0.64, ry * 0.40, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#C2C8DA';
         ctx.fill();
 
-        // Top domed cap with metallic gradient
+        // Top domed cap with smooth metallic white/silver gradient matching bolt
         ctx.beginPath();
-        ctx.ellipse(cx, cy, rx * 0.68, ry * 0.44, 0, 0, Math.PI * 2);
-        const g = ctx.createLinearGradient(cx - rx * 0.6, cy - ry * 0.4, cx + rx * 0.6, cy + ry * 0.4);
+        ctx.ellipse(cx, cy, rx * 0.64, ry * 0.40, 0, 0, Math.PI * 2);
+        const g = ctx.createLinearGradient(cx - rx * 0.5, cy - ry * 0.35, cx + rx * 0.5, cy + ry * 0.35);
         g.addColorStop(0, '#FFFFFF');
-        g.addColorStop(0.3, '#E8ECF6');
-        g.addColorStop(0.7, '#BAC2D6');
-        g.addColorStop(1, '#8E98B2');
+        g.addColorStop(0.32, '#ECEFF8');
+        g.addColorStop(0.72, '#C8D0E4');
+        g.addColorStop(1, '#A0AABF');
         ctx.fillStyle = g;
         ctx.fill();
 
-        ctx.lineWidth = 1.4;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.stroke();
 
-        // Center stud / allen bolt dot
+        // Center stud / allen bolt head matching reference
         ctx.beginPath();
-        ctx.ellipse(cx, cy, rx * 0.24, ry * 0.16, 0, 0, Math.PI * 2);
-        ctx.fillStyle = '#68728C';
+        ctx.ellipse(cx, cy, rx * 0.22, ry * 0.14, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#78829C';
         ctx.fill();
         ctx.beginPath();
-        ctx.ellipse(cx - rx * 0.05, cy - ry * 0.04, rx * 0.09, ry * 0.06, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx - rx * 0.04, cy - ry * 0.03, rx * 0.07, ry * 0.045, 0, 0, Math.PI * 2);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
-
-        // Shiny glow burst flare when completed
-        if (glow > 0.01) {
-          ctx.save();
-          ctx.globalCompositeOperation = 'lighter';
-          const flareW = rx * 1.8;
-          const flareH = ry * 4.5;
-          const flareG = ctx.createRadialGradient(cx, cy, 0, cx, cy, flareW);
-          flareG.addColorStop(0, 'rgba(255, 255, 255, ' + (0.95 * glow).toFixed(2) + ')');
-          flareG.addColorStop(0.35, 'rgba(210, 235, 255, ' + (0.6 * glow).toFixed(2) + ')');
-          flareG.addColorStop(1, 'rgba(255, 255, 255, 0)');
-          ctx.fillStyle = flareG;
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, flareW, flareH, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
-        }
       },
 
       // Dormant side-storage socket: a capped stub the +BOLT booster opens.
@@ -1530,6 +1544,11 @@
           } else if (p.type === 'STAR') {
             p.vy += 180 * dt;
             p.vx *= 0.97;
+          } else if (p.type === 'STAR_SWEEP') {
+            // Move inward towards middle and softly dim
+            const distToMid = Math.abs(p.x - p.midX);
+            const midFrac = clamp(distToMid / (p.midX * 0.88), 0, 1);
+            p.alpha = midFrac * Math.min(1, p.life / (p.maxLife * 0.25));
           } else if (p.type === 'GLINT') {
             p.vy += 12 * dt;
           } else if (p.type === 'POP') {
@@ -1566,6 +1585,12 @@
             ctx.translate(p.x, p.y);
             ctx.rotate(p.rot);
             Art.glyphStar(ctx, 0, 0, p.size * (0.4 + k * 0.6), p.color, null);
+          } else if (p.type === 'STAR_SWEEP') {
+            const starAlpha = p.alpha !== undefined ? p.alpha : Math.min(1, k * 1.5);
+            ctx.globalAlpha = starAlpha;
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot);
+            Art.glyphStar(ctx, 0, 0, p.size * (0.45 + k * 0.55), p.color, '#FFFFFF');
           } else if (p.type === 'GLINT') {
             // Four-point twinkle used for the board-wide celebration sparkle.
             const s = p.size * (0.35 + Math.sin(k * Math.PI) * 0.75);
@@ -1741,6 +1766,47 @@
             rot: Math.random() * 6.28,
             vRot: (Math.random() - 0.5) * 8,
             color: '#FFE9A0'
+          });
+        }
+      }
+
+      // Stars sweeping inward from Left and Right edges towards middle, gently dimming
+      starSweepInward(w, h) {
+        const colors = ['#FFE9A0', '#FFFFFF', '#B6E4FF', '#FFD3E4', '#DCF7B4'];
+        // Left side stars traveling right towards middle
+        for (let i = 0; i < 18; i++) {
+          const py = h * 0.22 + Math.random() * h * 0.54;
+          this.items.push({
+            type: 'STAR_SWEEP',
+            x: 0 - Math.random() * 40,
+            y: py,
+            vx: 240 + Math.random() * 140,
+            vy: (Math.random() - 0.5) * 36,
+            midX: w * 0.5,
+            life: 1.3,
+            maxLife: 1.3,
+            size: 7 + Math.random() * 8,
+            rot: Math.random() * 6.28,
+            vRot: (Math.random() - 0.5) * 8,
+            color: colors[Math.floor(Math.random() * colors.length)]
+          });
+        }
+        // Right side stars traveling left towards middle
+        for (let i = 0; i < 18; i++) {
+          const py = h * 0.22 + Math.random() * h * 0.54;
+          this.items.push({
+            type: 'STAR_SWEEP',
+            x: w + Math.random() * 40,
+            y: py,
+            vx: -(240 + Math.random() * 140),
+            vy: (Math.random() - 0.5) * 36,
+            midX: w * 0.5,
+            life: 1.3,
+            maxLife: 1.3,
+            size: 7 + Math.random() * 8,
+            rot: Math.random() * 6.28,
+            vRot: (Math.random() - 0.5) * 8,
+            color: colors[Math.floor(Math.random() * colors.length)]
           });
         }
       }
@@ -2218,10 +2284,9 @@
         const to = this.bolts[toIdx];
         const nuts = from.nuts.splice(from.nuts.length - count, count);
 
-        // Staggered sequential movement:
-        // Nuts lift and fly in a trailing line one behind another rather than in a congested block!
-        const perNutDur = 0.44;
-        const stagger = 0.12;
+        // Calibrated duration so 3D rotation and trailing motion are distinctly felt:
+        const perNutDur = 0.72;
+        const stagger = 0.16;
         const totalDur = perNutDur + (count - 1) * stagger;
 
         this.move = {
@@ -2287,36 +2352,39 @@
           return { x: from.x, y: startY, spin: 0, squash: 0 };
         }
 
-        const unscrewEnd = 0.28;
-        const travelEnd = 0.74;
+        const unscrewEnd = 0.30;
+        const travelEnd = 0.70;
         const screwEnd = 0.94;
-        const spinOut = -Math.PI * 2 * 1.1;
 
         let x, y, spin = 0, squash = 0;
 
         if (tj < unscrewEnd) {
+          // Phase 1: Unscrew & Lift (Counter-Clockwise 2.5 full rotations)
           const p = tj / unscrewEnd;
           const e = easeOutCubic(p);
           x = from.x;
           y = lerp(startY, srcHover, e);
-          spin = spinOut * e;
+          spin = -Math.PI * 5 * e;
         } else if (tj < travelEnd) {
+          // Phase 2: Arched Parabolic Flight across
           const p = (tj - unscrewEnd) / (travelEnd - unscrewEnd);
           const e = easeInOutCubic(p);
           x = lerp(from.x, to.x, e);
-          y = lerp(srcHover, dstHover, e) - Math.sin(Math.PI * p) * (band * 1.8 + 22);
-          spin = spinOut - Math.PI * 0.65 * p;
+          y = lerp(srcHover, dstHover, e) - Math.sin(Math.PI * p) * (band * 2.2 + 28);
+          spin = -Math.PI * 5 - Math.PI * 2 * p;
         } else if (tj < screwEnd) {
+          // Phase 3: Screw-In Insertion (Clockwise 2.5 full rotations down into slot)
           const p = (tj - travelEnd) / (screwEnd - travelEnd);
           x = to.x;
           y = lerp(dstHover, endY, easeInOutCubic(p));
-          spin = spinOut - Math.PI * 0.65 + Math.PI * 2 * 1.25 * easeOutCubic(p);
+          spin = -Math.PI * 7 + Math.PI * 5 * easeOutCubic(p);
         } else {
+          // Phase 4: Settle & Elastic Lock
           const p = clamp((tj - screwEnd) / (1 - screwEnd), 0, 1);
           x = to.x;
           y = endY;
-          spin = spinOut - Math.PI * 0.65 + Math.PI * 2 * 1.25;
-          squash = Math.sin(Math.PI * p) * 0.14 / (1 + j * 0.4);
+          spin = -Math.PI * 2;
+          squash = Math.sin(Math.PI * p) * 0.16 / (1 + j * 0.4);
         }
 
         return { x: x, y: y, spin: spin, squash: squash };
@@ -2333,7 +2401,7 @@
           const startTime = nutOrder * m.stagger;
           const rawT = (m.t * m.dur - startTime) / m.perNutDur;
 
-          if (rawT >= 0.74 && !m.playedScrewNuts[j]) {
+          if (rawT >= 0.70 && !m.playedScrewNuts[j]) {
             m.playedScrewNuts[j] = true;
             this.synth.playScrew(1);
           }
@@ -2367,16 +2435,16 @@
         }
       }
 
-      // One colour fully gathered: shine sweep, burst, glow and a chime.
+      // One colour fully gathered: clean cap lock, left-right star sweep, and melodious glockenspiel chime
       celebrateGroup(bolt) {
         const cy = bolt.nutSlotY(Math.floor(bolt.capacity / 2));
         bolt.shine = 0;
         this.sweep = 0;
         this.particles.groupBurst(bolt.x, cy, bolt.nuts[0].c);
-        this.particles.sparkleSweep(this.width, this.height, 0);
+        this.particles.starSweepInward(this.width, this.height);
         this.particles.popText(bolt.x, bolt.shaftTopY - bolt.band, 'SORTED!', '#FFE9A0', 18 * (this.s || 1));
         this.synth.playGroupComplete();
-        this.screenShake = Math.max(this.screenShake, 4);
+        this.screenShake = Math.max(this.screenShake, 3);
         this.haptic('success');
       }
 
