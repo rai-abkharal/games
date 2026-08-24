@@ -863,37 +863,45 @@
         ctx.closePath();
       },
 
-      // A single hex nut: pure single solid color (no 2-tone split shading),
-      // smooth rounded body, central white threaded bolt core, and lowered question mark badge.
+      // A single real hex nut: solid 3D hexagonal prism with VERTICAL corner facet lines,
+      // no middle horizontal cut, central white bolt core, and lowered question mark.
       drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
         const o = opts || {};
         const pts = this.hexPoints(cx, cy, rx, ry, spin);
         const holeRx = rx * 0.40, holeRy = ry * 0.40;
         const color = skin.body || skin.top || '#FFC700';
 
-        // 1. Extruded solid body in 1 pure solid color
+        // 1. Solid extruded hexagonal prism body in 1 uniform color
         this.tracePoly(ctx, pts, bandH);
         ctx.fillStyle = color;
         ctx.fill();
 
-        // 2. Front vertical facets in the exact same 1 pure solid color
-        for (let i = 0; i < 6; i++) {
-          const p0 = pts[i];
-          const p1 = pts[(i + 1) % 6];
-          const midY = (p0.y + p1.y) / 2;
-          if (midY < cy - ry * 0.2) continue;
+        // 2. Top face seamlessly filled in the exact same uniform color (no middle line)
+        this.tracePoly(ctx, pts, 0);
+        ctx.fillStyle = color;
+        ctx.fill();
 
-          ctx.beginPath();
-          ctx.moveTo(p0.x, p0.y);
-          ctx.lineTo(p1.x, p1.y);
-          ctx.lineTo(p1.x, p1.y + bandH);
-          ctx.lineTo(p0.x, p0.y + bandH);
-          ctx.closePath();
-          ctx.fillStyle = color;
-          ctx.fill();
+        // 3. Vertical facet corner crease lines (top to bottom on visible front corners)
+        for (let i = 0; i < 6; i++) {
+          const p = pts[i];
+          if (p.y >= cy - ry * 0.4) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x, p.y + bandH);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.14)';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(p.x + 0.8, p.y);
+            ctx.lineTo(p.x + 0.8, p.y + bandH);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+          }
         }
 
-        // 3. Subtle bottom grounding shadow
+        // 4. Subtle bottom rounding shadow
         ctx.save();
         this.tracePoly(ctx, pts, bandH);
         ctx.clip();
@@ -901,54 +909,24 @@
         ctx.fillRect(cx - rx * 1.1, cy + bandH - ry * 0.4, rx * 2.2, ry * 0.9);
         ctx.restore();
 
-        // 4. Smooth top face in the exact same 1 pure solid color
-        this.tracePoly(ctx, pts, 0);
-        ctx.fillStyle = color;
-        ctx.fill();
-
-        // Subtle soft rim outline
-        ctx.lineWidth = Math.max(1, rx * 0.04);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-        ctx.stroke();
-
-        // 5. Soft white crescent sheen along the front top chamfer edge
-        ctx.beginPath();
-        for (let i = 0; i < 6; i++) {
-          const p0 = pts[i];
-          const p1 = pts[(i + 1) % 6];
-          const midY = (p0.y + p1.y) / 2;
-          if (midY > cy - ry * 0.1) {
-            ctx.moveTo(p0.x, p0.y);
-            ctx.lineTo(p1.x, p1.y);
-          }
-        }
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.60)';
-        ctx.lineWidth = Math.max(1.4, rx * 0.06);
-        ctx.lineCap = 'round';
-        ctx.stroke();
-
-        // 6. Central Bore Hole:
-        // Seated nuts show the white threaded bolt core (as in reference screenshot);
-        // Flying/lifted nuts show the dark hollow cylindrical bore.
+        // 5. Central Bore Hole:
+        // Seated nuts show the white threaded bolt core;
+        // Flying/lifted nuts show the dark hollow bore.
         if (o.shaftThrough !== false && !o.isFlying) {
-          // White threaded bolt core visible through center
           ctx.beginPath();
           ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
           ctx.fillStyle = '#FFFFFF';
           ctx.fill();
 
-          // Soft inner rim shadow
           ctx.lineWidth = 1.2;
           ctx.strokeStyle = 'rgba(160, 175, 200, 0.85)';
           ctx.stroke();
 
-          // Thread groove inside core
           ctx.beginPath();
           ctx.ellipse(cx, cy, holeRx * 0.65, holeRy * 0.5, 0, 0, Math.PI * 2);
           ctx.strokeStyle = 'rgba(200, 210, 230, 0.7)';
           ctx.stroke();
         } else {
-          // Dark hollow bore for flying / lifting nuts
           ctx.beginPath();
           ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
           ctx.fillStyle = '#1D2436';
@@ -959,19 +937,17 @@
           ctx.fill();
         }
 
-        // 7. Question Mark on Hidden Steel Nuts (Lowered to 1.20 as requested)
+        // 6. Question Mark on Hidden Steel Nuts (Lowered to 1.20)
         if (o.questionMark) {
           ctx.save();
           const qy = cy + bandH * 1.20;
           const qr = Math.min(rx * 0.38, bandH * 0.38);
 
-          // Subtle shadow behind the badge
           ctx.beginPath();
           ctx.ellipse(cx, qy + 1.2, qr * 1.05, qr * 0.95, 0, 0, Math.PI * 2);
           ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
           ctx.fill();
 
-          // Steel badge background
           ctx.beginPath();
           ctx.ellipse(cx, qy, qr, qr * 0.9, 0, 0, Math.PI * 2);
           ctx.fillStyle = '#90A4AE';
@@ -980,7 +956,6 @@
           ctx.strokeStyle = '#FFFFFF';
           ctx.stroke();
 
-          // Crisp bold centered white question mark
           ctx.font = '900 ' + Math.round(rx * 0.82) + 'px "Fredoka", "Lilita One", sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
