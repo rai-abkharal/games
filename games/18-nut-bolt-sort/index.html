@@ -906,21 +906,38 @@
 
         if (o.questionMark) {
           ctx.save();
-          ctx.font = '900 ' + Math.round(rx * 0.95) + 'px Fredoka, Lilita One, sans-serif';
+          const qy = cy + bandH * 0.52;
+          const qr = Math.min(rx * 0.44, bandH * 0.44);
+
+          // Embossed circular plate badge in the front facet
+          ctx.beginPath();
+          ctx.ellipse(cx, qy + 1, qr, qr * 0.88, 0, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.ellipse(cx, qy, qr, qr * 0.88, 0, 0, Math.PI * 2);
+          ctx.fillStyle = '#4E556E';
+          ctx.fill();
+          ctx.lineWidth = 1.2;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+          ctx.stroke();
+
+          // Crisp bold white question mark with sharp shadow
+          ctx.font = '900 ' + Math.round(rx * 0.82) + 'px "Fredoka", "Lilita One", sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillStyle = 'rgba(20, 24, 48, 0.35)';
-          ctx.fillText('?', cx, cy + bandH * 0.52 + ry * 0.16);
+          ctx.fillStyle = 'rgba(10, 14, 30, 0.7)';
+          ctx.fillText('?', cx + 0.5, qy + 1.2);
           ctx.fillStyle = '#FFFFFF';
-          ctx.fillText('?', cx, cy + bandH * 0.5 + ry * 0.1);
+          ctx.fillText('?', cx, qy);
           ctx.restore();
         }
       }
     };
 
     Object.assign(Art, {
-      // Threaded shaft. The ridge phase is animated while a nut travels so the
-      // thread appears to drive the nut up or down.
+      // Threaded shaft. Threads remain stationary and grounded.
       drawShaft(ctx, cx, topY, bottomY, w, phase) {
         const h = bottomY - topY;
         if (h <= 1 || w <= 1) return;
@@ -938,13 +955,12 @@
         ctx.fillStyle = body;
         ctx.fill();
 
-        // Ridges are clipped to the shaft so they curve with the cylinder.
+        // Stationary threaded ridges
         ctx.clip();
         const step = Math.max(3.2, w * 0.34);
         const bow = w * 0.16;
-        const off = ((phase || 0) % step + step) % step;
         ctx.lineWidth = Math.max(1, step * 0.28);
-        for (let y = topY + off - step; y < bottomY + step; y += step) {
+        for (let y = topY - step; y < bottomY + step; y += step) {
           ctx.beginPath();
           ctx.moveTo(x, y);
           ctx.quadraticCurveTo(cx, y + bow, x + w, y);
@@ -2022,7 +2038,7 @@
         const p = this.toLocal(clientX, clientY);
 
         if (this.state === 'VICTORY') {
-          if (this.victory.t > 0.5) {
+          if (this.victory.t >= 1.25) {
             this.nextBtn.press = 1;
             this.synth.playButton();
             this.nextLevel();
@@ -2401,8 +2417,7 @@
         this.showToast('Move undone');
       }
 
-      // Opens the dormant side socket, or grows the board by one spare post.
-      // Structural changes invalidate the move history, so it is cleared.
+      // Opens the dormant side socket with space for 1 nut, or expands to 2 on 2nd use.
       useAddBolt() {
         if (this.addBoltsLeft <= 0) {
           this.synth.playError();
@@ -2414,14 +2429,23 @@
         const socket = this.bolts.find(b => b.locked);
         if (socket) {
           socket.locked = false;
+          socket.capacity = 1; // 1-nut capacity short bolt
           socket.unlockPulse = 1;
           socket.spawnScale = 0.5;
           this.particles.groupBurst(socket.x, socket.baseY - socket.band, 2);
         } else {
-          const fresh = new Bolt([], this.cfg.capacity, { isSide: true });
-          fresh.spawnScale = 0.4;
-          this.bolts.push(fresh);
-          this.layout();
+          // If already unlocked, check if we can expand the side bolt to 2 nuts
+          const existingSide = this.bolts.find(b => b.isSide && !b.locked);
+          if (existingSide && existingSide.capacity < 2) {
+            existingSide.capacity = 2; // Expands to 2 nuts
+            existingSide.unlockPulse = 1;
+            this.particles.groupBurst(existingSide.x, existingSide.baseY - existingSide.band, 2);
+          } else {
+            const fresh = new Bolt([], 1, { isSide: true }); // Space for 1 nut
+            fresh.spawnScale = 0.4;
+            this.bolts.push(fresh);
+            this.layout();
+          }
         }
 
         this.addBoltsLeft--;
@@ -2429,7 +2453,7 @@
         this.deselect(false);
         this.synth.playUnlock();
         this.haptic('success');
-        this.showToast('Extra bolt ready');
+        this.showToast('Spare bolt ready');
       }
 
       // Host-driven hint (rewarded ad). Flags the best source and target.
@@ -3233,16 +3257,33 @@
         }
       }
 
-      // --- Render: victory card ----------------------------------------------
+      // --- Render: victory card & pre-reward celebration --------------------
       drawVictory(ctx) {
         const s = this.s || 1;
         const card = this.card;
         if (!card) return;
-        const fade = clamp(this.victory.t / 0.32, 0, 1);
-        const pop = easeOutBack(clamp(this.victory.t / 0.42, 0, 1));
+
+        // Stage 1: (0s to 1.25s): Solved board remains fully visible with celebration title and falling confetti!
+        if (this.victory.t < 1.25) {
+          ctx.save();
+          ctx.font = '900 ' + Math.round(28 * s) + 'px Fredoka, Lilita One, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = 'rgba(6, 8, 34, 0.6)';
+          ctx.fillText('AMAZING!', this.width / 2, this.boardTop - 36 * s + 2);
+          ctx.fillStyle = '#FFE9A0';
+          ctx.fillText('AMAZING!', this.width / 2, this.boardTop - 36 * s);
+          ctx.restore();
+          return;
+        }
+
+        // Stage 2: (1.25s onwards): Smooth scale-up and fade-in of the reward card!
+        const bannerT = this.victory.t - 1.25;
+        const fade = clamp(bannerT / 0.35, 0, 1);
+        const pop = easeOutBack(clamp(bannerT / 0.45, 0, 1));
 
         ctx.save();
-        ctx.fillStyle = 'rgba(5, 7, 32, ' + (0.74 * fade).toFixed(3) + ')';
+        ctx.fillStyle = 'rgba(5, 7, 32, ' + (0.78 * fade).toFixed(3) + ')';
         ctx.fillRect(0, 0, this.width, this.height);
 
         const midX = this.width / 2;
@@ -3322,7 +3363,7 @@
         ctx.fill();
         ctx.font = '900 ' + Math.round(20 * s) + 'px Fredoka, Lilita One, sans-serif';
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText('NEXT LEVEL', btn.x + btn.w / 2, btn.y + btn.h / 2 + 1);
+        ctx.fillText('CONTINUE ▶', btn.x + btn.w / 2, btn.y + btn.h / 2 + 1);
 
         ctx.restore();
       }
