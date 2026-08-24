@@ -303,44 +303,42 @@
 
       playUnscrew(units) {
         if (!this.ready()) return;
-        const n = Math.max(1, Math.min(4, units || 1));
-        this.ratchet(0.2 + n * 0.03, 8 + n * 2, 2600, 1250, 0.2);
-        this.tone(this.ctx.currentTime, 'triangle', 620, 300, 0.12, 0.24, 'exp');
+        const t = this.ctx.currentTime;
+        this.tone(t, 'sine', 380, 720, 0.16, 0.16, 'exp');
+        this.click(t, 2400, 0.08, 0.03);
       }
 
       playScrew(units) {
         if (!this.ready()) return;
-        const n = Math.max(1, Math.min(4, units || 1));
-        this.ratchet(0.22 + n * 0.03, 9 + n * 2, 1200, 2800, 0.19);
-        this.tone(this.ctx.currentTime, 'triangle', 320, 700, 0.12, 0.26, 'exp');
+        const t = this.ctx.currentTime;
+        this.tone(t, 'sine', 680, 420, 0.14, 0.14, 'exp');
+        this.click(t, 2600, 0.08, 0.03);
       }
 
-      // The satisfying thunk of a nut bottoming out against the washer.
+      // Crisp metallic clack when a nut seats down onto the washer/stack.
       playSeat() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.tone(t, 'sine', 260, 120, 0.3, 0.14, 'exp');
-        this.click(t, 3400, 0.16, 0.05);
-        this.tone(t + 0.01, 'square', 900, 560, 0.05, 0.08, 'exp');
+        this.tone(t, 'sine', 540, 220, 0.24, 0.08, 'exp');
+        this.tone(t, 'triangle', 880, 440, 0.12, 0.06, 'exp');
+        this.click(t, 3600, 0.12, 0.025);
       }
 
       playSelect() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.tone(t, 'triangle', 420, 780, 0.18, 0.13, 'exp');
-        this.click(t, 2800, 0.1, 0.04);
+        this.tone(t, 'sine', 580, 940, 0.18, 0.09, 'exp');
       }
 
       playTap() {
         if (!this.ready()) return;
-        this.tone(this.ctx.currentTime, 'sine', 520, 800, 0.16, 0.08, 'exp');
+        this.tone(this.ctx.currentTime, 'sine', 480, 700, 0.14, 0.06, 'exp');
       }
 
       playButton() {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        this.tone(t, 'sine', 660, 990, 0.2, 0.09, 'exp');
-        this.tone(t + 0.05, 'sine', 990, 1320, 0.12, 0.09, 'exp');
+        this.tone(t, 'sine', 660, 990, 0.18, 0.07, 'exp');
       }
 
       playError() {
@@ -994,6 +992,63 @@
         ctx.fill();
       },
 
+      // Domed metallic cap placed on top of a sorted bolt.
+      drawBoltCap(ctx, cx, cy, rx, ry, glow) {
+        // Drop shadow under cap
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + ry * 0.28, rx * 0.72, ry * 0.46, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+        ctx.fill();
+
+        // Silver washer cap base
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + ry * 0.14, rx * 0.68, ry * 0.44, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#BAC2D6';
+        ctx.fill();
+
+        // Top domed cap with metallic gradient
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx * 0.68, ry * 0.44, 0, 0, Math.PI * 2);
+        const g = ctx.createLinearGradient(cx - rx * 0.6, cy - ry * 0.4, cx + rx * 0.6, cy + ry * 0.4);
+        g.addColorStop(0, '#FFFFFF');
+        g.addColorStop(0.3, '#E8ECF6');
+        g.addColorStop(0.7, '#BAC2D6');
+        g.addColorStop(1, '#8E98B2');
+        ctx.fillStyle = g;
+        ctx.fill();
+
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.stroke();
+
+        // Center stud / allen bolt dot
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx * 0.24, ry * 0.16, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#68728C';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(cx - rx * 0.05, cy - ry * 0.04, rx * 0.09, ry * 0.06, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+
+        // Shiny glow burst flare when completed
+        if (glow > 0.01) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const flareW = rx * 1.8;
+          const flareH = ry * 4.5;
+          const flareG = ctx.createRadialGradient(cx, cy, 0, cx, cy, flareW);
+          flareG.addColorStop(0, 'rgba(255, 255, 255, ' + (0.95 * glow).toFixed(2) + ')');
+          flareG.addColorStop(0.35, 'rgba(210, 235, 255, ' + (0.6 * glow).toFixed(2) + ')');
+          flareG.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          ctx.fillStyle = flareG;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, flareW, flareH, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      },
+
       // Dormant side-storage socket: a capped stub the +BOLT booster opens.
       drawLockedSocket(ctx, cx, cy, rx, ry, pulse) {
         ctx.beginPath();
@@ -1354,14 +1409,20 @@
       get isEmpty() { return this.nuts.length === 0; }
       get isFull() { return this.nuts.length >= this.capacity; }
       get freeSpace() { return this.capacity - this.nuts.length; }
-      get topColor() { return this.nuts.length ? this.nuts[this.nuts.length - 1].c : null; }
+      get topColor() {
+        if (!this.nuts.length) return null;
+        const top = this.nuts[this.nuts.length - 1];
+        return top.hidden ? null : top.c;
+      }
 
       topRun() {
         if (!this.nuts.length) return 0;
-        const c = this.topColor;
+        const top = this.nuts[this.nuts.length - 1];
+        if (top.hidden) return 0;
+        const c = top.c;
         let n = 0;
         for (let i = this.nuts.length - 1; i >= 0; i--) {
-          if (this.nuts[i].c === c) n++;
+          if (!this.nuts[i].hidden && this.nuts[i].c === c) n++;
           else break;
         }
         return n;
@@ -1609,6 +1670,62 @@
               color: colors[Math.floor(Math.random() * colors.length)]
             });
           }
+        }
+      }
+
+      confettiCannon(w, h) {
+        const colors = ['#FFC01F', '#2AA5F0', '#7FD525', '#FF5B2E', '#C348C0', '#FFFFFF', '#18C8B8', '#FF6FA8', '#FFE9A0'];
+        // Left cannon shooting up-right towards center
+        for (let i = 0; i < 48; i++) {
+          const a = -Math.PI * 0.48 + (Math.random() - 0.5) * 0.45;
+          const sp = 720 + Math.random() * 480;
+          this.items.push({
+            type: 'CONFETTI',
+            x: w * 0.08 + (Math.random() - 0.5) * 24,
+            y: h * 0.98,
+            vx: Math.cos(a) * sp,
+            vy: Math.sin(a) * sp,
+            life: 2.2 + Math.random() * 1.8,
+            maxLife: 4.0,
+            size: 9 + Math.random() * 9,
+            rot: Math.random() * 6.28,
+            vRot: (Math.random() - 0.5) * 14,
+            color: colors[Math.floor(Math.random() * colors.length)]
+          });
+        }
+        // Right cannon shooting up-left towards center
+        for (let i = 0; i < 48; i++) {
+          const a = -Math.PI * 0.52 + (Math.random() - 0.5) * 0.45;
+          const sp = 720 + Math.random() * 480;
+          this.items.push({
+            type: 'CONFETTI',
+            x: w * 0.92 + (Math.random() - 0.5) * 24,
+            y: h * 0.98,
+            vx: Math.cos(a) * sp,
+            vy: Math.sin(a) * sp,
+            life: 2.2 + Math.random() * 1.8,
+            maxLife: 4.0,
+            size: 9 + Math.random() * 9,
+            rot: Math.random() * 6.28,
+            vRot: (Math.random() - 0.5) * 14,
+            color: colors[Math.floor(Math.random() * colors.length)]
+          });
+        }
+        // Golden stars bursting high and falling gently
+        for (let i = 0; i < 36; i++) {
+          this.items.push({
+            type: 'STAR',
+            x: w * 0.12 + Math.random() * w * 0.76,
+            y: h * 0.12 + Math.random() * h * 0.38,
+            vx: (Math.random() - 0.5) * 80,
+            vy: -60 + Math.random() * 90,
+            life: 2.0 + Math.random() * 1.6,
+            maxLife: 3.6,
+            size: 7 + Math.random() * 9,
+            rot: Math.random() * 6.28,
+            vRot: (Math.random() - 0.5) * 8,
+            color: '#FFE9A0'
+          });
         }
       }
 
@@ -2085,6 +2202,12 @@
         const to = this.bolts[toIdx];
         const nuts = from.nuts.splice(from.nuts.length - count, count);
 
+        // Staggered sequential movement:
+        // Nuts lift and fly in a trailing line one behind another rather than in a congested block!
+        const perNutDur = 0.44;
+        const stagger = 0.12;
+        const totalDur = perNutDur + (count - 1) * stagger;
+
         this.move = {
           fromIdx: fromIdx,
           toIdx: toIdx,
@@ -2094,9 +2217,11 @@
           srcIndexBase: from.nuts.length,
           dstIndexBase: to.nuts.length,
           t: 0,
-          dur: 0.54 + count * 0.05,
-          playedScrew: false,
-          playedSeat: false
+          dur: totalDur,
+          perNutDur: perNutDur,
+          stagger: stagger,
+          seatedNuts: new Array(count).fill(false),
+          playedScrewNuts: new Array(count).fill(false)
         };
 
         from.lift = 0;
@@ -2121,50 +2246,61 @@
           top.hidden = false;
           top.reveal = 0;
           this.synth.playReveal();
-          this.particles.seatSparks(bolt.x, bolt.nutSlotY(bolt.nuts.length - 1), top.c, 8);
+          this.particles.seatSparks(bolt.x, bolt.nutSlotY(bolt.nuts.length - 1), top.c, 10);
         }
       }
 
-      // Pose of one in-flight nut. A single 0..1 progress drives unscrew, arc,
-      // screw-down and settle so motion and sound stay locked together.
+      // Pose of one in-flight nut. Individual progress tj drives each nut in a trailing flight line!
       flyingPose(j) {
         const m = this.move;
         const from = this.bolts[m.fromIdx];
         const to = this.bolts[m.toIdx];
         const band = to.band;
         const startY = from.nutSlotY(m.srcIndexBase + j);
-        const srcHover = from.hoverY() - j * band;
-        const dstHover = to.hoverY() - j * band;
+        const srcHover = from.hoverY() - j * band * 0.4;
+        const dstHover = to.hoverY() - j * band * 0.4;
         const endY = to.nutSlotY(m.dstIndexBase + j);
-        const t = m.t;
-        const P = MOVE_PHASE;
-        const spinOut = -Math.PI * 2 * 1.15;
 
-        let x, y, spin, squash = 0;
+        // Topmost nut of the lifted stack takes off first
+        const nutOrder = (m.count - 1 - j);
+        const startTime = nutOrder * m.stagger;
+        const rawT = (m.t * m.dur - startTime) / m.perNutDur;
+        const tj = clamp(rawT, 0, 1);
 
-        if (t < P.unscrewEnd) {
-          const p = t / P.unscrewEnd;
+        if (rawT <= 0) {
+          return { x: from.x, y: startY, spin: 0, squash: 0 };
+        }
+
+        const unscrewEnd = 0.28;
+        const travelEnd = 0.74;
+        const screwEnd = 0.94;
+        const spinOut = -Math.PI * 2 * 1.1;
+
+        let x, y, spin = 0, squash = 0;
+
+        if (tj < unscrewEnd) {
+          const p = tj / unscrewEnd;
           const e = easeOutCubic(p);
           x = from.x;
           y = lerp(startY, srcHover, e);
           spin = spinOut * e;
-        } else if (t < P.travelEnd) {
-          const p = (t - P.unscrewEnd) / (P.travelEnd - P.unscrewEnd);
+        } else if (tj < travelEnd) {
+          const p = (tj - unscrewEnd) / (travelEnd - unscrewEnd);
           const e = easeInOutCubic(p);
           x = lerp(from.x, to.x, e);
-          y = lerp(srcHover, dstHover, e) - Math.sin(Math.PI * p) * band * 1.15;
-          spin = spinOut - Math.PI * 0.75 * p;
-        } else if (t < P.screwEnd) {
-          const p = (t - P.travelEnd) / (P.screwEnd - P.travelEnd);
+          y = lerp(srcHover, dstHover, e) - Math.sin(Math.PI * p) * (band * 1.8 + 22);
+          spin = spinOut - Math.PI * 0.65 * p;
+        } else if (tj < screwEnd) {
+          const p = (tj - travelEnd) / (screwEnd - travelEnd);
           x = to.x;
           y = lerp(dstHover, endY, easeInOutCubic(p));
-          spin = spinOut - Math.PI * 0.75 + Math.PI * 2 * 1.3 * easeOutCubic(p);
+          spin = spinOut - Math.PI * 0.65 + Math.PI * 2 * 1.25 * easeOutCubic(p);
         } else {
-          const p = clamp((t - P.screwEnd) / (1 - P.screwEnd), 0, 1);
+          const p = clamp((tj - screwEnd) / (1 - screwEnd), 0, 1);
           x = to.x;
           y = endY;
-          spin = spinOut - Math.PI * 0.75 + Math.PI * 2 * 1.3;
-          squash = Math.sin(Math.PI * p) * 0.16 / (1 + j * 0.6);
+          spin = spinOut - Math.PI * 0.65 + Math.PI * 2 * 1.25;
+          squash = Math.sin(Math.PI * p) * 0.14 / (1 + j * 0.4);
         }
 
         return { x: x, y: y, spin: spin, squash: squash };
@@ -2176,19 +2312,25 @@
         const to = this.bolts[m.toIdx];
         m.t = Math.min(1, m.t + dt / m.dur);
 
-        if (!m.playedScrew && m.t >= MOVE_PHASE.travelEnd) {
-          m.playedScrew = true;
-          this.synth.playScrew(m.count);
-        }
+        for (let j = 0; j < m.count; j++) {
+          const nutOrder = (m.count - 1 - j);
+          const startTime = nutOrder * m.stagger;
+          const rawT = (m.t * m.dur - startTime) / m.perNutDur;
 
-        if (!m.playedSeat && m.t >= MOVE_PHASE.screwEnd) {
-          m.playedSeat = true;
-          const y = to.nutSlotY(m.dstIndexBase);
-          this.synth.playSeat();
-          this.particles.seatSparks(to.x, y + to.band * 0.5, m.colorId, 12);
-          this.particles.dustRing(to.x, y + to.band * 0.6, m.colorId, to.rx);
-          this.screenShake = Math.max(this.screenShake, 2.2);
-          this.haptic('medium');
+          if (rawT >= 0.74 && !m.playedScrewNuts[j]) {
+            m.playedScrewNuts[j] = true;
+            this.synth.playScrew(1);
+          }
+
+          if (rawT >= 0.94 && !m.seatedNuts[j]) {
+            m.seatedNuts[j] = true;
+            const y = to.nutSlotY(m.dstIndexBase + j);
+            this.synth.playSeat();
+            this.particles.seatSparks(to.x, y + to.band * 0.5, m.colorId, 8);
+            this.particles.dustRing(to.x, y + to.band * 0.6, m.colorId, to.rx);
+            this.screenShake = Math.max(this.screenShake, 1.8);
+            this.haptic('light');
+          }
         }
 
         if (m.t >= 1) this.commitMove();
@@ -2343,9 +2485,9 @@
         this.victory.coins = COINS_PER_LEVEL + (this.victory.stars - 1) * 5;
         this.addCoins(this.victory.coins);
 
-        this.particles.fireworks(this.width, this.height);
+        this.particles.confettiCannon(this.width, this.height);
         this.particles.sparkleSweep(this.width, this.height, 0.25);
-        this.screenShake = 7;
+        this.screenShake = 6;
         if (this.cfg.isSpecial) this.synth.playSpecialWin();
         else this.synth.playLevelWin();
         this.haptic('success');
@@ -2649,10 +2791,16 @@
           topY = y;
         }
 
-        // Redraw the tip so the thread emerges through the top nut bore.
-        const capBottom = topY === null ? bolt.baseY : Math.min(bolt.baseY, topY + bolt.ry * 0.2);
-        if (capBottom > bolt.shaftTopY + 1) {
-          Art.drawShaft(ctx, bx, bolt.shaftTopY, capBottom, bolt.shaftW, bolt.threadPhase);
+        // When bolt is completed, render shining metallic cap on top!
+        if (bolt.complete && bolt.nuts.length >= bolt.capacity) {
+          const topSlotY = bolt.nutSlotY(bolt.nuts.length - 1);
+          Art.drawBoltCap(ctx, bx, topSlotY - bolt.ry * 0.16, bolt.rx, bolt.ry, bolt.completeGlow);
+        } else {
+          // Redraw the tip so the thread emerges through the top nut bore.
+          const capBottom = topY === null ? bolt.baseY : Math.min(bolt.baseY, topY + bolt.ry * 0.2);
+          if (capBottom > bolt.shaftTopY + 1) {
+            Art.drawShaft(ctx, bx, bolt.shaftTopY, capBottom, bolt.shaftW, bolt.threadPhase);
+          }
         }
 
         // Local shine that wipes across the bolt when its colour completes.
