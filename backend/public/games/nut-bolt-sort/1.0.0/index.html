@@ -301,60 +301,26 @@
         }
       }
 
-      // Real physical mechanical unscrew ratchet: rapid metallic tooth clicks with upward resonance
-      playUnscrew(units) {
-        if (!this.ready()) return;
-        const t = this.ctx.currentTime;
-        const clicks = 14;
-        const dur = 0.28;
-        for (let i = 0; i < clicks; i++) {
-          const at = t + (i / clicks) * dur;
-          const freq = 2000 + (i / clicks) * 1600;
-          this.click(at, freq, 0.16 * (1 - (i / clicks) * 0.25), 0.02);
-        }
-        this.tone(t, 'triangle', 340, 720, 0.14, 0.26, 'exp');
-      }
+      playUnscrew(units) {}
 
-      // Real physical mechanical screw ratchet: rapid metallic tooth clicks with downward resonance
+      // Pure real mechanical screw ratchet sound ONLY: crisp rapid metallic clicks
       playScrew(units) {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        const clicks = 14;
-        const dur = 0.28;
+        const clicks = 10;
+        const dur = 0.22;
         for (let i = 0; i < clicks; i++) {
           const at = t + (i / clicks) * dur;
-          const freq = 3600 - (i / clicks) * 1600;
-          this.click(at, freq, 0.16 * (0.75 + (i / clicks) * 0.25), 0.02);
+          const freq = 2800 - (i / clicks) * 1200;
+          this.click(at, freq, 0.18 * (0.8 + (i / clicks) * 0.2), 0.02);
         }
-        this.tone(t, 'triangle', 720, 340, 0.14, 0.26, 'exp');
       }
 
-      // Solid weighted physical metal placement clunk (minimal, heavy, satisfying)
-      playSeat() {
-        if (!this.ready()) return;
-        const t = this.ctx.currentTime;
-        this.click(t, 1600, 0.28, 0.035);
-        this.click(t + 0.005, 3200, 0.14, 0.02);
-        this.tone(t, 'sine', 340, 200, 0.22, 0.08, 'exp');
-        this.tone(t + 0.003, 'triangle', 680, 400, 0.10, 0.06, 'exp');
-      }
+      playSeat() {}
 
-      // Heavy solid metal pick-up impact click (simulating lifting a weighted physical nut)
-      playSelect() {
-        if (!this.ready()) return;
-        const t = this.ctx.currentTime;
-        this.click(t, 2200, 0.30, 0.035);
-        this.click(t + 0.006, 4400, 0.16, 0.02);
-        this.tone(t, 'triangle', 260, 480, 0.24, 0.08, 'exp');
-        this.tone(t + 0.005, 'sine', 520, 980, 0.14, 0.06, 'exp');
-      }
+      playSelect() {}
 
-      playTap() {
-        if (!this.ready()) return;
-        const t = this.ctx.currentTime;
-        this.click(t, 2600, 0.20, 0.025);
-        this.tone(t, 'sine', 480, 680, 0.16, 0.06, 'exp');
-      }
+      playTap() {}
 
       playButton() {
         if (!this.ready()) return;
@@ -363,47 +329,15 @@
         this.tone(t + 0.04, 'sine', 990, 1320, 0.14, 0.08, 'exp');
       }
 
-      playError() {
-        if (!this.ready()) return;
-        const t = this.ctx.currentTime;
-        this.tone(t, 'triangle', 220, 140, 0.16, 0.16, 'linear');
-        this.tone(t + 0.05, 'triangle', 180, 110, 0.13, 0.14, 'linear');
-      }
+      playError() {}
 
-      playReveal() {
-        if (!this.ready()) return;
-        const t = this.ctx.currentTime;
-        this.tone(t, 'sine', 920, 1480, 0.16, 0.16, 'exp');
-        this.tone(t + 0.04, 'sine', 1480, 2200, 0.12, 0.14, 'exp');
-        this.click(t + 0.02, 4800, 0.08, 0.03);
-      }
+      playReveal() {}
 
-      playUnlock() {
-        if (!this.ready()) return;
-        const t = this.ctx.currentTime;
-        this.click(t, 2400, 0.18, 0.05);
-        this.tone(t + 0.03, 'triangle', 520, 1040, 0.18, 0.18, 'exp');
-        this.tone(t + 0.12, 'sine', 1040, 1560, 0.14, 0.16, 'exp');
-      }
+      playUnlock() {}
 
-      playHint() {
-        if (!this.ready()) return;
-        const t = this.ctx.currentTime;
-        [880, 1108, 1318].forEach((f, i) => {
-          this.tone(t + i * 0.06, 'sine', f, f * 1.4, 0.12, 0.16, 'exp');
-        });
-      }
+      playHint() {}
 
-      // Minimal, pleasant sparkle chime on bolt sorted
-      playGroupComplete() {
-        if (!this.ready()) return;
-        const t = this.ctx.currentTime;
-        const notes = [659, 880, 1047, 1319];
-        notes.forEach((f, i) => {
-          this.tone(t + i * 0.055, 'sine', f, f, 0.12, 0.32, 'exp');
-          this.click(t + i * 0.055, 4200, 0.03, 0.02);
-        });
-      }
+      playGroupComplete() {}
 
       playLevelWin() {
         if (!this.ready()) return;
