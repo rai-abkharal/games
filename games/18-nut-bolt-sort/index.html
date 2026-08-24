@@ -863,189 +863,317 @@
         ctx.closePath();
       },
 
-      // Polished 3D toy-style nut.  This is intentionally rendered from layered
-      // bevels/rings instead of a flat polygon so the nut reads like the reference
-      // game's thick, glossy metal/plastic hardware at every rotation angle.
-      drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
-        const o = opts || {};
-        const color = skin.body || '#FFC700';
-        const light = skin.top || '#FFD54F';
-        const dark = skin.shadow || '#FFA000';
-        const holeRx = rx * 0.34;
-        const holeRy = ry * 0.34;
-        const bevel = Math.max(1.8, rx * 0.10);
-        const sideDepth = Math.max(3, bandH * 0.62);
-        const topRy = Math.max(ry * 0.72, ry - bevel * 0.35);
+      // A single real hex nut: solid 3D hexagonal prism with VERTICAL corner facet lines,
+      // no middle horizontal cut, central white bolt core, and lowered question mark.
+     // ========================================================================
+// REALISTIC SOFT INDUSTRIAL NUT
+// Replace the existing Art.drawNut() with this
+// ========================================================================
 
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(spin || 0);
-        ctx.translate(-cx, -cy);
+drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
+    const o = opts || {};
 
-        // Ground/contact shadow gives stacked nuts a real separation from one another.
-        ctx.save();
-        ctx.globalAlpha = 0.18;
-        ctx.filter = 'blur(' + Math.max(1, rx * 0.08).toFixed(1) + 'px)';
-        ctx.fillStyle = '#07102E';
+    // ONE SINGLE COLOR
+    const color = skin.body || '#FFC700';
+
+    // Slightly darker edge only for physical depth.
+    // The nut body itself remains a single color.
+    const edgeColor = shade(color, 0.20);
+
+    // Soft rounded nut shape
+    // Still mechanically believable, but NOT a sharp exaggerated hexagon.
+    const points = [];
+    const sides = 6;
+    const cornerRadius = Math.min(rx, ry) * 0.20;
+    const rotation = (spin || 0) + Math.PI / 6;
+
+    for (let i = 0; i < sides; i++) {
+        const angle = rotation + (i * Math.PI * 2) / sides;
+
+        points.push({
+            x: cx + Math.cos(angle) * rx,
+            y: cy + Math.sin(angle) * ry
+        });
+    }
+
+    // ------------------------------------------------------------
+    // HELPER: DRAW ROUNDED NUT OUTLINE
+    // ------------------------------------------------------------
+    const drawRoundedNutPath = (offsetY = 0) => {
         ctx.beginPath();
-        ctx.ellipse(cx, cy + bandH * 0.92, rx * 0.88, ry * 0.28, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
 
-        const pts = this.hexPoints(cx, cy, rx, topRy, 0);
-        const innerPts = this.hexPoints(cx, cy, holeRx * 1.22, holeRy * 1.08, 0);
-        const innerDarkPts = this.hexPoints(cx, cy, holeRx * 0.86, holeRy * 0.82, 0);
+        for (let i = 0; i < points.length; i++) {
+            const prev = points[(i - 1 + points.length) % points.length];
+            const curr = points[i];
+            const next = points[(i + 1) % points.length];
 
-        // Deep lower body / side wall. Draw several slightly darker layers so the
-        // object keeps its thickness even when the top face is rotating.
-        for (let layer = 3; layer >= 0; layer--) {
-          const off = sideDepth * (0.55 + layer * 0.16);
-          const sidePts = pts.map(q => ({x:q.x, y:q.y + off}));
-          this.tracePoly(ctx, sidePts, 0);
-          const t = 0.42 + layer * 0.07;
-          ctx.fillStyle = mixHex(dark, color, t);
-          ctx.fill();
+            const distPrev = Math.hypot(
+                curr.x - prev.x,
+                curr.y - prev.y
+            );
+
+            const distNext = Math.hypot(
+                next.x - curr.x,
+                next.y - curr.y
+            );
+
+            const r1 = Math.min(cornerRadius, distPrev * 0.25);
+            const r2 = Math.min(cornerRadius, distNext * 0.25);
+
+            const startX =
+                curr.x + ((prev.x - curr.x) / distPrev) * r1;
+
+            const startY =
+                curr.y + ((prev.y - curr.y) / distPrev) * r1;
+
+            const endX =
+                curr.x + ((next.x - curr.x) / distNext) * r2;
+
+            const endY =
+                curr.y + ((next.y - curr.y) / distNext) * r2;
+
+            if (i === 0) {
+                ctx.moveTo(startX, startY + offsetY);
+            } else {
+                ctx.lineTo(startX, startY + offsetY);
+            }
+
+            ctx.quadraticCurveTo(
+                curr.x,
+                curr.y + offsetY,
+                endX,
+                endY + offsetY
+            );
         }
 
-        // Visible front side faces with alternating light/shadow.
-        for (let i = 0; i < 6; i++) {
-          const a = pts[i];
-          const b = pts[(i + 1) % 6];
-          if ((a.y + b.y) * 0.5 < cy - ry * 0.05) continue;
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.lineTo(b.x, b.y + sideDepth);
-          ctx.lineTo(a.x, a.y + sideDepth);
-          ctx.closePath();
-          const f = 0.5 + 0.5 * Math.cos((i - 1) * Math.PI / 3);
-          ctx.fillStyle = mixHex(dark, light, 0.18 + f * 0.22);
-          ctx.fill();
-          ctx.strokeStyle = 'rgba(0,0,0,0.14)';
-          ctx.lineWidth = Math.max(0.7, rx * 0.018);
-          ctx.stroke();
-        }
+        ctx.closePath();
+    };
 
-        // Bottom lip.
-        this.tracePoly(ctx, pts, sideDepth);
-        ctx.fillStyle = 'rgba(10,18,45,0.20)';
-        ctx.fill();
 
-        // Main top face.
-        this.tracePoly(ctx, pts, 0);
-        const topGrad = ctx.createLinearGradient(cx - rx, cy - ry, cx + rx, cy + ry);
-        topGrad.addColorStop(0, light);
-        topGrad.addColorStop(0.32, color);
-        topGrad.addColorStop(0.72, color);
-        topGrad.addColorStop(1, dark);
-        ctx.fillStyle = topGrad;
-        ctx.fill();
+    // ------------------------------------------------------------
+    // 1. SIMPLE DEPTH / THICKNESS
+    // ------------------------------------------------------------
 
-        // Beveled outer rim: a slightly smaller face gives the chunky reference look.
-        const rimPts = pts.map(q => ({
-          x: cx + (q.x - cx) * 0.88,
-          y: cy + (q.y - cy) * 0.84
-        }));
-        this.tracePoly(ctx, rimPts, -0.35);
-        const rimGrad = ctx.createRadialGradient(cx - rx*0.35, cy - ry*0.35, 0, cx, cy, rx);
-        rimGrad.addColorStop(0, light);
-        rimGrad.addColorStop(0.58, color);
-        rimGrad.addColorStop(1, dark);
-        ctx.fillStyle = rimGrad;
-        ctx.fill();
+    drawRoundedNutPath(bandH);
 
-        // Central recessed opening.
-        this.tracePoly(ctx, innerPts, 0.5);
-        const holeGrad = ctx.createRadialGradient(cx - holeRx*0.22, cy - holeRy*0.25, 0, cx, cy, holeRx * 1.3);
-        holeGrad.addColorStop(0, '#0D1734');
-        holeGrad.addColorStop(0.72, '#182343');
-        holeGrad.addColorStop(1, '#050B20');
-        ctx.fillStyle = holeGrad;
-        ctx.fill();
+    ctx.fillStyle = edgeColor;
+    ctx.fill();
 
-        // Metallic inner wall / rim.
-        ctx.save();
-        ctx.globalAlpha = 0.72;
-        this.tracePoly(ctx, innerPts, -0.2);
-        ctx.strokeStyle = light;
-        ctx.lineWidth = Math.max(1.5, rx * 0.055);
-        ctx.stroke();
-        ctx.restore();
 
-        // Deep inner opening.
-        this.tracePoly(ctx, innerDarkPts, 1.1);
-        ctx.fillStyle = '#050A1B';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.13)';
-        ctx.lineWidth = Math.max(0.8, rx * 0.025);
-        ctx.stroke();
+    // ------------------------------------------------------------
+    // 2. CONNECT TOP TO BOTTOM FOR SOLID NUT BODY
+    // ------------------------------------------------------------
 
-        // A little metallic inner reflection makes the hole read as a real cavity.
-        ctx.save();
-        ctx.globalAlpha = 0.28;
-        ctx.beginPath();
-        ctx.ellipse(cx - holeRx * 0.26, cy - holeRy * 0.22, holeRx * 0.38, holeRy * 0.16, -0.25, 0, Math.PI * 2);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fill();
-        ctx.restore();
+    ctx.beginPath();
 
-        // Bolt/shaft visible through a resting nut. Flying nuts intentionally hide
-        // the shaft so the nut looks like a separate physical object in transit.
-        if (o.shaftThrough !== false && !o.isFlying) {
-          ctx.save();
-          ctx.globalAlpha = 0.98;
-          ctx.beginPath();
-          ctx.ellipse(cx, cy + 0.8, holeRx * 0.67, holeRy * 0.67, 0, 0, Math.PI * 2);
-          const shaftGrad = ctx.createLinearGradient(cx - holeRx, cy, cx + holeRx, cy);
-          shaftGrad.addColorStop(0, '#AAB5CA');
-          shaftGrad.addColorStop(0.28, '#F3F6FC');
-          shaftGrad.addColorStop(0.52, '#FFFFFF');
-          shaftGrad.addColorStop(0.78, '#D8E0EE');
-          shaftGrad.addColorStop(1, '#8F9BB1');
-          ctx.fillStyle = shaftGrad;
-          ctx.fill();
-          for (let t = -2; t <= 2; t++) {
-            ctx.beginPath();
-            ctx.ellipse(cx, cy + t * holeRy * 0.24, holeRx * 0.60, holeRy * 0.075, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(105,120,145,0.55)';
-            ctx.lineWidth = Math.max(0.65, rx * 0.018);
+    for (let i = 0; i < points.length; i++) {
+        const p1 = points[i];
+        const p2 = points[(i + 1) % points.length];
+
+        // Draw only the lower/front-facing sides
+        if ((p1.y + p2.y) * 0.5 > cy) {
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.lineTo(p2.x, p2.y + bandH);
+            ctx.lineTo(p1.x, p1.y + bandH);
+            ctx.closePath();
+
+            // SAME COLOR
+            ctx.fillStyle = color;
+            ctx.fill();
+
+            // Very subtle physical edge
+            ctx.strokeStyle = shade(color, 0.18);
+            ctx.lineWidth = Math.max(1, rx * 0.025);
             ctx.stroke();
-          }
-          ctx.restore();
-        }
 
-        // Soft top highlight, kept restrained so it does not look like a flat white sticker.
-        ctx.save();
-        ctx.globalAlpha = 0.23;
+            ctx.beginPath();
+        }
+    }
+
+
+    // ------------------------------------------------------------
+    // 3. MAIN TOP SURFACE
+    // ------------------------------------------------------------
+
+    drawRoundedNutPath(0);
+
+    // SINGLE SOLID COLOR — NO GRADIENT
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Very subtle outline
+    ctx.strokeStyle = shade(color, 0.22);
+    ctx.lineWidth = Math.max(1, rx * 0.028);
+    ctx.stroke();
+
+
+    // ------------------------------------------------------------
+    // 4. CENTRAL REALISTIC HOLE
+    // ------------------------------------------------------------
+
+    const holeRx = rx * 0.34;
+    const holeRy = ry * 0.34;
+
+    if (o.shaftThrough !== false && !o.isFlying) {
+
+        // Small inner rim using same color
         ctx.beginPath();
-        ctx.ellipse(cx - rx * 0.25, cy - ry * 0.30, rx * 0.32, ry * 0.14, -0.22, 0, Math.PI * 2);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fill();
-        ctx.restore();
+        ctx.ellipse(
+            cx,
+            cy,
+            holeRx * 1.08,
+            holeRy * 1.08,
+            0,
+            0,
+            Math.PI * 2
+        );
 
-        // Question-mark state for hidden nuts.
-        if (o.questionMark) {
-          ctx.save();
-          const qy = cy + bandH * 0.55;
-          const qr = Math.min(rx * 0.30, bandH * 0.31);
-          ctx.globalAlpha = 0.94;
-          ctx.beginPath();
-          ctx.ellipse(cx, qy, qr, qr * 0.82, 0, 0, Math.PI * 2);
-          ctx.fillStyle = '#9CA8B9';
-          ctx.fill();
-          ctx.strokeStyle = 'rgba(255,255,255,0.72)';
-          ctx.lineWidth = Math.max(1, rx * 0.035);
-          ctx.stroke();
-          ctx.font = '900 ' + Math.round(rx * 0.64) + 'px Fredoka, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillText('?', cx, qy + 0.5);
-          ctx.restore();
+        ctx.fillStyle = color;
+        ctx.fill();
+
+        ctx.strokeStyle = shade(color, 0.28);
+        ctx.lineWidth = Math.max(1, rx * 0.025);
+        ctx.stroke();
+
+
+        // Bolt shaft visible through the nut
+        ctx.beginPath();
+        ctx.ellipse(
+            cx,
+            cy,
+            holeRx,
+            holeRy,
+            0,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fillStyle = '#F0F4FA';
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(100, 115, 140, 0.35)';
+        ctx.lineWidth = Math.max(0.8, rx * 0.018);
+        ctx.stroke();
+
+
+        // Minimal thread indication
+        ctx.save();
+
+        ctx.beginPath();
+        ctx.ellipse(
+            cx,
+            cy,
+            holeRx,
+            holeRy,
+            0,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.clip();
+
+        const threadGap = Math.max(3, holeRy * 0.45);
+
+        for (
+            let y = cy - holeRy;
+            y <= cy + holeRy;
+            y += threadGap
+        ) {
+            ctx.beginPath();
+
+            ctx.moveTo(
+                cx - holeRx,
+                y
+            );
+
+            ctx.quadraticCurveTo(
+                cx,
+                y + holeRy * 0.16,
+                cx + holeRx,
+                y
+            );
+
+            ctx.strokeStyle = 'rgba(150, 165, 190, 0.35)';
+            ctx.lineWidth = Math.max(0.7, rx * 0.015);
+            ctx.stroke();
         }
 
         ctx.restore();
-      }
+
+    } else {
+
+        // Empty nut hole when flying
+        ctx.beginPath();
+
+        ctx.ellipse(
+            cx,
+            cy,
+            holeRx,
+            holeRy,
+            0,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fillStyle = '#1A2035';
+        ctx.fill();
+
+        ctx.strokeStyle = shade(color, 0.35);
+        ctx.lineWidth = Math.max(1, rx * 0.03);
+        ctx.stroke();
+    }
+
+
+    // ------------------------------------------------------------
+    // 5. HIDDEN QUESTION MARK
+    // ------------------------------------------------------------
+
+    if (o.questionMark) {
+
+        ctx.save();
+
+        const qy = cy + bandH * 0.45;
+        const qr = Math.min(rx * 0.30, ry * 0.55);
+
+        ctx.beginPath();
+
+        ctx.ellipse(
+            cx,
+            qy,
+            qr,
+            qr * 0.85,
+            0,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fillStyle = '#90A4AE';
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.font =
+            '900 ' +
+            Math.round(rx * 0.65) +
+            'px "Fredoka", sans-serif';
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        ctx.fillStyle = '#FFFFFF';
+
+        ctx.fillText(
+            '?',
+            cx,
+            qy + 1
+        );
+
+        ctx.restore();
+    }
+}
     };
 
     Object.assign(Art, {
@@ -2097,8 +2225,8 @@
       // Later levels use a tighter, faster cascade to stay out of the way.
       beginIntro() {
         const fast = this.level > 4;
-        const stagger = fast ? 0.032 : 0.070;
-        const flight = fast ? 0.30 : 0.44;
+        const stagger = fast ? 0.026 : 0.055;
+        const flight = fast ? 0.26 : 0.36;
         let order = 0;
         for (const bolt of this.bolts) {
           bolt.spawnScale = 0.55;
@@ -2445,8 +2573,8 @@
         const nuts = from.nuts.splice(from.nuts.length - count, count);
 
         // Calibrated duration so 3D rotation and trailing motion are distinctly felt:
-        const perNutDur = 0.84;
-        const stagger = 0.14;
+        const perNutDur = 0.72;
+        const stagger = 0.16;
         const totalDur = perNutDur + (count - 1) * stagger;
 
         this.move = {
@@ -2498,52 +2626,56 @@
         const to = this.bolts[m.toIdx];
         const band = to.band;
         const startY = from.nutSlotY(m.srcIndexBase + j);
-        const srcHover = from.hoverY() - j * band * 0.42;
-        const dstHover = to.hoverY() - j * band * 0.42;
+        const srcHover = from.hoverY() - j * band * 0.4;
+        const dstHover = to.hoverY() - j * band * 0.4;
         const endY = to.nutSlotY(m.dstIndexBase + j);
 
+        // Topmost nut of the lifted stack takes off first
         const nutOrder = (m.count - 1 - j);
         const startTime = nutOrder * m.stagger;
         const rawT = (m.t * m.dur - startTime) / m.perNutDur;
         const tj = clamp(rawT, 0, 1);
 
-        if (rawT <= 0) return { x: from.x, y: startY, spin: 0, squash: 0 };
+        if (rawT <= 0) {
+          return { x: from.x, y: startY, spin: 0, squash: 0 };
+        }
 
-        // Four readable phases matching the reference feel:
-        // 1) lift + unscrew, 2) arched travel, 3) slow alignment + screw-in,
-        // 4) tiny physical settle.
-        const unscrewEnd = 0.29;
-        const travelEnd = 0.69;
-        const screwEnd = 0.93;
+        const unscrewEnd = 0.30;
+        const travelEnd = 0.70;
+        const screwEnd = 0.94;
+
         let x, y, spin = 0, squash = 0;
 
         if (tj < unscrewEnd) {
-          const p = easeOutCubic(tj / unscrewEnd);
+          // Phase 1: Unscrew & Lift (Counter-Clockwise 2.5 full rotations)
+          const p = tj / unscrewEnd;
+          const e = easeOutCubic(p);
           x = from.x;
-          y = lerp(startY, srcHover, p);
-          // About 2.75 turns while leaving the thread.
-          spin = -Math.PI * 5.5 * p;
+          y = lerp(startY, srcHover, e);
+          spin = -Math.PI * 5 * e;
         } else if (tj < travelEnd) {
+          // Phase 2: Arched Parabolic Flight across
           const p = (tj - unscrewEnd) / (travelEnd - unscrewEnd);
           const e = easeInOutCubic(p);
           x = lerp(from.x, to.x, e);
-          const arc = Math.sin(Math.PI * p) * (band * 2.45 + 32);
-          y = lerp(srcHover, dstHover, e) - arc;
-          spin = -Math.PI * 5.5 - Math.PI * 2.15 * easeInOutCubic(p);
+          y = lerp(srcHover, dstHover, e) - Math.sin(Math.PI * p) * (band * 2.2 + 28);
+          spin = -Math.PI * 5 - Math.PI * 2 * p;
         } else if (tj < screwEnd) {
-          const p = easeInOutCubic((tj - travelEnd) / (screwEnd - travelEnd));
+          // Phase 3: Screw-In Insertion (Clockwise 2.5 full rotations down into slot)
+          const p = (tj - travelEnd) / (screwEnd - travelEnd);
           x = to.x;
-          y = lerp(dstHover, endY, p);
-          // Reverse direction while entering the destination nut.
-          spin = -Math.PI * 7.65 + Math.PI * 5.65 * easeOutCubic(p);
+          y = lerp(dstHover, endY, easeInOutCubic(p));
+          spin = -Math.PI * 7 + Math.PI * 5 * easeOutCubic(p);
         } else {
+          // Phase 4: Settle & Elastic Lock
           const p = clamp((tj - screwEnd) / (1 - screwEnd), 0, 1);
           x = to.x;
-          y = endY + Math.sin(p * Math.PI * 2) * band * 0.06 * (1 - p);
+          y = endY;
           spin = -Math.PI * 2;
-          squash = Math.sin(Math.PI * p) * 0.12 / (1 + j * 0.35);
+          squash = Math.sin(Math.PI * p) * 0.16 / (1 + j * 0.4);
         }
-        return { x, y, spin, squash };
+
+        return { x: x, y: y, spin: spin, squash: squash };
       }
 
       advanceMove(dt) {
@@ -2565,9 +2697,8 @@
           if (rawT >= 0.94 && !m.seatedNuts[j]) {
             m.seatedNuts[j] = true;
             const y = to.nutSlotY(m.dstIndexBase + j);
-            this.particles.seatSparks(to.x, y + to.band * 0.45, m.colorId, 11);
-            this.particles.dustRing(to.x, y + to.band * 0.58, m.colorId, to.rx);
-            this.particles.groupBurst(to.x, y + to.band * 0.25, m.colorId, 5);
+            this.particles.seatSparks(to.x, y + to.band * 0.5, m.colorId, 8);
+            this.particles.dustRing(to.x, y + to.band * 0.6, m.colorId, to.rx);
             this.screenShake = Math.max(this.screenShake, 1.8);
             this.haptic('light');
           }
@@ -2817,7 +2948,8 @@
               this.victory.starAnim[i] = Math.min(1, this.victory.starAnim[i] + dt * 3.2);
             }
           }
-          // Stay on the reward banner until the player explicitly presses Continue.
+          // Natural roll into the next level once the celebration has landed.
+          if (this.victory.t > 3.4) this.nextLevel();
         }
 
         if (this.state === 'PLAYING') {
@@ -2839,8 +2971,7 @@
               nut.introSeated = true;
               this.introSeatCount = (this.introSeatCount || 0) + 1;
               if (this.introSeatCount % 2 === 1) this.synth.playTick();
-              this.particles.seatSparks(bolt.x, bolt.baseY - bolt.band * 0.4, nut.c, 6);
-              this.particles.dustRing(bolt.x, bolt.baseY - bolt.band * 0.38, nut.c, bolt.rx * 0.7);
+              this.particles.seatSparks(bolt.x, bolt.baseY - bolt.band * 0.4, nut.c, 3);
             }
             if (nut.introT < 1) pending = true;
           }
@@ -3027,8 +3158,8 @@
 
           if (nut.introT !== undefined && nut.introT < 1) {
             const e = easeOutCubic(nut.introT);
-            y -= (1 - e) * (bolt.band * 5.2 + bolt.rx * 2.0);
-            spin = -(1 - e) * Math.PI * 2.15;
+            y -= (1 - e) * (bolt.band * 4 + bolt.rx * 1.6);
+            spin = -(1 - e) * Math.PI * 2 * 1.3;
             alpha = clamp(nut.introT * 4, 0, 1);
           } else if (heldRun > 0) {
             y -= bolt.lift + Math.sin(this.time * 4.2) * bolt.ry * 0.14;
@@ -3479,7 +3610,7 @@
         if (!card) return;
 
         // Stage 1: (0s to 1.25s): Solved board remains fully visible with celebration title and falling confetti!
-        if (this.victory.t < 1.45) {
+        if (this.victory.t < 1.25) {
           ctx.save();
           ctx.font = '900 ' + Math.round(28 * s) + 'px Fredoka, Lilita One, sans-serif';
           ctx.textAlign = 'center';
@@ -3493,7 +3624,7 @@
         }
 
         // Stage 2: (1.25s onwards): Smooth scale-up and fade-in of the reward card!
-        const bannerT = this.victory.t - 1.45;
+        const bannerT = this.victory.t - 1.25;
         const fade = clamp(bannerT / 0.35, 0, 1);
         const pop = easeOutBack(clamp(bannerT / 0.45, 0, 1));
 
