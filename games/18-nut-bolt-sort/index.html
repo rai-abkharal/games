@@ -862,7 +862,7 @@
         ctx.closePath();
       },
 
-      // A single hex nut drawn as an extruded prism. Crisp 3D facet creases, specular top rim,
+      // A single hex nut drawn as an extruded prism. Glossy front top chamfer cut
       // and dynamically reacting reflections provide ultra-realistic tactile depth!
       drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
         const o = opts || {};
@@ -895,14 +895,6 @@
           ctx.closePath();
           ctx.fillStyle = mixHex(skin.side, skin.face, light);
           ctx.fill();
-
-          // Crisp vertical facet corner edge highlight
-          ctx.beginPath();
-          ctx.moveTo(p0.x, p0.y);
-          ctx.lineTo(p0.x, p0.y + bandH);
-          ctx.strokeStyle = light > 0.5 ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.25)';
-          ctx.lineWidth = 1;
-          ctx.stroke();
         }
 
         // Bottom shadow line grounds the nut against the one below it.
@@ -913,7 +905,7 @@
         ctx.fillRect(cx - rx, cy + bandH - ry * 0.55, rx * 2, ry * 1.2);
         ctx.restore();
 
-        // Top face with rotating glossy specular rim highlight.
+        // Top face with rotating glossy gradient
         this.tracePoly(ctx, pts, 0);
         const lightDir = (spin || 0) - Math.PI * 0.75;
         const lx0 = cx + rx * Math.cos(lightDir) * 0.6;
@@ -927,10 +919,26 @@
         ctx.fillStyle = grad;
         ctx.fill();
 
-        // Sharp 3D top rim stroke
-        ctx.lineWidth = Math.max(1.2, rx * 0.055);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+        // Top rim subtle outline
+        ctx.lineWidth = Math.max(1, rx * 0.04);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.stroke();
+
+        // Bright glossy specular highlight line strictly on the main front horizontal top chamfer cut
+        for (let i = 0; i < 6; i++) {
+          const p0 = pts[i];
+          const p1 = pts[(i + 1) % 6];
+          const midY = (p0.y + p1.y) / 2;
+          if (midY > cy - ry * 0.15) { // Front horizontal top chamfer edge
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(p1.x, p1.y);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = Math.max(1.5, rx * 0.07);
+            ctx.lineCap = 'round';
+            ctx.stroke();
+          }
+        }
 
         // Threaded bore. A seated nut shows the shaft, a flying one shows a hole.
         if (!o.shaftThrough) {
@@ -944,11 +952,11 @@
           ctx.fill();
         }
 
-        // Question Mark on Hidden Nuts: Lowered perfectly in visible front facet
+        // Question Mark on Hidden Nuts: Lowered deeply into front facet for 100% full unclipped visibility
         if (o.questionMark) {
           ctx.save();
-          const qy = cy + bandH * 0.66;
-          const qr = Math.min(rx * 0.42, bandH * 0.42);
+          const qy = cy + bandH * 0.78;
+          const qr = Math.min(rx * 0.40, bandH * 0.40);
 
           // Subtle shadow behind the badge
           ctx.beginPath();
@@ -966,7 +974,7 @@
           ctx.stroke();
 
           // Crisp bold centered white question mark
-          ctx.font = '900 ' + Math.round(rx * 0.86) + 'px "Fredoka", "Lilita One", sans-serif';
+          ctx.font = '900 ' + Math.round(rx * 0.82) + 'px "Fredoka", "Lilita One", sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillStyle = 'rgba(38, 50, 56, 0.65)';
@@ -2287,7 +2295,9 @@
       select(index) {
         const bolt = this.bolts[index];
         this.selected = index;
-        bolt.liftTarget = bolt.band * 1.15;
+        const liftFrom = bolt.nuts.length - bolt.topRun();
+        const baseNutY = bolt.nutSlotY(liftFrom);
+        bolt.liftTarget = Math.max(bolt.band * 1.8, baseNutY - bolt.hoverY());
         this.synth.playSelect();
         this.haptic('light');
         this.clearHints();
@@ -2497,7 +2507,6 @@
           if (rawT >= 0.94 && !m.seatedNuts[j]) {
             m.seatedNuts[j] = true;
             const y = to.nutSlotY(m.dstIndexBase + j);
-            this.synth.playSeat();
             this.particles.seatSparks(to.x, y + to.band * 0.5, m.colorId, 8);
             this.particles.dustRing(to.x, y + to.band * 0.6, m.colorId, to.rx);
             this.screenShake = Math.max(this.screenShake, 1.8);
