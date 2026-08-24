@@ -78,7 +78,7 @@
     // ========================================================================
     // Hex-nut colours sampled exactly from reference screenshots. Vibrant, glossy,
     // Hex-nut colours matching reference screenshot media_1787569029108.png.
-    // Rich, saturated, single-shade vibrant tones with smooth rounded chamfers and soft top sheen.
+    // Rich, saturated, single-shade vibrant tones with high contrast and zero color confusion.
     const NUT_PALETTE = [
       {
         id: 0, name: 'Amber Gold',
@@ -88,9 +88,9 @@
       },
       {
         id: 1, name: 'Azure Blue',
-        body: '#29B6F6', top: '#81D4FA', shadow: '#0288D1', rim: '#E1F5FE',
-        glow: 'rgba(41, 182, 246, 0.55)',
-        sparks: ['#E1F5FE', '#29B6F6', '#FFFFFF', '#0288D1']
+        body: '#1E88E5', top: '#64B5F6', shadow: '#1565C0', rim: '#BBDEFB',
+        glow: 'rgba(30, 136, 229, 0.55)',
+        sparks: ['#BBDEFB', '#1E88E5', '#FFFFFF', '#1565C0']
       },
       {
         id: 2, name: 'Pearl Silver',
@@ -100,9 +100,9 @@
       },
       {
         id: 3, name: 'Ember Orange',
-        body: '#FF5722', top: '#FF8A65', shadow: '#E64A19', rim: '#FFCCBC',
-        glow: 'rgba(255, 87, 34, 0.55)',
-        sparks: ['#FFCCBC', '#FF5722', '#FFFFFF', '#E64A19']
+        body: '#FF6D00', top: '#FFA726', shadow: '#E65100', rim: '#FFE0B2',
+        glow: 'rgba(255, 109, 0, 0.55)',
+        sparks: ['#FFE0B2', '#FF6D00', '#FFFFFF', '#E65100']
       },
       {
         id: 4, name: 'Lime Green',
@@ -117,10 +117,10 @@
         sparks: ['#F3E5F5', '#AB47BC', '#FFFFFF', '#8E24AA']
       },
       {
-        id: 6, name: 'Turquoise',
-        body: '#00E5FF', top: '#80D8FF', shadow: '#00B0FF', rim: '#E0F7FA',
-        glow: 'rgba(0, 229, 255, 0.55)',
-        sparks: ['#E0F7FA', '#00E5FF', '#FFFFFF', '#00B0FF']
+        id: 6, name: 'Ruby Crimson',
+        body: '#E53935', top: '#EF5350', shadow: '#C62828', rim: '#FFCDD2',
+        glow: 'rgba(229, 57, 53, 0.55)',
+        sparks: ['#FFCDD2', '#E53935', '#FFFFFF', '#C62828']
       },
       {
         id: 7, name: 'Hot Coral Pink',
@@ -2518,31 +2518,31 @@
         let x, y, spin = 0, squash = 0;
 
         if (tj < unscrewEnd) {
-          // Phase 1: Unscrew & Lift (Counter-Clockwise 2.5 full rotations)
+          // Phase 1: Unscrew & Lift (Smooth 1 full counter-clockwise rotation along axis)
           const p = tj / unscrewEnd;
           const e = easeOutCubic(p);
           x = from.x;
           y = lerp(startY, srcHover, e);
-          spin = -Math.PI * 5 * e;
+          spin = -Math.PI * 2 * e;
         } else if (tj < travelEnd) {
-          // Phase 2: Arched Parabolic Flight across
+          // Phase 2: Arched Parabolic Flight across (Clean upright glide holding forward orientation)
           const p = (tj - unscrewEnd) / (travelEnd - unscrewEnd);
           const e = easeInOutCubic(p);
           x = lerp(from.x, to.x, e);
           y = lerp(srcHover, dstHover, e) - Math.sin(Math.PI * p) * (band * 2.2 + 28);
-          spin = -Math.PI * 5 - Math.PI * 2 * p;
+          spin = 0;
         } else if (tj < screwEnd) {
-          // Phase 3: Screw-In Insertion (Clockwise 2.5 full rotations down into slot)
+          // Phase 3: Screw-In Insertion (Smooth 1 full clockwise rotation down into slot)
           const p = (tj - travelEnd) / (screwEnd - travelEnd);
           x = to.x;
           y = lerp(dstHover, endY, easeInOutCubic(p));
-          spin = -Math.PI * 7 + Math.PI * 5 * easeOutCubic(p);
+          spin = Math.PI * 2 * easeOutCubic(p);
         } else {
           // Phase 4: Settle & Elastic Lock
           const p = clamp((tj - screwEnd) / (1 - screwEnd), 0, 1);
           x = to.x;
           y = endY;
-          spin = -Math.PI * 2;
+          spin = 0;
           squash = Math.sin(Math.PI * p) * 0.16 / (1 + j * 0.4);
         }
 
@@ -2568,7 +2568,6 @@
           if (rawT >= 0.94 && !m.seatedNuts[j]) {
             m.seatedNuts[j] = true;
             const y = to.nutSlotY(m.dstIndexBase + j);
-            this.synth.playSeat();
             this.particles.seatSparks(to.x, y + to.band * 0.5, m.colorId, 8);
             this.particles.dustRing(to.x, y + to.band * 0.6, m.colorId, to.rx);
             this.screenShake = Math.max(this.screenShake, 1.8);
