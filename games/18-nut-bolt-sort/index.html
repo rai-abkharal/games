@@ -865,312 +865,126 @@
 
       // A single real hex nut: solid 3D hexagonal prism with VERTICAL corner facet lines,
       // no middle horizontal cut, central white bolt core, and lowered question mark.
-     // ========================================================================
-// REALISTIC SOFT INDUSTRIAL NUT
-// Replace the existing Art.drawNut() with this
-// ========================================================================
-
-drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
+     drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
     const o = opts || {};
-
-    // ONE SINGLE COLOR
+    const pts = this.hexPoints(cx, cy, rx, ry, spin);
+    const holeRx = rx * 0.38, holeRy = ry * 0.38;
     const color = skin.body || '#FFC700';
-
-    // Slightly darker edge only for physical depth.
-    // The nut body itself remains a single color.
-    const edgeColor = shade(color, 0.20);
-
-    // Soft rounded nut shape
-    // Still mechanically believable, but NOT a sharp exaggerated hexagon.
-    const points = [];
-    const sides = 6;
-    const cornerRadius = Math.min(rx, ry) * 0.20;
-    const rotation = (spin || 0) + Math.PI / 6;
-
-    for (let i = 0; i < sides; i++) {
-        const angle = rotation + (i * Math.PI * 2) / sides;
-
-        points.push({
-            x: cx + Math.cos(angle) * rx,
-            y: cy + Math.sin(angle) * ry
-        });
-    }
-
-    // ------------------------------------------------------------
-    // HELPER: DRAW ROUNDED NUT OUTLINE
-    // ------------------------------------------------------------
-    const drawRoundedNutPath = (offsetY = 0) => {
-        ctx.beginPath();
-
-        for (let i = 0; i < points.length; i++) {
-            const prev = points[(i - 1 + points.length) % points.length];
-            const curr = points[i];
-            const next = points[(i + 1) % points.length];
-
-            const distPrev = Math.hypot(
-                curr.x - prev.x,
-                curr.y - prev.y
-            );
-
-            const distNext = Math.hypot(
-                next.x - curr.x,
-                next.y - curr.y
-            );
-
-            const r1 = Math.min(cornerRadius, distPrev * 0.25);
-            const r2 = Math.min(cornerRadius, distNext * 0.25);
-
-            const startX =
-                curr.x + ((prev.x - curr.x) / distPrev) * r1;
-
-            const startY =
-                curr.y + ((prev.y - curr.y) / distPrev) * r1;
-
-            const endX =
-                curr.x + ((next.x - curr.x) / distNext) * r2;
-
-            const endY =
-                curr.y + ((next.y - curr.y) / distNext) * r2;
-
-            if (i === 0) {
-                ctx.moveTo(startX, startY + offsetY);
-            } else {
-                ctx.lineTo(startX, startY + offsetY);
-            }
-
-            ctx.quadraticCurveTo(
-                curr.x,
-                curr.y + offsetY,
-                endX,
-                endY + offsetY
-            );
-        }
-
-        ctx.closePath();
-    };
-
-
-    // ------------------------------------------------------------
-    // 1. SIMPLE DEPTH / THICKNESS
-    // ------------------------------------------------------------
-
-    drawRoundedNutPath(bandH);
-
-    ctx.fillStyle = edgeColor;
-    ctx.fill();
-
-
-    // ------------------------------------------------------------
-    // 2. CONNECT TOP TO BOTTOM FOR SOLID NUT BODY
-    // ------------------------------------------------------------
-
-    ctx.beginPath();
-
-    for (let i = 0; i < points.length; i++) {
-        const p1 = points[i];
-        const p2 = points[(i + 1) % points.length];
-
-        // Draw only the lower/front-facing sides
-        if ((p1.y + p2.y) * 0.5 > cy) {
+    const light = skin.top || '#FFD54F';
+    const dark = skin.shadow || '#FFA000';
+    
+    // ===== SIDE FACES - REAL 3D HEXAGON =====
+    for (let i = 0; i < 6; i++) {
+        const p1 = pts[i];
+        const p2 = pts[(i + 1) % 6];
+        
+        // Only draw visible faces (facing viewer)
+        const midX = (p1.x + p2.x) / 2;
+        if (midX > cx - rx * 0.2) {
+            ctx.beginPath();
             ctx.moveTo(p1.x, p1.y);
             ctx.lineTo(p2.x, p2.y);
             ctx.lineTo(p2.x, p2.y + bandH);
             ctx.lineTo(p1.x, p1.y + bandH);
             ctx.closePath();
-
-            // SAME COLOR
-            ctx.fillStyle = color;
+            
+            // Face lighting based on angle
+            const angle = (i / 6) * Math.PI * 2;
+            const bright = 0.5 + 0.5 * Math.cos(angle - Math.PI/6);
+            const faceColor = i % 2 === 0 ? 
+                mixHex(color, dark, 0.2 * (1 - bright)) :
+                mixHex(color, light, 0.3 * bright);
+            ctx.fillStyle = faceColor;
             ctx.fill();
-
-            // Very subtle physical edge
-            ctx.strokeStyle = shade(color, 0.18);
-            ctx.lineWidth = Math.max(1, rx * 0.025);
+            
+            // Edge lines for definition
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'rgba(0,0,0,0.1)';
             ctx.stroke();
-
-            ctx.beginPath();
         }
     }
-
-
-    // ------------------------------------------------------------
-    // 3. MAIN TOP SURFACE
-    // ------------------------------------------------------------
-
-    drawRoundedNutPath(0);
-
-    // SINGLE SOLID COLOR — NO GRADIENT
-    ctx.fillStyle = color;
+    
+    // ===== TOP FACE - WITH SHINE =====
+    this.tracePoly(ctx, pts, 0);
+    const topGrad = ctx.createRadialGradient(
+        cx - rx*0.3, cy - ry*0.3, 0,
+        cx, cy, rx
+    );
+    topGrad.addColorStop(0, light);
+    topGrad.addColorStop(0.5, color);
+    topGrad.addColorStop(1, dark);
+    ctx.fillStyle = topGrad;
     ctx.fill();
-
-    // Very subtle outline
-    ctx.strokeStyle = shade(color, 0.22);
-    ctx.lineWidth = Math.max(1, rx * 0.028);
-    ctx.stroke();
-
-
-    // ------------------------------------------------------------
-    // 4. CENTRAL REALISTIC HOLE
-    // ------------------------------------------------------------
-
-    const holeRx = rx * 0.34;
-    const holeRy = ry * 0.34;
-
+    
+    // Top shine spot
+    ctx.beginPath();
+    ctx.ellipse(cx - rx*0.2, cy - ry*0.3, rx*0.25, ry*0.18, -0.3, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fill();
+    
+    // ===== BOTTOM SHADOW =====
+    this.tracePoly(ctx, pts, bandH);
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fill();
+    
+    // ===== HOLE - BOLT CORE =====
     if (o.shaftThrough !== false && !o.isFlying) {
-
-        // Small inner rim using same color
+        // White bolt shaft visible through hole
         ctx.beginPath();
-        ctx.ellipse(
-            cx,
-            cy,
-            holeRx * 1.08,
-            holeRy * 1.08,
-            0,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.fillStyle = color;
-        ctx.fill();
-
-        ctx.strokeStyle = shade(color, 0.28);
-        ctx.lineWidth = Math.max(1, rx * 0.025);
-        ctx.stroke();
-
-
-        // Bolt shaft visible through the nut
-        ctx.beginPath();
-        ctx.ellipse(
-            cx,
-            cy,
-            holeRx,
-            holeRy,
-            0,
-            0,
-            Math.PI * 2
-        );
-
+        ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
         ctx.fillStyle = '#F0F4FA';
         ctx.fill();
-
-        ctx.strokeStyle = 'rgba(100, 115, 140, 0.35)';
-        ctx.lineWidth = Math.max(0.8, rx * 0.018);
-        ctx.stroke();
-
-
-        // Minimal thread indication
-        ctx.save();
-
-        ctx.beginPath();
-        ctx.ellipse(
-            cx,
-            cy,
-            holeRx,
-            holeRy,
-            0,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.clip();
-
-        const threadGap = Math.max(3, holeRy * 0.45);
-
-        for (
-            let y = cy - holeRy;
-            y <= cy + holeRy;
-            y += threadGap
-        ) {
+        
+        // Thread lines inside hole
+        for (let t = -2; t <= 2; t++) {
             ctx.beginPath();
-
-            ctx.moveTo(
-                cx - holeRx,
-                y
-            );
-
-            ctx.quadraticCurveTo(
-                cx,
-                y + holeRy * 0.16,
-                cx + holeRx,
-                y
-            );
-
-            ctx.strokeStyle = 'rgba(150, 165, 190, 0.35)';
-            ctx.lineWidth = Math.max(0.7, rx * 0.015);
+            ctx.ellipse(cx, cy + t * holeRy * 0.3, holeRx * 0.8, holeRy * 0.15, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(180,195,215,0.5)';
+            ctx.lineWidth = 0.8;
             ctx.stroke();
         }
-
-        ctx.restore();
-
     } else {
-
-        // Empty nut hole when flying
+        // Dark hollow
         ctx.beginPath();
-
-        ctx.ellipse(
-            cx,
-            cy,
-            holeRx,
-            holeRy,
-            0,
-            0,
-            Math.PI * 2
-        );
-
+        ctx.ellipse(cx, cy, holeRx, holeRy, 0, 0, Math.PI * 2);
         ctx.fillStyle = '#1A2035';
         ctx.fill();
-
-        ctx.strokeStyle = shade(color, 0.35);
-        ctx.lineWidth = Math.max(1, rx * 0.03);
-        ctx.stroke();
     }
-
-
-    // ------------------------------------------------------------
-    // 5. HIDDEN QUESTION MARK
-    // ------------------------------------------------------------
-
+    
+    // ===== CORNER HIGHLIGHTS =====
+    for (let i = 0; i < 6; i++) {
+        const p = pts[i];
+        if (p.y < cy) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x + 1, p.y + bandH * 0.2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+    }
+    
+    // ===== QUESTION MARK =====
     if (o.questionMark) {
-
         ctx.save();
-
-        const qy = cy + bandH * 0.45;
-        const qr = Math.min(rx * 0.30, ry * 0.55);
-
+        const qy = cy + bandH * 0.7;
+        const qr = Math.min(rx * 0.32, bandH * 0.32);
+        
+        // Circle background
         ctx.beginPath();
-
-        ctx.ellipse(
-            cx,
-            qy,
-            qr,
-            qr * 0.85,
-            0,
-            0,
-            Math.PI * 2
-        );
-
+        ctx.ellipse(cx, qy, qr, qr * 0.85, 0, 0, Math.PI * 2);
         ctx.fillStyle = '#90A4AE';
         ctx.fill();
-
-        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.6)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
-
-        ctx.font =
-            '900 ' +
-            Math.round(rx * 0.65) +
-            'px "Fredoka", sans-serif';
-
+        
+        // Question text
+        ctx.font = '900 ' + Math.round(rx * 0.7) + 'px "Fredoka", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-
         ctx.fillStyle = '#FFFFFF';
-
-        ctx.fillText(
-            '?',
-            cx,
-            qy + 1
-        );
-
+        ctx.fillText('?', cx, qy + 1);
         ctx.restore();
     }
 }
