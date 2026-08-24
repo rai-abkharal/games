@@ -863,24 +863,25 @@
         ctx.closePath();
       },
 
-      // A single hex nut matching reference image media_1787569029108.png:
-      // Single vibrant solid shade, smooth rounded hexagonal body, central white threaded bolt core, and soft top sheen.
+      // A single hex nut: pure single solid color (no 2-tone split shading),
+      // smooth rounded body, central white threaded bolt core, and lowered question mark badge.
       drawNut(ctx, cx, cy, rx, ry, bandH, spin, skin, opts) {
         const o = opts || {};
         const pts = this.hexPoints(cx, cy, rx, ry, spin);
         const holeRx = rx * 0.40, holeRy = ry * 0.40;
+        const color = skin.body || skin.top || '#FFC700';
 
-        // 1. Extruded solid body in single rich vibrant color
+        // 1. Extruded solid body in 1 pure solid color
         this.tracePoly(ctx, pts, bandH);
-        ctx.fillStyle = skin.shadow || skin.body;
+        ctx.fillStyle = color;
         ctx.fill();
 
-        // 2. Front vertical facets with smooth, soft rounded shading (single cohesive shade)
+        // 2. Front vertical facets in the exact same 1 pure solid color
         for (let i = 0; i < 6; i++) {
           const p0 = pts[i];
           const p1 = pts[(i + 1) % 6];
           const midY = (p0.y + p1.y) / 2;
-          if (midY < cy - ry * 0.2) continue; // back faces
+          if (midY < cy - ry * 0.2) continue;
 
           ctx.beginPath();
           ctx.moveTo(p0.x, p0.y);
@@ -888,7 +889,7 @@
           ctx.lineTo(p1.x, p1.y + bandH);
           ctx.lineTo(p0.x, p0.y + bandH);
           ctx.closePath();
-          ctx.fillStyle = skin.body;
+          ctx.fillStyle = color;
           ctx.fill();
         }
 
@@ -896,19 +897,21 @@
         ctx.save();
         this.tracePoly(ctx, pts, bandH);
         ctx.clip();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.20)';
-        ctx.fillRect(cx - rx * 1.1, cy + bandH - ry * 0.45, rx * 2.2, ry * 1.1);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+        ctx.fillRect(cx - rx * 1.1, cy + bandH - ry * 0.4, rx * 2.2, ry * 0.9);
         ctx.restore();
 
-        // 4. Smooth top face (single vibrant shade with matching soft gradient)
+        // 4. Smooth top face in the exact same 1 pure solid color
         this.tracePoly(ctx, pts, 0);
-        const topGrad = ctx.createLinearGradient(cx, cy - ry, cx, cy + ry);
-        topGrad.addColorStop(0, skin.top);
-        topGrad.addColorStop(1, skin.body);
-        ctx.fillStyle = topGrad;
+        ctx.fillStyle = color;
         ctx.fill();
 
-        // 5. Soft white crescent specular sheen on front top chamfer edge
+        // Subtle soft rim outline
+        ctx.lineWidth = Math.max(1, rx * 0.04);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.stroke();
+
+        // 5. Soft white crescent sheen along the front top chamfer edge
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
           const p0 = pts[i];
@@ -919,7 +922,7 @@
             ctx.lineTo(p1.x, p1.y);
           }
         }
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.60)';
         ctx.lineWidth = Math.max(1.4, rx * 0.06);
         ctx.lineCap = 'round';
         ctx.stroke();
@@ -956,11 +959,11 @@
           ctx.fill();
         }
 
-        // 7. Question Mark on Hidden Steel Nuts (Level 7 reference match)
+        // 7. Question Mark on Hidden Steel Nuts (Lowered to 1.20 as requested)
         if (o.questionMark) {
           ctx.save();
-          const qy = cy + bandH * 0.68;
-          const qr = Math.min(rx * 0.40, bandH * 0.40);
+          const qy = cy + bandH * 1.20;
+          const qr = Math.min(rx * 0.38, bandH * 0.38);
 
           // Subtle shadow behind the badge
           ctx.beginPath();
@@ -978,7 +981,7 @@
           ctx.stroke();
 
           // Crisp bold centered white question mark
-          ctx.font = '900 ' + Math.round(rx * 0.84) + 'px "Fredoka", "Lilita One", sans-serif';
+          ctx.font = '900 ' + Math.round(rx * 0.82) + 'px "Fredoka", "Lilita One", sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillStyle = 'rgba(38, 50, 56, 0.65)';
