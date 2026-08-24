@@ -93,10 +93,10 @@
         sparks: ['#BBDEFB', '#1E88E5', '#FFFFFF', '#1565C0']
       },
       {
-        id: 2, name: 'Pearl Silver',
-        body: '#DDE3EA', top: '#FFFFFF', shadow: '#B0BEC5', rim: '#FFFFFF',
-        glow: 'rgba(221, 227, 234, 0.55)',
-        sparks: ['#FFFFFF', '#ECEFF4', '#D8DEE9', '#B0BEC5']
+        id: 2, name: 'Emerald Jade',
+        body: '#00C853', top: '#69F0AE', shadow: '#009624', rim: '#B9F6CA',
+        glow: 'rgba(0, 200, 83, 0.55)',
+        sparks: ['#B9F6CA', '#00C853', '#FFFFFF', '#009624']
       },
       {
         id: 3, name: 'Ember Orange',
@@ -130,9 +130,9 @@
       }
     ];
 
-    // Undiscovered nuts hide behind clean machined steel grey shell with crisp "?" badge.
+    // Undiscovered nuts hide behind dark industrial gunmetal steel shell with crisp "?" badge (high contrast with all colors).
     const HIDDEN_SKIN = {
-      body: '#B0BEC5', top: '#CFD8DC', shadow: '#90A4AE', rim: '#ECEFF1'
+      body: '#455A64', top: '#607D8B', shadow: '#263238', rim: '#78909C'
     };
 
     // Shared metal tones for clean white threaded shafts and washer bases.
@@ -303,17 +303,49 @@
 
       playUnscrew(units) {}
 
-      // Pure real mechanical screw ratchet sound ONLY: crisp rapid metallic clicks
+      // Real authentic mechanical metal screw sound: metal threading friction + micro-teeth ratchet
       playScrew(units) {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        const clicks = 10;
-        const dur = 0.22;
+        const dur = 0.36;
+        const clicks = 20;
+
+        // 1. Metal micro-teeth clicks tracking helical thread travel
         for (let i = 0; i < clicks; i++) {
-          const at = t + (i / clicks) * dur;
-          const freq = 2800 - (i / clicks) * 1200;
-          this.click(at, freq, 0.18 * (0.8 + (i / clicks) * 0.2), 0.02);
+          const p = i / clicks;
+          const at = t + p * dur;
+          const freq = 3400 - p * 1500 + (Math.sin(i * 1.7) * 120);
+          const vol = 0.16 * (0.6 + p * 0.4);
+          this.click(at, freq, vol, 0.015);
         }
+
+        // 2. High-speed metallic abrasive friction
+        const sampleRate = this.ctx.sampleRate;
+        const bufferSize = Math.floor(sampleRate * dur);
+        const buffer = this.ctx.createBuffer(1, bufferSize, sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          const p = i / bufferSize;
+          const rasp = Math.sin(p * Math.PI * 2 * 60) > 0.4 ? 1 : -0.2;
+          data[i] = (Math.random() * 2 - 1) * 0.30 * rasp * (1 - p * 0.25);
+        }
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(2600, t);
+        filter.frequency.exponentialRampToValueAtTime(1300, t + dur);
+        filter.Q.value = 4.0;
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.18, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + dur);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.master);
+        noise.start(t);
       }
 
       playSeat() {}
@@ -2377,9 +2409,9 @@
         const to = this.bolts[toIdx];
         const nuts = from.nuts.splice(from.nuts.length - count, count);
 
-        // Calibrated duration so 3D rotation and trailing motion are distinctly felt:
-        const perNutDur = 0.72;
-        const stagger = 0.16;
+        // Relaxed, smooth duration so flight and 3D rotation are clearly visible and satisfying:
+        const perNutDur = 1.02;
+        const stagger = 0.22;
         const totalDur = perNutDur + (count - 1) * stagger;
 
         this.move = {
