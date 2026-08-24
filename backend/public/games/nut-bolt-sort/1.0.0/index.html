@@ -303,20 +303,20 @@
 
       playUnscrew(units) {}
 
-      // Real authentic mechanical metal screw sound: metal threading friction + micro-teeth ratchet
+      // Real authentic mechanical metal screw sound: metal threading friction + micro-teeth ratchet (Louder & longer duration)
       playScrew(units) {
         if (!this.ready()) return;
         const t = this.ctx.currentTime;
-        const dur = 0.36;
-        const clicks = 20;
+        const dur = 0.48;
+        const clicks = 30;
 
         // 1. Metal micro-teeth clicks tracking helical thread travel
         for (let i = 0; i < clicks; i++) {
           const p = i / clicks;
           const at = t + p * dur;
-          const freq = 3400 - p * 1500 + (Math.sin(i * 1.7) * 120);
-          const vol = 0.16 * (0.6 + p * 0.4);
-          this.click(at, freq, vol, 0.015);
+          const freq = 3600 - p * 1600 + (Math.sin(i * 1.7) * 150);
+          const vol = 0.38 * (0.7 + p * 0.4);
+          this.click(at, freq, vol, 0.020);
         }
 
         // 2. High-speed metallic abrasive friction
@@ -326,20 +326,20 @@
         const data = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) {
           const p = i / bufferSize;
-          const rasp = Math.sin(p * Math.PI * 2 * 60) > 0.4 ? 1 : -0.2;
-          data[i] = (Math.random() * 2 - 1) * 0.30 * rasp * (1 - p * 0.25);
+          const rasp = Math.sin(p * Math.PI * 2 * 65) > 0.3 ? 1 : -0.25;
+          data[i] = (Math.random() * 2 - 1) * 0.45 * rasp * (1 - p * 0.2);
         }
         const noise = this.ctx.createBufferSource();
         noise.buffer = buffer;
 
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(2600, t);
-        filter.frequency.exponentialRampToValueAtTime(1300, t + dur);
-        filter.Q.value = 4.0;
+        filter.frequency.setValueAtTime(2800, t);
+        filter.frequency.exponentialRampToValueAtTime(1200, t + dur);
+        filter.Q.value = 3.5;
 
         const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime(0.18, t);
+        gain.gain.setValueAtTime(0.46, t);
         gain.gain.exponentialRampToValueAtTime(0.01, t + dur);
 
         noise.connect(filter);
@@ -2477,9 +2477,9 @@
           return { x: from.x, y: startY, spin: 0, squash: 0 };
         }
 
-        const unscrewEnd = 0.30;
-        const travelEnd = 0.70;
-        const screwEnd = 0.94;
+        const unscrewEnd = 0.24;
+        const travelEnd = 0.56;
+        const screwEnd = 0.96;
 
         let x, y, spin = 0, squash = 0;
 
@@ -2498,7 +2498,7 @@
           y = lerp(srcHover, dstHover, e) - Math.sin(Math.PI * p) * (band * 2.2 + 28);
           spin = 0;
         } else if (tj < screwEnd) {
-          // Phase 3: Screw-In Insertion (Smooth 1 full clockwise rotation down into slot)
+          // Phase 3: Screw-In Insertion (Extended deep clockwise screw down into slot)
           const p = (tj - travelEnd) / (screwEnd - travelEnd);
           x = to.x;
           y = lerp(dstHover, endY, easeInOutCubic(p));
@@ -2526,7 +2526,7 @@
           const startTime = nutOrder * m.stagger;
           const rawT = (m.t * m.dur - startTime) / m.perNutDur;
 
-          if (rawT >= 0.70 && !m.playedScrewNuts[j]) {
+          if (rawT >= 0.56 && !m.playedScrewNuts[j]) {
             m.playedScrewNuts[j] = true;
             this.synth.playScrew(1);
           }
