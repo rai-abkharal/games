@@ -367,9 +367,16 @@
 
       playUnlock() {}
 
-      playHint() {}
-
-      playGroupComplete() {}
+      // Satisfying, crisp completion chime when a single bolt is completed
+      playGroupComplete() {
+        if (!this.ready()) return;
+        const t = this.ctx.currentTime;
+        const notes = [659.25, 880.0, 1318.5];
+        notes.forEach((freq, i) => {
+          this.tone(t + i * 0.08, 'sine', freq, freq, 0.22, 0.45, 'exp');
+          this.tone(t + i * 0.08, 'triangle', freq * 2, freq * 2, 0.08, 0.30, 'exp');
+        });
+      }
 
       playLevelWin() {
         if (!this.ready()) return;
@@ -2605,12 +2612,13 @@
         }
       }
 
-      // One colour fully gathered: cap lock and 2 to 3 small simple noticeable stars
+      // One colour fully gathered: cap lock, 2 to 3 small simple noticeable stars, and chime
       celebrateGroup(bolt) {
         bolt.shine = -1;
         this.sweep = -1;
         const topSlotY = bolt.nutSlotY(bolt.nuts.length - 1);
         this.particles.boltCompletionStars(bolt.x, topSlotY, bolt.rx);
+        this.synth.playGroupComplete();
         this.haptic('success');
       }
 
