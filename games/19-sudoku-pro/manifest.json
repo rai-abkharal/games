@@ -1,7 +1,7 @@
 {
   "id": "sudoku-pro",
   "title": "Sudoku Pro",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Master classic 9x9 Sudoku in a clean, modern light editorial aesthetic. Features 4 difficulty tiers, pencil candidate notes, smart pedagogical hints, musical number audio, and auto-save.",
   "orientation": "portrait",
   "engine": "canvas2d",

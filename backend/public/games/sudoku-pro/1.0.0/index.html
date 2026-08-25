@@ -402,7 +402,7 @@
       clear() { this.items = []; }
 
       addBlockBurst(x, y, w, h) {
-        const colors = ['#93C5FD', '#BAE6FD', '#E0F2FE', '#60A5FA', '#FDE68A', '#A7F3D0'];
+        const colors = ['#38BDF8', '#60A5FA', '#93C5FD', '#FDE68A', '#A7F3D0', '#BAE6FD'];
         for (let i = 0; i < 18; i++) {
           const px = x + Math.random() * w;
           const py = y + Math.random() * h;
@@ -424,7 +424,7 @@
       }
 
       addVictoryConfetti(w, h) {
-        const colors = ['#93C5FD', '#86EFAC', '#FDE68A', '#BAE6FD', '#C4B5FD', '#F9A8D4'];
+        const colors = ['#38BDF8', '#60A5FA', '#86EFAC', '#FDE68A', '#BAE6FD', '#C4B5FD', '#F9A8D4'];
         for (let i = 0; i < 64; i++) {
           this.items.push({
             type: 'CONFETTI',
@@ -521,7 +521,7 @@
 
         this.selected = null;
         this.isPaused = false;
-        this.state = 'DIFF_SELECT';
+        this.state = 'DIFF_SELECT'; // Always show clean difficulty modal upon opening
 
         this.mistakes = 0;
         this.maxMistakes = 3;
@@ -541,20 +541,17 @@
         this.toast = null;
         this.keyPressTimer = Array(10).fill(0);
 
-        this.SAVE_KEY = 'sudoku_pro_saved_game_v5';
-        this.STATS_KEY = 'sudoku_pro_stats_v5';
+        this.SAVE_KEY = 'sudoku_pro_saved_game_v101';
+        this.STATS_KEY = 'sudoku_pro_stats_v101';
 
         this.stats = this.loadStats();
         this.initLayout();
         this.bindEvents();
 
-        if (this.loadGame()) {
-          this.state = 'PLAYING';
-        } else {
-          const sample = SudokuCore.generatePuzzle('easy');
-          this.given = sample.puzzle;
-          this.solution = sample.solution;
-        }
+        // Populate a background puzzle for great visual under the dialog
+        const sample = SudokuCore.generatePuzzle('easy');
+        this.given = sample.puzzle;
+        this.solution = sample.solution;
 
         requestAnimationFrame((t) => this.loop(t));
       }
@@ -591,29 +588,6 @@
           };
           localStorage.setItem(this.SAVE_KEY, JSON.stringify(data));
         } catch (e) {}
-      }
-
-      loadGame() {
-        try {
-          const s = localStorage.getItem(this.SAVE_KEY);
-          if (!s) return false;
-          const data = JSON.parse(s);
-          this.difficulty = data.difficulty || 'easy';
-          const idx = DIFFICULTIES.findIndex(d => d.id === this.difficulty);
-          this.sliderPos = idx >= 0 ? idx : 0;
-          this.given = data.given;
-          this.user = data.user;
-          this.solution = data.solution;
-          this.timer = data.timer || 0;
-          this.mistakes = data.mistakes || 0;
-          this.remainingHints = data.remainingHints !== undefined ? data.remainingHints : 3;
-          this.state = 'PLAYING';
-          this.history = [];
-          this.selected = null;
-          return true;
-        } catch (e) {
-          return false;
-        }
       }
 
       startNewGame(diffId) {
@@ -661,7 +635,6 @@
         this.keypadY = this.toolbarY + 54;
       }
 
-      // Compact floating dialog bounds with exact slider knob geometry
       getDifficultyDialogBounds() {
         const cardW = Math.min(320, this.width - 36);
         const cardH = 370;
@@ -975,10 +948,19 @@
       handleInputNumber(num) {
         if (!this.selected || this.state !== 'PLAYING') return;
         const { r, c } = this.selected;
+
+        // 1. Clue cells from the start can never be edited
         if (this.given[r][c] !== 0) return;
+
+        // 2. CRITICAL FIX: If cell was already CORRECTLY filled, it is LOCKED!
+        // Tapping again will NOT erase it, and tapping wrong number will NOT lose a life!
+        if (this.user[r][c] !== 0 && this.user[r][c] === this.solution[r][c]) {
+          return; // Permanent correct placement locked!
+        }
 
         const prevVal = this.user[r][c];
 
+        // If user already had a wrong value in the cell and tapped the same digit, clear it
         if (prevVal === num) {
           this.user[r][c] = 0;
           this.synth.playErase();
@@ -1021,7 +1003,7 @@
       }
 
       checkCompletions(r, c) {
-        // 1. Check Row Completion (Soft light blue line animation)
+        // 1. Check Row Completion (Vibrant medium-sky blue line animation)
         let rowDone = true;
         for (let i = 0; i < 9; i++) {
           const val = this.given[r][i] || this.user[r][i];
@@ -1033,7 +1015,7 @@
           this.synth.playBlockComplete();
         }
 
-        // 2. Check Column Completion (Soft light blue line animation)
+        // 2. Check Column Completion (Vibrant medium-sky blue line animation)
         let colDone = true;
         for (let i = 0; i < 9; i++) {
           const val = this.given[i][c] || this.user[i][c];
@@ -1045,7 +1027,7 @@
           this.synth.playBlockComplete();
         }
 
-        // 3. Check 3x3 Box Completion (Sharp square light blue soft shimmer)
+        // 3. Check 3x3 Box Completion (Sharp square medium-sky blue shimmer)
         const br = Math.floor(r / 3) * 3;
         const bc = Math.floor(c / 3) * 3;
         let boxDone = true;
@@ -1067,6 +1049,9 @@
         if (!this.selected || this.state !== 'PLAYING') return;
         const { r, c } = this.selected;
         if (this.given[r][c] !== 0) return;
+
+        // If correctly placed, cannot be erased
+        if (this.user[r][c] !== 0 && this.user[r][c] === this.solution[r][c]) return;
 
         if (this.user[r][c] !== 0) {
           const prevVal = this.user[r][c];
@@ -1283,7 +1268,6 @@
         ctx.restore();
       }
 
-      // Elegant Vector Emblems
       drawEmblem(ctx, cx, cy, type, color) {
         ctx.save();
         ctx.translate(cx, cy);
@@ -1486,7 +1470,6 @@
         ctx.save();
         ctx.translate(shakeX, shakeY);
 
-        // Crisp flat background with crisp outer shadow (NO ROUND CORNERS)
         ctx.shadowColor = THEME.cardShadow;
         ctx.shadowBlur = 20;
         ctx.shadowOffsetY = 6;
@@ -1528,7 +1511,7 @@
           }
         }
 
-        // CONTINUOUS SOFT LIGHT BLUE LINE SWEEPS (Gentle, elegant, NO ROUND CORNERS)
+        // CONTINUOUS MEDIUM SKY-BLUE LINE SWEEPS (Clear, vibrant, beautifully balanced)
         for (const sweep of this.sweeps) {
           const progress = sweep.t / sweep.maxT;
           ctx.save();
@@ -1541,24 +1524,24 @@
             if (progress < 0.45) {
               const k = progress / 0.45;
               drawW = k * bs;
-              alpha = 0.85;
+              alpha = 0.90;
             } else {
               drawW = bs;
               alpha = Math.max(0, 1.0 - (progress - 0.45) / 0.55);
             }
 
-            // Soft pastel light blue gradient
+            // Balanced medium sky-blue gradient (clean and vivid)
             const grad = ctx.createLinearGradient(bx, ry, bx + drawW, ry);
-            grad.addColorStop(0, 'rgba(186, 230, 253, ' + alpha * 0.35 + ')');
-            grad.addColorStop(0.65, 'rgba(147, 197, 253, ' + alpha * 0.60 + ')');
-            grad.addColorStop(1, 'rgba(224, 242, 254, ' + alpha * 0.75 + ')');
+            grad.addColorStop(0, 'rgba(56, 189, 248, ' + alpha * 0.65 + ')');
+            grad.addColorStop(0.6, 'rgba(96, 165, 250, ' + alpha * 0.85 + ')');
+            grad.addColorStop(1, 'rgba(186, 230, 253, ' + alpha * 0.95 + ')');
 
             ctx.fillStyle = grad;
             ctx.fillRect(bx, ry, drawW, cs);
 
-            // Subtle luminous center flare line
-            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.70 + ')';
-            ctx.lineWidth = 2.0;
+            // Luminous center flare ray
+            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.85 + ')';
+            ctx.lineWidth = 2.5;
             ctx.beginPath();
             ctx.moveTo(bx, ry + cs / 2);
             ctx.lineTo(bx + drawW, ry + cs / 2);
@@ -1572,22 +1555,22 @@
             if (progress < 0.45) {
               const k = progress / 0.45;
               drawH = k * bs;
-              alpha = 0.85;
+              alpha = 0.90;
             } else {
               drawH = bs;
               alpha = Math.max(0, 1.0 - (progress - 0.45) / 0.55);
             }
 
             const grad = ctx.createLinearGradient(cx, by, cx, by + drawH);
-            grad.addColorStop(0, 'rgba(186, 230, 253, ' + alpha * 0.35 + ')');
-            grad.addColorStop(0.65, 'rgba(147, 197, 253, ' + alpha * 0.60 + ')');
-            grad.addColorStop(1, 'rgba(224, 242, 254, ' + alpha * 0.75 + ')');
+            grad.addColorStop(0, 'rgba(56, 189, 248, ' + alpha * 0.65 + ')');
+            grad.addColorStop(0.6, 'rgba(96, 165, 250, ' + alpha * 0.85 + ')');
+            grad.addColorStop(1, 'rgba(186, 230, 253, ' + alpha * 0.95 + ')');
 
             ctx.fillStyle = grad;
             ctx.fillRect(cx, by, cs, drawH);
 
-            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.70 + ')';
-            ctx.lineWidth = 2.0;
+            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.85 + ')';
+            ctx.lineWidth = 2.5;
             ctx.beginPath();
             ctx.moveTo(cx + cs / 2, by);
             ctx.lineTo(cx + cs / 2, by + drawH);
@@ -1597,12 +1580,13 @@
             const boxX = bx + sweep.bc * cs;
             const boxY = by + sweep.br * cs;
             const boxW = cs * 3.0;
-            const alpha = Math.sin(progress * Math.PI) * 0.70;
+            const alpha = Math.sin(progress * Math.PI) * 0.85;
 
             const grad = ctx.createRadialGradient(boxX + boxW / 2, boxY + boxW / 2, 5, boxX + boxW / 2, boxY + boxW / 2, boxW * 0.70);
-            grad.addColorStop(0, 'rgba(255, 255, 255, ' + alpha * 0.75 + ')');
-            grad.addColorStop(0.5, 'rgba(186, 230, 253, ' + alpha * 0.60 + ')');
-            grad.addColorStop(1, 'rgba(147, 197, 253, 0)');
+            grad.addColorStop(0, 'rgba(255, 255, 255, ' + alpha * 0.90 + ')');
+            grad.addColorStop(0.45, 'rgba(56, 189, 248, ' + alpha * 0.75 + ')');
+            grad.addColorStop(0.85, 'rgba(96, 165, 250, ' + alpha * 0.50 + ')');
+            grad.addColorStop(1, 'rgba(30, 58, 138, 0)');
 
             ctx.fillStyle = grad;
             ctx.fillRect(boxX, boxY, boxW, boxW);
@@ -1659,7 +1643,7 @@
           }
         }
 
-        // Selected Cell Focus Ring (Sharp rectangular)
+        // Selected Cell Focus Ring
         if (this.selected) {
           const sx = bx + this.selected.c * cs;
           const sy = by + this.selected.r * cs;
@@ -1670,7 +1654,7 @@
 
         ctx.restore();
 
-        // 9x9 OUTER BOUNDING BORDER (Crisp Straight Framing Rectangle - NO ROUNDNESS)
+        // 9x9 OUTER BOUNDING BORDER (Crisp Straight Rectangle)
         ctx.save();
         ctx.translate(shakeX, shakeY);
         ctx.strokeStyle = THEME.outerBorder;
