@@ -53,7 +53,8 @@
       bgTop: '#F8FAFC',
       bgBottom: '#EEF2F6',
       cardBg: '#FFFFFF',
-      cardBorder: '#E2E8F0',
+      cardBorder: '#CBD5E1',
+      outerBorder: '#1E293B',
       cardShadow: 'rgba(15, 23, 42, 0.08)',
       majorGrid: '#334155',
       minorGrid: '#E2E8F0',
@@ -78,15 +79,16 @@
       accentGreen: '#10B981',
       accentYellow: '#F59E0B',
       accentPurple: '#8B5CF6',
-      accentRed: '#EF4444'
+      accentRed: '#EF4444',
+      cyanSweep: 'rgba(6, 182, 212, 0.35)'
     };
 
-    // Rebalanced enjoyable clues: Easy has 60 clues, Medium 50, Hard 40, Expert 32
+    // Rebalanced enjoyable clues: Easy 60, Medium 50, Hard 40, Expert 32
     const DIFFICULTIES = [
-      { id: 'easy', label: 'EASY', clues: 60, coins: 25, color: '#10B981', subtitle: 'Relaxed & Fun' },
-      { id: 'medium', label: 'MEDIUM', clues: 50, coins: 50, color: '#3B82F6', subtitle: 'Balanced Logic' },
-      { id: 'hard', label: 'HARD', clues: 40, coins: 75, color: '#F59E0B', subtitle: 'Deep Thinking' },
-      { id: 'expert', label: 'EXPERT', clues: 32, coins: 100, color: '#EF4444', subtitle: 'Master Challenge' }
+      { id: 'easy', label: 'EASY', clues: 60, coins: 25, color: '#10B981', stars: '★☆☆☆', subtitle: 'Relaxed & Beginner Friendly' },
+      { id: 'medium', label: 'MEDIUM', clues: 50, coins: 50, color: '#3B82F6', stars: '★★☆☆', subtitle: 'Balanced Logic Puzzle' },
+      { id: 'hard', label: 'HARD', clues: 40, coins: 75, color: '#F59E0B', stars: '★★★☆', subtitle: 'Deep Strategy Thinking' },
+      { id: 'expert', label: 'EXPERT', clues: 32, coins: 100, color: '#EF4444', stars: '★★★★', subtitle: 'True Master Challenge' }
     ];
 
     // 2. SOUND SYNTHESIZER
@@ -138,25 +140,6 @@
         osc2.start(t);
         osc.stop(t + 0.36);
         osc2.stop(t + 0.23);
-      }
-
-      playPencil() {
-        if (this.muted || !this.ctx) return;
-        this.init();
-        const t = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(1400, t);
-        osc.frequency.exponentialRampToValueAtTime(800, t + 0.05);
-
-        gain.gain.setValueAtTime(0.09, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
-
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.06);
       }
 
       playTap() {
@@ -360,7 +343,7 @@
         return { puzzle, solution, diff };
       }
 
-      static findHint(currentGrid, solutionGrid, pencilGrid) {
+      static findHint(currentGrid, solutionGrid) {
         for (let r = 0; r < 9; r++) {
           for (let c = 0; c < 9; c++) {
             if (currentGrid[r][c] === 0) {
@@ -426,18 +409,18 @@
       clear() { this.items = []; }
 
       addBlockBurst(x, y, w, h) {
-        const colors = ['#F59E0B', '#3B82F6', '#10B981', '#6366F1', '#EC4899'];
-        for (let i = 0; i < 16; i++) {
+        const colors = ['#06B6D4', '#3B82F6', '#10B981', '#F59E0B', '#38BDF8', '#67E8F9'];
+        for (let i = 0; i < 18; i++) {
           const px = x + Math.random() * w;
           const py = y + Math.random() * h;
           const a = Math.random() * Math.PI * 2;
-          const speed = 25 + Math.random() * 45;
+          const speed = 25 + Math.random() * 50;
           this.items.push({
             type: 'STAR',
             x: px, y: py,
             vx: Math.cos(a) * speed,
             vy: Math.sin(a) * speed - 12,
-            size: 4 + Math.random() * 4,
+            size: 4 + Math.random() * 4.5,
             rot: Math.random() * Math.PI * 2,
             vRot: (Math.random() - 0.5) * 4,
             life: 0.65 + Math.random() * 0.25,
@@ -448,7 +431,7 @@
       }
 
       addVictoryConfetti(w, h) {
-        const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#F97316'];
+        const colors = ['#3B82F6', '#10B981', '#F59E0B', '#06B6D4', '#8B5CF6', '#EC4899'];
         for (let i = 0; i < 64; i++) {
           this.items.push({
             type: 'CONFETTI',
@@ -536,15 +519,17 @@
         this.particles = new ParticleSystem();
 
         this.difficulty = 'easy';
+        this.selectedDiffIndex = 0;
+        this.diffDragStartX = 0;
+        this.diffOffset = 0;
+
         this.given = SudokuCore.createEmptyGrid();
         this.user = SudokuCore.createEmptyGrid();
-        this.pencils = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set()));
         this.solution = SudokuCore.createEmptyGrid();
 
         this.selected = null;
-        this.isPencilMode = false;
         this.isPaused = false;
-        this.state = 'PLAYING';
+        this.state = 'DIFF_SELECT'; // Starts by asking player to choose difficulty with interactive slider
 
         this.mistakes = 0;
         this.maxMistakes = 3;
@@ -553,21 +538,23 @@
         this.remainingHints = 3;
         this.activeHint = null;
 
+        this.sweeps = []; // Cyan light wave animations across completed rows/cols/boxes
         this.lastTime = performance.now();
         this.shakeTimer = 0;
         this.errorCell = null;
         this.toast = null;
         this.keyPressTimer = Array(10).fill(0);
 
-        this.SAVE_KEY = 'sudoku_pro_saved_game_v1';
-        this.STATS_KEY = 'sudoku_pro_stats_v1';
+        this.SAVE_KEY = 'sudoku_pro_saved_game_v2';
+        this.STATS_KEY = 'sudoku_pro_stats_v2';
 
         this.stats = this.loadStats();
         this.initLayout();
         this.bindEvents();
 
-        if (!this.loadGame()) {
-          this.startNewGame('easy');
+        // If a saved game exists, we can resume, otherwise stay on DIFF_SELECT carousel
+        if (this.loadGame()) {
+          this.state = 'PLAYING';
         }
 
         requestAnimationFrame((t) => this.loop(t));
@@ -589,7 +576,7 @@
       }
 
       saveGame() {
-        if (this.state === 'VICTORY' || this.state === 'GAMEOVER') {
+        if (this.state === 'VICTORY' || this.state === 'GAMEOVER' || this.state === 'DIFF_SELECT') {
           try { localStorage.removeItem(this.SAVE_KEY); } catch (e) {}
           return;
         }
@@ -598,7 +585,6 @@
             difficulty: this.difficulty,
             given: this.given,
             user: this.user,
-            pencils: this.pencils.map(row => row.map(set => Array.from(set))),
             solution: this.solution,
             timer: this.timer,
             mistakes: this.mistakes,
@@ -614,9 +600,9 @@
           if (!s) return false;
           const data = JSON.parse(s);
           this.difficulty = data.difficulty || 'easy';
+          this.selectedDiffIndex = Math.max(0, DIFFICULTIES.findIndex(d => d.id === this.difficulty));
           this.given = data.given;
           this.user = data.user;
-          this.pencils = data.pencils.map(row => row.map(arr => new Set(arr)));
           this.solution = data.solution;
           this.timer = data.timer || 0;
           this.mistakes = data.mistakes || 0;
@@ -632,20 +618,20 @@
 
       startNewGame(diffId) {
         this.difficulty = diffId || this.difficulty;
+        this.selectedDiffIndex = Math.max(0, DIFFICULTIES.findIndex(d => d.id === this.difficulty));
         const generated = SudokuCore.generatePuzzle(this.difficulty);
         this.given = generated.puzzle;
         this.solution = generated.solution;
         this.user = SudokuCore.createEmptyGrid();
-        this.pencils = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set()));
         this.selected = null;
         this.mistakes = 0;
         this.timer = 0;
-        this.isPencilMode = false;
         this.isPaused = false;
         this.state = 'PLAYING';
         this.history = [];
         this.remainingHints = 3;
         this.activeHint = null;
+        this.sweeps = [];
         this.particles.clear();
         this.saveGame();
         Host.post('onGameStarted', { difficulty: this.difficulty });
@@ -662,30 +648,58 @@
         const minDim = Math.min(this.width, this.height);
         this.scale = Math.min(1.2, Math.max(0.8, minDim / 400));
 
-        const maxBoardSize = Math.min(this.width - 24, this.height * 0.52);
+        // Maximize board size for spacious high-end readability
+        const maxBoardSize = Math.min(this.width - 20, this.height * 0.58);
         this.boardSize = Math.floor(maxBoardSize);
         this.cellSize = this.boardSize / 9;
         this.boardX = Math.round((this.width - this.boardSize) / 2);
-        this.boardY = Math.round(this.height * 0.15);
+        this.boardY = Math.round(this.height * 0.13);
 
-        this.headerY = Math.max(16, this.boardY - 56);
-        this.toolbarY = this.boardY + this.boardSize + 14;
+        this.headerY = Math.max(14, this.boardY - 54);
+        // Undo and Hint placed lower and cleanly spaced
+        this.toolbarY = this.boardY + this.boardSize + 16;
         this.keypadY = this.toolbarY + 54;
       }
 
       bindEvents() {
         window.addEventListener('resize', () => this.initLayout());
 
-        const handlePointer = (e) => {
+        let startX = 0, startY = 0;
+        const handlePointerDown = (e) => {
           e.preventDefault();
           this.synth.init();
           const rect = this.canvas.getBoundingClientRect();
-          const px = (e.clientX !== undefined ? e.clientX : e.touches[0].clientX) - rect.left;
-          const py = (e.clientY !== undefined ? e.clientY : e.touches[0].clientY) - rect.top;
+          startX = (e.clientX !== undefined ? e.clientX : e.touches[0].clientX) - rect.left;
+          startY = (e.clientY !== undefined ? e.clientY : e.touches[0].clientY) - rect.top;
+          this.diffDragStartX = startX;
+        };
+
+        const handlePointerUp = (e) => {
+          e.preventDefault();
+          const rect = this.canvas.getBoundingClientRect();
+          const px = (e.clientX !== undefined ? e.clientX : (e.changedTouches ? e.changedTouches[0].clientX : startX)) - rect.left;
+          const py = (e.clientY !== undefined ? e.clientY : (e.changedTouches ? e.changedTouches[0].clientY : startY)) - rect.top;
+
+          // Drag swipe threshold for slider
+          const dx = px - startX;
+          if (this.state === 'DIFF_SELECT' && Math.abs(dx) > 35) {
+            if (dx < 0) {
+              // Swipe Next
+              this.selectedDiffIndex = (this.selectedDiffIndex + 1) % DIFFICULTIES.length;
+              this.synth.playButton();
+            } else {
+              // Swipe Prev
+              this.selectedDiffIndex = (this.selectedDiffIndex - 1 + DIFFICULTIES.length) % DIFFICULTIES.length;
+              this.synth.playButton();
+            }
+            return;
+          }
+
           this.handleClick(px, py);
         };
 
-        this.canvas.addEventListener('pointerdown', handlePointer);
+        this.canvas.addEventListener('pointerdown', handlePointerDown);
+        this.canvas.addEventListener('pointerup', handlePointerUp);
 
         window.addEventListener('keydown', (e) => {
           this.synth.init();
@@ -693,8 +707,6 @@
             this.handleInputNumber(parseInt(e.key));
           } else if (e.key === 'Backspace' || e.key === 'Delete') {
             this.handleErase();
-          } else if (e.key === 'n' || e.key === 'N') {
-            this.togglePencilMode();
           } else if (e.key === 'u' || e.key === 'U' || (e.ctrlKey && e.key === 'z')) {
             this.handleUndo();
           } else if (e.key === 'h' || e.key === 'H') {
@@ -703,22 +715,34 @@
             this.selected.r = Math.max(0, this.selected.r - 1);
           } else if (e.key === 'ArrowDown' && this.selected) {
             this.selected.r = Math.min(8, this.selected.r + 1);
-          } else if (e.key === 'ArrowLeft' && this.selected) {
-            this.selected.c = Math.max(0, this.selected.c - 1);
-          } else if (e.key === 'ArrowRight' && this.selected) {
-            this.selected.c = Math.min(8, this.selected.c + 1);
+          } else if (e.key === 'ArrowLeft') {
+            if (this.state === 'DIFF_SELECT') {
+              this.selectedDiffIndex = (this.selectedDiffIndex - 1 + DIFFICULTIES.length) % DIFFICULTIES.length;
+              this.synth.playButton();
+            } else if (this.selected) {
+              this.selected.c = Math.max(0, this.selected.c - 1);
+            }
+          } else if (e.key === 'ArrowRight') {
+            if (this.state === 'DIFF_SELECT') {
+              this.selectedDiffIndex = (this.selectedDiffIndex + 1) % DIFFICULTIES.length;
+              this.synth.playButton();
+            } else if (this.selected) {
+              this.selected.c = Math.min(8, this.selected.c + 1);
+            }
+          } else if (e.key === 'Enter' && this.state === 'DIFF_SELECT') {
+            this.startNewGame(DIFFICULTIES[this.selectedDiffIndex].id);
           }
         });
       }
 
       handleClick(px, py) {
         if (this.state === 'VICTORY') {
-          const btnW = 200, btnH = 48;
+          const btnW = 220, btnH = 50;
           const btnX = (this.width - btnW) / 2;
-          const btnY = this.height * 0.72;
+          const btnY = this.height * 0.74;
           if (px >= btnX && px <= btnX + btnW && py >= btnY && py <= btnY + btnH) {
             this.synth.playButton();
-            this.state = 'DIFF_SELECT';
+            this.state = 'DIFF_SELECT'; // Asks player to choose next difficulty via carousel slider
           }
           return;
         }
@@ -734,24 +758,52 @@
           return;
         }
 
+        // Interactive Difficulty Carousel Slider Screen
         if (this.state === 'DIFF_SELECT') {
-          const cardW = Math.min(330, this.width - 40);
-          const cardH = 320;
+          const cardW = Math.min(340, this.width - 36);
+          const cardH = 340;
           const cardX = (this.width - cardW) / 2;
           const cardY = (this.height - cardH) / 2;
 
-          DIFFICULTIES.forEach((d, i) => {
-            const by = cardY + 68 + i * 54;
-            if (px >= cardX + 16 && px <= cardX + cardW - 16 && py >= by && py <= by + 46) {
+          // Arrow Left
+          if (px >= cardX + 10 && px <= cardX + 50 && py >= cardY + 120 && py <= cardY + 180) {
+            this.selectedDiffIndex = (this.selectedDiffIndex - 1 + DIFFICULTIES.length) % DIFFICULTIES.length;
+            this.synth.playButton();
+            return;
+          }
+
+          // Arrow Right
+          if (px >= cardX + cardW - 50 && px <= cardX + cardW - 10 && py >= cardY + 120 && py <= cardY + 180) {
+            this.selectedDiffIndex = (this.selectedDiffIndex + 1) % DIFFICULTIES.length;
+            this.synth.playButton();
+            return;
+          }
+
+          // Dot indicators click
+          const dotY = cardY + 225;
+          for (let i = 0; i < DIFFICULTIES.length; i++) {
+            const dx = this.width / 2 + (i - 1.5) * 26;
+            if (px >= dx - 12 && px <= dx + 12 && py >= dotY - 12 && py <= dotY + 12) {
+              this.selectedDiffIndex = i;
               this.synth.playButton();
-              this.startNewGame(d.id);
+              return;
             }
-          });
+          }
+
+          // Big "START PUZZLE ▶" Button
+          const btnW = cardW - 60;
+          const btnH = 50;
+          const btnX = (this.width - btnW) / 2;
+          const btnY = cardY + cardH - 74;
+          if (px >= btnX && px <= btnX + btnW && py >= btnY && py <= btnY + btnH) {
+            this.synth.playButton();
+            this.startNewGame(DIFFICULTIES[this.selectedDiffIndex].id);
+          }
           return;
         }
 
         if (this.state === 'PAUSED') {
-          const btnW = 180, btnH = 46;
+          const btnW = 190, btnH = 46;
           const btnX = (this.width - btnW) / 2;
           const resumeY = this.height * 0.48;
           const restartY = this.height * 0.56;
@@ -762,7 +814,7 @@
             this.isPaused = false;
           } else if (px >= btnX && px <= btnX + btnW && py >= restartY && py <= restartY + btnH) {
             this.synth.playButton();
-            this.startNewGame(this.difficulty);
+            this.state = 'DIFF_SELECT';
           }
           return;
         }
@@ -772,7 +824,7 @@
           return;
         }
 
-        // Header Buttons: Difficulty selector, Pause, Sound
+        // Header Buttons: Difficulty selector pill, Pause, Sound
         if (py >= this.headerY - 8 && py <= this.headerY + 38) {
           if (px >= 12 && px <= 112) {
             this.synth.playButton();
@@ -804,18 +856,21 @@
           return;
         }
 
-        // Toolbar Buttons (Undo, Erase, Pencil, Hint)
-        const toolW = Math.min(68, (this.width - 32) / 4);
-        const toolGap = (this.width - 32 - toolW * 4) / 3;
-        for (let i = 0; i < 4; i++) {
-          const tx = 16 + i * (toolW + toolGap);
-          if (px >= tx && px <= tx + toolW && py >= this.toolbarY && py <= this.toolbarY + 44) {
-            if (i === 0) this.handleUndo();
-            else if (i === 1) this.handleErase();
-            else if (i === 2) this.togglePencilMode();
-            else if (i === 3) this.handleHint();
-            return;
-          }
+        // Action Toolbar (ONLY Undo and Hint)
+        const toolW = Math.min(130, (this.width - 48) / 2);
+        const undoX = 20;
+        const hintX = this.width - 20 - toolW;
+
+        // Undo Button
+        if (px >= undoX && px <= undoX + toolW && py >= this.toolbarY && py <= this.toolbarY + 44) {
+          this.handleUndo();
+          return;
+        }
+
+        // Hint Button
+        if (px >= hintX && px <= hintX + toolW && py >= this.toolbarY && py <= this.toolbarY + 44) {
+          this.handleHint();
+          return;
         }
 
         // Keypad Buttons (1 to 9)
@@ -836,92 +891,76 @@
         const { r, c } = this.selected;
         if (this.given[r][c] !== 0) return;
 
-        if (this.isPencilMode) {
-          const set = this.pencils[r][c];
-          const prevSet = new Set(set);
-          if (set.has(num)) set.delete(num);
-          else set.add(num);
+        const prevVal = this.user[r][c];
 
-          this.history.push({
-            type: 'pencil', r, c,
-            prevPencils: prevSet,
-            newPencils: new Set(set)
-          });
-          this.synth.playPencil();
-        } else {
-          const prevVal = this.user[r][c];
-          const prevPencils = new Set(this.pencils[r][c]);
+        // Tapping the same number toggles it off (Erase)
+        if (prevVal === num) {
+          this.user[r][c] = 0;
+          this.synth.playErase();
+          this.saveGame();
+          return;
+        }
 
-          if (prevVal === num) {
-            this.user[r][c] = 0;
-            this.synth.playErase();
-            this.saveGame();
+        const isCorrect = (this.solution[r][c] === num);
+
+        if (!isCorrect) {
+          this.mistakes++;
+          this.shakeTimer = 0.35;
+          this.errorCell = { r, c, num };
+          this.synth.playError();
+          this.haptic('error');
+
+          if (this.mistakes >= this.maxMistakes) {
+            this.state = 'GAMEOVER';
+            Host.post('onGameOver', { score: 0, reason: 'mistakes_exceeded' });
             return;
           }
+        } else {
+          this.user[r][c] = num;
+          this.synth.playDigit(num);
+          this.haptic('light');
 
-          const isCorrect = (this.solution[r][c] === num);
+          this.checkCompletions(r, c);
 
-          if (!isCorrect) {
-            this.mistakes++;
-            this.shakeTimer = 0.35;
-            this.errorCell = { r, c, num };
-            this.synth.playError();
-            this.haptic('error');
-
-            if (this.mistakes >= this.maxMistakes) {
-              this.state = 'GAMEOVER';
-              Host.post('onGameOver', { score: 0, reason: 'mistakes_exceeded' });
-              return;
-            }
-          } else {
-            this.user[r][c] = num;
-            this.pencils[r][c].clear();
-            this.synth.playDigit(num);
-            this.haptic('light');
-
-            this.autoClearPencils(r, c, num);
-            this.checkCompletions(r, c);
-
-            if (this.checkVictory()) {
-              this.triggerVictory();
-            }
-          }
-
-          this.history.push({
-            type: 'digit', r, c,
-            prevVal: prevVal,
-            newVal: num,
-            prevPencils: prevPencils
-          });
-          this.saveGame();
-        }
-      }
-
-      autoClearPencils(r, c, num) {
-        for (let i = 0; i < 9; i++) {
-          this.pencils[r][i].delete(num);
-          this.pencils[i][c].delete(num);
-        }
-        const br = Math.floor(r / 3) * 3;
-        const bc = Math.floor(c / 3) * 3;
-        for (let i = 0; i < 3; i++) {
-          for (let j = 0; j < 3; j++) {
-            this.pencils[br + i][bc + j].delete(num);
+          if (this.checkVictory()) {
+            this.triggerVictory();
           }
         }
+
+        this.history.push({
+          type: 'digit', r, c,
+          prevVal: prevVal,
+          newVal: num
+        });
+        this.saveGame();
       }
 
       checkCompletions(r, c) {
+        // 1. Check Row Completion
         let rowDone = true;
         for (let i = 0; i < 9; i++) {
           const val = this.given[r][i] || this.user[r][i];
           if (val !== this.solution[r][i]) { rowDone = false; break; }
         }
         if (rowDone) {
+          this.sweeps.push({ type: 'row', index: r, t: 0, maxT: 0.60 });
           this.particles.addBlockBurst(this.boardX, this.boardY + r * this.cellSize, this.boardSize, this.cellSize);
           this.synth.playBlockComplete();
         }
 
+        // 2. Check Column Completion
+        let colDone = true;
+        for (let i = 0; i < 9; i++) {
+          const val = this.given[i][c] || this.user[i][c];
+          if (val !== this.solution[i][c]) { colDone = false; break; }
+        }
+        if (colDone) {
+          this.sweeps.push({ type: 'col', index: c, t: 0, maxT: 0.60 });
+          this.particles.addBlockBurst(this.boardX + c * this.cellSize, this.boardY, this.cellSize, this.boardSize);
+          this.synth.playBlockComplete();
+        }
+
+        // 3. Check 3x3 Box Completion
         const br = Math.floor(r / 3) * 3;
         const bc = Math.floor(c / 3) * 3;
         let boxDone = true;
@@ -932,6 +971,8 @@
           }
         }
         if (boxDone) {
+          const boxIdx = Math.floor(r / 3) * 3 + Math.floor(c / 3);
+          this.sweeps.push({ type: 'box', index: boxIdx, br, bc, t: 0, maxT: 0.60 });
           this.particles.addBlockBurst(this.boardX + bc * this.cellSize, this.boardY + br * this.cellSize, this.cellSize * 3, this.cellSize * 3);
           this.synth.playBlockComplete();
         }
@@ -942,24 +983,16 @@
         const { r, c } = this.selected;
         if (this.given[r][c] !== 0) return;
 
-        if (this.user[r][c] !== 0 || this.pencils[r][c].size > 0) {
+        if (this.user[r][c] !== 0) {
           const prevVal = this.user[r][c];
-          const prevPencils = new Set(this.pencils[r][c]);
           this.user[r][c] = 0;
-          this.pencils[r][c].clear();
           this.history.push({
             type: 'erase', r, c,
-            prevVal, newVal: 0,
-            prevPencils
+            prevVal, newVal: 0
           });
           this.synth.playErase();
           this.saveGame();
         }
-      }
-
-      togglePencilMode() {
-        this.isPencilMode = !this.isPencilMode;
-        this.synth.playButton();
       }
 
       handleUndo() {
@@ -967,9 +1000,6 @@
         const act = this.history.pop();
         if (act.type === 'digit' || act.type === 'erase') {
           this.user[act.r][act.c] = act.prevVal;
-          this.pencils[act.r][act.c] = new Set(act.prevPencils);
-        } else if (act.type === 'pencil') {
-          this.pencils[act.r][act.c] = new Set(act.prevPencils);
         }
         this.selected = { r: act.r, c: act.c };
         this.synth.playButton();
@@ -984,7 +1014,7 @@
           return;
         }
         const currentGrid = this.createCombinedGrid();
-        const hint = SudokuCore.findHint(currentGrid, this.solution, this.pencils);
+        const hint = SudokuCore.findHint(currentGrid, this.solution);
         if (!hint) return;
 
         // Decrement hints count strictly
@@ -993,11 +1023,10 @@
         this.selected = { r: hint.r, c: hint.c };
 
         this.user[hint.r][hint.c] = hint.val;
-        this.pencils[hint.r][hint.c].clear();
-        this.autoClearPencils(hint.r, hint.c, hint.val);
         this.synth.playDigit(hint.val);
         this.haptic('success');
 
+        this.checkCompletions(hint.r, hint.c);
         if (this.checkVictory()) this.triggerVictory();
         this.saveGame();
       }
@@ -1090,6 +1119,11 @@
           if (this.keyPressTimer[n] > 0) this.keyPressTimer[n] = Math.max(0, this.keyPressTimer[n] - dt);
         }
 
+        for (let i = this.sweeps.length - 1; i >= 0; i--) {
+          this.sweeps[i].t += dt;
+          if (this.sweeps[i].t >= this.sweeps[i].maxT) this.sweeps.splice(i, 1);
+        }
+
         this.particles.update(dt);
         this.render();
 
@@ -1117,7 +1151,7 @@
         if (this.toast) this.renderToast(ctx);
         if (this.activeHint) this.renderHintOverlay(ctx);
         if (this.state === 'PAUSED') this.renderPauseModal(ctx);
-        if (this.state === 'DIFF_SELECT') this.renderDiffModal(ctx);
+        if (this.state === 'DIFF_SELECT') this.renderDiffCarousel(ctx);
         if (this.state === 'VICTORY') this.renderVictoryModal(ctx);
         if (this.state === 'GAMEOVER') this.renderGameOverModal(ctx);
 
@@ -1127,11 +1161,8 @@
       drawHeart(ctx, cx, cy, size, filled) {
         ctx.save();
         ctx.beginPath();
-        const topCurveHeight = size * 0.3;
         ctx.moveTo(cx, cy + size * 0.25);
-        // Left curve
         ctx.bezierCurveTo(cx - size * 0.55, cy - size * 0.25, cx - size * 0.55, cy - size * 0.7, cx, cy - size * 0.35);
-        // Right curve
         ctx.bezierCurveTo(cx + size * 0.55, cy - size * 0.7, cx + size * 0.55, cy - size * 0.25, cx, cy + size * 0.25);
         ctx.closePath();
 
@@ -1142,7 +1173,6 @@
           ctx.fillStyle = hg;
           ctx.fill();
 
-          // Cute specular glossy shine dot
           ctx.beginPath();
           ctx.arc(cx - size * 0.22, cy - size * 0.25, size * 0.12, 0, Math.PI * 2);
           ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
@@ -1154,7 +1184,6 @@
           ctx.lineWidth = 1.6;
           ctx.stroke();
 
-          // Small crack/cross line inside empty heart
           ctx.beginPath();
           ctx.moveTo(cx - size * 0.18, cy - size * 0.2);
           ctx.lineTo(cx + size * 0.18, cy + size * 0.1);
@@ -1169,7 +1198,7 @@
         const y = this.headerY;
         const diffObj = DIFFICULTIES.find(d => d.id === this.difficulty) || DIFFICULTIES[0];
 
-        // 1. Difficulty Pill Dropdown Button (Left)
+        // 1. Difficulty Pill Button (Left)
         ctx.save();
         ctx.shadowColor = 'rgba(15, 23, 42, 0.06)';
         ctx.shadowBlur = 10;
@@ -1286,6 +1315,7 @@
         ctx.save();
         ctx.translate(shakeX, shakeY);
 
+        // Ambient board depth shadow
         ctx.shadowColor = THEME.cardShadow;
         ctx.shadowBlur = 24;
         ctx.shadowOffsetY = 8;
@@ -1303,6 +1333,7 @@
 
         const selVal = this.selected ? (this.given[this.selected.r][this.selected.c] || this.user[this.selected.r][this.selected.c]) : 0;
 
+        // Background cell fills
         for (let r = 0; r < 9; r++) {
           for (let c = 0; c < 9; c++) {
             const x = bx + c * cs;
@@ -1331,6 +1362,46 @@
           }
         }
 
+        // Cyan light wave sweep animations across completed rows/cols/boxes
+        for (const sweep of this.sweeps) {
+          const progress = sweep.t / sweep.maxT;
+          const alpha = (1 - progress) * 0.75;
+          ctx.save();
+
+          if (sweep.type === 'row') {
+            const ry = by + sweep.index * cs;
+            const waveX = bx + progress * bs;
+            const grad = ctx.createLinearGradient(waveX - 45, ry, waveX + 45, ry);
+            grad.addColorStop(0, 'rgba(6, 182, 212, 0)');
+            grad.addColorStop(0.5, 'rgba(34, 211, 238, ' + alpha + ')');
+            grad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(bx, ry, bs, cs);
+          } else if (sweep.type === 'col') {
+            const cx = bx + sweep.index * cs;
+            const waveY = by + progress * bs;
+            const grad = ctx.createLinearGradient(cx, waveY - 45, cx, waveY + 45);
+            grad.addColorStop(0, 'rgba(6, 182, 212, 0)');
+            grad.addColorStop(0.5, 'rgba(34, 211, 238, ' + alpha + ')');
+            grad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(cx, by, cs, bs);
+          } else if (sweep.type === 'box') {
+            const boxX = bx + sweep.bc * cs;
+            const boxY = by + sweep.br * cs;
+            const boxCenter = cs * 1.5;
+            const radius = progress * cs * 2.2;
+            const grad = ctx.createRadialGradient(boxX + boxCenter, boxY + boxCenter, 0, boxX + boxCenter, boxY + boxCenter, Math.max(1, radius));
+            grad.addColorStop(0, 'rgba(34, 211, 238, ' + alpha * 0.9 + ')');
+            grad.addColorStop(0.7, 'rgba(6, 182, 212, ' + alpha * 0.4 + ')');
+            grad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(boxX, boxY, cs * 3, cs * 3);
+          }
+          ctx.restore();
+        }
+
+        // Minor grid lines
         ctx.strokeStyle = THEME.minorGrid;
         ctx.lineWidth = 1.0;
         for (let i = 1; i < 9; i++) {
@@ -1343,6 +1414,7 @@
           ctx.stroke();
         }
 
+        // Major 3x3 block grid lines
         ctx.strokeStyle = THEME.majorGrid;
         ctx.lineWidth = 2.4;
         for (let i = 3; i < 9; i += 3) {
@@ -1354,6 +1426,7 @@
           ctx.stroke();
         }
 
+        // Numbers rendering
         for (let r = 0; r < 9; r++) {
           for (let c = 0; c < 9; c++) {
             const cx = bx + c * cs + cs / 2;
@@ -1362,40 +1435,22 @@
             const userVal = this.user[r][c];
 
             if (givenVal > 0) {
-              ctx.font = '800 ' + Math.round(cs * 0.56) + 'px Fredoka, Inter, sans-serif';
+              ctx.font = '800 ' + Math.round(cs * 0.58) + 'px Fredoka, Inter, sans-serif';
               ctx.fillStyle = THEME.clueDigit;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
               ctx.fillText(givenVal.toString(), cx, cy + 1);
             } else if (userVal > 0) {
-              ctx.font = '700 ' + Math.round(cs * 0.54) + 'px Fredoka, Inter, sans-serif';
+              ctx.font = '700 ' + Math.round(cs * 0.56) + 'px Fredoka, Inter, sans-serif';
               ctx.fillStyle = THEME.userDigit;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
               ctx.fillText(userVal.toString(), cx, cy + 1);
-            } else {
-              const notes = this.pencils[r][c];
-              if (notes.size > 0) {
-                const subSize = cs / 3;
-                ctx.font = '700 ' + Math.round(cs * 0.22) + 'px Inter, sans-serif';
-                ctx.fillStyle = THEME.pencilDigit;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-
-                for (let num = 1; num <= 9; num++) {
-                  if (notes.has(num)) {
-                    const sr = Math.floor((num - 1) / 3);
-                    const sc = (num - 1) % 3;
-                    const nx = bx + c * cs + sc * subSize + subSize / 2;
-                    const ny = by + r * cs + sr * subSize + subSize / 2;
-                    ctx.fillText(num.toString(), nx, ny);
-                  }
-                }
-              }
             }
           }
         }
 
+        // Selected Cell Focus Ring
         if (this.selected) {
           const sx = bx + this.selected.c * cs;
           const sy = by + this.selected.r * cs;
@@ -1407,56 +1462,83 @@
         }
 
         ctx.restore();
+
+        // 9x9 OUTER BOUNDING BORDER (Dark, crisp, framing line)
+        ctx.save();
+        ctx.translate(shakeX, shakeY);
+        ctx.beginPath();
+        ctx.roundRect(bx - 0.5, by - 0.5, bs + 1, bs + 1, 16);
+        ctx.strokeStyle = THEME.outerBorder;
+        ctx.lineWidth = 3.2;
+        ctx.stroke();
+        ctx.restore();
       }
 
       renderToolbar(ctx) {
         const y = this.toolbarY;
-        const toolW = Math.min(68, (this.width - 32) / 4);
-        const toolGap = (this.width - 32 - toolW * 4) / 3;
+        const toolW = Math.min(130, (this.width - 48) / 2);
+        const undoX = 20;
+        const hintX = this.width - 20 - toolW;
 
-        const tools = [
-          { icon: '↩️', label: 'Undo', active: false },
-          { icon: '🧹', label: 'Erase', active: false },
-          { icon: '✏️', label: 'Notes', active: this.isPencilMode },
-          { icon: '💡', label: 'Hint', active: false, badge: this.remainingHints }
-        ];
+        // 1. Undo Button
+        ctx.save();
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.05)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 2;
+        ctx.beginPath();
+        ctx.roundRect(undoX, y, toolW, 44, 14);
+        ctx.fillStyle = THEME.btnDefaultBg;
+        ctx.fill();
+        ctx.strokeStyle = THEME.btnDefaultBorder;
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.restore();
 
-        tools.forEach((t, i) => {
-          const x = 16 + i * (toolW + toolGap);
+        ctx.font = '16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('↩️', undoX + 26, y + 22);
 
-          ctx.save();
-          ctx.shadowColor = 'rgba(15, 23, 42, 0.05)';
-          ctx.shadowBlur = 8;
-          ctx.shadowOffsetY = 2;
+        ctx.font = '800 13px Inter, sans-serif';
+        ctx.fillStyle = THEME.btnDefaultText;
+        ctx.textAlign = 'left';
+        ctx.fillText('Undo', undoX + 46, y + 22);
 
-          ctx.beginPath();
-          ctx.roundRect(x, y, toolW, 44, 12);
-          ctx.fillStyle = t.active ? THEME.btnActiveBg : THEME.btnDefaultBg;
-          ctx.fill();
-          ctx.strokeStyle = t.active ? THEME.btnActiveBorder : THEME.btnDefaultBorder;
-          ctx.lineWidth = 1.4;
-          ctx.stroke();
-          ctx.restore();
+        // 2. Hint Button
+        ctx.save();
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.05)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 2;
+        ctx.beginPath();
+        ctx.roundRect(hintX, y, toolW, 44, 14);
+        ctx.fillStyle = THEME.btnDefaultBg;
+        ctx.fill();
+        ctx.strokeStyle = THEME.btnDefaultBorder;
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.restore();
 
-          ctx.font = '16px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(t.icon, x + toolW / 2, y + 16);
+        ctx.font = '16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('💡', hintX + 26, y + 22);
 
-          ctx.font = '700 10px Inter, sans-serif';
-          ctx.fillStyle = t.active ? THEME.btnActiveText : THEME.btnDefaultText;
-          ctx.fillText(t.label, x + toolW / 2, y + 32);
+        ctx.font = '800 13px Inter, sans-serif';
+        ctx.fillStyle = THEME.btnDefaultText;
+        ctx.textAlign = 'left';
+        ctx.fillText('Hint', hintX + 46, y + 22);
 
-          if (t.badge !== undefined) {
-            ctx.beginPath();
-            ctx.arc(x + toolW - 8, y + 8, 7.5, 0, Math.PI * 2);
-            ctx.fillStyle = t.badge > 0 ? THEME.accentYellow : '#94A3B8';
-            ctx.fill();
-            ctx.font = '800 9px Inter, sans-serif';
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillText(t.badge.toString(), x + toolW - 8, y + 8);
-          }
-        });
+        // Hint remaining badge
+        const badgeX = hintX + toolW - 22;
+        const badgeY = y + 22;
+        ctx.beginPath();
+        ctx.arc(badgeX, badgeY, 9, 0, Math.PI * 2);
+        ctx.fillStyle = this.remainingHints > 0 ? THEME.accentYellow : '#94A3B8';
+        ctx.fill();
+        ctx.font = '800 10px Inter, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.remainingHints.toString(), badgeX, badgeY);
       }
 
       renderKeypad(ctx) {
@@ -1474,14 +1556,12 @@
           // 3D tactile keycap
           ctx.save();
           if (!isDone) {
-            // Bottom 3D shadow lip
             ctx.beginPath();
             ctx.roundRect(x, y + 3, keyW, 52, 12);
             ctx.fillStyle = '#CBD5E1';
             ctx.fill();
           }
 
-          // Main top keycap face
           ctx.beginPath();
           ctx.roundRect(x, y + dy, keyW, 52, 12);
           ctx.fillStyle = isDone ? '#F1F5F9' : '#FFFFFF';
@@ -1593,59 +1673,139 @@
         ctx.fillText(line, x, cy);
       }
 
-      renderDiffModal(ctx) {
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+      // --- Interactive Difficulty Carousel / Slider Screen -------------------
+      renderDiffCarousel(ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const cardW = Math.min(330, this.width - 40);
-        const cardH = 320;
+        const cardW = Math.min(340, this.width - 36);
+        const cardH = 340;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
         ctx.save();
         ctx.shadowColor = 'rgba(15, 23, 42, 0.25)';
-        ctx.shadowBlur = 24;
-        ctx.shadowOffsetY = 8;
+        ctx.shadowBlur = 28;
+        ctx.shadowOffsetY = 10;
         ctx.beginPath();
         ctx.roundRect(cardX, cardY, cardW, cardH, 24);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
         ctx.restore();
 
+        // Title Header
         ctx.font = '900 19px Fredoka, Inter, sans-serif';
         ctx.fillStyle = '#0F172A';
         ctx.textAlign = 'center';
-        ctx.fillText('SELECT DIFFICULTY', this.width / 2, cardY + 38);
+        ctx.fillText('CHOOSE DIFFICULTY', this.width / 2, cardY + 38);
 
-        DIFFICULTIES.forEach((d, i) => {
-          const by = cardY + 62 + i * 58;
+        ctx.font = '600 12px Inter, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.fillText('Swipe or tap arrows to select level', this.width / 2, cardY + 58);
+
+        const d = DIFFICULTIES[this.selectedDiffIndex];
+
+        // Central Hero Card for the Selected Difficulty
+        const heroW = cardW - 70;
+        const heroH = 120;
+        const heroX = (this.width - heroW) / 2;
+        const heroY = cardY + 84;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(heroX, heroY, heroW, heroH, 18);
+        ctx.fillStyle = '#F8FAFC';
+        ctx.fill();
+        ctx.strokeStyle = d.color;
+        ctx.lineWidth = 2.4;
+        ctx.stroke();
+
+        // Difficulty Color Dot & Name
+        ctx.beginPath();
+        ctx.arc(heroX + 24, heroY + 28, 6, 0, Math.PI * 2);
+        ctx.fillStyle = d.color;
+        ctx.fill();
+
+        ctx.font = '900 20px Fredoka, Inter, sans-serif';
+        ctx.fillStyle = '#0F172A';
+        ctx.textAlign = 'left';
+        ctx.fillText(d.label, heroX + 38, heroY + 28);
+
+        // Star Rating
+        ctx.font = '800 14px sans-serif';
+        ctx.fillStyle = d.color;
+        ctx.textAlign = 'right';
+        ctx.fillText(d.stars, heroX + heroW - 18, heroY + 28);
+
+        // Clues count pill
+        ctx.font = '700 13px Inter, sans-serif';
+        ctx.fillStyle = '#334155';
+        ctx.textAlign = 'left';
+        ctx.fillText('🧩 ' + d.clues + ' Clues Given', heroX + 20, heroY + 62);
+
+        // Subtitle
+        ctx.font = '600 11px Inter, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.fillText(d.subtitle, heroX + 20, heroY + 88);
+        ctx.restore();
+
+        // Left Navigation Arrow Button
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(cardX + 10, cardY + 124, 32, 40, 10);
+        ctx.fillStyle = '#F1F5F9';
+        ctx.fill();
+        ctx.font = '800 16px sans-serif';
+        ctx.fillStyle = '#475569';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('◀', cardX + 26, cardY + 144);
+        ctx.restore();
+
+        // Right Navigation Arrow Button
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(cardX + cardW - 42, cardY + 124, 32, 40, 10);
+        ctx.fillStyle = '#F1F5F9';
+        ctx.fill();
+        ctx.font = '800 16px sans-serif';
+        ctx.fillStyle = '#475569';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('▶', cardX + cardW - 26, cardY + 144);
+        ctx.restore();
+
+        // Dot indicators (slider pagination)
+        const dotY = cardY + 225;
+        for (let i = 0; i < DIFFICULTIES.length; i++) {
+          const dx = this.width / 2 + (i - 1.5) * 26;
           ctx.beginPath();
-          ctx.roundRect(cardX + 16, by, cardW - 32, 48, 14);
-          ctx.fillStyle = d.id === this.difficulty ? '#EEF2FF' : '#F8FAFC';
+          ctx.arc(dx, dotY, i === this.selectedDiffIndex ? 5 : 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = i === this.selectedDiffIndex ? d.color : '#CBD5E1';
           ctx.fill();
-          ctx.strokeStyle = d.id === this.difficulty ? '#6366F1' : '#E2E8F0';
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
+        }
 
-          ctx.beginPath();
-          ctx.arc(cardX + 38, by + 24, 6, 0, Math.PI * 2);
-          ctx.fillStyle = d.color;
-          ctx.fill();
+        // Big Vibrant "START PUZZLE ▶" Button
+        const btnW = cardW - 60;
+        const btnH = 50;
+        const btnX = (this.width - btnW) / 2;
+        const btnY = cardY + cardH - 74;
 
-          ctx.font = '800 15px Fredoka, Inter, sans-serif';
-          ctx.fillStyle = '#0F172A';
-          ctx.textAlign = 'left';
-          ctx.fillText(d.label, cardX + 54, by + 18);
+        ctx.save();
+        ctx.shadowColor = 'rgba(37, 99, 235, 0.35)';
+        ctx.shadowBlur = 14;
+        ctx.shadowOffsetY = 4;
+        ctx.beginPath();
+        ctx.roundRect(btnX, btnY, btnW, btnH, 25);
+        ctx.fillStyle = '#2563EB';
+        ctx.fill();
+        ctx.restore();
 
-          ctx.font = '600 11px Inter, sans-serif';
-          ctx.fillStyle = '#64748B';
-          ctx.fillText(d.subtitle, cardX + 54, by + 34);
-
-          ctx.font = '800 12px Inter, sans-serif';
-          ctx.fillStyle = d.color;
-          ctx.textAlign = 'right';
-          ctx.fillText(d.clues + ' clues', cardX + cardW - 32, by + 24);
-        });
+        ctx.font = '800 16px Inter, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('START PUZZLE ▶', this.width / 2, btnY + 25);
       }
 
       renderPauseModal(ctx) {
@@ -1686,7 +1846,7 @@
         ctx.stroke();
         ctx.font = '800 14px Inter, sans-serif';
         ctx.fillStyle = '#475569';
-        ctx.fillText('RESTART', this.width / 2, restartY + 22);
+        ctx.fillText('NEW DIFFICULTY', this.width / 2, restartY + 22);
       }
 
       renderVictoryModal(ctx) {
@@ -1724,17 +1884,17 @@
           ctx.fillText('Best Time: ' + this.formatTime(best), this.width / 2, cardY + 200);
         }
 
-        const btnW = 200, btnH = 48;
+        const btnW = 220, btnH = 50;
         const btnX = (this.width - btnW) / 2;
-        const btnY = this.height * 0.72;
+        const btnY = this.height * 0.74;
 
         ctx.beginPath();
-        ctx.roundRect(btnX, btnY, btnW, btnH, 24);
+        ctx.roundRect(btnX, btnY, btnW, btnH, 25);
         ctx.fillStyle = '#2563EB';
         ctx.fill();
         ctx.font = '800 16px Inter, sans-serif';
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText('NEW PUZZLE ▶', this.width / 2, btnY + 24);
+        ctx.fillText('PLAY NEXT PUZZLE ▶', this.width / 2, btnY + 25);
       }
 
       renderGameOverModal(ctx) {
