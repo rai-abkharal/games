@@ -469,8 +469,6 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             if (gameOverAdEnabled) {
                 checkAndShowInterstitialAd()
             }
-
-            showGameOverDialog(score)
         }
     }
 
@@ -493,8 +491,6 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                 checkAndShowInterstitialAd()
                 levelWinCount = 0
             }
-
-            showGameOverDialog(score)
         }
     }
 

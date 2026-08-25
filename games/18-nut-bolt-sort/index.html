@@ -1085,42 +1085,47 @@
         ctx.fill();
       },
 
-      // Clean, elegant metallic white dome cap seamlessly matching and sealing the bolt
+      // Clean, elegant metallic white dome cap seated slightly forward on the nut's top face,
+      // leaving a small visible surface on the backside of the nut.
       drawBoltCap(ctx, cx, cy, rx, ry, glow) {
-        // Drop shadow under cap
+        const capY = cy + ry * 0.10; // slightly forward toward the user
+        const crx = rx * 0.44; // compact diameter so back surface of nut is visible
+        const cry = ry * 0.30;
+
+        // Subtle drop shadow under cap
         ctx.beginPath();
-        ctx.ellipse(cx, cy + ry * 0.24, rx * 0.76, ry * 0.46, 0, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.24)';
+        ctx.ellipse(cx, capY + cry * 0.28, crx * 1.05, cry * 0.95, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.26)';
         ctx.fill();
 
         // Silver-white washer cap rim
         ctx.beginPath();
-        ctx.ellipse(cx, cy + ry * 0.10, rx * 0.72, ry * 0.44, 0, 0, Math.PI * 2);
-        ctx.fillStyle = '#C2C8DA';
+        ctx.ellipse(cx, capY + cry * 0.12, crx, cry, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#CFD8E8';
         ctx.fill();
 
-        // Top domed cap with smooth metallic white/silver gradient matching bolt
+        // Top domed cap with smooth metallic white/silver gradient
         ctx.beginPath();
-        ctx.ellipse(cx, cy, rx * 0.72, ry * 0.44, 0, 0, Math.PI * 2);
-        const g = ctx.createLinearGradient(cx - rx * 0.5, cy - ry * 0.35, cx + rx * 0.5, cy + ry * 0.35);
+        ctx.ellipse(cx, capY, crx, cry, 0, 0, Math.PI * 2);
+        const g = ctx.createLinearGradient(cx - crx * 0.5, capY - cry * 0.4, cx + crx * 0.5, capY + cry * 0.4);
         g.addColorStop(0, '#FFFFFF');
-        g.addColorStop(0.32, '#ECEFF8');
-        g.addColorStop(0.72, '#C8D0E4');
-        g.addColorStop(1, '#A0AABF');
+        g.addColorStop(0.35, '#ECEFF8');
+        g.addColorStop(0.75, '#C8D0E4');
+        g.addColorStop(1, '#9AA5BD');
         ctx.fillStyle = g;
         ctx.fill();
 
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 1.0;
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.stroke();
 
-        // Center stud / allen bolt head matching reference
+        // Center stud / allen bolt socket
         ctx.beginPath();
-        ctx.ellipse(cx, cy, rx * 0.24, ry * 0.15, 0, 0, Math.PI * 2);
-        ctx.fillStyle = '#78829C';
+        ctx.ellipse(cx, capY, crx * 0.30, cry * 0.30, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#6E7892';
         ctx.fill();
         ctx.beginPath();
-        ctx.ellipse(cx - rx * 0.04, cy - ry * 0.03, rx * 0.08, ry * 0.05, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx - crx * 0.06, capY - cry * 0.06, crx * 0.10, cry * 0.10, 0, 0, Math.PI * 2);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
       },
@@ -1729,6 +1734,29 @@
             size: 3.4 + Math.random() * 4.6, rot: Math.random() * 6.28,
             vRot: (Math.random() - 0.5) * 9,
             color: pal.sparks[Math.floor(Math.random() * pal.sparks.length)]
+          });
+        }
+      }
+
+      // Spawns 2 to 3 small, simple, noticeable stars around the completed bolt
+      boltCompletionStars(bx, by, rx) {
+        const count = 3;
+        const colors = ['#FFF59D', '#FFE082', '#FFFFFF'];
+        for (let i = 0; i < count; i++) {
+          const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.4 - 0.2);
+          const dist = rx * (0.85 + Math.random() * 0.4);
+          this.items.push({
+            type: 'STAR',
+            x: bx + Math.cos(angle) * dist,
+            y: by + Math.sin(angle) * dist * 0.6,
+            vx: Math.cos(angle) * 16,
+            vy: -20 - Math.random() * 20,
+            size: 8 + Math.random() * 3,
+            rot: Math.random() * Math.PI * 2,
+            vRot: (Math.random() - 0.5) * 3,
+            life: 0.85 + Math.random() * 0.25,
+            maxLife: 1.0,
+            color: colors[i % colors.length]
           });
         }
       }
@@ -2476,38 +2504,37 @@
         }
 
         const unscrewEnd = 0.24;
-        const travelEnd = 0.56;
+        const travelEnd = 0.60;
         const screwEnd = 0.96;
 
         let x, y, spin = 0, squash = 0;
 
         if (tj < unscrewEnd) {
-          // Phase 1: Unscrew & Lift (Smooth 1 full counter-clockwise rotation along axis)
+          // Phase 1: Unscrew & Lift straight up along bolt axis
           const p = tj / unscrewEnd;
-          const e = easeOutCubic(p);
+          const e = easeOutQuad(p);
           x = from.x;
           y = lerp(startY, srcHover, e);
           spin = -Math.PI * 2 * e;
         } else if (tj < travelEnd) {
-          // Phase 2: Arched Parabolic Flight across (Clean upright glide holding forward orientation)
+          // Phase 2: Smooth horizontal glide across at hover level (zero vertical jerks)
           const p = (tj - unscrewEnd) / (travelEnd - unscrewEnd);
-          const e = easeInOutCubic(p);
+          const e = easeInOutQuad(p);
           x = lerp(from.x, to.x, e);
-          y = lerp(srcHover, dstHover, e) - Math.sin(Math.PI * p) * (band * 2.2 + 28);
-          spin = 0;
+          y = lerp(srcHover, dstHover, e);
+          spin = -Math.PI * 2 * (1 - p);
         } else if (tj < screwEnd) {
-          // Phase 3: Screw-In Insertion (Extended deep clockwise screw down into slot)
+          // Phase 3: Screw down straight into target slot with continuous axial rotation
           const p = (tj - travelEnd) / (screwEnd - travelEnd);
+          const e = easeInOutQuad(p);
           x = to.x;
-          y = lerp(dstHover, endY, easeInOutCubic(p));
-          spin = Math.PI * 2 * easeOutCubic(p);
+          y = lerp(dstHover, endY, e);
+          spin = Math.PI * 2 * e;
         } else {
-          // Phase 4: Settle & Elastic Lock
-          const p = clamp((tj - screwEnd) / (1 - screwEnd), 0, 1);
+          // Phase 4: Settle cleanly at resting angle
           x = to.x;
           y = endY;
           spin = 0;
-          squash = Math.sin(Math.PI * p) * 0.16 / (1 + j * 0.4);
         }
 
         return { x: x, y: y, spin: spin, squash: squash };
@@ -2524,7 +2551,7 @@
           const startTime = nutOrder * m.stagger;
           const rawT = (m.t * m.dur - startTime) / m.perNutDur;
 
-          if (rawT >= 0.56 && !m.playedScrewNuts[j]) {
+          if (rawT >= 0.60 && !m.playedScrewNuts[j]) {
             m.playedScrewNuts[j] = true;
             this.synth.playScrew(1);
           }
@@ -2557,14 +2584,12 @@
         }
       }
 
-      // One colour fully gathered: cap lock, radiant beam, cap confetti fountain and left-right star dust matching reference
+      // One colour fully gathered: cap lock and 2 to 3 small simple noticeable stars
       celebrateGroup(bolt) {
-        bolt.shine = 0;
-        this.sweep = 0;
-        this.particles.capConfettiBurst(bolt.x, bolt.shaftTopY);
-        this.particles.sideTwinkleBurst(this.width, this.height);
-        this.synth.playGroupComplete();
-        this.screenShake = Math.max(this.screenShake, 3.2);
+        bolt.shine = -1;
+        this.sweep = -1;
+        const topSlotY = bolt.nutSlotY(bolt.nuts.length - 1);
+        this.particles.boltCompletionStars(bolt.x, topSlotY, bolt.rx);
         this.haptic('success');
       }
 
@@ -3012,29 +3037,6 @@
         // 4. When bolt is completed, render clean metallic cap directly on the top face of the topmost nut!
         if (bolt.complete && bolt.nuts.length >= bolt.capacity) {
           Art.drawBoltCap(ctx, bx, topSlotY, bolt.rx, bolt.ry, bolt.completeGlow);
-        }
-
-        // Local shine that wipes across the bolt when its colour completes.
-        if (bolt.shine >= 0) {
-          const p = clamp(bolt.shine, 0, 1);
-          const boxX = bx - bolt.rx * 1.5;
-          const boxY = bolt.shaftTopY - bolt.band;
-          const boxW = bolt.rx * 3;
-          const boxH = bolt.baseY + bolt.ry * 2 - boxY;
-          const bandW = boxW * 0.5;
-          const sx = lerp(boxX - bandW, boxX + boxW + bandW, p);
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(boxX, boxY, boxW, boxH);
-          ctx.clip();
-          ctx.globalCompositeOperation = 'lighter';
-          const g = ctx.createLinearGradient(sx - bandW * 0.5, boxY, sx + bandW * 0.5, boxY + boxH);
-          g.addColorStop(0, 'rgba(255,255,255,0)');
-          g.addColorStop(0.5, 'rgba(255,255,255,' + (0.5 * Math.sin(Math.PI * p)).toFixed(3) + ')');
-          g.addColorStop(1, 'rgba(255,255,255,0)');
-          ctx.fillStyle = g;
-          ctx.fillRect(boxX, boxY, boxW, boxH);
-          ctx.restore();
         }
 
         ctx.restore();
