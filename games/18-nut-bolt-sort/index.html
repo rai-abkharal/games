@@ -2487,11 +2487,11 @@
         const startY = from.nutSlotY(m.srcIndexBase + j);
         const srcHover = from.hoverY();
         const dstHover = to.hoverY();
-        const endY = to.nutSlotY(m.dstIndexBase + j);
 
-        // Topmost nut was already lifted; secondary nuts lift in order
+        // Topmost nut of source takes off first (nutOrder = 0) and lands at the bottom-most available slot on destination
         const isTopNut = (j === m.count - 1);
         const nutOrder = (m.count - 1 - j);
+        const endY = to.nutSlotY(m.dstIndexBase + nutOrder);
         const startTime = nutOrder * m.stagger;
         const rawT = (m.t * m.dur - startTime) / m.perNutDur;
         const tj = clamp(rawT, 0, 1);
@@ -2503,7 +2503,7 @@
         let x, y, spin = 0, squash = 0;
 
         if (isTopNut) {
-          // Top nut was already hovering: glides across horizontally, then screws down into target
+          // Top nut was already hovering: glides across horizontally, then screws down into bottom slot
           const travelEnd = 0.50;
           const screwEnd = 0.96;
 
@@ -2527,7 +2527,7 @@
             spin = 0;
           }
         } else {
-          // Secondary matching nuts: lift up from slot -> glide across -> screw down into slot
+          // Secondary matching nuts: lift up from slot -> glide across -> screw down on top of previous nut
           const liftEnd = 0.26;
           const travelEnd = 0.62;
           const screwEnd = 0.96;
@@ -2580,7 +2580,7 @@
 
           if (rawT >= 0.94 && !m.seatedNuts[j]) {
             m.seatedNuts[j] = true;
-            const y = to.nutSlotY(m.dstIndexBase + j);
+            const y = to.nutSlotY(m.dstIndexBase + nutOrder);
             this.particles.seatSparks(to.x, y + to.band * 0.5, m.colorId, 8);
             this.particles.dustRing(to.x, y + to.band * 0.6, m.colorId, to.rx);
             this.screenShake = Math.max(this.screenShake, 1.8);
@@ -2594,7 +2594,7 @@
       commitMove() {
         const m = this.move;
         const to = this.bolts[m.toIdx];
-        for (const nut of m.nuts) to.nuts.push(nut);
+        for (let k = m.nuts.length - 1; k >= 0; k--) to.nuts.push(m.nuts[k]);
         this.move = null;
         this.state = 'PLAYING';
 
