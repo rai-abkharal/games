@@ -396,26 +396,26 @@
       }
     }
 
-    // 4. PARTICLE SYSTEM (Floating celebration sparkles)
+    // 4. PARTICLE SYSTEM (Gentle, soft floating celebration sparkles)
     class ParticleSystem {
       constructor() { this.items = []; }
       clear() { this.items = []; }
 
       addBlockBurst(x, y, w, h) {
-        const colors = ['#3B82F6', '#60A5FA', '#93C5FD', '#2563EB', '#F59E0B', '#38BDF8'];
-        for (let i = 0; i < 20; i++) {
+        const colors = ['#93C5FD', '#BAE6FD', '#E0F2FE', '#60A5FA', '#FDE68A', '#A7F3D0'];
+        for (let i = 0; i < 18; i++) {
           const px = x + Math.random() * w;
           const py = y + Math.random() * h;
           const a = Math.random() * Math.PI * 2;
-          const speed = 14 + Math.random() * 24;
+          const speed = 12 + Math.random() * 22;
           this.items.push({
             type: 'STAR',
             x: px, y: py,
             vx: Math.cos(a) * speed,
-            vy: Math.sin(a) * speed - 12,
-            size: 4 + Math.random() * 4.5,
+            vy: Math.sin(a) * speed - 10,
+            size: 3.5 + Math.random() * 4,
             rot: Math.random() * Math.PI * 2,
-            vRot: (Math.random() - 0.5) * 2.5,
+            vRot: (Math.random() - 0.5) * 2.2,
             life: 1.1 + Math.random() * 0.45,
             maxLife: 1.55,
             color: colors[Math.floor(Math.random() * colors.length)]
@@ -424,7 +424,7 @@
       }
 
       addVictoryConfetti(w, h) {
-        const colors = ['#3B82F6', '#22C55E', '#F59E0B', '#60A5FA', '#8B5CF6', '#EC4899'];
+        const colors = ['#93C5FD', '#86EFAC', '#FDE68A', '#BAE6FD', '#C4B5FD', '#F9A8D4'];
         for (let i = 0; i < 64; i++) {
           this.items.push({
             type: 'CONFETTI',
@@ -458,7 +458,7 @@
         for (const p of this.items) {
           const k = Math.max(0, p.life / p.maxLife);
           ctx.save();
-          ctx.globalAlpha = Math.min(1, k * 1.4);
+          ctx.globalAlpha = Math.min(1, k * 1.3);
           ctx.translate(p.x, p.y);
           ctx.rotate(p.rot);
           ctx.fillStyle = p.color;
@@ -512,7 +512,7 @@
         this.particles = new ParticleSystem();
 
         this.difficulty = 'easy';
-        this.sliderPos = 0; // 0 (Easy) to 3 (Expert)
+        this.sliderPos = 0;
         this.isDraggingSlider = false;
 
         this.given = SudokuCore.createEmptyGrid();
@@ -534,7 +534,7 @@
         this.maxTutorialSlides = 5;
         this.tutorialAnimT = 0;
 
-        this.sweeps = []; // Continuous luminous blue line animations
+        this.sweeps = [];
         this.lastTime = performance.now();
         this.shakeTimer = 0;
         this.errorCell = null;
@@ -1021,31 +1021,31 @@
       }
 
       checkCompletions(r, c) {
-        // 1. Check Row Completion (Luminous electric blue line animation)
+        // 1. Check Row Completion (Soft light blue line animation)
         let rowDone = true;
         for (let i = 0; i < 9; i++) {
           const val = this.given[r][i] || this.user[r][i];
           if (val !== this.solution[r][i]) { rowDone = false; break; }
         }
         if (rowDone) {
-          this.sweeps.push({ type: 'row', index: r, t: 0, maxT: 1.4 });
+          this.sweeps.push({ type: 'row', index: r, t: 0, maxT: 1.35 });
           this.particles.addBlockBurst(this.boardX, this.boardY + r * this.cellSize, this.boardSize, this.cellSize);
           this.synth.playBlockComplete();
         }
 
-        // 2. Check Column Completion (Luminous electric blue line animation)
+        // 2. Check Column Completion (Soft light blue line animation)
         let colDone = true;
         for (let i = 0; i < 9; i++) {
           const val = this.given[i][c] || this.user[i][c];
           if (val !== this.solution[i][c]) { colDone = false; break; }
         }
         if (colDone) {
-          this.sweeps.push({ type: 'col', index: c, t: 0, maxT: 1.4 });
+          this.sweeps.push({ type: 'col', index: c, t: 0, maxT: 1.35 });
           this.particles.addBlockBurst(this.boardX + c * this.cellSize, this.boardY, this.cellSize, this.boardSize);
           this.synth.playBlockComplete();
         }
 
-        // 3. Check 3x3 Box Completion
+        // 3. Check 3x3 Box Completion (Sharp square light blue soft shimmer)
         const br = Math.floor(r / 3) * 3;
         const bc = Math.floor(c / 3) * 3;
         let boxDone = true;
@@ -1057,7 +1057,7 @@
         }
         if (boxDone) {
           const boxIdx = Math.floor(r / 3) * 3 + Math.floor(c / 3);
-          this.sweeps.push({ type: 'box', index: boxIdx, br, bc, t: 0, maxT: 1.4 });
+          this.sweeps.push({ type: 'box', index: boxIdx, br, bc, t: 0, maxT: 1.35 });
           this.particles.addBlockBurst(this.boardX + bc * this.cellSize, this.boardY + br * this.cellSize, this.cellSize * 3, this.cellSize * 3);
           this.synth.playBlockComplete();
         }
@@ -1289,7 +1289,6 @@
         ctx.translate(cx, cy);
 
         if (type === 'leaf') {
-          // 🟢 Easy: Clean Zen Leaf
           ctx.fillStyle = color;
           ctx.beginPath();
           ctx.moveTo(0, -18);
@@ -1308,7 +1307,6 @@
           ctx.stroke();
 
         } else if (type === 'spark') {
-          // 🟡 Medium: Radiant Energy Spark
           ctx.fillStyle = color;
           ctx.beginPath();
           ctx.moveTo(2, -18);
@@ -1321,7 +1319,6 @@
           ctx.fill();
 
         } else if (type === 'diamond') {
-          // 🔴 Hard: Faceted Ruby Diamond
           ctx.fillStyle = color;
           ctx.beginPath();
           ctx.moveTo(-16, -6);
@@ -1345,7 +1342,6 @@
           ctx.stroke();
 
         } else {
-          // 🟣 Expert: Royal Master Crown
           ctx.fillStyle = color;
           ctx.beginPath();
           ctx.moveTo(-16, 14);
@@ -1490,20 +1486,16 @@
         ctx.save();
         ctx.translate(shakeX, shakeY);
 
+        // Crisp flat background with crisp outer shadow (NO ROUND CORNERS)
         ctx.shadowColor = THEME.cardShadow;
-        ctx.shadowBlur = 24;
-        ctx.shadowOffsetY = 8;
-        ctx.beginPath();
-        ctx.roundRect(bx, by, bs, bs, 16);
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetY = 6;
         ctx.fillStyle = THEME.cardBg;
-        ctx.fill();
+        ctx.fillRect(bx, by, bs, bs);
         ctx.restore();
 
         ctx.save();
         ctx.translate(shakeX, shakeY);
-        ctx.beginPath();
-        ctx.roundRect(bx, by, bs, bs, 16);
-        ctx.clip();
 
         const selVal = this.selected ? (this.given[this.selected.r][this.selected.c] || this.user[this.selected.r][this.selected.c]) : 0;
 
@@ -1536,7 +1528,7 @@
           }
         }
 
-        // CONTINUOUS LUMINOUS ELECTRIC BLUE LINE SWEEPS (Full Row / Col Draw & Shimmer)
+        // CONTINUOUS SOFT LIGHT BLUE LINE SWEEPS (Gentle, elegant, NO ROUND CORNERS)
         for (const sweep of this.sweeps) {
           const progress = sweep.t / sweep.maxT;
           ctx.save();
@@ -1547,40 +1539,30 @@
             let alpha = 1.0;
 
             if (progress < 0.45) {
-              // Phase 1: Expanding full line from left to right across all 9 blocks
               const k = progress / 0.45;
               drawW = k * bs;
-              alpha = 0.90;
+              alpha = 0.85;
             } else {
-              // Phase 2: Full 9-block line illuminates and fades out smoothly
               drawW = bs;
               alpha = Math.max(0, 1.0 - (progress - 0.45) / 0.55);
             }
 
-            // Glowing electric blue line fill across completed row
+            // Soft pastel light blue gradient
             const grad = ctx.createLinearGradient(bx, ry, bx + drawW, ry);
-            grad.addColorStop(0, 'rgba(37, 99, 235, ' + alpha * 0.75 + ')');
-            grad.addColorStop(0.7, 'rgba(59, 130, 246, ' + alpha * 0.90 + ')');
-            grad.addColorStop(1, 'rgba(147, 197, 253, ' + alpha + ')');
+            grad.addColorStop(0, 'rgba(186, 230, 253, ' + alpha * 0.35 + ')');
+            grad.addColorStop(0.65, 'rgba(147, 197, 253, ' + alpha * 0.60 + ')');
+            grad.addColorStop(1, 'rgba(224, 242, 254, ' + alpha * 0.75 + ')');
 
             ctx.fillStyle = grad;
             ctx.fillRect(bx, ry, drawW, cs);
 
-            // Radiant center core ray
-            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.95 + ')';
-            ctx.lineWidth = 3.0;
+            // Subtle luminous center flare line
+            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.70 + ')';
+            ctx.lineWidth = 2.0;
             ctx.beginPath();
             ctx.moveTo(bx, ry + cs / 2);
             ctx.lineTo(bx + drawW, ry + cs / 2);
             ctx.stroke();
-
-            // Leading tip beam flare during expansion
-            if (progress < 0.45) {
-              ctx.beginPath();
-              ctx.arc(bx + drawW, ry + cs / 2, cs * 0.45, 0, Math.PI * 2);
-              ctx.fillStyle = 'rgba(255, 255, 255, ' + alpha + ')';
-              ctx.fill();
-            }
 
           } else if (sweep.type === 'col') {
             const cx = bx + sweep.index * cs;
@@ -1588,51 +1570,39 @@
             let alpha = 1.0;
 
             if (progress < 0.45) {
-              // Phase 1: Expanding full line from top to bottom
               const k = progress / 0.45;
               drawH = k * bs;
-              alpha = 0.90;
+              alpha = 0.85;
             } else {
-              // Phase 2: Full 9-block column illuminates and fades out smoothly
               drawH = bs;
               alpha = Math.max(0, 1.0 - (progress - 0.45) / 0.55);
             }
 
             const grad = ctx.createLinearGradient(cx, by, cx, by + drawH);
-            grad.addColorStop(0, 'rgba(37, 99, 235, ' + alpha * 0.75 + ')');
-            grad.addColorStop(0.7, 'rgba(59, 130, 246, ' + alpha * 0.90 + ')');
-            grad.addColorStop(1, 'rgba(147, 197, 253, ' + alpha + ')');
+            grad.addColorStop(0, 'rgba(186, 230, 253, ' + alpha * 0.35 + ')');
+            grad.addColorStop(0.65, 'rgba(147, 197, 253, ' + alpha * 0.60 + ')');
+            grad.addColorStop(1, 'rgba(224, 242, 254, ' + alpha * 0.75 + ')');
 
             ctx.fillStyle = grad;
             ctx.fillRect(cx, by, cs, drawH);
 
-            // Radiant center core ray
-            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.95 + ')';
-            ctx.lineWidth = 3.0;
+            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.70 + ')';
+            ctx.lineWidth = 2.0;
             ctx.beginPath();
             ctx.moveTo(cx + cs / 2, by);
             ctx.lineTo(cx + cs / 2, by + drawH);
             ctx.stroke();
 
-            // Leading tip beam flare during expansion
-            if (progress < 0.45) {
-              ctx.beginPath();
-              ctx.arc(cx + cs / 2, by + drawH, cs * 0.45, 0, Math.PI * 2);
-              ctx.fillStyle = 'rgba(255, 255, 255, ' + alpha + ')';
-              ctx.fill();
-            }
-
           } else if (sweep.type === 'box') {
             const boxX = bx + sweep.bc * cs;
             const boxY = by + sweep.br * cs;
             const boxW = cs * 3.0;
-            const alpha = Math.sin(progress * Math.PI) * 0.88;
+            const alpha = Math.sin(progress * Math.PI) * 0.70;
 
-            const grad = ctx.createRadialGradient(boxX + boxW / 2, boxY + boxW / 2, 5, boxX + boxW / 2, boxY + boxW / 2, boxW * 0.75);
-            grad.addColorStop(0, 'rgba(255, 255, 255, ' + alpha * 0.9 + ')');
-            grad.addColorStop(0.4, 'rgba(96, 165, 250, ' + alpha * 0.8 + ')');
-            grad.addColorStop(0.8, 'rgba(37, 99, 235, ' + alpha * 0.6 + ')');
-            grad.addColorStop(1, 'rgba(30, 58, 138, 0)');
+            const grad = ctx.createRadialGradient(boxX + boxW / 2, boxY + boxW / 2, 5, boxX + boxW / 2, boxY + boxW / 2, boxW * 0.70);
+            grad.addColorStop(0, 'rgba(255, 255, 255, ' + alpha * 0.75 + ')');
+            grad.addColorStop(0.5, 'rgba(186, 230, 253, ' + alpha * 0.60 + ')');
+            grad.addColorStop(1, 'rgba(147, 197, 253, 0)');
 
             ctx.fillStyle = grad;
             ctx.fillRect(boxX, boxY, boxW, boxW);
@@ -1689,27 +1659,23 @@
           }
         }
 
-        // Selected Cell Focus Ring
+        // Selected Cell Focus Ring (Sharp rectangular)
         if (this.selected) {
           const sx = bx + this.selected.c * cs;
           const sy = by + this.selected.r * cs;
-          ctx.beginPath();
-          ctx.roundRect(sx + 1.5, sy + 1.5, cs - 3, cs - 3, 6);
           ctx.strokeStyle = THEME.selectedBorder;
-          ctx.lineWidth = 3.0;
-          ctx.stroke();
+          ctx.lineWidth = 2.8;
+          ctx.strokeRect(sx + 1.5, sy + 1.5, cs - 3, cs - 3);
         }
 
         ctx.restore();
 
-        // 9x9 OUTER BOUNDING BORDER (Bold Dark Framing Line)
+        // 9x9 OUTER BOUNDING BORDER (Crisp Straight Framing Rectangle - NO ROUNDNESS)
         ctx.save();
         ctx.translate(shakeX, shakeY);
-        ctx.beginPath();
-        ctx.roundRect(bx - 0.5, by - 0.5, bs + 1, bs + 1, 16);
         ctx.strokeStyle = THEME.outerBorder;
-        ctx.lineWidth = 3.2;
-        ctx.stroke();
+        ctx.lineWidth = 3.0;
+        ctx.strokeRect(bx - 0.5, by - 0.5, bs + 1, bs + 1);
         ctx.restore();
       }
 
@@ -1830,7 +1796,7 @@
         }
       }
 
-      // --- COMPACT FLOATING DIFFICULTY DIALOG (With Exact Slider Alignment) ---
+      // --- COMPACT FLOATING DIFFICULTY DIALOG ---
       renderDifficultyDialog(ctx) {
         ctx.fillStyle = 'rgba(15, 23, 42, 0.60)';
         ctx.fillRect(0, 0, this.width, this.height);
@@ -1839,7 +1805,6 @@
         const curIdx = Math.max(0, Math.min(3, Math.round(this.sliderPos)));
         const d = DIFFICULTIES[curIdx];
 
-        // 1. Elevated Dialog Card
         ctx.save();
         ctx.shadowColor = 'rgba(15, 23, 42, 0.28)';
         ctx.shadowBlur = 28;
@@ -1850,13 +1815,11 @@
         ctx.fill();
         ctx.restore();
 
-        // 2. Dialog Header
         ctx.font = '900 18px Fredoka, Inter, sans-serif';
         ctx.fillStyle = '#0F172A';
         ctx.textAlign = 'center';
         ctx.fillText('SELECT DIFFICULTY', this.width / 2, bounds.cardY + 36);
 
-        // 3. Central Glowing Emblem Circle
         const emblemY = bounds.cardY + 95;
         const emblemR = 36;
 
@@ -1875,7 +1838,6 @@
         this.drawEmblem(ctx, this.width / 2, emblemY, d.emblem, d.color);
         ctx.restore();
 
-        // 4. Bold Level Title & Subtitle
         ctx.font = '900 22px Fredoka, Inter, sans-serif';
         ctx.fillStyle = d.color;
         ctx.textAlign = 'center';
@@ -1885,11 +1847,9 @@
         ctx.fillStyle = '#64748B';
         ctx.fillText(d.clues + ' Clues Given • ' + d.subtitle, this.width / 2, bounds.cardY + 185);
 
-        // 5. Rounded Multi-color Slider Track with Exact Knob Math
         const usableW = bounds.trackW - 2 * bounds.knobR;
         const knobX = bounds.trackX + bounds.knobR + (this.sliderPos / 3) * usableW;
 
-        // Outer track border
         ctx.save();
         ctx.shadowColor = 'rgba(15, 23, 42, 0.06)';
         ctx.shadowBlur = 10;
@@ -1900,14 +1860,12 @@
         ctx.fill();
         ctx.restore();
 
-        // Inactive background track
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(bounds.trackX, bounds.trackY, bounds.trackW, bounds.trackH, bounds.trackH / 2);
         ctx.fillStyle = '#E2E8F0';
         ctx.fill();
 
-        // Active multi-color fill (strictly constrained up to the knob position, no forward spill on Easy!)
         const activeW = Math.max(bounds.trackH, knobX - bounds.trackX + bounds.knobR);
         const trackGrad = ctx.createLinearGradient(bounds.trackX, 0, bounds.trackX + bounds.trackW, 0);
         trackGrad.addColorStop(0, '#22C55E');
@@ -1921,7 +1879,6 @@
         ctx.fill();
         ctx.restore();
 
-        // Draggable Circular Knob (Centered exactly at knobX)
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.24)';
         ctx.shadowBlur = 10;
@@ -1937,7 +1894,7 @@
         ctx.fill();
         ctx.restore();
 
-        // 6. Bottom Action Row: [ PLAY ▶ ] + [ ? Tutorial ]
+        // [ PLAY ▶ ] + [ ? Tutorial ]
         ctx.save();
         ctx.shadowColor = d.color + '66';
         ctx.shadowBlur = 14;
@@ -1954,7 +1911,6 @@
         ctx.textBaseline = 'middle';
         ctx.fillText('PLAY ▶', bounds.playX + bounds.playW / 2, bounds.playY + bounds.playH / 2);
 
-        // Purple Question Mark "?" Button
         ctx.save();
         ctx.shadowColor = 'rgba(139, 92, 246, 0.35)';
         ctx.shadowBlur = 12;
