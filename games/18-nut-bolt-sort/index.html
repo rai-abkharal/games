@@ -1360,16 +1360,16 @@
         ctx.restore();
       },
 
-      // Sleek, compact white cartoon pointing hand positioned lower with smooth tap dynamics
+      // Tutorial pointing hand rendered using authentic 👆 emoji with white color grading & shadow
       drawTutorialHand(ctx, targetX, targetY, scale, pulse) {
         ctx.save();
         const cycle = (pulse * 1.5) % (Math.PI * 2);
         const tapDip = Math.max(0, Math.sin(cycle)) * 8 * scale;
         const tapScale = 1.0 - Math.max(0, Math.sin(cycle)) * 0.05;
 
-        // Position placed lower below target point
+        // Position placed lower below target point with ample breathing room
         const fx = targetX;
-        const fy = targetY + 34 * scale + tapDip;
+        const fy = targetY + 36 * scale + tapDip;
 
         // 1. Soft golden/white contact ripple above the fingertip
         if (Math.sin(cycle) > 0.15) {
@@ -1384,68 +1384,22 @@
           ctx.restore();
         }
 
-        // 2. Hand body
+        // 2. Draw authentic 👆 Emoji with White Color-Grading filter
         ctx.translate(fx, fy);
-        ctx.scale(scale * 0.72 * tapScale, scale * 0.72 * tapScale);
+        ctx.scale(scale * 0.68 * tapScale, scale * 0.68 * tapScale);
 
         // Soft drop shadow
-        ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetY = 6;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.40)';
+        ctx.shadowBlur = 8 * scale;
+        ctx.shadowOffsetY = 5 * scale;
 
-        // Draw pure white cartoon pointing hand
-        // Main glove silhouette
-        ctx.beginPath();
-        // Index finger pointing straight up
-        ctx.moveTo(-5, -6);
-        ctx.lineTo(-5, -34);
-        ctx.arc(0, -34, 5, Math.PI, 0);
-        ctx.lineTo(5, -6);
-        // Folded fingers on right
-        ctx.quadraticCurveTo(18, -2, 18, 10);
-        ctx.quadraticCurveTo(18, 22, 10, 30);
-        // Wrist bottom
-        ctx.lineTo(-8, 30);
-        // Thumb on left
-        ctx.quadraticCurveTo(-18, 20, -18, 10);
-        ctx.quadraticCurveTo(-18, -2, -5, -6);
-        ctx.closePath();
+        // White Color Grading filter: converts native emoji to sleek white while preserving contour details
+        ctx.filter = 'grayscale(100%) brightness(1.85) contrast(1.15)';
 
-        const handGrad = ctx.createLinearGradient(-14, -38, 14, 30);
-        handGrad.addColorStop(0, '#FFFFFF');
-        handGrad.addColorStop(0.55, '#F8FAFC');
-        handGrad.addColorStop(1, '#E2E8F0');
-        ctx.fillStyle = handGrad;
-        ctx.fill();
-        ctx.restore();
-
-        // Dark clean cartoon outline
-        ctx.strokeStyle = '#1E293B';
-        ctx.lineWidth = 2.4;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.stroke();
-
-        // Finger knuckle crease lines
-        ctx.beginPath();
-        ctx.moveTo(3, 4);
-        ctx.lineTo(14, 4);
-        ctx.moveTo(3, 13);
-        ctx.lineTo(13, 13);
-        ctx.moveTo(2, 22);
-        ctx.lineTo(9, 22);
-        ctx.strokeStyle = 'rgba(30, 41, 59, 0.45)';
-        ctx.lineWidth = 1.6;
-        ctx.stroke();
-
-        // Index finger gloss highlight line
-        ctx.beginPath();
-        ctx.moveTo(-2, -32);
-        ctx.lineTo(-2, -10);
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 2.0;
-        ctx.stroke();
+        ctx.font = Math.round(44 * scale) + 'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('👆', 0, 0);
 
         ctx.restore();
       },
