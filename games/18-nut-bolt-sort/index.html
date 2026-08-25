@@ -1360,31 +1360,143 @@
         ctx.restore();
       },
 
-      // Tutorial finger. Points up-left exactly like the reference art.
-      glyphHand(ctx, cx, cy, size) {
+      // Modern stylized 3D tutorial pointing hand with juicy tap dynamics & ripple
+      drawTutorialHand(ctx, targetX, targetY, scale, pulse) {
         ctx.save();
-        ctx.translate(cx, cy);
-        ctx.scale(size, size);
+
+        // 1. Calculate tap cycle & fingertip motion
+        const cycle = (pulse * 1.6) % (Math.PI * 2);
+        const tapDip = Math.max(0, Math.sin(cycle)) * 8 * scale;
+        const tapScale = 1.0 - Math.max(0, Math.sin(cycle)) * 0.06;
+
+        // Fingertip contact point
+        const fx = targetX;
+        const fy = targetY + tapDip * 0.35;
+
+        // 2. Expanding tap ripple ring on contact
+        if (Math.sin(cycle) > 0.12) {
+          const ripFrac = (Math.sin(cycle) - 0.12) / 0.88;
+          const ripR = (10 + ripFrac * 20) * scale;
+          ctx.save();
+          ctx.beginPath();
+          ctx.ellipse(fx, fy, ripR, ripR * 0.55, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(255, 230, 140, ${(1 - ripFrac) * 0.85})`;
+          ctx.lineWidth = 2.4 * scale;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 3. Position hand body angled from bottom-right (fingertip at fx, fy)
+        ctx.translate(fx, fy);
+        ctx.rotate(-0.48 + Math.sin(cycle) * 0.04);
+        ctx.scale(scale * tapScale, scale * tapScale);
+
+        // Soft drop shadow
+        ctx.save();
+        ctx.shadowColor = 'rgba(10, 15, 45, 0.38)';
+        ctx.shadowBlur = 12 * scale;
+        ctx.shadowOffsetX = 4 * scale;
+        ctx.shadowOffsetY = 8 * scale;
+
+        // Wrist / Cuff
         ctx.beginPath();
-        ctx.moveTo(-0.30, -0.02);
-        ctx.lineTo(-0.14, -0.94);
-        ctx.quadraticCurveTo(0.02, -1.14, 0.18, -0.94);
-        ctx.lineTo(0.15, -0.12);
-        ctx.quadraticCurveTo(0.40, -0.30, 0.58, -0.16);
-        ctx.quadraticCurveTo(0.74, -0.02, 0.60, 0.12);
-        ctx.quadraticCurveTo(0.80, 0.20, 0.64, 0.36);
-        ctx.quadraticCurveTo(0.78, 0.48, 0.56, 0.62);
-        ctx.quadraticCurveTo(0.38, 0.88, 0.02, 0.90);
-        ctx.quadraticCurveTo(-0.44, 0.90, -0.62, 0.52);
-        ctx.quadraticCurveTo(-0.76, 0.22, -0.56, 0.00);
-        ctx.closePath();
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = 0.14;
-        ctx.strokeStyle = '#8A45E8';
-        ctx.stroke();
-        ctx.fillStyle = '#FFFFFF';
+        ctx.roundRect(-10, 36, 26, 12, 6);
+        const cuffGrad = ctx.createLinearGradient(-10, 36, 16, 48);
+        cuffGrad.addColorStop(0, '#8B5CF6');
+        cuffGrad.addColorStop(1, '#6D28D9');
+        ctx.fillStyle = cuffGrad;
         ctx.fill();
         ctx.restore();
+
+        // Palm & Base
+        ctx.beginPath();
+        ctx.moveTo(-7, 36);
+        ctx.lineTo(-10, 18);
+        ctx.quadraticCurveTo(-14, 8, -6, 2);
+        ctx.lineTo(-4, 0);
+        ctx.lineTo(4, 0);
+        ctx.lineTo(12, 8);
+        ctx.quadraticCurveTo(16, 18, 14, 36);
+        ctx.closePath();
+        const palmGrad = ctx.createLinearGradient(-12, 0, 14, 36);
+        palmGrad.addColorStop(0, '#FFFFFF');
+        palmGrad.addColorStop(0.6, '#F1F5F9');
+        palmGrad.addColorStop(1, '#CBD5E1');
+        ctx.fillStyle = palmGrad;
+        ctx.fill();
+
+        // Extended Index Finger pointing straight up to (0, -32)
+        ctx.beginPath();
+        ctx.moveTo(-4.5, 6);
+        ctx.lineTo(-4.0, -26);
+        ctx.quadraticCurveTo(-4.0, -32, 0, -32);
+        ctx.quadraticCurveTo(4.0, -32, 4.0, -26);
+        ctx.lineTo(4.5, 6);
+        ctx.closePath();
+        const fingerGrad = ctx.createLinearGradient(-4, -32, 4, 6);
+        fingerGrad.addColorStop(0, '#FFFFFF');
+        fingerGrad.addColorStop(0.5, '#F8FAFC');
+        fingerGrad.addColorStop(1, '#E2E8F0');
+        ctx.fillStyle = fingerGrad;
+        ctx.fill();
+
+        // Index finger gloss highlight
+        ctx.beginPath();
+        ctx.moveTo(-2.5, -28);
+        ctx.lineTo(-2.5, -6);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = 1.8;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        // Folded thumb
+        ctx.beginPath();
+        ctx.moveTo(-6, 2);
+        ctx.quadraticCurveTo(-12, 6, -11, 14);
+        ctx.quadraticCurveTo(-10, 20, -4, 18);
+        ctx.closePath();
+        ctx.fillStyle = '#E2E8F0';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+        ctx.lineWidth = 1.0;
+        ctx.stroke();
+
+        // Folded fingers (Middle, Ring, Pinky)
+        for (let i = 0; i < 3; i++) {
+          const yOff = 8 + i * 8;
+          ctx.beginPath();
+          ctx.ellipse(6, yOff, 6, 4.2, 0.2, 0, Math.PI * 2);
+          ctx.fillStyle = i === 0 ? '#F1F5F9' : (i === 1 ? '#E2E8F0' : '#CBD5E1');
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+          ctx.lineWidth = 0.9;
+          ctx.stroke();
+        }
+
+        // Subtle clean outer outline
+        ctx.beginPath();
+        ctx.moveTo(-4.0, -26);
+        ctx.quadraticCurveTo(-4.0, -32, 0, -32);
+        ctx.quadraticCurveTo(4.0, -32, 4.0, -26);
+        ctx.lineTo(4.5, 6);
+        ctx.lineTo(12, 8);
+        ctx.quadraticCurveTo(16, 18, 14, 36);
+        ctx.lineTo(-7, 36);
+        ctx.lineTo(-10, 18);
+        ctx.quadraticCurveTo(-14, 8, -6, 2);
+        ctx.lineTo(-4.5, 6);
+        ctx.lineTo(-4.0, -26);
+        ctx.strokeStyle = 'rgba(71, 85, 105, 0.35)';
+        ctx.lineWidth = 1.2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+
+        ctx.restore();
+      },
+
+      glyphHand(ctx, cx, cy, size) {
+        this.drawTutorialHand(ctx, cx, cy, size / 28, 0);
       },
 
       glyphChevron(ctx, cx, cy, r, color) {
@@ -3184,18 +3296,17 @@
           else Art.glyphCross(ctx, bolt.x, cy, r, THEME.bad);
         }
 
-        // Level 1: pointing finger that bobs toward the next tap.
+        // Level 1: beautiful 3D tutorial pointing hand that points directly at the target nut/bolt with realistic tap dynamics
         if (this.cfg && this.cfg.level === 1 && this.state === 'PLAYING') {
           const target = this.tutorTarget();
           if (target !== null && this.bolts[target]) {
             const bolt = this.bolts[target];
-            const bob = Math.sin(this.handPulse * 2.1) * bolt.ry * 0.6;
-            ctx.save();
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-            ctx.shadowBlur = 10;
-            ctx.shadowOffsetY = 5;
-            Art.glyphHand(ctx, bolt.x + bolt.rx * 0.42, bolt.baseY + bolt.ry * 3.4 + bob, bolt.rx * 1.2);
-            ctx.restore();
+            const targetY = (bolt.nuts.length > 0)
+              ? bolt.nutSlotY(bolt.nuts.length - 1)
+              : bolt.shaftTopY + bolt.band * 1.2;
+            const targetX = bolt.x;
+            const scale = clamp(bolt.rx / 24, 0.9, 1.45);
+            Art.drawTutorialHand(ctx, targetX, targetY, scale, this.handPulse);
           }
         }
 
