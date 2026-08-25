@@ -48,7 +48,7 @@
   <script>
     'use strict';
 
-    // 1. THEME & PALETTE
+    // 1. THEME & PALETTE (Modern Editorial Light Theme)
     const THEME = {
       bgTop: '#F8FAFC',
       bgBottom: '#EEF2F6',
@@ -77,14 +77,16 @@
       btnActiveText: '#4F46E5',
       accentGreen: '#10B981',
       accentYellow: '#F59E0B',
-      accentPurple: '#8B5CF6'
+      accentPurple: '#8B5CF6',
+      accentRed: '#EF4444'
     };
 
+    // Rebalanced enjoyable clues: Easy has 60 clues, Medium 50, Hard 40, Expert 32
     const DIFFICULTIES = [
-      { id: 'easy', label: 'EASY', clues: 40, coins: 25, color: '#10B981' },
-      { id: 'medium', label: 'MEDIUM', clues: 32, coins: 50, color: '#3B82F6' },
-      { id: 'hard', label: 'HARD', clues: 28, coins: 75, color: '#F59E0B' },
-      { id: 'expert', label: 'EXPERT', clues: 24, coins: 100, color: '#EF4444' }
+      { id: 'easy', label: 'EASY', clues: 60, coins: 25, color: '#10B981', subtitle: 'Relaxed & Fun' },
+      { id: 'medium', label: 'MEDIUM', clues: 50, coins: 50, color: '#3B82F6', subtitle: 'Balanced Logic' },
+      { id: 'hard', label: 'HARD', clues: 40, coins: 75, color: '#F59E0B', subtitle: 'Deep Thinking' },
+      { id: 'expert', label: 'EXPERT', clues: 32, coins: 100, color: '#EF4444', subtitle: 'Master Challenge' }
     ];
 
     // 2. SOUND SYNTHESIZER
@@ -554,6 +556,8 @@
         this.lastTime = performance.now();
         this.shakeTimer = 0;
         this.errorCell = null;
+        this.toast = null;
+        this.keyPressTimer = Array(10).fill(0);
 
         this.SAVE_KEY = 'sudoku_pro_saved_game_v1';
         this.STATS_KEY = 'sudoku_pro_stats_v1';
@@ -662,9 +666,9 @@
         this.boardSize = Math.floor(maxBoardSize);
         this.cellSize = this.boardSize / 9;
         this.boardX = Math.round((this.width - this.boardSize) / 2);
-        this.boardY = Math.round(this.height * 0.16);
+        this.boardY = Math.round(this.height * 0.15);
 
-        this.headerY = Math.max(16, this.boardY - 60);
+        this.headerY = Math.max(16, this.boardY - 56);
         this.toolbarY = this.boardY + this.boardSize + 14;
         this.keypadY = this.toolbarY + 54;
       }
@@ -731,14 +735,14 @@
         }
 
         if (this.state === 'DIFF_SELECT') {
-          const cardW = Math.min(320, this.width - 40);
-          const cardH = 280;
+          const cardW = Math.min(330, this.width - 40);
+          const cardH = 320;
           const cardX = (this.width - cardW) / 2;
           const cardY = (this.height - cardH) / 2;
 
           DIFFICULTIES.forEach((d, i) => {
-            const by = cardY + 60 + i * 50;
-            if (px >= cardX + 20 && px <= cardX + cardW - 20 && py >= by && py <= by + 42) {
+            const by = cardY + 68 + i * 54;
+            if (px >= cardX + 16 && px <= cardX + cardW - 16 && py >= by && py <= by + 46) {
               this.synth.playButton();
               this.startNewGame(d.id);
             }
@@ -768,25 +772,27 @@
           return;
         }
 
-        if (py >= this.headerY - 10 && py <= this.headerY + 36) {
-          if (px >= 16 && px <= 110) {
+        // Header Buttons: Difficulty selector, Pause, Sound
+        if (py >= this.headerY - 8 && py <= this.headerY + 38) {
+          if (px >= 12 && px <= 112) {
             this.synth.playButton();
             this.state = 'DIFF_SELECT';
             return;
           }
-          if (px >= this.width - 85 && px <= this.width - 50) {
+          if (px >= this.width - 82 && px <= this.width - 48) {
             this.synth.playButton();
             this.state = 'PAUSED';
             this.isPaused = true;
             return;
           }
-          if (px >= this.width - 46 && px <= this.width - 12) {
+          if (px >= this.width - 44 && px <= this.width - 10) {
             this.synth.muted = !this.synth.muted;
             this.synth.playButton();
             return;
           }
         }
 
+        // Board Cell Selection
         if (px >= this.boardX && px <= this.boardX + this.boardSize &&
             py >= this.boardY && py <= this.boardY + this.boardSize) {
           const c = Math.floor((px - this.boardX) / this.cellSize);
@@ -798,6 +804,7 @@
           return;
         }
 
+        // Toolbar Buttons (Undo, Erase, Pencil, Hint)
         const toolW = Math.min(68, (this.width - 32) / 4);
         const toolGap = (this.width - 32 - toolW * 4) / 3;
         for (let i = 0; i < 4; i++) {
@@ -811,11 +818,13 @@
           }
         }
 
+        // Keypad Buttons (1 to 9)
         const keyW = Math.min(38, (this.width - 24) / 9);
         const keyGap = (this.width - 24 - keyW * 9) / 8;
         for (let num = 1; num <= 9; num++) {
           const kx = 12 + (num - 1) * (keyW + keyGap);
           if (px >= kx && px <= kx + keyW && py >= this.keypadY && py <= this.keypadY + 54) {
+            this.keyPressTimer[num] = 0.12;
             this.handleInputNumber(num);
             return;
           }
@@ -969,10 +978,17 @@
 
       handleHint() {
         if (this.state !== 'PLAYING') return;
+        if (this.remainingHints <= 0) {
+          this.synth.playError();
+          this.toast = { text: 'No hints remaining!', t: 1.5, max: 1.5 };
+          return;
+        }
         const currentGrid = this.createCombinedGrid();
         const hint = SudokuCore.findHint(currentGrid, this.solution, this.pencils);
         if (!hint) return;
 
+        // Decrement hints count strictly
+        this.remainingHints--;
         this.activeHint = hint;
         this.selected = { r: hint.r, c: hint.c };
 
@@ -1066,6 +1082,13 @@
         }
 
         if (this.shakeTimer > 0) this.shakeTimer = Math.max(0, this.shakeTimer - dt);
+        if (this.toast) {
+          this.toast.t -= dt;
+          if (this.toast.t <= 0) this.toast = null;
+        }
+        for (let n = 1; n <= 9; n++) {
+          if (this.keyPressTimer[n] > 0) this.keyPressTimer[n] = Math.max(0, this.keyPressTimer[n] - dt);
+        }
 
         this.particles.update(dt);
         this.render();
@@ -1091,6 +1114,7 @@
         this.renderKeypad(ctx);
         this.particles.render(ctx);
 
+        if (this.toast) this.renderToast(ctx);
         if (this.activeHint) this.renderHintOverlay(ctx);
         if (this.state === 'PAUSED') this.renderPauseModal(ctx);
         if (this.state === 'DIFF_SELECT') this.renderDiffModal(ctx);
@@ -1100,60 +1124,151 @@
         ctx.restore();
       }
 
+      drawHeart(ctx, cx, cy, size, filled) {
+        ctx.save();
+        ctx.beginPath();
+        const topCurveHeight = size * 0.3;
+        ctx.moveTo(cx, cy + size * 0.25);
+        // Left curve
+        ctx.bezierCurveTo(cx - size * 0.55, cy - size * 0.25, cx - size * 0.55, cy - size * 0.7, cx, cy - size * 0.35);
+        // Right curve
+        ctx.bezierCurveTo(cx + size * 0.55, cy - size * 0.7, cx + size * 0.55, cy - size * 0.25, cx, cy + size * 0.25);
+        ctx.closePath();
+
+        if (filled) {
+          const hg = ctx.createLinearGradient(cx - size, cy - size, cx + size, cy + size);
+          hg.addColorStop(0, '#FF4B6E');
+          hg.addColorStop(1, '#DC2626');
+          ctx.fillStyle = hg;
+          ctx.fill();
+
+          // Cute specular glossy shine dot
+          ctx.beginPath();
+          ctx.arc(cx - size * 0.22, cy - size * 0.25, size * 0.12, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+          ctx.fill();
+        } else {
+          ctx.fillStyle = '#F1F5F9';
+          ctx.fill();
+          ctx.strokeStyle = '#CBD5E1';
+          ctx.lineWidth = 1.6;
+          ctx.stroke();
+
+          // Small crack/cross line inside empty heart
+          ctx.beginPath();
+          ctx.moveTo(cx - size * 0.18, cy - size * 0.2);
+          ctx.lineTo(cx + size * 0.18, cy + size * 0.1);
+          ctx.strokeStyle = '#94A3B8';
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
       renderHeader(ctx) {
         const y = this.headerY;
         const diffObj = DIFFICULTIES.find(d => d.id === this.difficulty) || DIFFICULTIES[0];
 
+        // 1. Difficulty Pill Dropdown Button (Left)
+        ctx.save();
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.06)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 3;
         ctx.beginPath();
-        ctx.roundRect(16, y, 92, 32, 16);
+        ctx.roundRect(12, y, 100, 34, 17);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
-        ctx.strokeStyle = THEME.cardBorder;
+        ctx.strokeStyle = '#E2E8F0';
         ctx.lineWidth = 1.2;
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.arc(30, y + 16, 4, 0, Math.PI * 2);
+        ctx.arc(28, y + 17, 4.5, 0, Math.PI * 2);
         ctx.fillStyle = diffObj.color;
         ctx.fill();
 
-        ctx.font = '800 12px Inter, sans-serif';
-        ctx.fillStyle = '#334155';
+        ctx.font = '800 12px Fredoka, Inter, sans-serif';
+        ctx.fillStyle = '#1E293B';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(diffObj.label, 40, y + 16);
+        ctx.fillText(diffObj.label + ' ▼', 38, y + 17);
+        ctx.restore();
 
-        ctx.font = '700 13px Inter, sans-serif';
-        ctx.fillStyle = this.mistakes > 0 ? '#DC2626' : '#64748B';
-        ctx.textAlign = 'center';
-        ctx.fillText('Mistakes: ' + this.mistakes + '/' + this.maxMistakes, this.width * 0.48, y + 16);
-
-        ctx.font = '800 14px Inter, monospace';
-        ctx.fillStyle = '#1E293B';
-        ctx.textAlign = 'right';
-        ctx.fillText(this.formatTime(this.timer), this.width - 92, y + 16);
-
+        // 2. Center 3 Hearts Pill (Mistakes: 3 Lives)
+        const heartsPillW = 86;
+        const heartsPillX = (this.width - heartsPillW) / 2;
+        ctx.save();
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.06)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 3;
         ctx.beginPath();
-        ctx.roundRect(this.width - 82, y, 32, 32, 10);
+        ctx.roundRect(heartsPillX, y, heartsPillW, 34, 17);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
-        ctx.strokeStyle = THEME.cardBorder;
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        const remainingHearts = Math.max(0, 3 - this.mistakes);
+        for (let i = 0; i < 3; i++) {
+          const hx = heartsPillX + 18 + i * 25;
+          const hy = y + 17;
+          const isFilled = i < remainingHearts;
+          this.drawHeart(ctx, hx, hy, 16, isFilled);
+        }
+        ctx.restore();
+
+        // 3. Timer & Controls Pill (Right)
+        const timerPillW = 76;
+        const timerPillX = this.width - timerPillW - 74;
+        ctx.save();
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.06)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 3;
+        ctx.beginPath();
+        ctx.roundRect(timerPillX, y, timerPillW, 34, 17);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '800 13px Inter, monospace';
+        ctx.fillStyle = '#0F172A';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.formatTime(this.timer), timerPillX + timerPillW / 2, y + 17);
+        ctx.restore();
+
+        // 4. Pause Button
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(this.width - 70, y, 32, 34, 12);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.strokeStyle = '#E2E8F0';
         ctx.lineWidth = 1.2;
         ctx.stroke();
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('⏸', this.width - 66, y + 16);
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⏸', this.width - 54, y + 17);
+        ctx.restore();
 
+        // 5. Sound Button
+        ctx.save();
         ctx.beginPath();
-        ctx.roundRect(this.width - 44, y, 32, 32, 10);
+        ctx.roundRect(this.width - 34, y, 32, 34, 12);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
-        ctx.strokeStyle = THEME.cardBorder;
+        ctx.strokeStyle = '#E2E8F0';
         ctx.lineWidth = 1.2;
         ctx.stroke();
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(this.synth.muted ? '🔇' : '🔊', this.width - 28, y + 16);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.synth.muted ? '🔇' : '🔊', this.width - 18, y + 17);
+        ctx.restore();
       }
 
       renderBoard(ctx) {
@@ -1308,6 +1423,12 @@
 
         tools.forEach((t, i) => {
           const x = 16 + i * (toolW + toolGap);
+
+          ctx.save();
+          ctx.shadowColor = 'rgba(15, 23, 42, 0.05)';
+          ctx.shadowBlur = 8;
+          ctx.shadowOffsetY = 2;
+
           ctx.beginPath();
           ctx.roundRect(x, y, toolW, 44, 12);
           ctx.fillStyle = t.active ? THEME.btnActiveBg : THEME.btnDefaultBg;
@@ -1315,6 +1436,7 @@
           ctx.strokeStyle = t.active ? THEME.btnActiveBorder : THEME.btnDefaultBorder;
           ctx.lineWidth = 1.4;
           ctx.stroke();
+          ctx.restore();
 
           ctx.font = '16px sans-serif';
           ctx.textAlign = 'center';
@@ -1327,8 +1449,8 @@
 
           if (t.badge !== undefined) {
             ctx.beginPath();
-            ctx.arc(x + toolW - 8, y + 8, 7, 0, Math.PI * 2);
-            ctx.fillStyle = THEME.accentYellow;
+            ctx.arc(x + toolW - 8, y + 8, 7.5, 0, Math.PI * 2);
+            ctx.fillStyle = t.badge > 0 ? THEME.accentYellow : '#94A3B8';
             ctx.fill();
             ctx.font = '800 9px Inter, sans-serif';
             ctx.fillStyle = '#FFFFFF';
@@ -1346,25 +1468,74 @@
         for (let num = 1; num <= 9; num++) {
           const x = 12 + (num - 1) * (keyW + keyGap);
           const isDone = remaining[num] === 0;
+          const isPressed = this.keyPressTimer[num] > 0;
+          const dy = isPressed ? 2 : 0;
 
+          // 3D tactile keycap
+          ctx.save();
+          if (!isDone) {
+            // Bottom 3D shadow lip
+            ctx.beginPath();
+            ctx.roundRect(x, y + 3, keyW, 52, 12);
+            ctx.fillStyle = '#CBD5E1';
+            ctx.fill();
+          }
+
+          // Main top keycap face
           ctx.beginPath();
-          ctx.roundRect(x, y, keyW, 52, 12);
+          ctx.roundRect(x, y + dy, keyW, 52, 12);
           ctx.fillStyle = isDone ? '#F1F5F9' : '#FFFFFF';
           ctx.fill();
-          ctx.strokeStyle = isDone ? '#E2E8F0' : '#CBD5E1';
+          ctx.strokeStyle = isDone ? '#E2E8F0' : '#E2E8F0';
           ctx.lineWidth = 1.2;
           ctx.stroke();
 
-          ctx.font = '800 20px Fredoka, Inter, sans-serif';
-          ctx.fillStyle = isDone ? '#94A3B8' : '#1E293B';
+          // Main Number Digit
+          ctx.font = '800 21px Fredoka, Inter, sans-serif';
+          ctx.fillStyle = isDone ? '#94A3B8' : '#0F172A';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(num.toString(), x + keyW / 2, y + 20);
+          ctx.fillText(num.toString(), x + keyW / 2, y + 20 + dy);
 
-          ctx.font = '700 10px Inter, sans-serif';
-          ctx.fillStyle = isDone ? '#CBD5E1' : '#64748B';
-          ctx.fillText(remaining[num].toString(), x + keyW / 2, y + 39);
+          // Bottom pill badge: remaining count or success checkmark
+          if (isDone) {
+            ctx.beginPath();
+            ctx.arc(x + keyW / 2, y + 39 + dy, 6, 0, Math.PI * 2);
+            ctx.fillStyle = '#10B981';
+            ctx.fill();
+            ctx.font = '800 9px sans-serif';
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText('✓', x + keyW / 2, y + 39 + dy);
+          } else {
+            ctx.font = '700 10px Inter, sans-serif';
+            ctx.fillStyle = '#3B82F6';
+            ctx.fillText(remaining[num].toString(), x + keyW / 2, y + 39 + dy);
+          }
+          ctx.restore();
         }
+      }
+
+      renderToast(ctx) {
+        const t = this.toast;
+        if (!t) return;
+        const tw = Math.min(260, this.width - 40);
+        const tx = (this.width - tw) / 2;
+        const ty = this.toolbarY - 50;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.12)';
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetY = 4;
+        ctx.beginPath();
+        ctx.roundRect(tx, ty, tw, 36, 18);
+        ctx.fillStyle = '#1E293B';
+        ctx.fill();
+        ctx.font = '700 12px Inter, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(t.text, tx + tw / 2, ty + 18);
+        ctx.restore();
       }
 
       renderHintOverlay(ctx) {
@@ -1373,7 +1544,7 @@
 
         const cardW = Math.min(320, this.width - 32);
         const cardX = (this.width - cardW) / 2;
-        const cardY = this.toolbarY - 110;
+        const cardY = this.toolbarY - 100;
 
         ctx.save();
         ctx.shadowColor = 'rgba(15, 23, 42, 0.14)';
@@ -1381,7 +1552,7 @@
         ctx.shadowOffsetY = 6;
 
         ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, 95, 16);
+        ctx.roundRect(cardX, cardY, cardW, 88, 16);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
         ctx.strokeStyle = '#F59E0B';
@@ -1389,19 +1560,19 @@
         ctx.stroke();
         ctx.restore();
 
-        ctx.font = '800 14px Inter, sans-serif';
+        ctx.font = '800 13px Inter, sans-serif';
         ctx.fillStyle = '#D97706';
         ctx.textAlign = 'left';
-        ctx.fillText('💡 SMART HINT', cardX + 16, cardY + 24);
+        ctx.fillText('💡 SMART HINT APPLIED', cardX + 16, cardY + 22);
 
         ctx.font = '600 12px Inter, sans-serif';
         ctx.fillStyle = '#334155';
-        this.wrapText(ctx, h.reason, cardX + 16, cardY + 46, cardW - 32, 16);
+        this.wrapText(ctx, h.reason, cardX + 16, cardY + 42, cardW - 32, 16);
 
-        ctx.font = '700 11px Inter, sans-serif';
+        ctx.font = '700 10px Inter, sans-serif';
         ctx.fillStyle = '#64748B';
         ctx.textAlign = 'right';
-        ctx.fillText('Tap anywhere to continue ▶', cardX + cardW - 16, cardY + 84);
+        ctx.fillText('Tap anywhere to continue ▶', cardX + cardW - 16, cardY + 76);
       }
 
       wrapText(ctx, text, x, y, maxWidth, lineHeight) {
@@ -1426,45 +1597,54 @@
         ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const cardW = Math.min(320, this.width - 40);
-        const cardH = 290;
+        const cardW = Math.min(330, this.width - 40);
+        const cardH = 320;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
+        ctx.save();
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.25)';
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 8;
         ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 20);
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
+        ctx.restore();
 
-        ctx.font = '800 18px Fredoka, Inter, sans-serif';
+        ctx.font = '900 19px Fredoka, Inter, sans-serif';
         ctx.fillStyle = '#0F172A';
         ctx.textAlign = 'center';
-        ctx.fillText('SELECT DIFFICULTY', this.width / 2, cardY + 36);
+        ctx.fillText('SELECT DIFFICULTY', this.width / 2, cardY + 38);
 
         DIFFICULTIES.forEach((d, i) => {
-          const by = cardY + 60 + i * 50;
+          const by = cardY + 62 + i * 58;
           ctx.beginPath();
-          ctx.roundRect(cardX + 20, by, cardW - 40, 42, 12);
+          ctx.roundRect(cardX + 16, by, cardW - 32, 48, 14);
           ctx.fillStyle = d.id === this.difficulty ? '#EEF2FF' : '#F8FAFC';
           ctx.fill();
           ctx.strokeStyle = d.id === this.difficulty ? '#6366F1' : '#E2E8F0';
-          ctx.lineWidth = 1.4;
+          ctx.lineWidth = 1.5;
           ctx.stroke();
 
           ctx.beginPath();
-          ctx.arc(cardX + 42, by + 21, 5, 0, Math.PI * 2);
+          ctx.arc(cardX + 38, by + 24, 6, 0, Math.PI * 2);
           ctx.fillStyle = d.color;
           ctx.fill();
 
-          ctx.font = '800 14px Inter, sans-serif';
-          ctx.fillStyle = '#1E293B';
+          ctx.font = '800 15px Fredoka, Inter, sans-serif';
+          ctx.fillStyle = '#0F172A';
           ctx.textAlign = 'left';
-          ctx.fillText(d.label, cardX + 58, by + 21);
+          ctx.fillText(d.label, cardX + 54, by + 18);
 
-          ctx.font = '700 12px Inter, sans-serif';
+          ctx.font = '600 11px Inter, sans-serif';
           ctx.fillStyle = '#64748B';
+          ctx.fillText(d.subtitle, cardX + 54, by + 34);
+
+          ctx.font = '800 12px Inter, sans-serif';
+          ctx.fillStyle = d.color;
           ctx.textAlign = 'right';
-          ctx.fillText(d.clues + ' clues', cardX + cardW - 36, by + 21);
+          ctx.fillText(d.clues + ' clues', cardX + cardW - 32, by + 24);
         });
       }
 
@@ -1574,7 +1754,7 @@
         ctx.font = '900 22px Fredoka, Inter, sans-serif';
         ctx.fillStyle = '#DC2626';
         ctx.textAlign = 'center';
-        ctx.fillText('3 MISTAKES REACHED', this.width / 2, cardY + 48);
+        ctx.fillText('ALL LIVES LOST', this.width / 2, cardY + 48);
 
         ctx.font = '600 14px Inter, sans-serif';
         ctx.fillStyle = '#64748B';
