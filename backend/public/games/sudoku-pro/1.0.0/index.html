@@ -76,7 +76,7 @@
       accentPurple: '#8B5CF6'
     };
 
-    // 4 Difficulty tiers with elegant badges matching our theme
+    // 4 Difficulty tiers with elegant vector emblems
     const DIFFICULTIES = [
       { id: 'easy', label: 'EASY', clues: 60, coins: 25, color: '#22C55E', emblem: 'leaf', subtitle: 'Relaxed & Fun' },
       { id: 'medium', label: 'MEDIUM', clues: 50, coins: 50, color: '#F59E0B', emblem: 'spark', subtitle: 'Balanced Logic' },
@@ -190,18 +190,18 @@
         if (this.muted || !this.ctx) return;
         this.init();
         const t = this.ctx.currentTime;
-        const chord = [523.25, 659.25, 783.99, 1046.50];
+        const chord = [440.00, 554.37, 659.25, 880.00, 1108.73];
         chord.forEach((freq, i) => {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, t + i * 0.06);
-          gain.gain.setValueAtTime(0.18, t + i * 0.06);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.06 + 0.65);
+          osc.frequency.setValueAtTime(freq, t + i * 0.05);
+          gain.gain.setValueAtTime(0.18, t + i * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.05 + 0.70);
           osc.connect(gain);
           gain.connect(this.ctx.destination);
-          osc.start(t + i * 0.06);
-          osc.stop(t + i * 0.06 + 0.66);
+          osc.start(t + i * 0.05);
+          osc.stop(t + i * 0.05 + 0.71);
         });
       }
 
@@ -396,26 +396,26 @@
       }
     }
 
-    // 4. PARTICLE SYSTEM (Graceful slower floating stars)
+    // 4. PARTICLE SYSTEM (Floating celebration sparkles)
     class ParticleSystem {
       constructor() { this.items = []; }
       clear() { this.items = []; }
 
       addBlockBurst(x, y, w, h) {
-        const colors = ['#06B6D4', '#38BDF8', '#22D3EE', '#F59E0B', '#22C55E', '#67E8F9', '#A5F3FC'];
-        for (let i = 0; i < 18; i++) {
+        const colors = ['#3B82F6', '#60A5FA', '#93C5FD', '#2563EB', '#F59E0B', '#38BDF8'];
+        for (let i = 0; i < 20; i++) {
           const px = x + Math.random() * w;
           const py = y + Math.random() * h;
           const a = Math.random() * Math.PI * 2;
-          const speed = 14 + Math.random() * 22;
+          const speed = 14 + Math.random() * 24;
           this.items.push({
             type: 'STAR',
             x: px, y: py,
             vx: Math.cos(a) * speed,
-            vy: Math.sin(a) * speed - 10,
+            vy: Math.sin(a) * speed - 12,
             size: 4 + Math.random() * 4.5,
             rot: Math.random() * Math.PI * 2,
-            vRot: (Math.random() - 0.5) * 2.2,
+            vRot: (Math.random() - 0.5) * 2.5,
             life: 1.1 + Math.random() * 0.45,
             maxLife: 1.55,
             color: colors[Math.floor(Math.random() * colors.length)]
@@ -424,7 +424,7 @@
       }
 
       addVictoryConfetti(w, h) {
-        const colors = ['#3B82F6', '#22C55E', '#F59E0B', '#06B6D4', '#8B5CF6', '#EC4899'];
+        const colors = ['#3B82F6', '#22C55E', '#F59E0B', '#60A5FA', '#8B5CF6', '#EC4899'];
         for (let i = 0; i < 64; i++) {
           this.items.push({
             type: 'CONFETTI',
@@ -521,7 +521,7 @@
 
         this.selected = null;
         this.isPaused = false;
-        this.state = 'DIFF_SELECT'; // Starts on the clean difficulty dialog
+        this.state = 'DIFF_SELECT';
 
         this.mistakes = 0;
         this.maxMistakes = 3;
@@ -534,15 +534,15 @@
         this.maxTutorialSlides = 5;
         this.tutorialAnimT = 0;
 
-        this.sweeps = [];
+        this.sweeps = []; // Continuous luminous blue line animations
         this.lastTime = performance.now();
         this.shakeTimer = 0;
         this.errorCell = null;
         this.toast = null;
         this.keyPressTimer = Array(10).fill(0);
 
-        this.SAVE_KEY = 'sudoku_pro_saved_game_v4';
-        this.STATS_KEY = 'sudoku_pro_stats_v4';
+        this.SAVE_KEY = 'sudoku_pro_saved_game_v5';
+        this.STATS_KEY = 'sudoku_pro_stats_v5';
 
         this.stats = this.loadStats();
         this.initLayout();
@@ -551,7 +551,6 @@
         if (this.loadGame()) {
           this.state = 'PLAYING';
         } else {
-          // Generate a background puzzle so the board underneath the dialog looks great
           const sample = SudokuCore.generatePuzzle('easy');
           this.given = sample.puzzle;
           this.solution = sample.solution;
@@ -662,7 +661,7 @@
         this.keypadY = this.toolbarY + 54;
       }
 
-      // Compact floating difficulty dialog bounds
+      // Compact floating dialog bounds with exact slider knob geometry
       getDifficultyDialogBounds() {
         const cardW = Math.min(320, this.width - 36);
         const cardH = 370;
@@ -672,7 +671,8 @@
         const trackW = cardW - 56;
         const trackX = cardX + 28;
         const trackY = cardY + 225;
-        const trackH = 28;
+        const trackH = 26;
+        const knobR = 14;
 
         const playW = cardW - 100;
         const playH = 48;
@@ -683,7 +683,7 @@
         const qX = playX + playW + 12;
         const qY = playY;
 
-        return { cardX, cardY, cardW, cardH, trackX, trackY, trackW, trackH, playX, playY, playW, playH, qX, qY, qSize };
+        return { cardX, cardY, cardW, cardH, trackX, trackY, trackW, trackH, knobR, playX, playY, playW, playH, qX, qY, qSize };
       }
 
       bindEvents() {
@@ -702,10 +702,11 @@
           const { px, py } = getPos(e);
 
           if (this.state === 'DIFF_SELECT') {
-            const { trackX, trackW, trackY, trackH } = this.getDifficultyDialogBounds();
-            if (py >= trackY - 18 && py <= trackY + trackH + 18 && px >= trackX - 20 && px <= trackX + trackW + 20) {
+            const { trackX, trackW, trackY, trackH, knobR } = this.getDifficultyDialogBounds();
+            if (py >= trackY - 18 && py <= trackY + trackH + 18 && px >= trackX - 10 && px <= trackX + trackW + 10) {
               this.isDraggingSlider = true;
-              const ratio = Math.max(0, Math.min(1, (px - trackX) / trackW));
+              const usableW = trackW - 2 * knobR;
+              const ratio = Math.max(0, Math.min(1, (px - (trackX + knobR)) / usableW));
               this.sliderPos = ratio * 3;
               return;
             }
@@ -718,8 +719,9 @@
           if (!this.isDraggingSlider || this.state !== 'DIFF_SELECT') return;
           e.preventDefault();
           const { px } = getPos(e);
-          const { trackX, trackW } = this.getDifficultyDialogBounds();
-          const ratio = Math.max(0, Math.min(1, (px - trackX) / trackW));
+          const { trackX, trackW, knobR } = this.getDifficultyDialogBounds();
+          const usableW = trackW - 2 * knobR;
+          const ratio = Math.max(0, Math.min(1, (px - (trackX + knobR)) / usableW));
           this.sliderPos = ratio * 3;
         };
 
@@ -815,14 +817,12 @@
 
           const btnY = modalY + modalH - 58;
 
-          // Prev Button
           if (px >= modalX + 16 && px <= modalX + 64 && py >= btnY && py <= btnY + 44) {
             this.tutorialSlide = Math.max(0, this.tutorialSlide - 1);
             this.synth.playButton();
             return;
           }
 
-          // OK / Close Button
           const okW = modalW - 144;
           const okX = modalX + 72;
           if (px >= okX && px <= okX + okW && py >= btnY && py <= btnY + 44) {
@@ -831,7 +831,6 @@
             return;
           }
 
-          // Next Button
           const nextX = modalX + modalW - 64;
           if (px >= nextX && px <= nextX + 48 && py >= btnY && py <= btnY + 44) {
             if (this.tutorialSlide < this.maxTutorialSlides - 1) {
@@ -844,7 +843,6 @@
             return;
           }
 
-          // Pagination Dots Click
           const dotY = btnY - 20;
           for (let i = 0; i < this.maxTutorialSlides; i++) {
             const dx = this.width / 2 + (i - (this.maxTutorialSlides - 1) / 2) * 22;
@@ -863,8 +861,9 @@
 
           // Slider Track tap
           if (py >= bounds.trackY - 18 && py <= bounds.trackY + bounds.trackH + 18 &&
-              px >= bounds.trackX - 16 && px <= bounds.trackX + bounds.trackW + 16) {
-            const ratio = Math.max(0, Math.min(1, (px - bounds.trackX) / bounds.trackW));
+              px >= bounds.trackX - 10 && px <= bounds.trackX + bounds.trackW + 10) {
+            const usableW = bounds.trackW - 2 * bounds.knobR;
+            const ratio = Math.max(0, Math.min(1, (px - (bounds.trackX + bounds.knobR)) / usableW));
             const nearest = Math.round(ratio * 3);
             this.sliderPos = nearest;
             this.difficulty = DIFFICULTIES[nearest].id;
@@ -1022,31 +1021,31 @@
       }
 
       checkCompletions(r, c) {
-        // 1. Check Row Completion (3-cell wide cyan laser sweep)
+        // 1. Check Row Completion (Luminous electric blue line animation)
         let rowDone = true;
         for (let i = 0; i < 9; i++) {
           const val = this.given[r][i] || this.user[r][i];
           if (val !== this.solution[r][i]) { rowDone = false; break; }
         }
         if (rowDone) {
-          this.sweeps.push({ type: 'row', index: r, t: 0, maxT: 1.35 });
+          this.sweeps.push({ type: 'row', index: r, t: 0, maxT: 1.4 });
           this.particles.addBlockBurst(this.boardX, this.boardY + r * this.cellSize, this.boardSize, this.cellSize);
           this.synth.playBlockComplete();
         }
 
-        // 2. Check Column Completion (3-cell wide cyan laser sweep)
+        // 2. Check Column Completion (Luminous electric blue line animation)
         let colDone = true;
         for (let i = 0; i < 9; i++) {
           const val = this.given[i][c] || this.user[i][c];
           if (val !== this.solution[i][c]) { colDone = false; break; }
         }
         if (colDone) {
-          this.sweeps.push({ type: 'col', index: c, t: 0, maxT: 1.35 });
+          this.sweeps.push({ type: 'col', index: c, t: 0, maxT: 1.4 });
           this.particles.addBlockBurst(this.boardX + c * this.cellSize, this.boardY, this.cellSize, this.boardSize);
           this.synth.playBlockComplete();
         }
 
-        // 3. Check 3x3 Box Completion (3x3 major block cyan wave)
+        // 3. Check 3x3 Box Completion
         const br = Math.floor(r / 3) * 3;
         const bc = Math.floor(c / 3) * 3;
         let boxDone = true;
@@ -1058,7 +1057,7 @@
         }
         if (boxDone) {
           const boxIdx = Math.floor(r / 3) * 3 + Math.floor(c / 3);
-          this.sweeps.push({ type: 'box', index: boxIdx, br, bc, t: 0, maxT: 1.35 });
+          this.sweeps.push({ type: 'box', index: boxIdx, br, bc, t: 0, maxT: 1.4 });
           this.particles.addBlockBurst(this.boardX + bc * this.cellSize, this.boardY + br * this.cellSize, this.cellSize * 3, this.cellSize * 3);
           this.synth.playBlockComplete();
         }
@@ -1284,7 +1283,7 @@
         ctx.restore();
       }
 
-      // Elegant Theme-Matching Emblems (Zen Leaf, Spark Energy, Ruby Diamond, Royal Crown)
+      // Elegant Vector Emblems
       drawEmblem(ctx, cx, cy, type, color) {
         ctx.save();
         ctx.translate(cx, cy);
@@ -1309,7 +1308,7 @@
           ctx.stroke();
 
         } else if (type === 'spark') {
-          // 🟡 Medium: Radiant Energy Spark / Lightning
+          // 🟡 Medium: Radiant Energy Spark
           ctx.fillStyle = color;
           ctx.beginPath();
           ctx.moveTo(2, -18);
@@ -1359,7 +1358,6 @@
           ctx.closePath();
           ctx.fill();
 
-          // Crown jewel dots
           ctx.fillStyle = '#FFFFFF';
           ctx.beginPath();
           ctx.arc(-18, -10, 2.5, 0, Math.PI * 2);
@@ -1538,67 +1536,103 @@
           }
         }
 
-        // FULL-SPAN THICK 3-CELL WIDE CYAN LASER SWEEPS
+        // CONTINUOUS LUMINOUS ELECTRIC BLUE LINE SWEEPS (Full Row / Col Draw & Shimmer)
         for (const sweep of this.sweeps) {
           const progress = sweep.t / sweep.maxT;
-          const alpha = Math.sin(progress * Math.PI) * 0.94;
           ctx.save();
 
           if (sweep.type === 'row') {
             const ry = by + sweep.index * cs;
-            const beamW = cs * 3.0;
-            const beamX = bx + (progress * 1.4 - 0.2) * bs;
+            let drawW = bs;
+            let alpha = 1.0;
 
-            const grad = ctx.createLinearGradient(beamX - beamW / 2, ry, beamX + beamW / 2, ry);
-            grad.addColorStop(0, 'rgba(6, 182, 212, 0)');
-            grad.addColorStop(0.25, 'rgba(34, 211, 238, ' + alpha * 0.55 + ')');
-            grad.addColorStop(0.5, 'rgba(165, 243, 252, ' + alpha + ')');
-            grad.addColorStop(0.75, 'rgba(34, 211, 238, ' + alpha * 0.55 + ')');
-            grad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+            if (progress < 0.45) {
+              // Phase 1: Expanding full line from left to right across all 9 blocks
+              const k = progress / 0.45;
+              drawW = k * bs;
+              alpha = 0.90;
+            } else {
+              // Phase 2: Full 9-block line illuminates and fades out smoothly
+              drawW = bs;
+              alpha = Math.max(0, 1.0 - (progress - 0.45) / 0.55);
+            }
+
+            // Glowing electric blue line fill across completed row
+            const grad = ctx.createLinearGradient(bx, ry, bx + drawW, ry);
+            grad.addColorStop(0, 'rgba(37, 99, 235, ' + alpha * 0.75 + ')');
+            grad.addColorStop(0.7, 'rgba(59, 130, 246, ' + alpha * 0.90 + ')');
+            grad.addColorStop(1, 'rgba(147, 197, 253, ' + alpha + ')');
 
             ctx.fillStyle = grad;
-            ctx.fillRect(bx, ry, bs, cs);
+            ctx.fillRect(bx, ry, drawW, cs);
 
-            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.85 + ')';
-            ctx.lineWidth = 3.5;
+            // Radiant center core ray
+            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.95 + ')';
+            ctx.lineWidth = 3.0;
             ctx.beginPath();
-            ctx.moveTo(beamX, ry);
-            ctx.lineTo(beamX, ry + cs);
+            ctx.moveTo(bx, ry + cs / 2);
+            ctx.lineTo(bx + drawW, ry + cs / 2);
             ctx.stroke();
+
+            // Leading tip beam flare during expansion
+            if (progress < 0.45) {
+              ctx.beginPath();
+              ctx.arc(bx + drawW, ry + cs / 2, cs * 0.45, 0, Math.PI * 2);
+              ctx.fillStyle = 'rgba(255, 255, 255, ' + alpha + ')';
+              ctx.fill();
+            }
 
           } else if (sweep.type === 'col') {
             const cx = bx + sweep.index * cs;
-            const beamH = cs * 3.0;
-            const beamY = by + (progress * 1.4 - 0.2) * bs;
+            let drawH = bs;
+            let alpha = 1.0;
 
-            const grad = ctx.createLinearGradient(cx, beamY - beamH / 2, cx, beamY + beamH / 2);
-            grad.addColorStop(0, 'rgba(6, 182, 212, 0)');
-            grad.addColorStop(0.25, 'rgba(34, 211, 238, ' + alpha * 0.55 + ')');
-            grad.addColorStop(0.5, 'rgba(165, 243, 252, ' + alpha + ')');
-            grad.addColorStop(0.75, 'rgba(34, 211, 238, ' + alpha * 0.55 + ')');
-            grad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+            if (progress < 0.45) {
+              // Phase 1: Expanding full line from top to bottom
+              const k = progress / 0.45;
+              drawH = k * bs;
+              alpha = 0.90;
+            } else {
+              // Phase 2: Full 9-block column illuminates and fades out smoothly
+              drawH = bs;
+              alpha = Math.max(0, 1.0 - (progress - 0.45) / 0.55);
+            }
+
+            const grad = ctx.createLinearGradient(cx, by, cx, by + drawH);
+            grad.addColorStop(0, 'rgba(37, 99, 235, ' + alpha * 0.75 + ')');
+            grad.addColorStop(0.7, 'rgba(59, 130, 246, ' + alpha * 0.90 + ')');
+            grad.addColorStop(1, 'rgba(147, 197, 253, ' + alpha + ')');
 
             ctx.fillStyle = grad;
-            ctx.fillRect(cx, by, cs, bs);
+            ctx.fillRect(cx, by, cs, drawH);
 
-            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.85 + ')';
-            ctx.lineWidth = 3.5;
+            // Radiant center core ray
+            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.95 + ')';
+            ctx.lineWidth = 3.0;
             ctx.beginPath();
-            ctx.moveTo(cx, beamY);
-            ctx.lineTo(cx + cs, beamY);
+            ctx.moveTo(cx + cs / 2, by);
+            ctx.lineTo(cx + cs / 2, by + drawH);
             ctx.stroke();
+
+            // Leading tip beam flare during expansion
+            if (progress < 0.45) {
+              ctx.beginPath();
+              ctx.arc(cx + cs / 2, by + drawH, cs * 0.45, 0, Math.PI * 2);
+              ctx.fillStyle = 'rgba(255, 255, 255, ' + alpha + ')';
+              ctx.fill();
+            }
 
           } else if (sweep.type === 'box') {
             const boxX = bx + sweep.bc * cs;
             const boxY = by + sweep.br * cs;
             const boxW = cs * 3.0;
-            const beamOffset = (progress * 1.4 - 0.2) * (boxW * 2);
-            const grad = ctx.createLinearGradient(boxX + beamOffset - boxW, boxY + beamOffset - boxW, boxX + beamOffset, boxY + beamOffset);
-            grad.addColorStop(0, 'rgba(6, 182, 212, 0)');
-            grad.addColorStop(0.4, 'rgba(34, 211, 238, ' + alpha * 0.6 + ')');
-            grad.addColorStop(0.5, 'rgba(165, 243, 252, ' + alpha + ')');
-            grad.addColorStop(0.6, 'rgba(34, 211, 238, ' + alpha * 0.6 + ')');
-            grad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+            const alpha = Math.sin(progress * Math.PI) * 0.88;
+
+            const grad = ctx.createRadialGradient(boxX + boxW / 2, boxY + boxW / 2, 5, boxX + boxW / 2, boxY + boxW / 2, boxW * 0.75);
+            grad.addColorStop(0, 'rgba(255, 255, 255, ' + alpha * 0.9 + ')');
+            grad.addColorStop(0.4, 'rgba(96, 165, 250, ' + alpha * 0.8 + ')');
+            grad.addColorStop(0.8, 'rgba(37, 99, 235, ' + alpha * 0.6 + ')');
+            grad.addColorStop(1, 'rgba(30, 58, 138, 0)');
 
             ctx.fillStyle = grad;
             ctx.fillRect(boxX, boxY, boxW, boxW);
@@ -1796,9 +1830,8 @@
         }
       }
 
-      // --- COMPACT FLOATING DIFFICULTY DIALOG (Theme-Matching UX) -------------
+      // --- COMPACT FLOATING DIFFICULTY DIALOG (With Exact Slider Alignment) ---
       renderDifficultyDialog(ctx) {
-        // Subtle background dim overlay
         ctx.fillStyle = 'rgba(15, 23, 42, 0.60)';
         ctx.fillRect(0, 0, this.width, this.height);
 
@@ -1852,7 +1885,11 @@
         ctx.fillStyle = '#64748B';
         ctx.fillText(d.clues + ' Clues Given • ' + d.subtitle, this.width / 2, bounds.cardY + 185);
 
-        // 5. Rounded Multi-color Slider Track with Knob
+        // 5. Rounded Multi-color Slider Track with Exact Knob Math
+        const usableW = bounds.trackW - 2 * bounds.knobR;
+        const knobX = bounds.trackX + bounds.knobR + (this.sliderPos / 3) * usableW;
+
+        // Outer track border
         ctx.save();
         ctx.shadowColor = 'rgba(15, 23, 42, 0.06)';
         ctx.shadowBlur = 10;
@@ -1863,43 +1900,44 @@
         ctx.fill();
         ctx.restore();
 
+        // Inactive background track
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(bounds.trackX, bounds.trackY, bounds.trackW, bounds.trackH, bounds.trackH / 2);
+        ctx.fillStyle = '#E2E8F0';
+        ctx.fill();
+
+        // Active multi-color fill (strictly constrained up to the knob position, no forward spill on Easy!)
+        const activeW = Math.max(bounds.trackH, knobX - bounds.trackX + bounds.knobR);
         const trackGrad = ctx.createLinearGradient(bounds.trackX, 0, bounds.trackX + bounds.trackW, 0);
         trackGrad.addColorStop(0, '#22C55E');
         trackGrad.addColorStop(0.33, '#F59E0B');
         trackGrad.addColorStop(0.66, '#EF4444');
         trackGrad.addColorStop(1, '#8B5CF6');
-        ctx.fillStyle = '#E2E8F0';
-        ctx.fill();
 
-        // Active fill
-        const knobX = bounds.trackX + (this.sliderPos / 3) * bounds.trackW;
-        const knobR = bounds.trackH * 0.65;
         ctx.beginPath();
-        ctx.roundRect(bounds.trackX, bounds.trackY, Math.max(bounds.trackH, knobX - bounds.trackX + bounds.trackH / 2), bounds.trackH, bounds.trackH / 2);
+        ctx.roundRect(bounds.trackX, bounds.trackY, activeW, bounds.trackH, bounds.trackH / 2);
         ctx.fillStyle = trackGrad;
         ctx.fill();
         ctx.restore();
 
-        // Draggable Knob
+        // Draggable Circular Knob (Centered exactly at knobX)
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.24)';
         ctx.shadowBlur = 10;
         ctx.shadowOffsetY = 3;
         ctx.beginPath();
-        ctx.arc(knobX, bounds.trackY + bounds.trackH / 2, knobR, 0, Math.PI * 2);
+        ctx.arc(knobX, bounds.trackY + bounds.trackH / 2, bounds.knobR, 0, Math.PI * 2);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
 
         ctx.beginPath();
-        ctx.arc(knobX, bounds.trackY + bounds.trackH / 2, knobR - 4, 0, Math.PI * 2);
+        ctx.arc(knobX, bounds.trackY + bounds.trackH / 2, bounds.knobR - 4, 0, Math.PI * 2);
         ctx.fillStyle = d.color;
         ctx.fill();
         ctx.restore();
 
-        // 6. Bottom Action Row: [ PLAY ] + [ ? Tutorial ] (Graph button removed!)
+        // 6. Bottom Action Row: [ PLAY ▶ ] + [ ? Tutorial ]
         ctx.save();
         ctx.shadowColor = d.color + '66';
         ctx.shadowBlur = 14;
