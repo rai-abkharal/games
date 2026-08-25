@@ -2174,16 +2174,17 @@
         this.titleY = this.hudY + btnR + 30 * s;
 
         // Smaller, sleeker bottom action panel moved lower towards bottom
-        const panelH = 48 * s;
-        const panelW = 124 * s;
-        const bottomInset = 18 * s;
+        const panelH = 46 * s;
+        const panelW = 120 * s;
+        const bottomInset = 16 * s;
         this.panel = { x: (w - panelW) / 2, y: h - bottomInset - panelH, w: panelW, h: panelH };
-        this.progressBar = { x: w * 0.22, y: this.panel.y - 14 * s, w: w * 0.56, h: 5 * s };
-        this.messageY = this.progressBar.y - 20 * s;
+        // Progress bar and SORTED line cleanly placed in the middle gap between bolts and buttons
+        this.progressBar = { x: w * 0.22, y: this.panel.y - 38 * s, w: w * 0.56, h: 6 * s };
+        this.messageY = this.progressBar.y - 24 * s;
 
-        // Middle portion for nuts & bolts lowered towards the bottom
-        const boardTop = this.titleY + 36 * s;
-        const boardBottom = this.messageY - 16 * s;
+        // Middle portion for nuts & bolts
+        const boardTop = this.titleY + 32 * s;
+        const boardBottom = this.progressBar.y - 18 * s;
         this.boardTop = boardTop;
         this.setupActionButtons();
 
