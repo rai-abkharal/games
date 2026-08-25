@@ -53,23 +53,53 @@ if [ -f /tmp/games_platform_backup/games.json ]; then
       if (fs.existsSync(delPath)) {
         try { deletedList = JSON.parse(fs.readFileSync(delPath, 'utf8')); } catch {}
       }
-      let merged = false;
-      for (const g of (bak.games || [])) {
-        if (deletedList.includes(g.id)) {
-          console.log('🚫 Skipping permanently deleted game:', g.title, '(' + g.id + ')');
-          continue;
+
+      // 1. Find newly published games (present in cur from git/build, but not yet in live backup)
+      const newGames = (cur.games || []).filter(cg => !bak.games.some(bg => bg.id === cg.id) && !deletedList.includes(cg.id));
+
+      // 2. Start from existing live backup games (preserves exact custom admin ordering!)
+      let finalGames = (bak.games || []).filter(bg => !deletedList.includes(bg.id));
+
+      // 3. Update existing games with fresh assets, version, hashes from build
+      finalGames = finalGames.map(bg => {
+        const matchingCur = (cur.games || []).find(cg => cg.id === bg.id);
+        if (matchingCur) {
+          return {
+            ...bg,
+            version: matchingCur.version || bg.version,
+            entryUrl: matchingCur.entryUrl || bg.entryUrl,
+            manifestUrl: matchingCur.manifestUrl || bg.manifestUrl,
+            sizeBytes: matchingCur.sizeBytes || bg.sizeBytes,
+            features: matchingCur.features || bg.features
+          };
         }
-        if (!cur.games.some(cg => cg.id === g.id)) {
-          console.log('🔄 Restoring Admin Uploaded Game:', g.title, '(' + g.id + ')');
-          cur.games.push(g);
-          merged = true;
-        }
+        return bg;
+      });
+
+      // 4. If any brand new game was published, place it at the VERY TOP (position 1)
+      if (newGames.length > 0) {
+        console.log('✨ Placing newly published game(s) at position #1:', newGames.map(g => g.title).join(', '));
+        finalGames = [...newGames, ...finalGames];
       }
-      if (merged) {
-        fs.writeFileSync(curPath, JSON.stringify(cur, null, 2));
-        console.log('✅ All Admin-Uploaded Games preserved successfully!');
+
+      // 5. Normalize sequential feedOrder (1, 2, 3, 4...)
+      finalGames.forEach((g, idx) => {
+        g.feedOrder = idx + 1;
+      });
+
+      cur.games = finalGames;
+      cur.updatedAt = new Date().toISOString();
+      fs.writeFileSync(curPath, JSON.stringify(cur, null, 2));
+
+      // Also sync to frontend bundled catalog
+      const bundledPath = '$PROJECT_DIR/frontend/assets/catalog/games.json';
+      if (fs.existsSync(bundledPath)) {
+        fs.writeFileSync(bundledPath, JSON.stringify(cur, null, 2));
       }
-    } catch(e) {}
+      console.log('✅ Live Admin order preserved & new games placed at #1 successfully!');
+    } catch(e) {
+      console.error('Catalog merge error:', e);
+    }
   "
 fi
 

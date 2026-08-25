@@ -67,28 +67,21 @@
       relatedFill: '#F8FAFC',
       sameNumFill: '#DBEAFE',
       sameNumText: '#1E40AF',
-      pencilDigit: '#64748B',
-      hintHighlight: 'rgba(245, 158, 11, 0.22)',
-      hintBorder: '#F59E0B',
       btnDefaultBg: '#FFFFFF',
       btnDefaultBorder: '#E2E8F0',
       btnDefaultText: '#334155',
-      btnActiveBg: '#EEF2FF',
-      btnActiveBorder: '#6366F1',
-      btnActiveText: '#4F46E5',
       accentGreen: '#10B981',
       accentYellow: '#F59E0B',
       accentPurple: '#8B5CF6',
-      accentRed: '#EF4444',
-      cyanSweep: 'rgba(6, 182, 212, 0.35)'
+      accentRed: '#EF4444'
     };
 
     // Rebalanced enjoyable clues: Easy 60, Medium 50, Hard 40, Expert 32
     const DIFFICULTIES = [
-      { id: 'easy', label: 'EASY', clues: 60, coins: 25, color: '#10B981', stars: '★☆☆☆', subtitle: 'Relaxed & Beginner Friendly' },
-      { id: 'medium', label: 'MEDIUM', clues: 50, coins: 50, color: '#3B82F6', stars: '★★☆☆', subtitle: 'Balanced Logic Puzzle' },
-      { id: 'hard', label: 'HARD', clues: 40, coins: 75, color: '#F59E0B', stars: '★★★☆', subtitle: 'Deep Strategy Thinking' },
-      { id: 'expert', label: 'EXPERT', clues: 32, coins: 100, color: '#EF4444', stars: '★★★★', subtitle: 'True Master Challenge' }
+      { id: 'easy', label: 'EASY', clues: 60, coins: 25, color: '#10B981', subtitle: 'Relaxed & Fun' },
+      { id: 'medium', label: 'MEDIUM', clues: 50, coins: 50, color: '#3B82F6', subtitle: 'Balanced Logic' },
+      { id: 'hard', label: 'HARD', clues: 40, coins: 75, color: '#F59E0B', subtitle: 'Deep Strategy' },
+      { id: 'expert', label: 'EXPERT', clues: 32, coins: 100, color: '#EF4444', subtitle: 'Master Level' }
     ];
 
     // 2. SOUND SYNTHESIZER
@@ -202,13 +195,13 @@
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, t + i * 0.04);
-          gain.gain.setValueAtTime(0.16, t + i * 0.04);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.04 + 0.45);
+          osc.frequency.setValueAtTime(freq, t + i * 0.06);
+          gain.gain.setValueAtTime(0.18, t + i * 0.06);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.06 + 0.65);
           osc.connect(gain);
           gain.connect(this.ctx.destination);
-          osc.start(t + i * 0.04);
-          osc.stop(t + i * 0.04 + 0.46);
+          osc.start(t + i * 0.06);
+          osc.stop(t + i * 0.06 + 0.66);
         });
       }
 
@@ -403,28 +396,28 @@
       }
     }
 
-    // 4. PARTICLE SYSTEM
+    // 4. PARTICLE SYSTEM (Graceful slower floating stars)
     class ParticleSystem {
       constructor() { this.items = []; }
       clear() { this.items = []; }
 
       addBlockBurst(x, y, w, h) {
-        const colors = ['#06B6D4', '#3B82F6', '#10B981', '#F59E0B', '#38BDF8', '#67E8F9'];
+        const colors = ['#06B6D4', '#38BDF8', '#22D3EE', '#F59E0B', '#10B981', '#67E8F9', '#A5F3FC'];
         for (let i = 0; i < 18; i++) {
           const px = x + Math.random() * w;
           const py = y + Math.random() * h;
           const a = Math.random() * Math.PI * 2;
-          const speed = 25 + Math.random() * 50;
+          const speed = 14 + Math.random() * 22; // Slower, graceful floating
           this.items.push({
             type: 'STAR',
             x: px, y: py,
             vx: Math.cos(a) * speed,
-            vy: Math.sin(a) * speed - 12,
+            vy: Math.sin(a) * speed - 10,
             size: 4 + Math.random() * 4.5,
             rot: Math.random() * Math.PI * 2,
-            vRot: (Math.random() - 0.5) * 4,
-            life: 0.65 + Math.random() * 0.25,
-            maxLife: 0.9,
+            vRot: (Math.random() - 0.5) * 2.2,
+            life: 1.1 + Math.random() * 0.45, // Longer lifetime
+            maxLife: 1.55,
             color: colors[Math.floor(Math.random() * colors.length)]
           });
         }
@@ -437,13 +430,13 @@
             type: 'CONFETTI',
             x: Math.random() * w,
             y: -20 - Math.random() * 100,
-            vx: (Math.random() - 0.5) * 60,
-            vy: 80 + Math.random() * 140,
+            vx: (Math.random() - 0.5) * 50,
+            vy: 70 + Math.random() * 110,
             size: 6 + Math.random() * 6,
             rot: Math.random() * Math.PI * 2,
-            vRot: (Math.random() - 0.5) * 6,
-            life: 2.2 + Math.random() * 1.5,
-            maxLife: 3.7,
+            vRot: (Math.random() - 0.5) * 4,
+            life: 2.5 + Math.random() * 1.5,
+            maxLife: 4.0,
             color: colors[Math.floor(Math.random() * colors.length)]
           });
         }
@@ -456,7 +449,7 @@
           p.y += p.vy * dt;
           p.rot += p.vRot * dt;
           p.life -= dt;
-          if (p.type === 'CONFETTI') p.vx += Math.sin(p.life * 4) * 1.2;
+          if (p.type === 'CONFETTI') p.vx += Math.sin(p.life * 3) * 1.0;
           if (p.life <= 0) this.items.splice(i, 1);
         }
       }
@@ -465,7 +458,7 @@
         for (const p of this.items) {
           const k = Math.max(0, p.life / p.maxLife);
           ctx.save();
-          ctx.globalAlpha = Math.min(1, k * 1.5);
+          ctx.globalAlpha = Math.min(1, k * 1.4);
           ctx.translate(p.x, p.y);
           ctx.rotate(p.rot);
           ctx.fillStyle = p.color;
@@ -519,9 +512,8 @@
         this.particles = new ParticleSystem();
 
         this.difficulty = 'easy';
-        this.selectedDiffIndex = 0;
-        this.diffDragStartX = 0;
-        this.diffOffset = 0;
+        this.sliderPos = 0; // 0 (Easy) to 3 (Expert), fractional while dragging
+        this.isDraggingSlider = false;
 
         this.given = SudokuCore.createEmptyGrid();
         this.user = SudokuCore.createEmptyGrid();
@@ -529,7 +521,7 @@
 
         this.selected = null;
         this.isPaused = false;
-        this.state = 'DIFF_SELECT'; // Starts by asking player to choose difficulty with interactive slider
+        this.state = 'DIFF_SELECT'; // Interactive single-line slider on start
 
         this.mistakes = 0;
         this.maxMistakes = 3;
@@ -538,21 +530,20 @@
         this.remainingHints = 3;
         this.activeHint = null;
 
-        this.sweeps = []; // Cyan light wave animations across completed rows/cols/boxes
+        this.sweeps = []; // Cyan light beam scans across completed lines/boxes
         this.lastTime = performance.now();
         this.shakeTimer = 0;
         this.errorCell = null;
         this.toast = null;
         this.keyPressTimer = Array(10).fill(0);
 
-        this.SAVE_KEY = 'sudoku_pro_saved_game_v2';
-        this.STATS_KEY = 'sudoku_pro_stats_v2';
+        this.SAVE_KEY = 'sudoku_pro_saved_game_v3';
+        this.STATS_KEY = 'sudoku_pro_stats_v3';
 
         this.stats = this.loadStats();
         this.initLayout();
         this.bindEvents();
 
-        // If a saved game exists, we can resume, otherwise stay on DIFF_SELECT carousel
         if (this.loadGame()) {
           this.state = 'PLAYING';
         }
@@ -600,7 +591,8 @@
           if (!s) return false;
           const data = JSON.parse(s);
           this.difficulty = data.difficulty || 'easy';
-          this.selectedDiffIndex = Math.max(0, DIFFICULTIES.findIndex(d => d.id === this.difficulty));
+          const idx = DIFFICULTIES.findIndex(d => d.id === this.difficulty);
+          this.sliderPos = idx >= 0 ? idx : 0;
           this.given = data.given;
           this.user = data.user;
           this.solution = data.solution;
@@ -618,7 +610,9 @@
 
       startNewGame(diffId) {
         this.difficulty = diffId || this.difficulty;
-        this.selectedDiffIndex = Math.max(0, DIFFICULTIES.findIndex(d => d.id === this.difficulty));
+        const idx = DIFFICULTIES.findIndex(d => d.id === this.difficulty);
+        this.sliderPos = idx >= 0 ? idx : 0;
+
         const generated = SudokuCore.generatePuzzle(this.difficulty);
         this.given = generated.puzzle;
         this.solution = generated.solution;
@@ -648,7 +642,7 @@
         const minDim = Math.min(this.width, this.height);
         this.scale = Math.min(1.2, Math.max(0.8, minDim / 400));
 
-        // Maximize board size for spacious high-end readability
+        // Maximize board size for clear readability
         const maxBoardSize = Math.min(this.width - 20, this.height * 0.58);
         this.boardSize = Math.floor(maxBoardSize);
         this.cellSize = this.boardSize / 9;
@@ -656,50 +650,71 @@
         this.boardY = Math.round(this.height * 0.13);
 
         this.headerY = Math.max(14, this.boardY - 54);
-        // Undo and Hint placed lower and cleanly spaced
         this.toolbarY = this.boardY + this.boardSize + 16;
         this.keypadY = this.toolbarY + 54;
+      }
+
+      getSliderTrack() {
+        const modalW = Math.min(330, this.width - 40);
+        const modalY = (this.height - 240) / 2;
+        const trackX = (this.width - (modalW - 60)) / 2;
+        const trackW = modalW - 60;
+        const trackY = modalY + 124;
+        return { modalW, modalY, trackX, trackW, trackY };
       }
 
       bindEvents() {
         window.addEventListener('resize', () => this.initLayout());
 
-        let startX = 0, startY = 0;
+        const getPos = (e) => {
+          const rect = this.canvas.getBoundingClientRect();
+          const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+          const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+          return { px: clientX - rect.left, py: clientY - rect.top };
+        };
+
         const handlePointerDown = (e) => {
           e.preventDefault();
           this.synth.init();
-          const rect = this.canvas.getBoundingClientRect();
-          startX = (e.clientX !== undefined ? e.clientX : e.touches[0].clientX) - rect.left;
-          startY = (e.clientY !== undefined ? e.clientY : e.touches[0].clientY) - rect.top;
-          this.diffDragStartX = startX;
-        };
+          const { px, py } = getPos(e);
 
-        const handlePointerUp = (e) => {
-          e.preventDefault();
-          const rect = this.canvas.getBoundingClientRect();
-          const px = (e.clientX !== undefined ? e.clientX : (e.changedTouches ? e.changedTouches[0].clientX : startX)) - rect.left;
-          const py = (e.clientY !== undefined ? e.clientY : (e.changedTouches ? e.changedTouches[0].clientY : startY)) - rect.top;
-
-          // Drag swipe threshold for slider
-          const dx = px - startX;
-          if (this.state === 'DIFF_SELECT' && Math.abs(dx) > 35) {
-            if (dx < 0) {
-              // Swipe Next
-              this.selectedDiffIndex = (this.selectedDiffIndex + 1) % DIFFICULTIES.length;
-              this.synth.playButton();
-            } else {
-              // Swipe Prev
-              this.selectedDiffIndex = (this.selectedDiffIndex - 1 + DIFFICULTIES.length) % DIFFICULTIES.length;
-              this.synth.playButton();
+          if (this.state === 'DIFF_SELECT') {
+            const { trackX, trackW, trackY } = this.getSliderTrack();
+            // Check if clicking or dragging the slider line
+            if (py >= trackY - 40 && py <= trackY + 40 && px >= trackX - 25 && px <= trackX + trackW + 25) {
+              this.isDraggingSlider = true;
+              const ratio = Math.max(0, Math.min(1, (px - trackX) / trackW));
+              this.sliderPos = ratio * 3;
+              return;
             }
-            return;
           }
 
           this.handleClick(px, py);
         };
 
+        const handlePointerMove = (e) => {
+          if (!this.isDraggingSlider || this.state !== 'DIFF_SELECT') return;
+          e.preventDefault();
+          const { px } = getPos(e);
+          const { trackX, trackW } = this.getSliderTrack();
+          const ratio = Math.max(0, Math.min(1, (px - trackX) / trackW));
+          this.sliderPos = ratio * 3;
+        };
+
+        const handlePointerUp = (e) => {
+          if (this.isDraggingSlider && this.state === 'DIFF_SELECT') {
+            this.isDraggingSlider = false;
+            // Snap to nearest tier
+            const nearestIdx = Math.round(this.sliderPos);
+            this.sliderPos = nearestIdx;
+            this.difficulty = DIFFICULTIES[nearestIdx].id;
+            this.synth.playButton();
+          }
+        };
+
         this.canvas.addEventListener('pointerdown', handlePointerDown);
-        this.canvas.addEventListener('pointerup', handlePointerUp);
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
 
         window.addEventListener('keydown', (e) => {
           this.synth.init();
@@ -711,26 +726,26 @@
             this.handleUndo();
           } else if (e.key === 'h' || e.key === 'H') {
             this.handleHint();
+          } else if (e.key === 'ArrowLeft' && this.state === 'DIFF_SELECT') {
+            const cur = Math.round(this.sliderPos);
+            this.sliderPos = Math.max(0, cur - 1);
+            this.difficulty = DIFFICULTIES[Math.round(this.sliderPos)].id;
+            this.synth.playButton();
+          } else if (e.key === 'ArrowRight' && this.state === 'DIFF_SELECT') {
+            const cur = Math.round(this.sliderPos);
+            this.sliderPos = Math.min(3, cur + 1);
+            this.difficulty = DIFFICULTIES[Math.round(this.sliderPos)].id;
+            this.synth.playButton();
+          } else if (e.key === 'Enter' && this.state === 'DIFF_SELECT') {
+            this.startNewGame(DIFFICULTIES[Math.round(this.sliderPos)].id);
           } else if (e.key === 'ArrowUp' && this.selected) {
             this.selected.r = Math.max(0, this.selected.r - 1);
           } else if (e.key === 'ArrowDown' && this.selected) {
             this.selected.r = Math.min(8, this.selected.r + 1);
-          } else if (e.key === 'ArrowLeft') {
-            if (this.state === 'DIFF_SELECT') {
-              this.selectedDiffIndex = (this.selectedDiffIndex - 1 + DIFFICULTIES.length) % DIFFICULTIES.length;
-              this.synth.playButton();
-            } else if (this.selected) {
-              this.selected.c = Math.max(0, this.selected.c - 1);
-            }
-          } else if (e.key === 'ArrowRight') {
-            if (this.state === 'DIFF_SELECT') {
-              this.selectedDiffIndex = (this.selectedDiffIndex + 1) % DIFFICULTIES.length;
-              this.synth.playButton();
-            } else if (this.selected) {
-              this.selected.c = Math.min(8, this.selected.c + 1);
-            }
-          } else if (e.key === 'Enter' && this.state === 'DIFF_SELECT') {
-            this.startNewGame(DIFFICULTIES[this.selectedDiffIndex].id);
+          } else if (e.key === 'ArrowLeft' && this.selected) {
+            this.selected.c = Math.max(0, this.selected.c - 1);
+          } else if (e.key === 'ArrowRight' && this.selected) {
+            this.selected.c = Math.min(8, this.selected.c + 1);
           }
         });
       }
@@ -742,7 +757,7 @@
           const btnY = this.height * 0.74;
           if (px >= btnX && px <= btnX + btnW && py >= btnY && py <= btnY + btnH) {
             this.synth.playButton();
-            this.state = 'DIFF_SELECT'; // Asks player to choose next difficulty via carousel slider
+            this.state = 'DIFF_SELECT'; // Re-open difficulty slider for next puzzle
           }
           return;
         }
@@ -758,46 +773,28 @@
           return;
         }
 
-        // Interactive Difficulty Carousel Slider Screen
+        // Minimal Difficulty Line Slider Screen
         if (this.state === 'DIFF_SELECT') {
-          const cardW = Math.min(340, this.width - 36);
-          const cardH = 340;
-          const cardX = (this.width - cardW) / 2;
-          const cardY = (this.height - cardH) / 2;
+          const { modalW, modalY, trackX, trackW, trackY } = this.getSliderTrack();
 
-          // Arrow Left
-          if (px >= cardX + 10 && px <= cardX + 50 && py >= cardY + 120 && py <= cardY + 180) {
-            this.selectedDiffIndex = (this.selectedDiffIndex - 1 + DIFFICULTIES.length) % DIFFICULTIES.length;
+          // Tapping anywhere on track line
+          if (py >= trackY - 30 && py <= trackY + 30 && px >= trackX - 20 && px <= trackX + trackW + 20) {
+            const ratio = Math.max(0, Math.min(1, (px - trackX) / trackW));
+            const nearest = Math.round(ratio * 3);
+            this.sliderPos = nearest;
+            this.difficulty = DIFFICULTIES[nearest].id;
             this.synth.playButton();
             return;
           }
 
-          // Arrow Right
-          if (px >= cardX + cardW - 50 && px <= cardX + cardW - 10 && py >= cardY + 120 && py <= cardY + 180) {
-            this.selectedDiffIndex = (this.selectedDiffIndex + 1) % DIFFICULTIES.length;
-            this.synth.playButton();
-            return;
-          }
-
-          // Dot indicators click
-          const dotY = cardY + 225;
-          for (let i = 0; i < DIFFICULTIES.length; i++) {
-            const dx = this.width / 2 + (i - 1.5) * 26;
-            if (px >= dx - 12 && px <= dx + 12 && py >= dotY - 12 && py <= dotY + 12) {
-              this.selectedDiffIndex = i;
-              this.synth.playButton();
-              return;
-            }
-          }
-
-          // Big "START PUZZLE ▶" Button
-          const btnW = cardW - 60;
-          const btnH = 50;
+          // "START GAME ▶" Button
+          const btnW = modalW - 60;
+          const btnH = 48;
           const btnX = (this.width - btnW) / 2;
-          const btnY = cardY + cardH - 74;
+          const btnY = modalY + 175;
           if (px >= btnX && px <= btnX + btnW && py >= btnY && py <= btnY + btnH) {
             this.synth.playButton();
-            this.startNewGame(DIFFICULTIES[this.selectedDiffIndex].id);
+            this.startNewGame(DIFFICULTIES[Math.round(this.sliderPos)].id);
           }
           return;
         }
@@ -824,7 +821,7 @@
           return;
         }
 
-        // Header Buttons: Difficulty selector pill, Pause, Sound
+        // Header Buttons: Difficulty pill, Pause, Sound
         if (py >= this.headerY - 8 && py <= this.headerY + 38) {
           if (px >= 12 && px <= 112) {
             this.synth.playButton();
@@ -861,13 +858,11 @@
         const undoX = 20;
         const hintX = this.width - 20 - toolW;
 
-        // Undo Button
         if (px >= undoX && px <= undoX + toolW && py >= this.toolbarY && py <= this.toolbarY + 44) {
           this.handleUndo();
           return;
         }
 
-        // Hint Button
         if (px >= hintX && px <= hintX + toolW && py >= this.toolbarY && py <= this.toolbarY + 44) {
           this.handleHint();
           return;
@@ -936,31 +931,31 @@
       }
 
       checkCompletions(r, c) {
-        // 1. Check Row Completion
+        // 1. Check Row Completion (Full width cyan beam sweep)
         let rowDone = true;
         for (let i = 0; i < 9; i++) {
           const val = this.given[r][i] || this.user[r][i];
           if (val !== this.solution[r][i]) { rowDone = false; break; }
         }
         if (rowDone) {
-          this.sweeps.push({ type: 'row', index: r, t: 0, maxT: 0.60 });
+          this.sweeps.push({ type: 'row', index: r, t: 0, maxT: 1.35 });
           this.particles.addBlockBurst(this.boardX, this.boardY + r * this.cellSize, this.boardSize, this.cellSize);
           this.synth.playBlockComplete();
         }
 
-        // 2. Check Column Completion
+        // 2. Check Column Completion (Full height cyan beam sweep)
         let colDone = true;
         for (let i = 0; i < 9; i++) {
           const val = this.given[i][c] || this.user[i][c];
           if (val !== this.solution[i][c]) { colDone = false; break; }
         }
         if (colDone) {
-          this.sweeps.push({ type: 'col', index: c, t: 0, maxT: 0.60 });
+          this.sweeps.push({ type: 'col', index: c, t: 0, maxT: 1.35 });
           this.particles.addBlockBurst(this.boardX + c * this.cellSize, this.boardY, this.cellSize, this.boardSize);
           this.synth.playBlockComplete();
         }
 
-        // 3. Check 3x3 Box Completion
+        // 3. Check 3x3 Box Completion (Full box cyan beam wave)
         const br = Math.floor(r / 3) * 3;
         const bc = Math.floor(c / 3) * 3;
         let boxDone = true;
@@ -972,7 +967,7 @@
         }
         if (boxDone) {
           const boxIdx = Math.floor(r / 3) * 3 + Math.floor(c / 3);
-          this.sweeps.push({ type: 'box', index: boxIdx, br, bc, t: 0, maxT: 0.60 });
+          this.sweeps.push({ type: 'box', index: boxIdx, br, bc, t: 0, maxT: 1.35 });
           this.particles.addBlockBurst(this.boardX + bc * this.cellSize, this.boardY + br * this.cellSize, this.cellSize * 3, this.cellSize * 3);
           this.synth.playBlockComplete();
         }
@@ -1151,7 +1146,7 @@
         if (this.toast) this.renderToast(ctx);
         if (this.activeHint) this.renderHintOverlay(ctx);
         if (this.state === 'PAUSED') this.renderPauseModal(ctx);
-        if (this.state === 'DIFF_SELECT') this.renderDiffCarousel(ctx);
+        if (this.state === 'DIFF_SELECT') this.renderDiffLineSlider(ctx);
         if (this.state === 'VICTORY') this.renderVictoryModal(ctx);
         if (this.state === 'GAMEOVER') this.renderGameOverModal(ctx);
 
@@ -1315,7 +1310,7 @@
         ctx.save();
         ctx.translate(shakeX, shakeY);
 
-        // Ambient board depth shadow
+        // Ambient board shadow
         ctx.shadowColor = THEME.cardShadow;
         ctx.shadowBlur = 24;
         ctx.shadowOffsetY = 8;
@@ -1362,41 +1357,75 @@
           }
         }
 
-        // Cyan light wave sweep animations across completed rows/cols/boxes
+        // FULL-SPAN CYAN GLOWING SWEEP BEAM ANIMATIONS
         for (const sweep of this.sweeps) {
           const progress = sweep.t / sweep.maxT;
-          const alpha = (1 - progress) * 0.75;
+          const alpha = Math.sin(progress * Math.PI) * 0.92;
           ctx.save();
 
           if (sweep.type === 'row') {
             const ry = by + sweep.index * cs;
-            const waveX = bx + progress * bs;
-            const grad = ctx.createLinearGradient(waveX - 45, ry, waveX + 45, ry);
+            // Full cell height cyan laser beam passing from left to right
+            const beamX = bx + (progress * 1.3 - 0.15) * bs;
+            const beamW = cs * 1.8;
+
+            const grad = ctx.createLinearGradient(beamX - beamW, ry, beamX + beamW, ry);
             grad.addColorStop(0, 'rgba(6, 182, 212, 0)');
-            grad.addColorStop(0.5, 'rgba(34, 211, 238, ' + alpha + ')');
+            grad.addColorStop(0.3, 'rgba(34, 211, 238, ' + alpha * 0.6 + ')');
+            grad.addColorStop(0.5, 'rgba(165, 243, 252, ' + alpha + ')');
+            grad.addColorStop(0.7, 'rgba(34, 211, 238, ' + alpha * 0.6 + ')');
             grad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+
             ctx.fillStyle = grad;
             ctx.fillRect(bx, ry, bs, cs);
+
+            // Radiant center core line
+            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.8 + ')';
+            ctx.lineWidth = 3.0;
+            ctx.beginPath();
+            ctx.moveTo(beamX, ry);
+            ctx.lineTo(beamX, ry + cs);
+            ctx.stroke();
+
           } else if (sweep.type === 'col') {
             const cx = bx + sweep.index * cs;
-            const waveY = by + progress * bs;
-            const grad = ctx.createLinearGradient(cx, waveY - 45, cx, waveY + 45);
+            // Full cell width cyan laser beam passing from top to bottom
+            const beamY = by + (progress * 1.3 - 0.15) * bs;
+            const beamH = cs * 1.8;
+
+            const grad = ctx.createLinearGradient(cx, beamY - beamH, cx, beamY + beamH);
             grad.addColorStop(0, 'rgba(6, 182, 212, 0)');
-            grad.addColorStop(0.5, 'rgba(34, 211, 238, ' + alpha + ')');
+            grad.addColorStop(0.3, 'rgba(34, 211, 238, ' + alpha * 0.6 + ')');
+            grad.addColorStop(0.5, 'rgba(165, 243, 252, ' + alpha + ')');
+            grad.addColorStop(0.7, 'rgba(34, 211, 238, ' + alpha * 0.6 + ')');
             grad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+
             ctx.fillStyle = grad;
             ctx.fillRect(cx, by, cs, bs);
+
+            // Radiant center core line
+            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.8 + ')';
+            ctx.lineWidth = 3.0;
+            ctx.beginPath();
+            ctx.moveTo(cx, beamY);
+            ctx.lineTo(cx + cs, beamY);
+            ctx.stroke();
+
           } else if (sweep.type === 'box') {
             const boxX = bx + sweep.bc * cs;
             const boxY = by + sweep.br * cs;
-            const boxCenter = cs * 1.5;
-            const radius = progress * cs * 2.2;
-            const grad = ctx.createRadialGradient(boxX + boxCenter, boxY + boxCenter, 0, boxX + boxCenter, boxY + boxCenter, Math.max(1, radius));
-            grad.addColorStop(0, 'rgba(34, 211, 238, ' + alpha * 0.9 + ')');
-            grad.addColorStop(0.7, 'rgba(6, 182, 212, ' + alpha * 0.4 + ')');
+            const boxW = cs * 3;
+            // Diagonal beam sweep across the 3x3 box
+            const beamOffset = (progress * 1.4 - 0.2) * (boxW * 2);
+            const grad = ctx.createLinearGradient(boxX + beamOffset - boxW, boxY + beamOffset - boxW, boxX + beamOffset, boxY + beamOffset);
+            grad.addColorStop(0, 'rgba(6, 182, 212, 0)');
+            grad.addColorStop(0.4, 'rgba(34, 211, 238, ' + alpha * 0.6 + ')');
+            grad.addColorStop(0.5, 'rgba(165, 243, 252, ' + alpha + ')');
+            grad.addColorStop(0.6, 'rgba(34, 211, 238, ' + alpha * 0.6 + ')');
             grad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+
             ctx.fillStyle = grad;
-            ctx.fillRect(boxX, boxY, cs * 3, cs * 3);
+            ctx.fillRect(boxX, boxY, boxW, boxW);
           }
           ctx.restore();
         }
@@ -1463,7 +1492,7 @@
 
         ctx.restore();
 
-        // 9x9 OUTER BOUNDING BORDER (Dark, crisp, framing line)
+        // 9x9 OUTER BOUNDING BORDER (Bold Dark Framing Line)
         ctx.save();
         ctx.translate(shakeX, shakeY);
         ctx.beginPath();
@@ -1528,7 +1557,7 @@
         ctx.textAlign = 'left';
         ctx.fillText('Hint', hintX + 46, y + 22);
 
-        // Hint remaining badge
+        // Hint count badge
         const badgeX = hintX + toolW - 22;
         const badgeY = y + 22;
         ctx.beginPath();
@@ -1673,139 +1702,133 @@
         ctx.fillText(line, x, cy);
       }
 
-      // --- Interactive Difficulty Carousel / Slider Screen -------------------
-      renderDiffCarousel(ctx) {
+      // --- MINIMAL SINGLE LINE SLIDER DIFFICULTY SELECTION -------------------
+      renderDiffLineSlider(ctx) {
         ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const cardW = Math.min(340, this.width - 36);
-        const cardH = 340;
-        const cardX = (this.width - cardW) / 2;
-        const cardY = (this.height - cardH) / 2;
+        const { modalW, modalY, trackX, trackW, trackY } = this.getSliderTrack();
+        const modalH = 245;
 
+        // Modal Card Base
         ctx.save();
-        ctx.shadowColor = 'rgba(15, 23, 42, 0.25)';
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.28)';
         ctx.shadowBlur = 28;
         ctx.shadowOffsetY = 10;
         ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.roundRect((this.width - modalW) / 2, modalY, modalW, modalH, 22);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
         ctx.restore();
 
-        // Title Header
-        ctx.font = '900 19px Fredoka, Inter, sans-serif';
+        // Modal Title
+        ctx.font = '900 18px Fredoka, Inter, sans-serif';
         ctx.fillStyle = '#0F172A';
         ctx.textAlign = 'center';
-        ctx.fillText('CHOOSE DIFFICULTY', this.width / 2, cardY + 38);
+        ctx.fillText('SELECT DIFFICULTY', this.width / 2, modalY + 34);
 
-        ctx.font = '600 12px Inter, sans-serif';
-        ctx.fillStyle = '#64748B';
-        ctx.fillText('Swipe or tap arrows to select level', this.width / 2, cardY + 58);
+        const curIdx = Math.max(0, Math.min(3, Math.round(this.sliderPos)));
+        const d = DIFFICULTIES[curIdx];
 
-        const d = DIFFICULTIES[this.selectedDiffIndex];
-
-        // Central Hero Card for the Selected Difficulty
-        const heroW = cardW - 70;
-        const heroH = 120;
-        const heroX = (this.width - heroW) / 2;
-        const heroY = cardY + 84;
+        // Floating dynamic badge above the slider knob
+        const knobX = trackX + (this.sliderPos / 3) * trackW;
+        const badgeW = 160;
+        const badgeH = 28;
+        const badgeY = trackY - 44;
 
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(heroX, heroY, heroW, heroH, 18);
-        ctx.fillStyle = '#F8FAFC';
-        ctx.fill();
-        ctx.strokeStyle = d.color;
-        ctx.lineWidth = 2.4;
-        ctx.stroke();
-
-        // Difficulty Color Dot & Name
-        ctx.beginPath();
-        ctx.arc(heroX + 24, heroY + 28, 6, 0, Math.PI * 2);
+        ctx.roundRect(knobX - badgeW / 2, badgeY, badgeW, badgeH, 14);
         ctx.fillStyle = d.color;
         ctx.fill();
 
-        ctx.font = '900 20px Fredoka, Inter, sans-serif';
-        ctx.fillStyle = '#0F172A';
-        ctx.textAlign = 'left';
-        ctx.fillText(d.label, heroX + 38, heroY + 28);
+        ctx.font = '800 12px Inter, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(d.label + ' • ' + d.clues + ' CLUES', knobX, badgeY + badgeH / 2);
 
-        // Star Rating
-        ctx.font = '800 14px sans-serif';
+        // Small triangle pointing to knob
+        ctx.beginPath();
+        ctx.moveTo(knobX - 5, badgeY + badgeH);
+        ctx.lineTo(knobX + 5, badgeY + badgeH);
+        ctx.lineTo(knobX, badgeY + badgeH + 5);
         ctx.fillStyle = d.color;
-        ctx.textAlign = 'right';
-        ctx.fillText(d.stars, heroX + heroW - 18, heroY + 28);
-
-        // Clues count pill
-        ctx.font = '700 13px Inter, sans-serif';
-        ctx.fillStyle = '#334155';
-        ctx.textAlign = 'left';
-        ctx.fillText('🧩 ' + d.clues + ' Clues Given', heroX + 20, heroY + 62);
-
-        // Subtitle
-        ctx.font = '600 11px Inter, sans-serif';
-        ctx.fillStyle = '#64748B';
-        ctx.fillText(d.subtitle, heroX + 20, heroY + 88);
-        ctx.restore();
-
-        // Left Navigation Arrow Button
-        ctx.save();
-        ctx.beginPath();
-        ctx.roundRect(cardX + 10, cardY + 124, 32, 40, 10);
-        ctx.fillStyle = '#F1F5F9';
         ctx.fill();
-        ctx.font = '800 16px sans-serif';
-        ctx.fillStyle = '#475569';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('◀', cardX + 26, cardY + 144);
         ctx.restore();
 
-        // Right Navigation Arrow Button
-        ctx.save();
+        // 1. Inactive Track Line
         ctx.beginPath();
-        ctx.roundRect(cardX + cardW - 42, cardY + 124, 32, 40, 10);
-        ctx.fillStyle = '#F1F5F9';
+        ctx.roundRect(trackX, trackY - 3, trackW, 6, 3);
+        ctx.fillStyle = '#E2E8F0';
         ctx.fill();
-        ctx.font = '800 16px sans-serif';
-        ctx.fillStyle = '#475569';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('▶', cardX + cardW - 26, cardY + 144);
-        ctx.restore();
 
-        // Dot indicators (slider pagination)
-        const dotY = cardY + 225;
-        for (let i = 0; i < DIFFICULTIES.length; i++) {
-          const dx = this.width / 2 + (i - 1.5) * 26;
+        // 2. Active Track Line Fill
+        ctx.beginPath();
+        ctx.roundRect(trackX, trackY - 3, Math.max(6, knobX - trackX), 6, 3);
+        ctx.fillStyle = d.color;
+        ctx.fill();
+
+        // 3. Four Stop Tick Marks and Labels
+        for (let i = 0; i < 4; i++) {
+          const tickX = trackX + (i / 3) * trackW;
+          const isActive = (i <= this.sliderPos);
+
+          // Tick circle
           ctx.beginPath();
-          ctx.arc(dx, dotY, i === this.selectedDiffIndex ? 5 : 3.5, 0, Math.PI * 2);
-          ctx.fillStyle = i === this.selectedDiffIndex ? d.color : '#CBD5E1';
+          ctx.arc(tickX, trackY, 5, 0, Math.PI * 2);
+          ctx.fillStyle = isActive ? d.color : '#CBD5E1';
           ctx.fill();
+
+          // Tick Label underneath
+          ctx.font = (i === curIdx ? '800 12px' : '700 11px') + ' Inter, sans-serif';
+          ctx.fillStyle = (i === curIdx ? '#0F172A' : '#94A3B8');
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillText(DIFFICULTIES[i].label, tickX, trackY + 14);
         }
 
-        // Big Vibrant "START PUZZLE ▶" Button
-        const btnW = cardW - 60;
-        const btnH = 50;
+        // 4. Elevated Draggable Thumb Knob
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 3;
+
+        ctx.beginPath();
+        ctx.arc(knobX, trackY, 13, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.strokeStyle = d.color;
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(knobX, trackY, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = d.color;
+        ctx.fill();
+        ctx.restore();
+
+        // 5. Clean "START GAME ▶" Button
+        const btnW = modalW - 60;
+        const btnH = 46;
         const btnX = (this.width - btnW) / 2;
-        const btnY = cardY + cardH - 74;
+        const btnY = modalY + 175;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(37, 99, 235, 0.35)';
-        ctx.shadowBlur = 14;
+        ctx.shadowColor = 'rgba(37, 99, 235, 0.30)';
+        ctx.shadowBlur = 12;
         ctx.shadowOffsetY = 4;
         ctx.beginPath();
-        ctx.roundRect(btnX, btnY, btnW, btnH, 25);
+        ctx.roundRect(btnX, btnY, btnW, btnH, 23);
         ctx.fillStyle = '#2563EB';
         ctx.fill();
         ctx.restore();
 
-        ctx.font = '800 16px Inter, sans-serif';
+        ctx.font = '800 15px Inter, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('START PUZZLE ▶', this.width / 2, btnY + 25);
+        ctx.fillText('START GAME ▶', this.width / 2, btnY + 23);
       }
 
       renderPauseModal(ctx) {
@@ -1846,7 +1869,7 @@
         ctx.stroke();
         ctx.font = '800 14px Inter, sans-serif';
         ctx.fillStyle = '#475569';
-        ctx.fillText('NEW DIFFICULTY', this.width / 2, restartY + 22);
+        ctx.fillText('CHANGE LEVEL', this.width / 2, restartY + 22);
       }
 
       renderVictoryModal(ctx) {
