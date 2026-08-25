@@ -1085,29 +1085,27 @@
         ctx.fill();
       },
 
-      // Clean, elegant metallic white dome cap seated slightly forward on the nut's top face,
-      // leaving a small visible surface on the backside of the nut.
+      // Clean, elegant metallic white dome cap centered on the nut's top face
       drawBoltCap(ctx, cx, cy, rx, ry, glow) {
-        const capY = cy + ry * 0.10; // slightly forward toward the user
-        const crx = rx * 0.44; // compact diameter so back surface of nut is visible
-        const cry = ry * 0.30;
+        const crx = rx * 0.46;
+        const cry = ry * 0.38;
 
         // Subtle drop shadow under cap
         ctx.beginPath();
-        ctx.ellipse(cx, capY + cry * 0.28, crx * 1.05, cry * 0.95, 0, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.26)';
+        ctx.ellipse(cx, cy + cry * 0.15, crx * 1.05, cry * 0.95, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
         ctx.fill();
 
         // Silver-white washer cap rim
         ctx.beginPath();
-        ctx.ellipse(cx, capY + cry * 0.12, crx, cry, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx, cy, crx, cry, 0, 0, Math.PI * 2);
         ctx.fillStyle = '#CFD8E8';
         ctx.fill();
 
         // Top domed cap with smooth metallic white/silver gradient
         ctx.beginPath();
-        ctx.ellipse(cx, capY, crx, cry, 0, 0, Math.PI * 2);
-        const g = ctx.createLinearGradient(cx - crx * 0.5, capY - cry * 0.4, cx + crx * 0.5, capY + cry * 0.4);
+        ctx.ellipse(cx, cy - cry * 0.04, crx * 0.92, cry * 0.90, 0, 0, Math.PI * 2);
+        const g = ctx.createLinearGradient(cx - crx * 0.5, cy - cry * 0.5, cx + crx * 0.5, cy + cry * 0.5);
         g.addColorStop(0, '#FFFFFF');
         g.addColorStop(0.35, '#ECEFF8');
         g.addColorStop(0.75, '#C8D0E4');
@@ -1121,11 +1119,11 @@
 
         // Center stud / allen bolt socket
         ctx.beginPath();
-        ctx.ellipse(cx, capY, crx * 0.30, cry * 0.30, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx, cy - cry * 0.04, crx * 0.28, cry * 0.28, 0, 0, Math.PI * 2);
         ctx.fillStyle = '#6E7892';
         ctx.fill();
         ctx.beginPath();
-        ctx.ellipse(cx - crx * 0.06, capY - cry * 0.06, crx * 0.10, cry * 0.10, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx - crx * 0.06, cy - cry * 0.10, crx * 0.09, cry * 0.09, 0, 0, Math.PI * 2);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
       },
@@ -2435,9 +2433,9 @@
         const to = this.bolts[toIdx];
         const nuts = from.nuts.splice(from.nuts.length - count, count);
 
-        // Relaxed, smooth duration so flight and 3D rotation are clearly visible and satisfying:
-        const perNutDur = 1.02;
-        const stagger = 0.22;
+        // Smooth duration so every nut's flight and rotation are clearly visible and satisfying:
+        const perNutDur = 0.82;
+        const stagger = 0.20;
         const totalDur = perNutDur + (count - 1) * stagger;
 
         this.move = {
@@ -2463,7 +2461,6 @@
         this.clearHints();
         this.state = 'MOVING';
         this.moves++;
-        this.synth.playUnscrew(count);
         this.haptic('light');
 
         // Whatever was buried under the lifted run is now on show.
@@ -2487,54 +2484,77 @@
         const m = this.move;
         const from = this.bolts[m.fromIdx];
         const to = this.bolts[m.toIdx];
-        const band = to.band;
         const startY = from.nutSlotY(m.srcIndexBase + j);
-        const srcHover = from.hoverY() - j * band * 0.4;
-        const dstHover = to.hoverY() - j * band * 0.4;
+        const srcHover = from.hoverY();
+        const dstHover = to.hoverY();
         const endY = to.nutSlotY(m.dstIndexBase + j);
 
-        // Topmost nut of the lifted stack takes off first
+        // Topmost nut was already lifted; secondary nuts lift in order
+        const isTopNut = (j === m.count - 1);
         const nutOrder = (m.count - 1 - j);
         const startTime = nutOrder * m.stagger;
         const rawT = (m.t * m.dur - startTime) / m.perNutDur;
         const tj = clamp(rawT, 0, 1);
 
         if (rawT <= 0) {
-          return { x: from.x, y: startY, spin: 0, squash: 0 };
+          return { x: from.x, y: isTopNut ? srcHover : startY, spin: 0, squash: 0 };
         }
-
-        const unscrewEnd = 0.24;
-        const travelEnd = 0.60;
-        const screwEnd = 0.96;
 
         let x, y, spin = 0, squash = 0;
 
-        if (tj < unscrewEnd) {
-          // Phase 1: Unscrew & Lift straight up along bolt axis
-          const p = tj / unscrewEnd;
-          const e = easeOutQuad(p);
-          x = from.x;
-          y = lerp(startY, srcHover, e);
-          spin = -Math.PI * 2 * e;
-        } else if (tj < travelEnd) {
-          // Phase 2: Smooth horizontal glide across at hover level (zero vertical jerks)
-          const p = (tj - unscrewEnd) / (travelEnd - unscrewEnd);
-          const e = easeInOutQuad(p);
-          x = lerp(from.x, to.x, e);
-          y = lerp(srcHover, dstHover, e);
-          spin = -Math.PI * 2 * (1 - p);
-        } else if (tj < screwEnd) {
-          // Phase 3: Screw down straight into target slot with continuous axial rotation
-          const p = (tj - travelEnd) / (screwEnd - travelEnd);
-          const e = easeInOutQuad(p);
-          x = to.x;
-          y = lerp(dstHover, endY, e);
-          spin = Math.PI * 2 * e;
+        if (isTopNut) {
+          // Top nut was already hovering: glides across horizontally, then screws down into target
+          const travelEnd = 0.50;
+          const screwEnd = 0.96;
+
+          if (tj < travelEnd) {
+            // Stage 1: Smooth horizontal flight from start bolt to target bolt
+            const p = tj / travelEnd;
+            const e = easeInOutCubic(p);
+            x = lerp(from.x, to.x, e);
+            y = lerp(srcHover, dstHover, e) - Math.sin(Math.PI * p) * 14;
+            spin = -Math.PI * 2 * p;
+          } else if (tj < screwEnd) {
+            // Stage 2: Screws down the target shaft into the slot with continuous axial rotation
+            const p = (tj - travelEnd) / (screwEnd - travelEnd);
+            const e = easeInOutCubic(p);
+            x = to.x;
+            y = lerp(dstHover, endY, e);
+            spin = -Math.PI * 2 + Math.PI * 4 * e;
+          } else {
+            x = to.x;
+            y = endY;
+            spin = 0;
+          }
         } else {
-          // Phase 4: Settle cleanly at resting angle
-          x = to.x;
-          y = endY;
-          spin = 0;
+          // Secondary matching nuts: lift up from slot -> glide across -> screw down into slot
+          const liftEnd = 0.26;
+          const travelEnd = 0.62;
+          const screwEnd = 0.96;
+
+          if (tj < liftEnd) {
+            const p = tj / liftEnd;
+            const e = easeOutCubic(p);
+            x = from.x;
+            y = lerp(startY, srcHover, e);
+            spin = -Math.PI * 2 * e;
+          } else if (tj < travelEnd) {
+            const p = (tj - liftEnd) / (travelEnd - liftEnd);
+            const e = easeInOutCubic(p);
+            x = lerp(from.x, to.x, e);
+            y = lerp(srcHover, dstHover, e) - Math.sin(Math.PI * p) * 14;
+            spin = -Math.PI * 2 - Math.PI * 2 * p;
+          } else if (tj < screwEnd) {
+            const p = (tj - travelEnd) / (screwEnd - travelEnd);
+            const e = easeInOutCubic(p);
+            x = to.x;
+            y = lerp(dstHover, endY, e);
+            spin = -Math.PI * 4 + Math.PI * 4 * e;
+          } else {
+            x = to.x;
+            y = endY;
+            spin = 0;
+          }
         }
 
         return { x: x, y: y, spin: spin, squash: squash };
@@ -2547,11 +2567,13 @@
         m.t = Math.min(1, m.t + dt / m.dur);
 
         for (let j = 0; j < m.count; j++) {
+          const isTopNut = (j === m.count - 1);
           const nutOrder = (m.count - 1 - j);
           const startTime = nutOrder * m.stagger;
           const rawT = (m.t * m.dur - startTime) / m.perNutDur;
+          const screwTriggerT = isTopNut ? 0.50 : 0.62;
 
-          if (rawT >= 0.60 && !m.playedScrewNuts[j]) {
+          if (rawT >= screwTriggerT && !m.playedScrewNuts[j]) {
             m.playedScrewNuts[j] = true;
             this.synth.playScrew(1);
           }
