@@ -209,18 +209,18 @@
         if (this.muted || !this.ctx) return;
         this.init();
         const t = this.ctx.currentTime;
-        const melody = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
+        const melody = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98, 1760.00];
         melody.forEach((freq, i) => {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(freq, t + i * 0.09);
-          gain.gain.setValueAtTime(0.20, t + i * 0.09);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.09 + 0.55);
+          gain.gain.setValueAtTime(0.22, t + i * 0.09);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.09 + 0.65);
           osc.connect(gain);
           gain.connect(this.ctx.destination);
           osc.start(t + i * 0.09);
-          osc.stop(t + i * 0.09 + 0.56);
+          osc.stop(t + i * 0.09 + 0.66);
         });
       }
 
@@ -396,47 +396,49 @@
       }
     }
 
-    // 4. PARTICLE SYSTEM (Gentle, soft floating celebration sparkles)
+    // 4. PARTICLE SYSTEM (Celebration sprinkles & sparkling stars)
     class ParticleSystem {
       constructor() { this.items = []; }
       clear() { this.items = []; }
 
       addBlockBurst(x, y, w, h) {
-        const colors = ['#38BDF8', '#60A5FA', '#93C5FD', '#FDE68A', '#A7F3D0', '#BAE6FD'];
-        for (let i = 0; i < 18; i++) {
+        const colors = ['#38BDF8', '#60A5FA', '#93C5FD', '#FDE68A', '#A7F3D0', '#BAE6FD', '#F472B6'];
+        for (let i = 0; i < 22; i++) {
           const px = x + Math.random() * w;
           const py = y + Math.random() * h;
           const a = Math.random() * Math.PI * 2;
-          const speed = 12 + Math.random() * 22;
+          const speed = 14 + Math.random() * 26;
           this.items.push({
             type: 'STAR',
             x: px, y: py,
             vx: Math.cos(a) * speed,
-            vy: Math.sin(a) * speed - 10,
-            size: 3.5 + Math.random() * 4,
+            vy: Math.sin(a) * speed - 12,
+            size: 3.5 + Math.random() * 4.5,
             rot: Math.random() * Math.PI * 2,
-            vRot: (Math.random() - 0.5) * 2.2,
-            life: 1.1 + Math.random() * 0.45,
-            maxLife: 1.55,
+            vRot: (Math.random() - 0.5) * 2.5,
+            life: 1.2 + Math.random() * 0.5,
+            maxLife: 1.7,
             color: colors[Math.floor(Math.random() * colors.length)]
           });
         }
       }
 
+      // Grand Victory Confetti & Sprinkles
       addVictoryConfetti(w, h) {
-        const colors = ['#38BDF8', '#60A5FA', '#86EFAC', '#FDE68A', '#BAE6FD', '#C4B5FD', '#F9A8D4'];
-        for (let i = 0; i < 64; i++) {
+        const colors = ['#38BDF8', '#60A5FA', '#86EFAC', '#FDE68A', '#BAE6FD', '#C4B5FD', '#F472B6', '#FB7185', '#FBBF24', '#34D399'];
+        for (let i = 0; i < 110; i++) {
+          const isSprinkle = Math.random() > 0.4;
           this.items.push({
-            type: 'CONFETTI',
+            type: isSprinkle ? 'SPRINKLE' : 'CONFETTI',
             x: Math.random() * w,
-            y: -20 - Math.random() * 100,
-            vx: (Math.random() - 0.5) * 50,
-            vy: 70 + Math.random() * 110,
-            size: 6 + Math.random() * 6,
+            y: -20 - Math.random() * 120,
+            vx: (Math.random() - 0.5) * 70,
+            vy: 65 + Math.random() * 125,
+            size: isSprinkle ? (4 + Math.random() * 3) : (6 + Math.random() * 7),
             rot: Math.random() * Math.PI * 2,
-            vRot: (Math.random() - 0.5) * 4,
-            life: 2.5 + Math.random() * 1.5,
-            maxLife: 4.0,
+            vRot: (Math.random() - 0.5) * 4.5,
+            life: 2.8 + Math.random() * 1.8,
+            maxLife: 4.6,
             color: colors[Math.floor(Math.random() * colors.length)]
           });
         }
@@ -449,7 +451,9 @@
           p.y += p.vy * dt;
           p.rot += p.vRot * dt;
           p.life -= dt;
-          if (p.type === 'CONFETTI') p.vx += Math.sin(p.life * 3) * 1.0;
+          if (p.type === 'CONFETTI' || p.type === 'SPRINKLE') {
+            p.vx += Math.sin(p.life * 3.5) * 1.2;
+          }
           if (p.life <= 0) this.items.splice(i, 1);
         }
       }
@@ -458,13 +462,18 @@
         for (const p of this.items) {
           const k = Math.max(0, p.life / p.maxLife);
           ctx.save();
-          ctx.globalAlpha = Math.min(1, k * 1.3);
+          ctx.globalAlpha = Math.min(1, k * 1.35);
           ctx.translate(p.x, p.y);
           ctx.rotate(p.rot);
           ctx.fillStyle = p.color;
 
           if (p.type === 'CONFETTI') {
             ctx.fillRect(-p.size * 0.5, -p.size * 0.25, p.size, p.size * 0.5);
+          } else if (p.type === 'SPRINKLE') {
+            // Little round capsule / pill sprinkle
+            ctx.beginPath();
+            ctx.roundRect(-p.size * 0.8, -p.size * 0.35, p.size * 1.6, p.size * 0.7, p.size * 0.35);
+            ctx.fill();
           } else {
             const s = p.size;
             ctx.beginPath();
@@ -521,7 +530,7 @@
 
         this.selected = null;
         this.isPaused = false;
-        this.state = 'DIFF_SELECT'; // Always show clean difficulty modal upon opening
+        this.state = 'DIFF_SELECT';
 
         this.mistakes = 0;
         this.maxMistakes = 3;
@@ -529,6 +538,15 @@
         this.history = [];
         this.remainingHints = 3;
         this.activeHint = null;
+
+        // Completion trackers to detect newly solved rows, cols, and 3x3 blocks
+        this.completedRows = new Set();
+        this.completedCols = new Set();
+        this.completedBoxes = new Set();
+        this.completedBands = new Set();
+        this.completedStacks = new Set();
+        this.isVictoryTriggered = false;
+        this.victoryModalTimer = 0;
 
         this.tutorialSlide = 0;
         this.maxTutorialSlides = 5;
@@ -548,7 +566,6 @@
         this.initLayout();
         this.bindEvents();
 
-        // Populate a background puzzle for great visual under the dialog
         const sample = SudokuCore.generatePuzzle('easy');
         this.given = sample.puzzle;
         this.solution = sample.solution;
@@ -608,6 +625,13 @@
         this.remainingHints = 3;
         this.activeHint = null;
         this.sweeps = [];
+        this.completedRows.clear();
+        this.completedCols.clear();
+        this.completedBoxes.clear();
+        this.completedBands.clear();
+        this.completedStacks.clear();
+        this.isVictoryTriggered = false;
+        this.victoryModalTimer = 0;
         this.particles.clear();
         this.saveGame();
         Host.post('onGameStarted', { difficulty: this.difficulty });
@@ -949,18 +973,13 @@
         if (!this.selected || this.state !== 'PLAYING') return;
         const { r, c } = this.selected;
 
-        // 1. Clue cells from the start can never be edited
         if (this.given[r][c] !== 0) return;
-
-        // 2. CRITICAL FIX: If cell was already CORRECTLY filled, it is LOCKED!
-        // Tapping again will NOT erase it, and tapping wrong number will NOT lose a life!
         if (this.user[r][c] !== 0 && this.user[r][c] === this.solution[r][c]) {
-          return; // Permanent correct placement locked!
+          return; // Correct number is permanently locked
         }
 
         const prevVal = this.user[r][c];
 
-        // If user already had a wrong value in the cell and tapped the same digit, clear it
         if (prevVal === num) {
           this.user[r][c] = 0;
           this.synth.playErase();
@@ -987,7 +1006,7 @@
           this.synth.playDigit(num);
           this.haptic('light');
 
-          this.checkCompletions(r, c);
+          this.checkCompletions();
 
           if (this.checkVictory()) {
             this.triggerVictory();
@@ -1002,46 +1021,89 @@
         this.saveGame();
       }
 
-      checkCompletions(r, c) {
-        // 1. Check Row Completion (Vibrant medium-sky blue line animation)
-        let rowDone = true;
-        for (let i = 0; i < 9; i++) {
-          const val = this.given[r][i] || this.user[r][i];
-          if (val !== this.solution[r][i]) { rowDone = false; break; }
-        }
-        if (rowDone) {
-          this.sweeps.push({ type: 'row', index: r, t: 0, maxT: 1.35 });
-          this.particles.addBlockBurst(this.boardX, this.boardY + r * this.cellSize, this.boardSize, this.cellSize);
-          this.synth.playBlockComplete();
-        }
+      // Check all 9 rows, 9 cols, 9 3x3 boxes, and 3-box bands / stacks
+      checkCompletions() {
+        let soundPlayed = false;
 
-        // 2. Check Column Completion (Vibrant medium-sky blue line animation)
-        let colDone = true;
-        for (let i = 0; i < 9; i++) {
-          const val = this.given[i][c] || this.user[i][c];
-          if (val !== this.solution[i][c]) { colDone = false; break; }
-        }
-        if (colDone) {
-          this.sweeps.push({ type: 'col', index: c, t: 0, maxT: 1.35 });
-          this.particles.addBlockBurst(this.boardX + c * this.cellSize, this.boardY, this.cellSize, this.boardSize);
-          this.synth.playBlockComplete();
-        }
-
-        // 3. Check 3x3 Box Completion (Sharp square medium-sky blue shimmer)
-        const br = Math.floor(r / 3) * 3;
-        const bc = Math.floor(c / 3) * 3;
-        let boxDone = true;
-        for (let i = 0; i < 3; i++) {
-          for (let j = 0; j < 3; j++) {
-            const val = this.given[br + i][bc + j] || this.user[br + i][bc + j];
-            if (val !== this.solution[br + i][bc + j]) { boxDone = false; break; }
+        // 1. Check Rows (0 to 8)
+        for (let r = 0; r < 9; r++) {
+          if (!this.completedRows.has(r)) {
+            let rowDone = true;
+            for (let c = 0; c < 9; c++) {
+              const val = this.given[r][c] || this.user[r][c];
+              if (val !== this.solution[r][c]) { rowDone = false; break; }
+            }
+            if (rowDone) {
+              this.completedRows.add(r);
+              this.sweeps.push({ type: 'row', index: r, t: 0, maxT: 1.35 });
+              this.particles.addBlockBurst(this.boardX, this.boardY + r * this.cellSize, this.boardSize, this.cellSize);
+              if (!soundPlayed) { this.synth.playBlockComplete(); soundPlayed = true; }
+            }
           }
         }
-        if (boxDone) {
-          const boxIdx = Math.floor(r / 3) * 3 + Math.floor(c / 3);
-          this.sweeps.push({ type: 'box', index: boxIdx, br, bc, t: 0, maxT: 1.35 });
-          this.particles.addBlockBurst(this.boardX + bc * this.cellSize, this.boardY + br * this.cellSize, this.cellSize * 3, this.cellSize * 3);
-          this.synth.playBlockComplete();
+
+        // 2. Check Columns (0 to 8)
+        for (let c = 0; c < 9; c++) {
+          if (!this.completedCols.has(c)) {
+            let colDone = true;
+            for (let r = 0; r < 9; r++) {
+              const val = this.given[r][c] || this.user[r][c];
+              if (val !== this.solution[r][c]) { colDone = false; break; }
+            }
+            if (colDone) {
+              this.completedCols.add(c);
+              this.sweeps.push({ type: 'col', index: c, t: 0, maxT: 1.35 });
+              this.particles.addBlockBurst(this.boardX + c * this.cellSize, this.boardY, this.cellSize, this.boardSize);
+              if (!soundPlayed) { this.synth.playBlockComplete(); soundPlayed = true; }
+            }
+          }
+        }
+
+        // 3. Check 3x3 Boxes (0 to 8)
+        for (let b = 0; b < 9; b++) {
+          if (!this.completedBoxes.has(b)) {
+            const br = Math.floor(b / 3) * 3;
+            const bc = (b % 3) * 3;
+            let boxDone = true;
+            for (let i = 0; i < 3; i++) {
+              for (let j = 0; j < 3; j++) {
+                const val = this.given[br + i][bc + j] || this.user[br + i][bc + j];
+                if (val !== this.solution[br + i][bc + j]) { boxDone = false; break; }
+              }
+            }
+            if (boxDone) {
+              this.completedBoxes.add(b);
+              this.sweeps.push({ type: 'box', index: b, br, bc, t: 0, maxT: 1.35 });
+              this.particles.addBlockBurst(this.boardX + bc * this.cellSize, this.boardY + br * this.cellSize, this.cellSize * 3, this.cellSize * 3);
+              if (!soundPlayed) { this.synth.playBlockComplete(); soundPlayed = true; }
+            }
+          }
+        }
+
+        // 4. Check 3-Box Horizontal Bands (Rows of 3x3 boxes: 0, 1, 2)
+        for (let band = 0; band < 3; band++) {
+          if (!this.completedBands.has(band)) {
+            const b0 = band * 3, b1 = band * 3 + 1, b2 = band * 3 + 2;
+            if (this.completedBoxes.has(b0) && this.completedBoxes.has(b1) && this.completedBoxes.has(b2)) {
+              this.completedBands.add(band);
+              this.sweeps.push({ type: 'band_row', band, t: 0, maxT: 1.6 });
+              this.particles.addBlockBurst(this.boardX, this.boardY + band * 3 * this.cellSize, this.boardSize, this.cellSize * 3);
+              if (!soundPlayed) { this.synth.playBlockComplete(); soundPlayed = true; }
+            }
+          }
+        }
+
+        // 5. Check 3-Box Vertical Stacks (Columns of 3x3 boxes: 0, 1, 2)
+        for (let stack = 0; stack < 3; stack++) {
+          if (!this.completedStacks.has(stack)) {
+            const b0 = stack, b1 = stack + 3, b2 = stack + 6;
+            if (this.completedBoxes.has(b0) && this.completedBoxes.has(b1) && this.completedBoxes.has(b2)) {
+              this.completedStacks.add(stack);
+              this.sweeps.push({ type: 'band_col', stack, t: 0, maxT: 1.6 });
+              this.particles.addBlockBurst(this.boardX + stack * 3 * this.cellSize, this.boardY, this.cellSize * 3, this.boardSize);
+              if (!soundPlayed) { this.synth.playBlockComplete(); soundPlayed = true; }
+            }
+          }
         }
       }
 
@@ -1049,8 +1111,6 @@
         if (!this.selected || this.state !== 'PLAYING') return;
         const { r, c } = this.selected;
         if (this.given[r][c] !== 0) return;
-
-        // If correctly placed, cannot be erased
         if (this.user[r][c] !== 0 && this.user[r][c] === this.solution[r][c]) return;
 
         if (this.user[r][c] !== 0) {
@@ -1095,7 +1155,7 @@
         this.synth.playDigit(hint.val);
         this.haptic('success');
 
-        this.checkCompletions(hint.r, hint.c);
+        this.checkCompletions();
         if (this.checkVictory()) this.triggerVictory();
         this.saveGame();
       }
@@ -1121,8 +1181,15 @@
       }
 
       triggerVictory() {
-        this.state = 'VICTORY';
+        if (this.isVictoryTriggered) return;
+        this.isVictoryTriggered = true;
+
+        // 1. Full Board Radiant Sky-Blue Victory Wave
+        this.sweeps.push({ type: 'full_board', t: 0, maxT: 2.4 });
+
+        // 2. Launch Grand Victory Sprinkles & Sparkling Stars
         this.particles.addVictoryConfetti(this.width, this.height);
+        this.particles.addBlockBurst(this.boardX, this.boardY, this.boardSize, this.boardSize);
         this.synth.playVictory();
         this.haptic('success');
 
@@ -1141,6 +1208,9 @@
           time: this.timer,
           coins: earnedCoins
         });
+
+        // 3. Smooth transition to Victory Dialog after board celebration
+        this.victoryModalTimer = 1.5;
       }
 
       haptic(type) {
@@ -1177,6 +1247,13 @@
 
         if (this.state === 'PLAYING' && !this.isPaused) {
           this.timer += dt;
+        }
+
+        if (this.victoryModalTimer > 0) {
+          this.victoryModalTimer -= dt;
+          if (this.victoryModalTimer <= 0) {
+            this.state = 'VICTORY';
+          }
         }
 
         if (this.state === 'TUTORIAL') {
@@ -1353,7 +1430,7 @@
         const y = this.headerY;
         const diffObj = DIFFICULTIES.find(d => d.id === this.difficulty) || DIFFICULTIES[0];
 
-        // 1. Difficulty Pill Button (Left)
+        // 1. Difficulty Pill Button
         ctx.save();
         ctx.shadowColor = 'rgba(15, 23, 42, 0.06)';
         ctx.shadowBlur = 10;
@@ -1378,7 +1455,7 @@
         ctx.fillText(diffObj.label + ' ▼', 38, y + 17);
         ctx.restore();
 
-        // 2. Center 3 Hearts Pill (Mistakes: 3 Lives)
+        // 2. Center 3 Hearts Pill
         const heartsPillW = 86;
         const heartsPillX = (this.width - heartsPillW) / 2;
         ctx.save();
@@ -1402,7 +1479,7 @@
         }
         ctx.restore();
 
-        // 3. Timer & Controls Pill (Right)
+        // 3. Timer & Controls Pill
         const timerPillW = 76;
         const timerPillX = this.width - timerPillW - 74;
         ctx.save();
@@ -1511,7 +1588,7 @@
           }
         }
 
-        // CONTINUOUS MEDIUM SKY-BLUE LINE SWEEPS (Clear, vibrant, beautifully balanced)
+        // --- CONTINUOUS VIBRANT SKY-BLUE LINE, 3X3 BOX & FULL BOARD VICTORY SWEEPS ---
         for (const sweep of this.sweeps) {
           const progress = sweep.t / sweep.maxT;
           ctx.save();
@@ -1530,7 +1607,6 @@
               alpha = Math.max(0, 1.0 - (progress - 0.45) / 0.55);
             }
 
-            // Balanced medium sky-blue gradient (clean and vivid)
             const grad = ctx.createLinearGradient(bx, ry, bx + drawW, ry);
             grad.addColorStop(0, 'rgba(56, 189, 248, ' + alpha * 0.65 + ')');
             grad.addColorStop(0.6, 'rgba(96, 165, 250, ' + alpha * 0.85 + ')');
@@ -1539,7 +1615,6 @@
             ctx.fillStyle = grad;
             ctx.fillRect(bx, ry, drawW, cs);
 
-            // Luminous center flare ray
             ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.85 + ')';
             ctx.lineWidth = 2.5;
             ctx.beginPath();
@@ -1577,6 +1652,7 @@
             ctx.stroke();
 
           } else if (sweep.type === 'box') {
+            // Single 3x3 Box Radiant Highlight
             const boxX = bx + sweep.bc * cs;
             const boxY = by + sweep.br * cs;
             const boxW = cs * 3.0;
@@ -1590,6 +1666,70 @@
 
             ctx.fillStyle = grad;
             ctx.fillRect(boxX, boxY, boxW, boxW);
+
+            // Glowing border frame on the 3x3 box
+            ctx.strokeStyle = 'rgba(56, 189, 248, ' + alpha * 0.95 + ')';
+            ctx.lineWidth = 3.0;
+            ctx.strokeRect(boxX + 1.5, boxY + 1.5, boxW - 3, boxW - 3);
+
+          } else if (sweep.type === 'band_row') {
+            // 3 Boxes in a Row Combo Wave
+            const bandY = by + sweep.band * 3 * cs;
+            const bandH = cs * 3.0;
+            const alpha = Math.sin(progress * Math.PI) * 0.88;
+
+            const grad = ctx.createLinearGradient(bx, bandY, bx + bs, bandY);
+            grad.addColorStop(0, 'rgba(56, 189, 248, ' + alpha * 0.50 + ')');
+            grad.addColorStop(0.5, 'rgba(255, 255, 255, ' + alpha * 0.85 + ')');
+            grad.addColorStop(1, 'rgba(96, 165, 250, ' + alpha * 0.50 + ')');
+
+            ctx.fillStyle = grad;
+            ctx.fillRect(bx, bandY, bs, bandH);
+
+            ctx.strokeStyle = 'rgba(56, 189, 248, ' + alpha * 0.95 + ')';
+            ctx.lineWidth = 3.2;
+            ctx.strokeRect(bx + 1.5, bandY + 1.5, bs - 3, bandH - 3);
+
+          } else if (sweep.type === 'band_col') {
+            // 3 Boxes in a Column Combo Wave
+            const stackX = bx + sweep.stack * 3 * cs;
+            const stackW = cs * 3.0;
+            const alpha = Math.sin(progress * Math.PI) * 0.88;
+
+            const grad = ctx.createLinearGradient(stackX, by, stackX, by + bs);
+            grad.addColorStop(0, 'rgba(56, 189, 248, ' + alpha * 0.50 + ')');
+            grad.addColorStop(0.5, 'rgba(255, 255, 255, ' + alpha * 0.85 + ')');
+            grad.addColorStop(1, 'rgba(96, 165, 250, ' + alpha * 0.50 + ')');
+
+            ctx.fillStyle = grad;
+            ctx.fillRect(stackX, by, stackW, bs);
+
+            ctx.strokeStyle = 'rgba(56, 189, 248, ' + alpha * 0.95 + ')';
+            ctx.lineWidth = 3.2;
+            ctx.strokeRect(stackX + 1.5, by + 1.5, stackW - 3, bs - 3);
+
+          } else if (sweep.type === 'full_board') {
+            // FULL BOARD GRAND VICTORY MATRIX CASCADE
+            const alpha = Math.sin(progress * Math.PI) * 0.92;
+            const waveOffset = progress * bs * 2.0;
+
+            const grad = ctx.createLinearGradient(bx, by, bx + bs, by + bs);
+            const p1 = Math.max(0, Math.min(1, progress - 0.25));
+            const p2 = Math.max(0, Math.min(1, progress));
+            const p3 = Math.max(0, Math.min(1, progress + 0.25));
+
+            grad.addColorStop(0, 'rgba(56, 189, 248, ' + alpha * 0.45 + ')');
+            grad.addColorStop(p1, 'rgba(96, 165, 250, ' + alpha * 0.70 + ')');
+            grad.addColorStop(p2, 'rgba(255, 255, 255, ' + alpha * 0.95 + ')');
+            grad.addColorStop(p3, 'rgba(56, 189, 248, ' + alpha * 0.65 + ')');
+            grad.addColorStop(1, 'rgba(37, 99, 235, ' + alpha * 0.40 + ')');
+
+            ctx.fillStyle = grad;
+            ctx.fillRect(bx, by, bs, bs);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.95 + ')';
+            ctx.lineWidth = 3.6;
+            ctx.strokeRect(bx + 1.5, by + 1.5, bs - 3, bs - 3);
           }
           ctx.restore();
         }
