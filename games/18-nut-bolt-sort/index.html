@@ -954,9 +954,8 @@
         ctx.fill();
         ctx.restore();
 
-        // Bolt/shaft visible through a resting nut. Flying nuts intentionally hide
-        // the shaft so the nut looks like a separate physical object in transit.
-        if (o.shaftThrough !== false && !o.isFlying) {
+        // Bolt/shaft visible through nut whenever threaded on the bolt shaft.
+        if (o.shaftThrough !== false) {
           ctx.save();
           ctx.globalAlpha = 0.98;
           ctx.beginPath();
@@ -3094,7 +3093,12 @@
           ctx.translate(-x, -(y + band * 0.5));
           Art.drawNut(ctx, x, y, rx, ry, band, 0, pal, {});
         } else if (live || Math.abs(spin) > 0.002) {
-          Art.drawNut(ctx, x, y, rx, ry, band, spin, nut.hidden ? HIDDEN_SKIN : pal, { questionMark: nut.hidden, isFlying: true, shaftThrough: false });
+          const isOverShaft = (bolt && Math.abs(x - bolt.x) < 8 && y >= bolt.shaftTopY - bolt.ry * 2.2);
+          Art.drawNut(ctx, x, y, rx, ry, band, spin, nut.hidden ? HIDDEN_SKIN : pal, {
+            questionMark: nut.hidden,
+            isFlying: !isOverShaft,
+            shaftThrough: isOverShaft
+          });
         } else {
           const sp = this.sprites.get(nut.c, nut.hidden, rx, ry, band);
           if (sp) ctx.drawImage(sp.canvas, x - sp.ax, y - sp.ay, sp.w, sp.h);
