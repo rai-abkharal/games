@@ -6,7 +6,7 @@
   <title>Sudoku Pro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800;900&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
   <style>
     * {
       box-sizing: border-box;
@@ -70,18 +70,18 @@
       btnDefaultBg: '#FFFFFF',
       btnDefaultBorder: '#E2E8F0',
       btnDefaultText: '#334155',
-      accentGreen: '#10B981',
+      accentGreen: '#22C55E',
       accentYellow: '#F59E0B',
-      accentPurple: '#8B5CF6',
-      accentRed: '#EF4444'
+      accentRed: '#EF4444',
+      accentPurple: '#8B5CF6'
     };
 
-    // Rebalanced enjoyable clues: Easy 60, Medium 50, Hard 40, Expert 32
+    // 4 Difficulty tiers matching custom avatars & colors
     const DIFFICULTIES = [
-      { id: 'easy', label: 'EASY', clues: 60, coins: 25, color: '#10B981', subtitle: 'Relaxed & Fun' },
-      { id: 'medium', label: 'MEDIUM', clues: 50, coins: 50, color: '#3B82F6', subtitle: 'Balanced Logic' },
-      { id: 'hard', label: 'HARD', clues: 40, coins: 75, color: '#F59E0B', subtitle: 'Deep Strategy' },
-      { id: 'expert', label: 'EXPERT', clues: 32, coins: 100, color: '#EF4444', subtitle: 'Master Level' }
+      { id: 'easy', label: 'EASY', clues: 60, coins: 25, color: '#22C55E', type: 'easy', subtitle: 'Relaxed & Fun' },
+      { id: 'medium', label: 'MEDIUM', clues: 50, coins: 50, color: '#F59E0B', type: 'medium', subtitle: 'Balanced Logic' },
+      { id: 'hard', label: 'HARD', clues: 40, coins: 75, color: '#EF4444', type: 'hard', subtitle: 'Deep Strategy' },
+      { id: 'expert', label: 'EXPERT', clues: 32, coins: 100, color: '#8B5CF6', type: 'expert', subtitle: 'Master Level' }
     ];
 
     // 2. SOUND SYNTHESIZER
@@ -402,12 +402,12 @@
       clear() { this.items = []; }
 
       addBlockBurst(x, y, w, h) {
-        const colors = ['#06B6D4', '#38BDF8', '#22D3EE', '#F59E0B', '#10B981', '#67E8F9', '#A5F3FC'];
+        const colors = ['#06B6D4', '#38BDF8', '#22D3EE', '#F59E0B', '#22C55E', '#67E8F9', '#A5F3FC'];
         for (let i = 0; i < 18; i++) {
           const px = x + Math.random() * w;
           const py = y + Math.random() * h;
           const a = Math.random() * Math.PI * 2;
-          const speed = 14 + Math.random() * 22; // Slower, graceful floating
+          const speed = 14 + Math.random() * 22;
           this.items.push({
             type: 'STAR',
             x: px, y: py,
@@ -416,7 +416,7 @@
             size: 4 + Math.random() * 4.5,
             rot: Math.random() * Math.PI * 2,
             vRot: (Math.random() - 0.5) * 2.2,
-            life: 1.1 + Math.random() * 0.45, // Longer lifetime
+            life: 1.1 + Math.random() * 0.45,
             maxLife: 1.55,
             color: colors[Math.floor(Math.random() * colors.length)]
           });
@@ -424,7 +424,7 @@
       }
 
       addVictoryConfetti(w, h) {
-        const colors = ['#3B82F6', '#10B981', '#F59E0B', '#06B6D4', '#8B5CF6', '#EC4899'];
+        const colors = ['#3B82F6', '#22C55E', '#F59E0B', '#06B6D4', '#8B5CF6', '#EC4899'];
         for (let i = 0; i < 64; i++) {
           this.items.push({
             type: 'CONFETTI',
@@ -512,7 +512,7 @@
         this.particles = new ParticleSystem();
 
         this.difficulty = 'easy';
-        this.sliderPos = 0; // 0 (Easy) to 3 (Expert), fractional while dragging
+        this.sliderPos = 0; // 0 (Easy) to 3 (Expert)
         this.isDraggingSlider = false;
 
         this.given = SudokuCore.createEmptyGrid();
@@ -521,7 +521,7 @@
 
         this.selected = null;
         this.isPaused = false;
-        this.state = 'DIFF_SELECT'; // Interactive single-line slider on start
+        this.state = 'DIFF_SELECT';
 
         this.mistakes = 0;
         this.maxMistakes = 3;
@@ -530,15 +530,19 @@
         this.remainingHints = 3;
         this.activeHint = null;
 
-        this.sweeps = []; // Cyan light beam scans across completed lines/boxes
+        this.tutorialSlide = 0;
+        this.maxTutorialSlides = 5;
+        this.tutorialAnimT = 0;
+
+        this.sweeps = [];
         this.lastTime = performance.now();
         this.shakeTimer = 0;
         this.errorCell = null;
         this.toast = null;
         this.keyPressTimer = Array(10).fill(0);
 
-        this.SAVE_KEY = 'sudoku_pro_saved_game_v3';
-        this.STATS_KEY = 'sudoku_pro_stats_v3';
+        this.SAVE_KEY = 'sudoku_pro_saved_game_v4';
+        this.STATS_KEY = 'sudoku_pro_stats_v4';
 
         this.stats = this.loadStats();
         this.initLayout();
@@ -567,7 +571,7 @@
       }
 
       saveGame() {
-        if (this.state === 'VICTORY' || this.state === 'GAMEOVER' || this.state === 'DIFF_SELECT') {
+        if (this.state === 'VICTORY' || this.state === 'GAMEOVER' || this.state === 'DIFF_SELECT' || this.state === 'TUTORIAL') {
           try { localStorage.removeItem(this.SAVE_KEY); } catch (e) {}
           return;
         }
@@ -642,7 +646,6 @@
         const minDim = Math.min(this.width, this.height);
         this.scale = Math.min(1.2, Math.max(0.8, minDim / 400));
 
-        // Maximize board size for clear readability
         const maxBoardSize = Math.min(this.width - 20, this.height * 0.58);
         this.boardSize = Math.floor(maxBoardSize);
         this.cellSize = this.boardSize / 9;
@@ -654,13 +657,12 @@
         this.keypadY = this.toolbarY + 54;
       }
 
-      getSliderTrack() {
-        const modalW = Math.min(330, this.width - 40);
-        const modalY = (this.height - 240) / 2;
-        const trackX = (this.width - (modalW - 60)) / 2;
-        const trackW = modalW - 60;
-        const trackY = modalY + 124;
-        return { modalW, modalY, trackX, trackW, trackY };
+      getDifficultySliderBounds() {
+        const trackW = Math.min(270, this.width - 80);
+        const trackX = (this.width - trackW) / 2;
+        const trackY = this.height * 0.60;
+        const trackH = 34;
+        return { trackX, trackY, trackW, trackH };
       }
 
       bindEvents() {
@@ -679,9 +681,8 @@
           const { px, py } = getPos(e);
 
           if (this.state === 'DIFF_SELECT') {
-            const { trackX, trackW, trackY } = this.getSliderTrack();
-            // Check if clicking or dragging the slider line
-            if (py >= trackY - 40 && py <= trackY + 40 && px >= trackX - 25 && px <= trackX + trackW + 25) {
+            const { trackX, trackW, trackY, trackH } = this.getDifficultySliderBounds();
+            if (py >= trackY - 20 && py <= trackY + trackH + 20 && px >= trackX - 25 && px <= trackX + trackW + 25) {
               this.isDraggingSlider = true;
               const ratio = Math.max(0, Math.min(1, (px - trackX) / trackW));
               this.sliderPos = ratio * 3;
@@ -696,7 +697,7 @@
           if (!this.isDraggingSlider || this.state !== 'DIFF_SELECT') return;
           e.preventDefault();
           const { px } = getPos(e);
-          const { trackX, trackW } = this.getSliderTrack();
+          const { trackX, trackW } = this.getDifficultySliderBounds();
           const ratio = Math.max(0, Math.min(1, (px - trackX) / trackW));
           this.sliderPos = ratio * 3;
         };
@@ -704,7 +705,6 @@
         const handlePointerUp = (e) => {
           if (this.isDraggingSlider && this.state === 'DIFF_SELECT') {
             this.isDraggingSlider = false;
-            // Snap to nearest tier
             const nearestIdx = Math.round(this.sliderPos);
             this.sliderPos = nearestIdx;
             this.difficulty = DIFFICULTIES[nearestIdx].id;
@@ -726,26 +726,38 @@
             this.handleUndo();
           } else if (e.key === 'h' || e.key === 'H') {
             this.handleHint();
-          } else if (e.key === 'ArrowLeft' && this.state === 'DIFF_SELECT') {
-            const cur = Math.round(this.sliderPos);
-            this.sliderPos = Math.max(0, cur - 1);
-            this.difficulty = DIFFICULTIES[Math.round(this.sliderPos)].id;
-            this.synth.playButton();
-          } else if (e.key === 'ArrowRight' && this.state === 'DIFF_SELECT') {
-            const cur = Math.round(this.sliderPos);
-            this.sliderPos = Math.min(3, cur + 1);
-            this.difficulty = DIFFICULTIES[Math.round(this.sliderPos)].id;
-            this.synth.playButton();
-          } else if (e.key === 'Enter' && this.state === 'DIFF_SELECT') {
-            this.startNewGame(DIFFICULTIES[Math.round(this.sliderPos)].id);
+          } else if (e.key === 'ArrowLeft') {
+            if (this.state === 'DIFF_SELECT') {
+              this.sliderPos = Math.max(0, Math.round(this.sliderPos) - 1);
+              this.difficulty = DIFFICULTIES[Math.round(this.sliderPos)].id;
+              this.synth.playButton();
+            } else if (this.state === 'TUTORIAL') {
+              this.tutorialSlide = Math.max(0, this.tutorialSlide - 1);
+              this.synth.playButton();
+            } else if (this.selected) {
+              this.selected.c = Math.max(0, this.selected.c - 1);
+            }
+          } else if (e.key === 'ArrowRight') {
+            if (this.state === 'DIFF_SELECT') {
+              this.sliderPos = Math.min(3, Math.round(this.sliderPos) + 1);
+              this.difficulty = DIFFICULTIES[Math.round(this.sliderPos)].id;
+              this.synth.playButton();
+            } else if (this.state === 'TUTORIAL') {
+              this.tutorialSlide = Math.min(this.maxTutorialSlides - 1, this.tutorialSlide + 1);
+              this.synth.playButton();
+            } else if (this.selected) {
+              this.selected.c = Math.min(8, this.selected.c + 1);
+            }
+          } else if (e.key === 'Enter') {
+            if (this.state === 'DIFF_SELECT') {
+              this.startNewGame(DIFFICULTIES[Math.round(this.sliderPos)].id);
+            } else if (this.state === 'TUTORIAL') {
+              this.state = 'DIFF_SELECT';
+            }
           } else if (e.key === 'ArrowUp' && this.selected) {
             this.selected.r = Math.max(0, this.selected.r - 1);
           } else if (e.key === 'ArrowDown' && this.selected) {
             this.selected.r = Math.min(8, this.selected.r + 1);
-          } else if (e.key === 'ArrowLeft' && this.selected) {
-            this.selected.c = Math.max(0, this.selected.c - 1);
-          } else if (e.key === 'ArrowRight' && this.selected) {
-            this.selected.c = Math.min(8, this.selected.c + 1);
           }
         });
       }
@@ -757,7 +769,7 @@
           const btnY = this.height * 0.74;
           if (px >= btnX && px <= btnX + btnW && py >= btnY && py <= btnY + btnH) {
             this.synth.playButton();
-            this.state = 'DIFF_SELECT'; // Re-open difficulty slider for next puzzle
+            this.state = 'DIFF_SELECT';
           }
           return;
         }
@@ -773,12 +785,63 @@
           return;
         }
 
-        // Minimal Difficulty Line Slider Screen
-        if (this.state === 'DIFF_SELECT') {
-          const { modalW, modalY, trackX, trackW, trackY } = this.getSliderTrack();
+        // TUTORIAL / HOW TO PLAY MODAL
+        if (this.state === 'TUTORIAL') {
+          const modalW = Math.min(340, this.width - 32);
+          const modalH = Math.min(520, this.height * 0.84);
+          const modalX = (this.width - modalW) / 2;
+          const modalY = (this.height - modalH) / 2;
 
-          // Tapping anywhere on track line
-          if (py >= trackY - 30 && py <= trackY + 30 && px >= trackX - 20 && px <= trackX + trackW + 20) {
+          const btnY = modalY + modalH - 58;
+
+          // Prev Button
+          if (px >= modalX + 16 && px <= modalX + 64 && py >= btnY && py <= btnY + 44) {
+            this.tutorialSlide = Math.max(0, this.tutorialSlide - 1);
+            this.synth.playButton();
+            return;
+          }
+
+          // OK / Close Button
+          const okW = modalW - 144;
+          const okX = modalX + 72;
+          if (px >= okX && px <= okX + okW && py >= btnY && py <= btnY + 44) {
+            this.synth.playButton();
+            this.state = 'DIFF_SELECT';
+            return;
+          }
+
+          // Next Button
+          const nextX = modalX + modalW - 64;
+          if (px >= nextX && px <= nextX + 48 && py >= btnY && py <= btnY + 44) {
+            if (this.tutorialSlide < this.maxTutorialSlides - 1) {
+              this.tutorialSlide++;
+              this.synth.playButton();
+            } else {
+              this.state = 'DIFF_SELECT';
+              this.synth.playButton();
+            }
+            return;
+          }
+
+          // Pagination Dots Click
+          const dotY = btnY - 24;
+          for (let i = 0; i < this.maxTutorialSlides; i++) {
+            const dx = this.width / 2 + (i - (this.maxTutorialSlides - 1) / 2) * 22;
+            if (px >= dx - 10 && px <= dx + 10 && py >= dotY - 10 && py <= dotY + 10) {
+              this.tutorialSlide = i;
+              this.synth.playButton();
+              return;
+            }
+          }
+          return;
+        }
+
+        // DIFFICULTY SELECTION SCREEN
+        if (this.state === 'DIFF_SELECT') {
+          const { trackX, trackW, trackY, trackH } = this.getDifficultySliderBounds();
+
+          // Slider Track click/jump
+          if (py >= trackY - 20 && py <= trackY + trackH + 20 && px >= trackX - 20 && px <= trackX + trackW + 20) {
             const ratio = Math.max(0, Math.min(1, (px - trackX) / trackW));
             const nearest = Math.round(ratio * 3);
             this.sliderPos = nearest;
@@ -787,14 +850,37 @@
             return;
           }
 
-          // "START GAME ▶" Button
-          const btnW = modalW - 60;
-          const btnH = 48;
-          const btnX = (this.width - btnW) / 2;
-          const btnY = modalY + 175;
-          if (px >= btnX && px <= btnX + btnW && py >= btnY && py <= btnY + btnH) {
+          const btnRowY = this.height * 0.74;
+          const playW = Math.min(190, this.width * 0.50);
+          const playH = 54;
+          const playX = (this.width - playW) / 2;
+
+          // PLAY Button
+          if (px >= playX && px <= playX + playW && py >= btnRowY && py <= btnRowY + playH) {
             this.synth.playButton();
             this.startNewGame(DIFFICULTIES[Math.round(this.sliderPos)].id);
+            return;
+          }
+
+          // Tutorial Question Mark "?" Button
+          const qSize = 52;
+          const qX = playX + playW + 14;
+          if (px >= qX && px <= qX + qSize && py >= btnRowY && py <= btnRowY + qSize) {
+            this.synth.playButton();
+            this.tutorialSlide = 0;
+            this.state = 'TUTORIAL';
+            return;
+          }
+
+          // Stats Button (Left of Play)
+          const sSize = 52;
+          const sX = playX - sSize - 14;
+          if (px >= sX && px <= sX + sSize && py >= btnRowY && py <= btnRowY + sSize) {
+            this.synth.playButton();
+            const bestTime = this.stats.bestTimes[this.difficulty];
+            const text = 'Best Time: ' + (bestTime ? this.formatTime(bestTime) : 'None') + ' • Won: ' + (this.stats.gamesWon || 0);
+            this.toast = { text, t: 2.2, max: 2.2 };
+            return;
           }
           return;
         }
@@ -888,7 +974,7 @@
 
         const prevVal = this.user[r][c];
 
-        // Tapping the same number toggles it off (Erase)
+        // Tapping same number clears cell
         if (prevVal === num) {
           this.user[r][c] = 0;
           this.synth.playErase();
@@ -931,7 +1017,7 @@
       }
 
       checkCompletions(r, c) {
-        // 1. Check Row Completion (Full width cyan beam sweep)
+        // 1. Check Row Completion (3-cell wide beam sweeping across row)
         let rowDone = true;
         for (let i = 0; i < 9; i++) {
           const val = this.given[r][i] || this.user[r][i];
@@ -943,7 +1029,7 @@
           this.synth.playBlockComplete();
         }
 
-        // 2. Check Column Completion (Full height cyan beam sweep)
+        // 2. Check Column Completion (3-cell wide beam sweeping across column)
         let colDone = true;
         for (let i = 0; i < 9; i++) {
           const val = this.given[i][c] || this.user[i][c];
@@ -955,7 +1041,7 @@
           this.synth.playBlockComplete();
         }
 
-        // 3. Check 3x3 Box Completion (Full box cyan beam wave)
+        // 3. Check 3x3 Box Completion (3x3 block sweep)
         const br = Math.floor(r / 3) * 3;
         const bc = Math.floor(c / 3) * 3;
         let boxDone = true;
@@ -1012,7 +1098,6 @@
         const hint = SudokuCore.findHint(currentGrid, this.solution);
         if (!hint) return;
 
-        // Decrement hints count strictly
         this.remainingHints--;
         this.activeHint = hint;
         this.selected = { r: hint.r, c: hint.c };
@@ -1105,6 +1190,10 @@
           this.timer += dt;
         }
 
+        if (this.state === 'TUTORIAL') {
+          this.tutorialAnimT += dt;
+        }
+
         if (this.shakeTimer > 0) this.shakeTimer = Math.max(0, this.shakeTimer - dt);
         if (this.toast) {
           this.toast.t -= dt;
@@ -1125,7 +1214,7 @@
         requestAnimationFrame((t) => this.loop(t));
       }
 
-      // 7. RENDERING PIPELINE
+      // --- RENDERING PIPELINE ---
       render() {
         const ctx = this.ctx;
         ctx.save();
@@ -1137,18 +1226,22 @@
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        this.renderHeader(ctx);
-        this.renderBoard(ctx);
-        this.renderToolbar(ctx);
-        this.renderKeypad(ctx);
-        this.particles.render(ctx);
+        if (this.state === 'DIFF_SELECT' || this.state === 'TUTORIAL') {
+          this.renderDifficultyScreen(ctx);
+          if (this.state === 'TUTORIAL') this.renderTutorialModal(ctx);
+        } else {
+          this.renderHeader(ctx);
+          this.renderBoard(ctx);
+          this.renderToolbar(ctx);
+          this.renderKeypad(ctx);
+          this.particles.render(ctx);
 
-        if (this.toast) this.renderToast(ctx);
-        if (this.activeHint) this.renderHintOverlay(ctx);
-        if (this.state === 'PAUSED') this.renderPauseModal(ctx);
-        if (this.state === 'DIFF_SELECT') this.renderDiffLineSlider(ctx);
-        if (this.state === 'VICTORY') this.renderVictoryModal(ctx);
-        if (this.state === 'GAMEOVER') this.renderGameOverModal(ctx);
+          if (this.toast) this.renderToast(ctx);
+          if (this.activeHint) this.renderHintOverlay(ctx);
+          if (this.state === 'PAUSED') this.renderPauseModal(ctx);
+          if (this.state === 'VICTORY') this.renderVictoryModal(ctx);
+          if (this.state === 'GAMEOVER') this.renderGameOverModal(ctx);
+        }
 
         ctx.restore();
       }
@@ -1310,7 +1403,6 @@
         ctx.save();
         ctx.translate(shakeX, shakeY);
 
-        // Ambient board shadow
         ctx.shadowColor = THEME.cardShadow;
         ctx.shadowBlur = 24;
         ctx.shadowOffsetY = 8;
@@ -1357,31 +1449,29 @@
           }
         }
 
-        // FULL-SPAN CYAN GLOWING SWEEP BEAM ANIMATIONS
+        // FULL-SPAN THICK 3-CELL WIDE CYAN LASER SWEEPS
         for (const sweep of this.sweeps) {
           const progress = sweep.t / sweep.maxT;
-          const alpha = Math.sin(progress * Math.PI) * 0.92;
+          const alpha = Math.sin(progress * Math.PI) * 0.94;
           ctx.save();
 
           if (sweep.type === 'row') {
             const ry = by + sweep.index * cs;
-            // Full cell height cyan laser beam passing from left to right
-            const beamX = bx + (progress * 1.3 - 0.15) * bs;
-            const beamW = cs * 1.8;
+            const beamW = cs * 3.0;
+            const beamX = bx + (progress * 1.4 - 0.2) * bs;
 
-            const grad = ctx.createLinearGradient(beamX - beamW, ry, beamX + beamW, ry);
+            const grad = ctx.createLinearGradient(beamX - beamW / 2, ry, beamX + beamW / 2, ry);
             grad.addColorStop(0, 'rgba(6, 182, 212, 0)');
-            grad.addColorStop(0.3, 'rgba(34, 211, 238, ' + alpha * 0.6 + ')');
+            grad.addColorStop(0.25, 'rgba(34, 211, 238, ' + alpha * 0.55 + ')');
             grad.addColorStop(0.5, 'rgba(165, 243, 252, ' + alpha + ')');
-            grad.addColorStop(0.7, 'rgba(34, 211, 238, ' + alpha * 0.6 + ')');
+            grad.addColorStop(0.75, 'rgba(34, 211, 238, ' + alpha * 0.55 + ')');
             grad.addColorStop(1, 'rgba(6, 182, 212, 0)');
 
             ctx.fillStyle = grad;
             ctx.fillRect(bx, ry, bs, cs);
 
-            // Radiant center core line
-            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.8 + ')';
-            ctx.lineWidth = 3.0;
+            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.85 + ')';
+            ctx.lineWidth = 3.5;
             ctx.beginPath();
             ctx.moveTo(beamX, ry);
             ctx.lineTo(beamX, ry + cs);
@@ -1389,23 +1479,21 @@
 
           } else if (sweep.type === 'col') {
             const cx = bx + sweep.index * cs;
-            // Full cell width cyan laser beam passing from top to bottom
-            const beamY = by + (progress * 1.3 - 0.15) * bs;
-            const beamH = cs * 1.8;
+            const beamH = cs * 3.0;
+            const beamY = by + (progress * 1.4 - 0.2) * bs;
 
-            const grad = ctx.createLinearGradient(cx, beamY - beamH, cx, beamY + beamH);
+            const grad = ctx.createLinearGradient(cx, beamY - beamH / 2, cx, beamY + beamH / 2);
             grad.addColorStop(0, 'rgba(6, 182, 212, 0)');
-            grad.addColorStop(0.3, 'rgba(34, 211, 238, ' + alpha * 0.6 + ')');
+            grad.addColorStop(0.25, 'rgba(34, 211, 238, ' + alpha * 0.55 + ')');
             grad.addColorStop(0.5, 'rgba(165, 243, 252, ' + alpha + ')');
-            grad.addColorStop(0.7, 'rgba(34, 211, 238, ' + alpha * 0.6 + ')');
+            grad.addColorStop(0.75, 'rgba(34, 211, 238, ' + alpha * 0.55 + ')');
             grad.addColorStop(1, 'rgba(6, 182, 212, 0)');
 
             ctx.fillStyle = grad;
             ctx.fillRect(cx, by, cs, bs);
 
-            // Radiant center core line
-            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.8 + ')';
-            ctx.lineWidth = 3.0;
+            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha * 0.85 + ')';
+            ctx.lineWidth = 3.5;
             ctx.beginPath();
             ctx.moveTo(cx, beamY);
             ctx.lineTo(cx + cs, beamY);
@@ -1414,8 +1502,7 @@
           } else if (sweep.type === 'box') {
             const boxX = bx + sweep.bc * cs;
             const boxY = by + sweep.br * cs;
-            const boxW = cs * 3;
-            // Diagonal beam sweep across the 3x3 box
+            const boxW = cs * 3.0;
             const beamOffset = (progress * 1.4 - 0.2) * (boxW * 2);
             const grad = ctx.createLinearGradient(boxX + beamOffset - boxW, boxY + beamOffset - boxW, boxX + beamOffset, boxY + beamOffset);
             grad.addColorStop(0, 'rgba(6, 182, 212, 0)');
@@ -1557,7 +1644,6 @@
         ctx.textAlign = 'left';
         ctx.fillText('Hint', hintX + 46, y + 22);
 
-        // Hint count badge
         const badgeX = hintX + toolW - 22;
         const badgeY = y + 22;
         ctx.beginPath();
@@ -1582,7 +1668,6 @@
           const isPressed = this.keyPressTimer[num] > 0;
           const dy = isPressed ? 2 : 0;
 
-          // 3D tactile keycap
           ctx.save();
           if (!isDone) {
             ctx.beginPath();
@@ -1599,18 +1684,16 @@
           ctx.lineWidth = 1.2;
           ctx.stroke();
 
-          // Main Number Digit
           ctx.font = '800 21px Fredoka, Inter, sans-serif';
           ctx.fillStyle = isDone ? '#94A3B8' : '#0F172A';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(num.toString(), x + keyW / 2, y + 20 + dy);
 
-          // Bottom pill badge: remaining count or success checkmark
           if (isDone) {
             ctx.beginPath();
             ctx.arc(x + keyW / 2, y + 39 + dy, 6, 0, Math.PI * 2);
-            ctx.fillStyle = '#10B981';
+            ctx.fillStyle = '#22C55E';
             ctx.fill();
             ctx.font = '800 9px sans-serif';
             ctx.fillStyle = '#FFFFFF';
@@ -1624,10 +1707,470 @@
         }
       }
 
+      // --- DIFFICULTY SELECTION SCREEN (Exact UX matching reference images) ----
+      renderDifficultyScreen(ctx) {
+        const topH = this.height * 0.28;
+        const bannerGrad = ctx.createLinearGradient(0, 0, 0, topH);
+        bannerGrad.addColorStop(0, '#1E40AF');
+        bannerGrad.addColorStop(1, '#3B82F6');
+        ctx.fillStyle = bannerGrad;
+        ctx.fillRect(0, 0, this.width, topH);
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1.5;
+        const step = 32;
+        for (let gx = 0; gx < this.width; gx += step) {
+          ctx.beginPath();
+          ctx.moveTo(gx, 0);
+          ctx.lineTo(gx + topH * 0.3, topH);
+          ctx.stroke();
+        }
+
+        ctx.font = '900 24px Fredoka, Inter, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.fillText('SUDOKU', this.width / 2, topH * 0.36);
+
+        ctx.font = '700 13px Inter, sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+        ctx.fillText('Play Sudoku, train your brain', this.width / 2, topH * 0.58);
+        ctx.fillText('and beat your highscore', this.width / 2, topH * 0.72);
+
+        const curIdx = Math.max(0, Math.min(3, Math.round(this.sliderPos)));
+        const d = DIFFICULTIES[curIdx];
+
+        const avatarY = topH + 34;
+        const avatarR = 44;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.14)';
+        ctx.shadowBlur = 18;
+        ctx.shadowOffsetY = 6;
+        ctx.beginPath();
+        ctx.arc(this.width / 2, avatarY, avatarR + 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(this.width / 2, avatarY, avatarR, 0, Math.PI * 2);
+        ctx.fillStyle = '#0F172A';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(this.width / 2, avatarY, avatarR - 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = d.color;
+        ctx.fill();
+        ctx.restore();
+
+        ctx.fillStyle = '#0F172A';
+        const ax = this.width / 2;
+        const ay = avatarY;
+
+        if (d.type === 'easy') {
+          ctx.beginPath();
+          ctx.arc(ax - 13, ay - 6, 8, 0, Math.PI * 2);
+          ctx.arc(ax + 13, ay - 6, 8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.arc(ax - 15, ay - 8, 3, 0, Math.PI * 2);
+          ctx.arc(ax + 11, ay - 8, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#0F172A';
+          ctx.lineWidth = 3.5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.arc(ax, ay + 6, 11, 0.2 * Math.PI, 0.8 * Math.PI);
+          ctx.stroke();
+
+        } else if (d.type === 'medium') {
+          ctx.beginPath();
+          ctx.ellipse(ax - 13, ay - 5, 8.5, 7, -0.15, 0, Math.PI * 2);
+          ctx.ellipse(ax + 13, ay - 5, 8.5, 7, 0.15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.arc(ax - 11, ay - 6, 2.5, 0, Math.PI * 2);
+          ctx.arc(ax + 15, ay - 6, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#0F172A';
+          ctx.lineWidth = 3.5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(ax - 6, ay + 12);
+          ctx.quadraticCurveTo(ax + 4, ay + 14, ax + 12, ay + 7);
+          ctx.stroke();
+
+        } else if (d.type === 'hard') {
+          ctx.fillStyle = '#0F172A';
+          ctx.beginPath();
+          ctx.moveTo(ax - 28, ay - 24);
+          ctx.lineTo(ax - 18, ay - 44);
+          ctx.lineTo(ax - 12, ay - 28);
+          ctx.moveTo(ax + 28, ay - 24);
+          ctx.lineTo(ax + 18, ay - 44);
+          ctx.lineTo(ax + 12, ay - 28);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(ax - 22, ay - 12);
+          ctx.lineTo(ax - 6, ay - 4);
+          ctx.lineTo(ax - 8, ay + 4);
+          ctx.lineTo(ax - 22, ay - 2);
+          ctx.moveTo(ax + 22, ay - 12);
+          ctx.lineTo(ax + 6, ay - 4);
+          ctx.lineTo(ax + 8, ay + 4);
+          ctx.lineTo(ax + 22, ay - 2);
+          ctx.fill();
+          ctx.strokeStyle = '#0F172A';
+          ctx.lineWidth = 3.5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(ax - 8, ay + 12);
+          ctx.quadraticCurveTo(ax + 2, ay + 14, ax + 10, ay + 8);
+          ctx.stroke();
+
+        } else {
+          ctx.fillStyle = '#F59E0B';
+          ctx.beginPath();
+          ctx.moveTo(ax - 22, ay - 32);
+          ctx.lineTo(ax - 26, ay - 46);
+          ctx.lineTo(ax - 11, ay - 38);
+          ctx.lineTo(ax, ay - 50);
+          ctx.lineTo(ax + 11, ay - 38);
+          ctx.lineTo(ax + 26, ay - 46);
+          ctx.lineTo(ax + 22, ay - 32);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = '#0F172A';
+          ctx.beginPath();
+          ctx.arc(ax - 12, ay - 5, 7.5, 0, Math.PI * 2);
+          ctx.arc(ax + 12, ay - 5, 7.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#0F172A';
+          ctx.lineWidth = 3.5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.arc(ax, ay + 6, 10, 0.2 * Math.PI, 0.8 * Math.PI);
+          ctx.stroke();
+        }
+
+        ctx.font = '900 28px Fredoka, Inter, sans-serif';
+        ctx.fillStyle = d.color;
+        ctx.textAlign = 'center';
+        ctx.fillText(d.label, this.width / 2, avatarY + 70);
+
+        ctx.font = '700 13px Inter, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.fillText(d.clues + ' Clues Given • ' + d.subtitle, this.width / 2, avatarY + 94);
+
+        const { trackX, trackY, trackW, trackH } = this.getDifficultySliderBounds();
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.08)';
+        ctx.shadowBlur = 14;
+        ctx.shadowOffsetY = 4;
+        ctx.beginPath();
+        ctx.roundRect(trackX - 6, trackY - 6, trackW + 12, trackH + 12, (trackH + 12) / 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(trackX, trackY, trackW, trackH, trackH / 2);
+        const trackGrad = ctx.createLinearGradient(trackX, 0, trackX + trackW, 0);
+        trackGrad.addColorStop(0, '#22C55E');
+        trackGrad.addColorStop(0.33, '#F59E0B');
+        trackGrad.addColorStop(0.66, '#EF4444');
+        trackGrad.addColorStop(1, '#8B5CF6');
+        ctx.fillStyle = '#334155';
+        ctx.fill();
+
+        const knobR = trackH * 0.70;
+        const knobX = trackX + (this.sliderPos / 3) * trackW;
+        ctx.beginPath();
+        ctx.roundRect(trackX, trackY, Math.max(trackH, knobX - trackX + trackH / 2), trackH, trackH / 2);
+        ctx.fillStyle = trackGrad;
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetY = 4;
+
+        ctx.beginPath();
+        ctx.arc(knobX, trackY + trackH / 2, knobR, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(knobX, trackY + trackH / 2, knobR - 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = d.color;
+        ctx.fill();
+        ctx.restore();
+
+        const btnRowY = this.height * 0.74;
+        const playW = Math.min(190, this.width * 0.50);
+        const playH = 54;
+        const playX = (this.width - playW) / 2;
+
+        // 1. Stats Button (Left)
+        const sSize = 52;
+        const sX = playX - sSize - 14;
+        ctx.save();
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.08)';
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetY = 4;
+        ctx.beginPath();
+        ctx.roundRect(sX, btnRowY + 1, sSize, sSize, 16);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.font = '22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('📊', sX + sSize / 2, btnRowY + 1 + sSize / 2);
+
+        // 2. Large Bold PLAY Button (Center)
+        ctx.save();
+        ctx.shadowColor = d.color + '66';
+        ctx.shadowBlur = 16;
+        ctx.shadowOffsetY = 5;
+        ctx.beginPath();
+        ctx.roundRect(playX, btnRowY, playW, playH, 20);
+        ctx.fillStyle = d.color;
+        ctx.fill();
+        ctx.restore();
+
+        ctx.font = '900 21px Fredoka, Inter, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('PLAY', playX + playW / 2, btnRowY + playH / 2);
+
+        // 3. Question Mark "?" Tutorial Button (Right)
+        const qSize = 52;
+        const qX = playX + playW + 14;
+        ctx.save();
+        ctx.shadowColor = 'rgba(139, 92, 246, 0.35)';
+        ctx.shadowBlur = 14;
+        ctx.shadowOffsetY = 4;
+        ctx.beginPath();
+        ctx.roundRect(qX, btnRowY + 1, qSize, qSize, 16);
+        ctx.fillStyle = '#8B5CF6';
+        ctx.fill();
+        ctx.restore();
+
+        ctx.font = '900 24px Fredoka, Inter, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('?', qX + qSize / 2, btnRowY + 1 + qSize / 2);
+      }
+
+      // --- TUTORIAL / HOW TO PLAY MODAL (Reference Match) ---------------------
+      renderTutorialModal(ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        const modalW = Math.min(340, this.width - 32);
+        const modalH = Math.min(520, this.height * 0.84);
+        const modalX = (this.width - modalW) / 2;
+        const modalY = (this.height - modalH) / 2;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.35)';
+        ctx.shadowBlur = 32;
+        ctx.shadowOffsetY = 12;
+        ctx.beginPath();
+        ctx.roundRect(modalX, modalY, modalW, modalH, 26);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.restore();
+
+        ctx.font = '900 22px Fredoka, Inter, sans-serif';
+        ctx.fillStyle = '#0F172A';
+        ctx.textAlign = 'center';
+        ctx.fillText('HOW TO PLAY', this.width / 2, modalY + 36);
+
+        const demoW = modalW - 32;
+        const demoH = modalH * 0.52;
+        const demoX = modalX + 16;
+        const demoY = modalY + 54;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(demoX, demoY, demoW, demoH, 18);
+        ctx.fillStyle = '#0284C7';
+        ctx.fill();
+        ctx.clip();
+
+        const heartSize = 14;
+        for (let i = -1; i <= 1; i++) {
+          this.drawHeart(ctx, demoX + demoW / 2 + i * 22, demoY + 18, heartSize, true);
+        }
+
+        const miniBoardSize = Math.min(demoW * 0.72, demoH * 0.62);
+        const miniX = demoX + (demoW - miniBoardSize) / 2;
+        const miniY = demoY + 36;
+        const mcs = miniBoardSize / 9;
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(miniX, miniY, miniBoardSize, miniBoardSize);
+
+        const animAlpha = 0.35 + Math.sin(this.tutorialAnimT * 4) * 0.20;
+        if (this.tutorialSlide === 1) {
+          ctx.fillStyle = 'rgba(37, 99, 235, ' + animAlpha + ')';
+          ctx.fillRect(miniX, miniY + 3 * mcs, miniBoardSize, mcs);
+        } else if (this.tutorialSlide === 2) {
+          ctx.fillStyle = 'rgba(34, 197, 94, ' + animAlpha + ')';
+          ctx.fillRect(miniX + 4 * mcs, miniY, mcs, miniBoardSize);
+        } else if (this.tutorialSlide === 3) {
+          ctx.fillStyle = 'rgba(245, 158, 11, ' + animAlpha + ')';
+          ctx.fillRect(miniX + 3 * mcs, miniY + 3 * mcs, mcs * 3, mcs * 3);
+        } else if (this.tutorialSlide === 4) {
+          ctx.fillStyle = 'rgba(239, 68, 68, ' + animAlpha + ')';
+          ctx.fillRect(miniX + 2 * mcs, miniY + 2 * mcs, mcs, mcs);
+        }
+
+        ctx.strokeStyle = '#CBD5E1';
+        ctx.lineWidth = 0.8;
+        for (let i = 1; i < 9; i++) {
+          if (i % 3 === 0) continue;
+          ctx.beginPath();
+          ctx.moveTo(miniX + i * mcs, miniY);
+          ctx.lineTo(miniX + i * mcs, miniY + miniBoardSize);
+          ctx.moveTo(miniX, miniY + i * mcs);
+          ctx.lineTo(miniX + miniBoardSize, miniY + i * mcs);
+          ctx.stroke();
+        }
+        ctx.strokeStyle = '#0F172A';
+        ctx.lineWidth = 1.8;
+        for (let i = 3; i < 9; i += 3) {
+          ctx.beginPath();
+          ctx.moveTo(miniX + i * mcs, miniY);
+          ctx.lineTo(miniX + i * mcs, miniY + miniBoardSize);
+          ctx.moveTo(miniX, miniY + i * mcs);
+          ctx.lineTo(miniX + miniBoardSize, miniY + i * mcs);
+          ctx.stroke();
+        }
+
+        ctx.font = '700 ' + Math.round(mcs * 0.65) + 'px Fredoka, sans-serif';
+        ctx.fillStyle = '#0F172A';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const sampleNums = [
+          [0,0,3,0,8,0,0,1,5],
+          [0,0,0,9,0,0,8,3,0],
+          [0,8,0,0,4,0,0,6,0],
+          [1,5,0,8,3,0,0,2,0],
+          [3,0,0,2,0,0,9,0,8],
+          [0,0,0,0,9,2,1,4,6],
+          [9,1,2,5,0,0,0,8,0],
+          [0,0,0,0,7,0,5,0,0],
+          [0,4,0,0,0,0,0,0,0]
+        ];
+        for (let r = 0; r < 9; r++) {
+          for (let c = 0; c < 9; c++) {
+            if (sampleNums[r][c] > 0) {
+              ctx.fillText(sampleNums[r][c].toString(), miniX + c * mcs + mcs / 2, miniY + r * mcs + mcs / 2 + 0.5);
+            }
+          }
+        }
+
+        const keyBarY = miniY + miniBoardSize + 10;
+        const keyW = (demoW - 32) / 9;
+        for (let n = 1; n <= 9; n++) {
+          const kx = demoX + 16 + (n - 1) * keyW;
+          ctx.beginPath();
+          ctx.roundRect(kx + 1, keyBarY, keyW - 2, 20, 4);
+          ctx.fillStyle = '#0369A1';
+          ctx.fill();
+          ctx.font = '800 11px Inter, sans-serif';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText(n.toString(), kx + keyW / 2, keyBarY + 10);
+        }
+        ctx.restore();
+
+        const textY = demoY + demoH + 24;
+        ctx.font = '800 13.5px Inter, sans-serif';
+        ctx.fillStyle = '#1E293B';
+        ctx.textAlign = 'center';
+
+        const descriptions = [
+          'The goal is to fill in all empty squares\non the 9x9 board with numbers (1 to 9).',
+          'Each ROW must contain numbers 1 to 9\nwithout repeating any number.',
+          'Each COLUMN must contain numbers 1 to 9\nwithout repeating any number.',
+          'Each 3x3 BLOCK must contain numbers 1 to 9\nwithout repeating any number.',
+          'Use HINTS (💡) when you get stuck\nto reveal the correct logical placement.'
+        ];
+        const lines = descriptions[this.tutorialSlide].split('\n');
+        lines.forEach((ln, idx) => {
+          ctx.fillText(ln, this.width / 2, textY + idx * 20);
+        });
+
+        const btnY = modalY + modalH - 58;
+        const dotY = btnY - 20;
+        for (let i = 0; i < this.maxTutorialSlides; i++) {
+          const dx = this.width / 2 + (i - (this.maxTutorialSlides - 1) / 2) * 22;
+          ctx.beginPath();
+          ctx.arc(dx, dotY, i === this.tutorialSlide ? 5 : 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = i === this.tutorialSlide ? '#F59E0B' : '#E2E8F0';
+          ctx.fill();
+        }
+
+        // 1. Prev Button
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(modalX + 16, btnY, 48, 44, 12);
+        ctx.fillStyle = '#F1F5F9';
+        ctx.fill();
+        ctx.font = '800 16px sans-serif';
+        ctx.fillStyle = '#475569';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('◀', modalX + 40, btnY + 22);
+        ctx.restore();
+
+        // 2. OK / Close Button
+        const okW = modalW - 144;
+        const okX = modalX + 72;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(okX, btnY, okW, 44, 14);
+        ctx.fillStyle = '#8B5CF6';
+        ctx.fill();
+        ctx.font = '800 16px Inter, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('OK', okX + okW / 2, btnY + 22);
+        ctx.restore();
+
+        // 3. Next Button
+        const nextX = modalX + modalW - 64;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(nextX, btnY, 48, 44, 12);
+        ctx.fillStyle = '#F1F5F9';
+        ctx.fill();
+        ctx.font = '800 16px sans-serif';
+        ctx.fillStyle = '#475569';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('▶', nextX + 24, btnY + 22);
+        ctx.restore();
+      }
+
       renderToast(ctx) {
         const t = this.toast;
         if (!t) return;
-        const tw = Math.min(260, this.width - 40);
+        const tw = Math.min(280, this.width - 40);
         const tx = (this.width - tw) / 2;
         const ty = this.toolbarY - 50;
 
@@ -1702,135 +2245,6 @@
         ctx.fillText(line, x, cy);
       }
 
-      // --- MINIMAL SINGLE LINE SLIDER DIFFICULTY SELECTION -------------------
-      renderDiffLineSlider(ctx) {
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
-        ctx.fillRect(0, 0, this.width, this.height);
-
-        const { modalW, modalY, trackX, trackW, trackY } = this.getSliderTrack();
-        const modalH = 245;
-
-        // Modal Card Base
-        ctx.save();
-        ctx.shadowColor = 'rgba(15, 23, 42, 0.28)';
-        ctx.shadowBlur = 28;
-        ctx.shadowOffsetY = 10;
-        ctx.beginPath();
-        ctx.roundRect((this.width - modalW) / 2, modalY, modalW, modalH, 22);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fill();
-        ctx.restore();
-
-        // Modal Title
-        ctx.font = '900 18px Fredoka, Inter, sans-serif';
-        ctx.fillStyle = '#0F172A';
-        ctx.textAlign = 'center';
-        ctx.fillText('SELECT DIFFICULTY', this.width / 2, modalY + 34);
-
-        const curIdx = Math.max(0, Math.min(3, Math.round(this.sliderPos)));
-        const d = DIFFICULTIES[curIdx];
-
-        // Floating dynamic badge above the slider knob
-        const knobX = trackX + (this.sliderPos / 3) * trackW;
-        const badgeW = 160;
-        const badgeH = 28;
-        const badgeY = trackY - 44;
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.roundRect(knobX - badgeW / 2, badgeY, badgeW, badgeH, 14);
-        ctx.fillStyle = d.color;
-        ctx.fill();
-
-        ctx.font = '800 12px Inter, sans-serif';
-        ctx.fillStyle = '#FFFFFF';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(d.label + ' • ' + d.clues + ' CLUES', knobX, badgeY + badgeH / 2);
-
-        // Small triangle pointing to knob
-        ctx.beginPath();
-        ctx.moveTo(knobX - 5, badgeY + badgeH);
-        ctx.lineTo(knobX + 5, badgeY + badgeH);
-        ctx.lineTo(knobX, badgeY + badgeH + 5);
-        ctx.fillStyle = d.color;
-        ctx.fill();
-        ctx.restore();
-
-        // 1. Inactive Track Line
-        ctx.beginPath();
-        ctx.roundRect(trackX, trackY - 3, trackW, 6, 3);
-        ctx.fillStyle = '#E2E8F0';
-        ctx.fill();
-
-        // 2. Active Track Line Fill
-        ctx.beginPath();
-        ctx.roundRect(trackX, trackY - 3, Math.max(6, knobX - trackX), 6, 3);
-        ctx.fillStyle = d.color;
-        ctx.fill();
-
-        // 3. Four Stop Tick Marks and Labels
-        for (let i = 0; i < 4; i++) {
-          const tickX = trackX + (i / 3) * trackW;
-          const isActive = (i <= this.sliderPos);
-
-          // Tick circle
-          ctx.beginPath();
-          ctx.arc(tickX, trackY, 5, 0, Math.PI * 2);
-          ctx.fillStyle = isActive ? d.color : '#CBD5E1';
-          ctx.fill();
-
-          // Tick Label underneath
-          ctx.font = (i === curIdx ? '800 12px' : '700 11px') + ' Inter, sans-serif';
-          ctx.fillStyle = (i === curIdx ? '#0F172A' : '#94A3B8');
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-          ctx.fillText(DIFFICULTIES[i].label, tickX, trackY + 14);
-        }
-
-        // 4. Elevated Draggable Thumb Knob
-        ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetY = 3;
-
-        ctx.beginPath();
-        ctx.arc(knobX, trackY, 13, 0, Math.PI * 2);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fill();
-        ctx.strokeStyle = d.color;
-        ctx.lineWidth = 3.5;
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.arc(knobX, trackY, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = d.color;
-        ctx.fill();
-        ctx.restore();
-
-        // 5. Clean "START GAME ▶" Button
-        const btnW = modalW - 60;
-        const btnH = 46;
-        const btnX = (this.width - btnW) / 2;
-        const btnY = modalY + 175;
-
-        ctx.save();
-        ctx.shadowColor = 'rgba(37, 99, 235, 0.30)';
-        ctx.shadowBlur = 12;
-        ctx.shadowOffsetY = 4;
-        ctx.beginPath();
-        ctx.roundRect(btnX, btnY, btnW, btnH, 23);
-        ctx.fillStyle = '#2563EB';
-        ctx.fill();
-        ctx.restore();
-
-        ctx.font = '800 15px Inter, sans-serif';
-        ctx.fillStyle = '#FFFFFF';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('START GAME ▶', this.width / 2, btnY + 23);
-      }
-
       renderPauseModal(ctx) {
         ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
         ctx.fillRect(0, 0, this.width, this.height);
@@ -1887,7 +2301,7 @@
         ctx.fill();
 
         ctx.font = '900 24px Fredoka, Inter, sans-serif';
-        ctx.fillStyle = '#10B981';
+        ctx.fillStyle = '#22C55E';
         ctx.textAlign = 'center';
         ctx.fillText('PUZZLE SOLVED! 🎉', this.width / 2, cardY + 48);
 
