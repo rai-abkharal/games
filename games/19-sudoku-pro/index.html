@@ -76,12 +76,12 @@
       accentPurple: '#8B5CF6'
     };
 
-    // 4 Difficulty tiers matching custom avatars & colors
+    // 4 Difficulty tiers with elegant badges matching our theme
     const DIFFICULTIES = [
-      { id: 'easy', label: 'EASY', clues: 60, coins: 25, color: '#22C55E', type: 'easy', subtitle: 'Relaxed & Fun' },
-      { id: 'medium', label: 'MEDIUM', clues: 50, coins: 50, color: '#F59E0B', type: 'medium', subtitle: 'Balanced Logic' },
-      { id: 'hard', label: 'HARD', clues: 40, coins: 75, color: '#EF4444', type: 'hard', subtitle: 'Deep Strategy' },
-      { id: 'expert', label: 'EXPERT', clues: 32, coins: 100, color: '#8B5CF6', type: 'expert', subtitle: 'Master Level' }
+      { id: 'easy', label: 'EASY', clues: 60, coins: 25, color: '#22C55E', emblem: 'leaf', subtitle: 'Relaxed & Fun' },
+      { id: 'medium', label: 'MEDIUM', clues: 50, coins: 50, color: '#F59E0B', emblem: 'spark', subtitle: 'Balanced Logic' },
+      { id: 'hard', label: 'HARD', clues: 40, coins: 75, color: '#EF4444', emblem: 'diamond', subtitle: 'Deep Strategy' },
+      { id: 'expert', label: 'EXPERT', clues: 32, coins: 100, color: '#8B5CF6', emblem: 'crown', subtitle: 'Master Level' }
     ];
 
     // 2. SOUND SYNTHESIZER
@@ -521,7 +521,7 @@
 
         this.selected = null;
         this.isPaused = false;
-        this.state = 'DIFF_SELECT';
+        this.state = 'DIFF_SELECT'; // Starts on the clean difficulty dialog
 
         this.mistakes = 0;
         this.maxMistakes = 3;
@@ -550,6 +550,11 @@
 
         if (this.loadGame()) {
           this.state = 'PLAYING';
+        } else {
+          // Generate a background puzzle so the board underneath the dialog looks great
+          const sample = SudokuCore.generatePuzzle('easy');
+          this.given = sample.puzzle;
+          this.solution = sample.solution;
         }
 
         requestAnimationFrame((t) => this.loop(t));
@@ -657,12 +662,28 @@
         this.keypadY = this.toolbarY + 54;
       }
 
-      getDifficultySliderBounds() {
-        const trackW = Math.min(270, this.width - 80);
-        const trackX = (this.width - trackW) / 2;
-        const trackY = this.height * 0.60;
-        const trackH = 34;
-        return { trackX, trackY, trackW, trackH };
+      // Compact floating difficulty dialog bounds
+      getDifficultyDialogBounds() {
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 370;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        const trackW = cardW - 56;
+        const trackX = cardX + 28;
+        const trackY = cardY + 225;
+        const trackH = 28;
+
+        const playW = cardW - 100;
+        const playH = 48;
+        const playX = cardX + 28;
+        const playY = cardY + 295;
+
+        const qSize = 48;
+        const qX = playX + playW + 12;
+        const qY = playY;
+
+        return { cardX, cardY, cardW, cardH, trackX, trackY, trackW, trackH, playX, playY, playW, playH, qX, qY, qSize };
       }
 
       bindEvents() {
@@ -681,8 +702,8 @@
           const { px, py } = getPos(e);
 
           if (this.state === 'DIFF_SELECT') {
-            const { trackX, trackW, trackY, trackH } = this.getDifficultySliderBounds();
-            if (py >= trackY - 20 && py <= trackY + trackH + 20 && px >= trackX - 25 && px <= trackX + trackW + 25) {
+            const { trackX, trackW, trackY, trackH } = this.getDifficultyDialogBounds();
+            if (py >= trackY - 18 && py <= trackY + trackH + 18 && px >= trackX - 20 && px <= trackX + trackW + 20) {
               this.isDraggingSlider = true;
               const ratio = Math.max(0, Math.min(1, (px - trackX) / trackW));
               this.sliderPos = ratio * 3;
@@ -697,7 +718,7 @@
           if (!this.isDraggingSlider || this.state !== 'DIFF_SELECT') return;
           e.preventDefault();
           const { px } = getPos(e);
-          const { trackX, trackW } = this.getDifficultySliderBounds();
+          const { trackX, trackW } = this.getDifficultyDialogBounds();
           const ratio = Math.max(0, Math.min(1, (px - trackX) / trackW));
           this.sliderPos = ratio * 3;
         };
@@ -785,10 +806,10 @@
           return;
         }
 
-        // TUTORIAL / HOW TO PLAY MODAL
+        // TUTORIAL MODAL
         if (this.state === 'TUTORIAL') {
-          const modalW = Math.min(340, this.width - 32);
-          const modalH = Math.min(520, this.height * 0.84);
+          const modalW = Math.min(330, this.width - 32);
+          const modalH = Math.min(500, this.height * 0.82);
           const modalX = (this.width - modalW) / 2;
           const modalY = (this.height - modalH) / 2;
 
@@ -824,7 +845,7 @@
           }
 
           // Pagination Dots Click
-          const dotY = btnY - 24;
+          const dotY = btnY - 20;
           for (let i = 0; i < this.maxTutorialSlides; i++) {
             const dx = this.width / 2 + (i - (this.maxTutorialSlides - 1) / 2) * 22;
             if (px >= dx - 10 && px <= dx + 10 && py >= dotY - 10 && py <= dotY + 10) {
@@ -836,13 +857,14 @@
           return;
         }
 
-        // DIFFICULTY SELECTION SCREEN
+        // COMPACT DIFFICULTY DIALOG
         if (this.state === 'DIFF_SELECT') {
-          const { trackX, trackW, trackY, trackH } = this.getDifficultySliderBounds();
+          const bounds = this.getDifficultyDialogBounds();
 
-          // Slider Track click/jump
-          if (py >= trackY - 20 && py <= trackY + trackH + 20 && px >= trackX - 20 && px <= trackX + trackW + 20) {
-            const ratio = Math.max(0, Math.min(1, (px - trackX) / trackW));
+          // Slider Track tap
+          if (py >= bounds.trackY - 18 && py <= bounds.trackY + bounds.trackH + 18 &&
+              px >= bounds.trackX - 16 && px <= bounds.trackX + bounds.trackW + 16) {
+            const ratio = Math.max(0, Math.min(1, (px - bounds.trackX) / bounds.trackW));
             const nearest = Math.round(ratio * 3);
             this.sliderPos = nearest;
             this.difficulty = DIFFICULTIES[nearest].id;
@@ -850,36 +872,20 @@
             return;
           }
 
-          const btnRowY = this.height * 0.74;
-          const playW = Math.min(190, this.width * 0.50);
-          const playH = 54;
-          const playX = (this.width - playW) / 2;
-
           // PLAY Button
-          if (px >= playX && px <= playX + playW && py >= btnRowY && py <= btnRowY + playH) {
+          if (px >= bounds.playX && px <= bounds.playX + bounds.playW &&
+              py >= bounds.playY && py <= bounds.playY + bounds.playH) {
             this.synth.playButton();
             this.startNewGame(DIFFICULTIES[Math.round(this.sliderPos)].id);
             return;
           }
 
-          // Tutorial Question Mark "?" Button
-          const qSize = 52;
-          const qX = playX + playW + 14;
-          if (px >= qX && px <= qX + qSize && py >= btnRowY && py <= btnRowY + qSize) {
+          // Question Mark "?" Tutorial Button
+          if (px >= bounds.qX && px <= bounds.qX + bounds.qSize &&
+              py >= bounds.qY && py <= bounds.qY + bounds.qSize) {
             this.synth.playButton();
             this.tutorialSlide = 0;
             this.state = 'TUTORIAL';
-            return;
-          }
-
-          // Stats Button (Left of Play)
-          const sSize = 52;
-          const sX = playX - sSize - 14;
-          if (px >= sX && px <= sX + sSize && py >= btnRowY && py <= btnRowY + sSize) {
-            this.synth.playButton();
-            const bestTime = this.stats.bestTimes[this.difficulty];
-            const text = 'Best Time: ' + (bestTime ? this.formatTime(bestTime) : 'None') + ' • Won: ' + (this.stats.gamesWon || 0);
-            this.toast = { text, t: 2.2, max: 2.2 };
             return;
           }
           return;
@@ -939,7 +945,7 @@
           return;
         }
 
-        // Action Toolbar (ONLY Undo and Hint)
+        // Action Toolbar (Undo and Hint)
         const toolW = Math.min(130, (this.width - 48) / 2);
         const undoX = 20;
         const hintX = this.width - 20 - toolW;
@@ -974,7 +980,6 @@
 
         const prevVal = this.user[r][c];
 
-        // Tapping same number clears cell
         if (prevVal === num) {
           this.user[r][c] = 0;
           this.synth.playErase();
@@ -1017,7 +1022,7 @@
       }
 
       checkCompletions(r, c) {
-        // 1. Check Row Completion (3-cell wide beam sweeping across row)
+        // 1. Check Row Completion (3-cell wide cyan laser sweep)
         let rowDone = true;
         for (let i = 0; i < 9; i++) {
           const val = this.given[r][i] || this.user[r][i];
@@ -1029,7 +1034,7 @@
           this.synth.playBlockComplete();
         }
 
-        // 2. Check Column Completion (3-cell wide beam sweeping across column)
+        // 2. Check Column Completion (3-cell wide cyan laser sweep)
         let colDone = true;
         for (let i = 0; i < 9; i++) {
           const val = this.given[i][c] || this.user[i][c];
@@ -1041,7 +1046,7 @@
           this.synth.playBlockComplete();
         }
 
-        // 3. Check 3x3 Box Completion (3x3 block sweep)
+        // 3. Check 3x3 Box Completion (3x3 major block cyan wave)
         const br = Math.floor(r / 3) * 3;
         const bc = Math.floor(c / 3) * 3;
         let boxDone = true;
@@ -1226,22 +1231,19 @@
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        if (this.state === 'DIFF_SELECT' || this.state === 'TUTORIAL') {
-          this.renderDifficultyScreen(ctx);
-          if (this.state === 'TUTORIAL') this.renderTutorialModal(ctx);
-        } else {
-          this.renderHeader(ctx);
-          this.renderBoard(ctx);
-          this.renderToolbar(ctx);
-          this.renderKeypad(ctx);
-          this.particles.render(ctx);
+        this.renderHeader(ctx);
+        this.renderBoard(ctx);
+        this.renderToolbar(ctx);
+        this.renderKeypad(ctx);
+        this.particles.render(ctx);
 
-          if (this.toast) this.renderToast(ctx);
-          if (this.activeHint) this.renderHintOverlay(ctx);
-          if (this.state === 'PAUSED') this.renderPauseModal(ctx);
-          if (this.state === 'VICTORY') this.renderVictoryModal(ctx);
-          if (this.state === 'GAMEOVER') this.renderGameOverModal(ctx);
-        }
+        if (this.toast) this.renderToast(ctx);
+        if (this.activeHint) this.renderHintOverlay(ctx);
+        if (this.state === 'PAUSED') this.renderPauseModal(ctx);
+        if (this.state === 'DIFF_SELECT') this.renderDifficultyDialog(ctx);
+        if (this.state === 'TUTORIAL') this.renderTutorialModal(ctx);
+        if (this.state === 'VICTORY') this.renderVictoryModal(ctx);
+        if (this.state === 'GAMEOVER') this.renderGameOverModal(ctx);
 
         ctx.restore();
       }
@@ -1279,6 +1281,93 @@
           ctx.lineWidth = 1.4;
           ctx.stroke();
         }
+        ctx.restore();
+      }
+
+      // Elegant Theme-Matching Emblems (Zen Leaf, Spark Energy, Ruby Diamond, Royal Crown)
+      drawEmblem(ctx, cx, cy, type, color) {
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        if (type === 'leaf') {
+          // 🟢 Easy: Clean Zen Leaf
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(0, -18);
+          ctx.quadraticCurveTo(16, -10, 14, 12);
+          ctx.quadraticCurveTo(0, 18, 0, 18);
+          ctx.quadraticCurveTo(0, 18, -14, 12);
+          ctx.quadraticCurveTo(-16, -10, 0, -18);
+          ctx.fill();
+
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 2.0;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(0, -12);
+          ctx.lineTo(0, 12);
+          ctx.stroke();
+
+        } else if (type === 'spark') {
+          // 🟡 Medium: Radiant Energy Spark / Lightning
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(2, -18);
+          ctx.lineTo(-12, 2);
+          ctx.lineTo(-1, 2);
+          ctx.lineTo(-3, 18);
+          ctx.lineTo(12, -2);
+          ctx.lineTo(1, -2);
+          ctx.closePath();
+          ctx.fill();
+
+        } else if (type === 'diamond') {
+          // 🔴 Hard: Faceted Ruby Diamond
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(-16, -6);
+          ctx.lineTo(-8, -16);
+          ctx.lineTo(8, -16);
+          ctx.lineTo(16, -6);
+          ctx.lineTo(0, 18);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(-8, -16);
+          ctx.lineTo(-4, -6);
+          ctx.lineTo(0, 18);
+          ctx.lineTo(4, -6);
+          ctx.lineTo(8, -16);
+          ctx.moveTo(-16, -6);
+          ctx.lineTo(16, -6);
+          ctx.stroke();
+
+        } else {
+          // 🟣 Expert: Royal Master Crown
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(-16, 14);
+          ctx.lineTo(-18, -10);
+          ctx.lineTo(-7, 0);
+          ctx.lineTo(0, -16);
+          ctx.lineTo(7, 0);
+          ctx.lineTo(18, -10);
+          ctx.lineTo(16, 14);
+          ctx.closePath();
+          ctx.fill();
+
+          // Crown jewel dots
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.arc(-18, -10, 2.5, 0, Math.PI * 2);
+          ctx.arc(0, -16, 3, 0, Math.PI * 2);
+          ctx.arc(18, -10, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
         ctx.restore();
       }
 
@@ -1707,279 +1796,151 @@
         }
       }
 
-      // --- DIFFICULTY SELECTION SCREEN (Exact UX matching reference images) ----
-      renderDifficultyScreen(ctx) {
-        const topH = this.height * 0.28;
-        const bannerGrad = ctx.createLinearGradient(0, 0, 0, topH);
-        bannerGrad.addColorStop(0, '#1E40AF');
-        bannerGrad.addColorStop(1, '#3B82F6');
-        ctx.fillStyle = bannerGrad;
-        ctx.fillRect(0, 0, this.width, topH);
+      // --- COMPACT FLOATING DIFFICULTY DIALOG (Theme-Matching UX) -------------
+      renderDifficultyDialog(ctx) {
+        // Subtle background dim overlay
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.60)';
+        ctx.fillRect(0, 0, this.width, this.height);
 
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-        ctx.lineWidth = 1.5;
-        const step = 32;
-        for (let gx = 0; gx < this.width; gx += step) {
-          ctx.beginPath();
-          ctx.moveTo(gx, 0);
-          ctx.lineTo(gx + topH * 0.3, topH);
-          ctx.stroke();
-        }
-
-        ctx.font = '900 24px Fredoka, Inter, sans-serif';
-        ctx.fillStyle = '#FFFFFF';
-        ctx.textAlign = 'center';
-        ctx.fillText('SUDOKU', this.width / 2, topH * 0.36);
-
-        ctx.font = '700 13px Inter, sans-serif';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-        ctx.fillText('Play Sudoku, train your brain', this.width / 2, topH * 0.58);
-        ctx.fillText('and beat your highscore', this.width / 2, topH * 0.72);
-
+        const bounds = this.getDifficultyDialogBounds();
         const curIdx = Math.max(0, Math.min(3, Math.round(this.sliderPos)));
         const d = DIFFICULTIES[curIdx];
 
-        const avatarY = topH + 34;
-        const avatarR = 44;
-
+        // 1. Elevated Dialog Card
         ctx.save();
-        ctx.shadowColor = 'rgba(15, 23, 42, 0.14)';
-        ctx.shadowBlur = 18;
-        ctx.shadowOffsetY = 6;
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.28)';
+        ctx.shadowBlur = 28;
+        ctx.shadowOffsetY = 10;
         ctx.beginPath();
-        ctx.arc(this.width / 2, avatarY, avatarR + 6, 0, Math.PI * 2);
+        ctx.roundRect(bounds.cardX, bounds.cardY, bounds.cardW, bounds.cardH, 24);
         ctx.fillStyle = '#FFFFFF';
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(this.width / 2, avatarY, avatarR, 0, Math.PI * 2);
-        ctx.fillStyle = '#0F172A';
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(this.width / 2, avatarY, avatarR - 3.5, 0, Math.PI * 2);
-        ctx.fillStyle = d.color;
         ctx.fill();
         ctx.restore();
 
+        // 2. Dialog Header
+        ctx.font = '900 18px Fredoka, Inter, sans-serif';
         ctx.fillStyle = '#0F172A';
-        const ax = this.width / 2;
-        const ay = avatarY;
-
-        if (d.type === 'easy') {
-          ctx.beginPath();
-          ctx.arc(ax - 13, ay - 6, 8, 0, Math.PI * 2);
-          ctx.arc(ax + 13, ay - 6, 8, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#FFFFFF';
-          ctx.beginPath();
-          ctx.arc(ax - 15, ay - 8, 3, 0, Math.PI * 2);
-          ctx.arc(ax + 11, ay - 8, 3, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = '#0F172A';
-          ctx.lineWidth = 3.5;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.arc(ax, ay + 6, 11, 0.2 * Math.PI, 0.8 * Math.PI);
-          ctx.stroke();
-
-        } else if (d.type === 'medium') {
-          ctx.beginPath();
-          ctx.ellipse(ax - 13, ay - 5, 8.5, 7, -0.15, 0, Math.PI * 2);
-          ctx.ellipse(ax + 13, ay - 5, 8.5, 7, 0.15, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#FFFFFF';
-          ctx.beginPath();
-          ctx.arc(ax - 11, ay - 6, 2.5, 0, Math.PI * 2);
-          ctx.arc(ax + 15, ay - 6, 2.5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = '#0F172A';
-          ctx.lineWidth = 3.5;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(ax - 6, ay + 12);
-          ctx.quadraticCurveTo(ax + 4, ay + 14, ax + 12, ay + 7);
-          ctx.stroke();
-
-        } else if (d.type === 'hard') {
-          ctx.fillStyle = '#0F172A';
-          ctx.beginPath();
-          ctx.moveTo(ax - 28, ay - 24);
-          ctx.lineTo(ax - 18, ay - 44);
-          ctx.lineTo(ax - 12, ay - 28);
-          ctx.moveTo(ax + 28, ay - 24);
-          ctx.lineTo(ax + 18, ay - 44);
-          ctx.lineTo(ax + 12, ay - 28);
-          ctx.fill();
-          ctx.beginPath();
-          ctx.moveTo(ax - 22, ay - 12);
-          ctx.lineTo(ax - 6, ay - 4);
-          ctx.lineTo(ax - 8, ay + 4);
-          ctx.lineTo(ax - 22, ay - 2);
-          ctx.moveTo(ax + 22, ay - 12);
-          ctx.lineTo(ax + 6, ay - 4);
-          ctx.lineTo(ax + 8, ay + 4);
-          ctx.lineTo(ax + 22, ay - 2);
-          ctx.fill();
-          ctx.strokeStyle = '#0F172A';
-          ctx.lineWidth = 3.5;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(ax - 8, ay + 12);
-          ctx.quadraticCurveTo(ax + 2, ay + 14, ax + 10, ay + 8);
-          ctx.stroke();
-
-        } else {
-          ctx.fillStyle = '#F59E0B';
-          ctx.beginPath();
-          ctx.moveTo(ax - 22, ay - 32);
-          ctx.lineTo(ax - 26, ay - 46);
-          ctx.lineTo(ax - 11, ay - 38);
-          ctx.lineTo(ax, ay - 50);
-          ctx.lineTo(ax + 11, ay - 38);
-          ctx.lineTo(ax + 26, ay - 46);
-          ctx.lineTo(ax + 22, ay - 32);
-          ctx.closePath();
-          ctx.fill();
-          ctx.fillStyle = '#0F172A';
-          ctx.beginPath();
-          ctx.arc(ax - 12, ay - 5, 7.5, 0, Math.PI * 2);
-          ctx.arc(ax + 12, ay - 5, 7.5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = '#0F172A';
-          ctx.lineWidth = 3.5;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.arc(ax, ay + 6, 10, 0.2 * Math.PI, 0.8 * Math.PI);
-          ctx.stroke();
-        }
-
-        ctx.font = '900 28px Fredoka, Inter, sans-serif';
-        ctx.fillStyle = d.color;
         ctx.textAlign = 'center';
-        ctx.fillText(d.label, this.width / 2, avatarY + 70);
+        ctx.fillText('SELECT DIFFICULTY', this.width / 2, bounds.cardY + 36);
 
-        ctx.font = '700 13px Inter, sans-serif';
-        ctx.fillStyle = '#64748B';
-        ctx.fillText(d.clues + ' Clues Given • ' + d.subtitle, this.width / 2, avatarY + 94);
-
-        const { trackX, trackY, trackW, trackH } = this.getDifficultySliderBounds();
+        // 3. Central Glowing Emblem Circle
+        const emblemY = bounds.cardY + 95;
+        const emblemR = 36;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(15, 23, 42, 0.08)';
-        ctx.shadowBlur = 14;
+        ctx.shadowColor = d.color + '55';
+        ctx.shadowBlur = 16;
         ctx.shadowOffsetY = 4;
         ctx.beginPath();
-        ctx.roundRect(trackX - 6, trackY - 6, trackW + 12, trackH + 12, (trackH + 12) / 2);
-        ctx.fillStyle = '#FFFFFF';
+        ctx.arc(this.width / 2, emblemY, emblemR, 0, Math.PI * 2);
+        ctx.fillStyle = '#F8FAFC';
+        ctx.fill();
+        ctx.strokeStyle = d.color;
+        ctx.lineWidth = 2.8;
+        ctx.stroke();
+
+        this.drawEmblem(ctx, this.width / 2, emblemY, d.emblem, d.color);
+        ctx.restore();
+
+        // 4. Bold Level Title & Subtitle
+        ctx.font = '900 22px Fredoka, Inter, sans-serif';
+        ctx.fillStyle = d.color;
+        ctx.textAlign = 'center';
+        ctx.fillText(d.label, this.width / 2, bounds.cardY + 162);
+
+        ctx.font = '700 12.5px Inter, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.fillText(d.clues + ' Clues Given • ' + d.subtitle, this.width / 2, bounds.cardY + 185);
+
+        // 5. Rounded Multi-color Slider Track with Knob
+        ctx.save();
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.06)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 3;
+        ctx.beginPath();
+        ctx.roundRect(bounds.trackX - 4, bounds.trackY - 4, bounds.trackW + 8, bounds.trackH + 8, (bounds.trackH + 8) / 2);
+        ctx.fillStyle = '#F1F5F9';
         ctx.fill();
         ctx.restore();
 
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(trackX, trackY, trackW, trackH, trackH / 2);
-        const trackGrad = ctx.createLinearGradient(trackX, 0, trackX + trackW, 0);
+        ctx.roundRect(bounds.trackX, bounds.trackY, bounds.trackW, bounds.trackH, bounds.trackH / 2);
+        const trackGrad = ctx.createLinearGradient(bounds.trackX, 0, bounds.trackX + bounds.trackW, 0);
         trackGrad.addColorStop(0, '#22C55E');
         trackGrad.addColorStop(0.33, '#F59E0B');
         trackGrad.addColorStop(0.66, '#EF4444');
         trackGrad.addColorStop(1, '#8B5CF6');
-        ctx.fillStyle = '#334155';
+        ctx.fillStyle = '#E2E8F0';
         ctx.fill();
 
-        const knobR = trackH * 0.70;
-        const knobX = trackX + (this.sliderPos / 3) * trackW;
+        // Active fill
+        const knobX = bounds.trackX + (this.sliderPos / 3) * bounds.trackW;
+        const knobR = bounds.trackH * 0.65;
         ctx.beginPath();
-        ctx.roundRect(trackX, trackY, Math.max(trackH, knobX - trackX + trackH / 2), trackH, trackH / 2);
+        ctx.roundRect(bounds.trackX, bounds.trackY, Math.max(bounds.trackH, knobX - bounds.trackX + bounds.trackH / 2), bounds.trackH, bounds.trackH / 2);
         ctx.fillStyle = trackGrad;
         ctx.fill();
         ctx.restore();
 
+        // Draggable Knob
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
-        ctx.shadowBlur = 12;
-        ctx.shadowOffsetY = 4;
-
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 3;
         ctx.beginPath();
-        ctx.arc(knobX, trackY + trackH / 2, knobR, 0, Math.PI * 2);
+        ctx.arc(knobX, bounds.trackY + bounds.trackH / 2, knobR, 0, Math.PI * 2);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
 
         ctx.beginPath();
-        ctx.arc(knobX, trackY + trackH / 2, knobR - 4.5, 0, Math.PI * 2);
+        ctx.arc(knobX, bounds.trackY + bounds.trackH / 2, knobR - 4, 0, Math.PI * 2);
         ctx.fillStyle = d.color;
         ctx.fill();
         ctx.restore();
 
-        const btnRowY = this.height * 0.74;
-        const playW = Math.min(190, this.width * 0.50);
-        const playH = 54;
-        const playX = (this.width - playW) / 2;
-
-        // 1. Stats Button (Left)
-        const sSize = 52;
-        const sX = playX - sSize - 14;
-        ctx.save();
-        ctx.shadowColor = 'rgba(15, 23, 42, 0.08)';
-        ctx.shadowBlur = 12;
-        ctx.shadowOffsetY = 4;
-        ctx.beginPath();
-        ctx.roundRect(sX, btnRowY + 1, sSize, sSize, 16);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fill();
-        ctx.strokeStyle = '#E2E8F0';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.restore();
-
-        ctx.font = '22px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('📊', sX + sSize / 2, btnRowY + 1 + sSize / 2);
-
-        // 2. Large Bold PLAY Button (Center)
+        // 6. Bottom Action Row: [ PLAY ] + [ ? Tutorial ] (Graph button removed!)
         ctx.save();
         ctx.shadowColor = d.color + '66';
-        ctx.shadowBlur = 16;
-        ctx.shadowOffsetY = 5;
-        ctx.beginPath();
-        ctx.roundRect(playX, btnRowY, playW, playH, 20);
-        ctx.fillStyle = d.color;
-        ctx.fill();
-        ctx.restore();
-
-        ctx.font = '900 21px Fredoka, Inter, sans-serif';
-        ctx.fillStyle = '#FFFFFF';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('PLAY', playX + playW / 2, btnRowY + playH / 2);
-
-        // 3. Question Mark "?" Tutorial Button (Right)
-        const qSize = 52;
-        const qX = playX + playW + 14;
-        ctx.save();
-        ctx.shadowColor = 'rgba(139, 92, 246, 0.35)';
         ctx.shadowBlur = 14;
         ctx.shadowOffsetY = 4;
         ctx.beginPath();
-        ctx.roundRect(qX, btnRowY + 1, qSize, qSize, 16);
+        ctx.roundRect(bounds.playX, bounds.playY, bounds.playW, bounds.playH, 18);
+        ctx.fillStyle = d.color;
+        ctx.fill();
+        ctx.restore();
+
+        ctx.font = '900 18px Fredoka, Inter, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('PLAY ▶', bounds.playX + bounds.playW / 2, bounds.playY + bounds.playH / 2);
+
+        // Purple Question Mark "?" Button
+        ctx.save();
+        ctx.shadowColor = 'rgba(139, 92, 246, 0.35)';
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetY = 3;
+        ctx.beginPath();
+        ctx.roundRect(bounds.qX, bounds.qY, bounds.qSize, bounds.qSize, 16);
         ctx.fillStyle = '#8B5CF6';
         ctx.fill();
         ctx.restore();
 
-        ctx.font = '900 24px Fredoka, Inter, sans-serif';
+        ctx.font = '900 22px Fredoka, Inter, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('?', qX + qSize / 2, btnRowY + 1 + qSize / 2);
+        ctx.fillText('?', bounds.qX + bounds.qSize / 2, bounds.qY + bounds.qSize / 2);
       }
 
-      // --- TUTORIAL / HOW TO PLAY MODAL (Reference Match) ---------------------
+      // --- TUTORIAL / HOW TO PLAY MODAL ---------------------------------------
       renderTutorialModal(ctx) {
         ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const modalW = Math.min(340, this.width - 32);
-        const modalH = Math.min(520, this.height * 0.84);
+        const modalW = Math.min(330, this.width - 32);
+        const modalH = Math.min(500, this.height * 0.82);
         const modalX = (this.width - modalW) / 2;
         const modalY = (this.height - modalH) / 2;
 
@@ -1988,36 +1949,36 @@
         ctx.shadowBlur = 32;
         ctx.shadowOffsetY = 12;
         ctx.beginPath();
-        ctx.roundRect(modalX, modalY, modalW, modalH, 26);
+        ctx.roundRect(modalX, modalY, modalW, modalH, 24);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
         ctx.restore();
 
-        ctx.font = '900 22px Fredoka, Inter, sans-serif';
+        ctx.font = '900 20px Fredoka, Inter, sans-serif';
         ctx.fillStyle = '#0F172A';
         ctx.textAlign = 'center';
-        ctx.fillText('HOW TO PLAY', this.width / 2, modalY + 36);
+        ctx.fillText('HOW TO PLAY', this.width / 2, modalY + 34);
 
         const demoW = modalW - 32;
-        const demoH = modalH * 0.52;
+        const demoH = modalH * 0.50;
         const demoX = modalX + 16;
-        const demoY = modalY + 54;
+        const demoY = modalY + 50;
 
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(demoX, demoY, demoW, demoH, 18);
+        ctx.roundRect(demoX, demoY, demoW, demoH, 16);
         ctx.fillStyle = '#0284C7';
         ctx.fill();
         ctx.clip();
 
-        const heartSize = 14;
+        const heartSize = 13;
         for (let i = -1; i <= 1; i++) {
-          this.drawHeart(ctx, demoX + demoW / 2 + i * 22, demoY + 18, heartSize, true);
+          this.drawHeart(ctx, demoX + demoW / 2 + i * 20, demoY + 16, heartSize, true);
         }
 
         const miniBoardSize = Math.min(demoW * 0.72, demoH * 0.62);
         const miniX = demoX + (demoW - miniBoardSize) / 2;
-        const miniY = demoY + 36;
+        const miniY = demoY + 32;
         const mcs = miniBoardSize / 9;
 
         ctx.fillStyle = '#FFFFFF';
@@ -2083,22 +2044,22 @@
           }
         }
 
-        const keyBarY = miniY + miniBoardSize + 10;
+        const keyBarY = miniY + miniBoardSize + 8;
         const keyW = (demoW - 32) / 9;
         for (let n = 1; n <= 9; n++) {
           const kx = demoX + 16 + (n - 1) * keyW;
           ctx.beginPath();
-          ctx.roundRect(kx + 1, keyBarY, keyW - 2, 20, 4);
+          ctx.roundRect(kx + 1, keyBarY, keyW - 2, 18, 4);
           ctx.fillStyle = '#0369A1';
           ctx.fill();
-          ctx.font = '800 11px Inter, sans-serif';
+          ctx.font = '800 10px Inter, sans-serif';
           ctx.fillStyle = '#FFFFFF';
-          ctx.fillText(n.toString(), kx + keyW / 2, keyBarY + 10);
+          ctx.fillText(n.toString(), kx + keyW / 2, keyBarY + 9);
         }
         ctx.restore();
 
-        const textY = demoY + demoH + 24;
-        ctx.font = '800 13.5px Inter, sans-serif';
+        const textY = demoY + demoH + 22;
+        ctx.font = '800 13px Inter, sans-serif';
         ctx.fillStyle = '#1E293B';
         ctx.textAlign = 'center';
 
@@ -2111,15 +2072,15 @@
         ];
         const lines = descriptions[this.tutorialSlide].split('\n');
         lines.forEach((ln, idx) => {
-          ctx.fillText(ln, this.width / 2, textY + idx * 20);
+          ctx.fillText(ln, this.width / 2, textY + idx * 18);
         });
 
-        const btnY = modalY + modalH - 58;
-        const dotY = btnY - 20;
+        const btnY = modalY + modalH - 54;
+        const dotY = btnY - 18;
         for (let i = 0; i < this.maxTutorialSlides; i++) {
-          const dx = this.width / 2 + (i - (this.maxTutorialSlides - 1) / 2) * 22;
+          const dx = this.width / 2 + (i - (this.maxTutorialSlides - 1) / 2) * 20;
           ctx.beginPath();
-          ctx.arc(dx, dotY, i === this.tutorialSlide ? 5 : 3.5, 0, Math.PI * 2);
+          ctx.arc(dx, dotY, i === this.tutorialSlide ? 4.5 : 3, 0, Math.PI * 2);
           ctx.fillStyle = i === this.tutorialSlide ? '#F59E0B' : '#E2E8F0';
           ctx.fill();
         }
@@ -2127,43 +2088,43 @@
         // 1. Prev Button
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(modalX + 16, btnY, 48, 44, 12);
+        ctx.roundRect(modalX + 16, btnY, 44, 40, 12);
         ctx.fillStyle = '#F1F5F9';
         ctx.fill();
-        ctx.font = '800 16px sans-serif';
+        ctx.font = '800 15px sans-serif';
         ctx.fillStyle = '#475569';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('◀', modalX + 40, btnY + 22);
+        ctx.fillText('◀', modalX + 38, btnY + 20);
         ctx.restore();
 
         // 2. OK / Close Button
-        const okW = modalW - 144;
-        const okX = modalX + 72;
+        const okW = modalW - 136;
+        const okX = modalX + 68;
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(okX, btnY, okW, 44, 14);
+        ctx.roundRect(okX, btnY, okW, 40, 14);
         ctx.fillStyle = '#8B5CF6';
         ctx.fill();
-        ctx.font = '800 16px Inter, sans-serif';
+        ctx.font = '800 15px Inter, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('OK', okX + okW / 2, btnY + 22);
+        ctx.fillText('OK', okX + okW / 2, btnY + 20);
         ctx.restore();
 
         // 3. Next Button
-        const nextX = modalX + modalW - 64;
+        const nextX = modalX + modalW - 60;
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(nextX, btnY, 48, 44, 12);
+        ctx.roundRect(nextX, btnY, 44, 40, 12);
         ctx.fillStyle = '#F1F5F9';
         ctx.fill();
-        ctx.font = '800 16px sans-serif';
+        ctx.font = '800 15px sans-serif';
         ctx.fillStyle = '#475569';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('▶', nextX + 24, btnY + 22);
+        ctx.fillText('▶', nextX + 22, btnY + 20);
         ctx.restore();
       }
 
