@@ -1360,143 +1360,47 @@
         ctx.restore();
       },
 
-      // Modern stylized 3D tutorial pointing hand with juicy tap dynamics & ripple
+      // Tutorial pointing hand with juicy tap dynamics & golden ripple
       drawTutorialHand(ctx, targetX, targetY, scale, pulse) {
         ctx.save();
+        const cycle = (pulse * 1.5) % (Math.PI * 2);
+        const tapDip = Math.max(0, Math.sin(cycle)) * 10 * scale;
+        const tapScale = 1.0 - Math.max(0, Math.sin(cycle)) * 0.08;
 
-        // 1. Calculate tap cycle & fingertip motion
-        const cycle = (pulse * 1.6) % (Math.PI * 2);
-        const tapDip = Math.max(0, Math.sin(cycle)) * 8 * scale;
-        const tapScale = 1.0 - Math.max(0, Math.sin(cycle)) * 0.06;
-
-        // Fingertip contact point
         const fx = targetX;
-        const fy = targetY + tapDip * 0.35;
+        const fy = targetY;
 
-        // 2. Expanding tap ripple ring on contact
+        // Expanding golden tap ripple ring on contact
         if (Math.sin(cycle) > 0.12) {
           const ripFrac = (Math.sin(cycle) - 0.12) / 0.88;
-          const ripR = (10 + ripFrac * 20) * scale;
+          const ripR = (10 + ripFrac * 26) * scale;
           ctx.save();
           ctx.beginPath();
-          ctx.ellipse(fx, fy, ripR, ripR * 0.55, 0, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(255, 230, 140, ${(1 - ripFrac) * 0.85})`;
+          ctx.ellipse(fx, fy, ripR, ripR * 0.52, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255, 225, 120, ' + ((1 - ripFrac) * 0.85).toFixed(2) + ')';
           ctx.lineWidth = 2.4 * scale;
           ctx.stroke();
           ctx.restore();
         }
 
-        // 3. Position hand body angled from bottom-right (fingertip at fx, fy)
-        ctx.translate(fx, fy);
-        ctx.rotate(-0.48 + Math.sin(cycle) * 0.04);
+        // Draw clean pointing hand emoji with smooth dip and shadow
+        ctx.translate(fx + 2 * scale, fy + 38 * scale + tapDip);
         ctx.scale(scale * tapScale, scale * tapScale);
 
-        // Soft drop shadow
-        ctx.save();
-        ctx.shadowColor = 'rgba(10, 15, 45, 0.38)';
-        ctx.shadowBlur = 12 * scale;
-        ctx.shadowOffsetX = 4 * scale;
-        ctx.shadowOffsetY = 8 * scale;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+        ctx.shadowBlur = 8 * scale;
+        ctx.shadowOffsetY = 5 * scale;
 
-        // Wrist / Cuff
-        ctx.beginPath();
-        ctx.roundRect(-10, 36, 26, 12, 6);
-        const cuffGrad = ctx.createLinearGradient(-10, 36, 16, 48);
-        cuffGrad.addColorStop(0, '#8B5CF6');
-        cuffGrad.addColorStop(1, '#6D28D9');
-        ctx.fillStyle = cuffGrad;
-        ctx.fill();
-        ctx.restore();
-
-        // Palm & Base
-        ctx.beginPath();
-        ctx.moveTo(-7, 36);
-        ctx.lineTo(-10, 18);
-        ctx.quadraticCurveTo(-14, 8, -6, 2);
-        ctx.lineTo(-4, 0);
-        ctx.lineTo(4, 0);
-        ctx.lineTo(12, 8);
-        ctx.quadraticCurveTo(16, 18, 14, 36);
-        ctx.closePath();
-        const palmGrad = ctx.createLinearGradient(-12, 0, 14, 36);
-        palmGrad.addColorStop(0, '#FFFFFF');
-        palmGrad.addColorStop(0.6, '#F1F5F9');
-        palmGrad.addColorStop(1, '#CBD5E1');
-        ctx.fillStyle = palmGrad;
-        ctx.fill();
-
-        // Extended Index Finger pointing straight up to (0, -32)
-        ctx.beginPath();
-        ctx.moveTo(-4.5, 6);
-        ctx.lineTo(-4.0, -26);
-        ctx.quadraticCurveTo(-4.0, -32, 0, -32);
-        ctx.quadraticCurveTo(4.0, -32, 4.0, -26);
-        ctx.lineTo(4.5, 6);
-        ctx.closePath();
-        const fingerGrad = ctx.createLinearGradient(-4, -32, 4, 6);
-        fingerGrad.addColorStop(0, '#FFFFFF');
-        fingerGrad.addColorStop(0.5, '#F8FAFC');
-        fingerGrad.addColorStop(1, '#E2E8F0');
-        ctx.fillStyle = fingerGrad;
-        ctx.fill();
-
-        // Index finger gloss highlight
-        ctx.beginPath();
-        ctx.moveTo(-2.5, -28);
-        ctx.lineTo(-2.5, -6);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-        ctx.lineWidth = 1.8;
-        ctx.lineCap = 'round';
-        ctx.stroke();
-
-        // Folded thumb
-        ctx.beginPath();
-        ctx.moveTo(-6, 2);
-        ctx.quadraticCurveTo(-12, 6, -11, 14);
-        ctx.quadraticCurveTo(-10, 20, -4, 18);
-        ctx.closePath();
-        ctx.fillStyle = '#E2E8F0';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
-        ctx.lineWidth = 1.0;
-        ctx.stroke();
-
-        // Folded fingers (Middle, Ring, Pinky)
-        for (let i = 0; i < 3; i++) {
-          const yOff = 8 + i * 8;
-          ctx.beginPath();
-          ctx.ellipse(6, yOff, 6, 4.2, 0.2, 0, Math.PI * 2);
-          ctx.fillStyle = i === 0 ? '#F1F5F9' : (i === 1 ? '#E2E8F0' : '#CBD5E1');
-          ctx.fill();
-          ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
-          ctx.lineWidth = 0.9;
-          ctx.stroke();
-        }
-
-        // Subtle clean outer outline
-        ctx.beginPath();
-        ctx.moveTo(-4.0, -26);
-        ctx.quadraticCurveTo(-4.0, -32, 0, -32);
-        ctx.quadraticCurveTo(4.0, -32, 4.0, -26);
-        ctx.lineTo(4.5, 6);
-        ctx.lineTo(12, 8);
-        ctx.quadraticCurveTo(16, 18, 14, 36);
-        ctx.lineTo(-7, 36);
-        ctx.lineTo(-10, 18);
-        ctx.quadraticCurveTo(-14, 8, -6, 2);
-        ctx.lineTo(-4.5, 6);
-        ctx.lineTo(-4.0, -26);
-        ctx.strokeStyle = 'rgba(71, 85, 105, 0.35)';
-        ctx.lineWidth = 1.2;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.stroke();
+        ctx.font = Math.round(44 * scale) + 'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('👆', 0, 0);
 
         ctx.restore();
       },
 
       glyphHand(ctx, cx, cy, size) {
-        this.drawTutorialHand(ctx, cx, cy, size / 28, 0);
+        this.drawTutorialHand(ctx, cx, cy, size / 32, 0);
       },
 
       glyphChevron(ctx, cx, cy, r, color) {
@@ -1589,6 +1493,7 @@
         // Animation state.
         this.complete = false;
         this.completeGlow = 0;
+        this.completionTimer = 0;
         this.shine = -1;
         this.lift = 0;
         this.liftTarget = 0;
@@ -1674,10 +1579,12 @@
           this.shine += dt * 1.75;
           if (this.shine > 1) this.shine = -1;
         }
-        if (this.complete) {
-          this.completeGlow = Math.min(1, this.completeGlow + dt * 3);
+        if (this.completionTimer > 0) {
+          this.completionTimer = Math.max(0, this.completionTimer - dt);
+          const p = 1.0 - (this.completionTimer / 0.85);
+          this.completeGlow = Math.sin(p * Math.PI);
         } else {
-          this.completeGlow = Math.max(0, this.completeGlow - dt * 4);
+          this.completeGlow = 0;
         }
         if (this.isHintSource || this.isHintTarget) {
           this.hintPulse += dt * 3.4;
@@ -1854,23 +1761,23 @@
         }
       }
 
-      // Spawns 2 to 3 small, simple, noticeable stars around the completed bolt
+      // Spawns 6 small, beautiful particles that spread outward naturally on bolt complete
       boltCompletionStars(bx, by, rx) {
-        const count = 3;
-        const colors = ['#FFF59D', '#FFE082', '#FFFFFF'];
+        const count = 6;
+        const colors = ['#FFF59D', '#FFE082', '#FFFFFF', '#FFD54F', '#FFF9C4'];
         for (let i = 0; i < count; i++) {
           const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.4 - 0.2);
-          const dist = rx * (0.85 + Math.random() * 0.4);
+          const speed = 36 + Math.random() * 42;
           this.items.push({
             type: 'STAR',
-            x: bx + Math.cos(angle) * dist,
-            y: by + Math.sin(angle) * dist * 0.6,
-            vx: Math.cos(angle) * 16,
-            vy: -20 - Math.random() * 20,
-            size: 8 + Math.random() * 3,
+            x: bx + Math.cos(angle) * (rx * 0.3),
+            y: by + Math.sin(angle) * (rx * 0.2),
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed * 0.65 - 18,
+            size: 6 + Math.random() * 4,
             rot: Math.random() * Math.PI * 2,
-            vRot: (Math.random() - 0.5) * 3,
-            life: 0.85 + Math.random() * 0.25,
+            vRot: (Math.random() - 0.5) * 4,
+            life: 0.75 + Math.random() * 0.25,
             maxLife: 1.0,
             color: colors[i % colors.length]
           });
@@ -2724,10 +2631,11 @@
         }
       }
 
-      // One colour fully gathered: cap lock, 2 to 3 small simple noticeable stars, and chime
+      // One colour fully gathered: subtle impact, outward particles, soft glow, and chime
       celebrateGroup(bolt) {
+        bolt.completionTimer = 0.85;
+        bolt.shake = 0.25;
         bolt.shine = -1;
-        this.sweep = -1;
         const topSlotY = bolt.nutSlotY(bolt.nuts.length - 1);
         this.particles.boltCompletionStars(bolt.x, topSlotY, bolt.rx);
         this.synth.playGroupComplete();
@@ -3096,23 +3004,22 @@
           return;
         }
 
-        // Vertical radiant light beam behind completed bolt matching reference screenshot Image 2
+        // Soft, short radial highlight bloom around completed nut group
         if (bolt.completeGlow > 0.01) {
+          const gFrac = bolt.completeGlow;
           ctx.save();
           ctx.globalCompositeOperation = 'screen';
-          const beamW = bolt.rx * 2.2;
-          const beamTop = bolt.shaftTopY - bolt.band * 1.6;
-          const beamBottom = bolt.baseY + bolt.ry * 0.8;
-          const beamG = ctx.createLinearGradient(0, beamBottom, 0, beamTop);
-          beamG.addColorStop(0, 'rgba(255, 255, 255, ' + (0.85 * bolt.completeGlow).toFixed(2) + ')');
-          beamG.addColorStop(0.3, 'rgba(215, 230, 255, ' + (0.55 * bolt.completeGlow).toFixed(2) + ')');
-          beamG.addColorStop(0.75, 'rgba(170, 200, 255, ' + (0.25 * bolt.completeGlow).toFixed(2) + ')');
-          beamG.addColorStop(1, 'rgba(255, 255, 255, 0)');
-          ctx.fillStyle = beamG;
+          const topSlotY = bolt.nutSlotY(bolt.nuts.length - 1);
+          const midY = (topSlotY + bolt.baseY) * 0.5;
+          const rad = bolt.rx * 2.0;
+          const bg = ctx.createRadialGradient(bx, midY, rad * 0.15, bx, midY, rad);
+          bg.addColorStop(0, 'rgba(255, 255, 255, ' + (0.35 * gFrac).toFixed(2) + ')');
+          bg.addColorStop(0.45, 'rgba(255, 235, 170, ' + (0.20 * gFrac).toFixed(2) + ')');
+          bg.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          ctx.fillStyle = bg;
           ctx.beginPath();
-          ctx.ellipse(bx, beamBottom, bolt.rx * 1.4, bolt.ry * 0.8, 0, 0, Math.PI * 2);
+          ctx.arc(bx, midY, rad, 0, Math.PI * 2);
           ctx.fill();
-          ctx.fillRect(bx - beamW * 0.5, beamTop, beamW, beamBottom - beamTop);
           ctx.restore();
         }
 

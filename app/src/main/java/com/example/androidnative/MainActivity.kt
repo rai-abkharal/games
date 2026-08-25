@@ -526,33 +526,6 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         }
     }
 
-    private fun showGameOverDialog(score: Int) {
-        val currentPos = binding.viewPager.currentItem
-        val game = this@MainActivity.adapter.getGame(currentPos) ?: return
-
-        val dialog = BottomSheetDialog(this)
-        val dialogBinding = DialogGameOverBinding.inflate(layoutInflater)
-        dialog.setContentView(dialogBinding.root)
-
-        val best = progressManager.getHighScore(game.id)
-        dialogBinding.tvGameOverScore.text = "$score PTS"
-        dialogBinding.tvGameOverHighScore.text = "Best: $best PTS"
-
-        dialogBinding.btnPlayAgain.setOnClickListener {
-            dialog.dismiss()
-            adapter.restartCurrentGame(currentPos)
-        }
-
-        dialogBinding.btnNextGame.setOnClickListener {
-            dialog.dismiss()
-            if (currentPos + 1 < displayedGameList.size) {
-                binding.viewPager.setCurrentItem(currentPos + 1, true)
-            }
-        }
-
-        dialog.show()
-    }
-
     override fun onPause() {
         super.onPause()
         adView?.pause()
