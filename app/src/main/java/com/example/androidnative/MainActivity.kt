@@ -193,11 +193,6 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                 filterGamesByTab(FeedTab.FAVORITES)
             }
         }
-
-        // 2. Game-Specific Hint / Rewarded Video Button
-        binding.btnHint.setOnClickListener {
-            showRewardedAdForHint("game_hint")
-        }
     }
 
     private fun setupBottomNav() {
@@ -291,16 +286,6 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         } else {
             binding.tvHighScore.visibility = View.GONE
         }
-
-        // Game-Specific Hint Button Visibility:
-        // Visible ONLY if game supports hint feature or category is Puzzle / Strategy / Memory
-        val supportsHint = (game.features?.get("hint") == true) || 
-                           game.category.equals("Puzzle", ignoreCase = true) ||
-                           game.category.equals("Strategy", ignoreCase = true) ||
-                           game.category.equals("Memory", ignoreCase = true) ||
-                           game.id.contains("pipe") || game.id.contains("memory") || game.id.contains("merge")
-
-        binding.btnHint.visibility = if (supportsHint) View.VISIBLE else View.GONE
     }
 
     private fun loadCatalog() {

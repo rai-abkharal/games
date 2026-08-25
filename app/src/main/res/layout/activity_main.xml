@@ -119,7 +119,7 @@
         app:layout_constraintBottom_toTopOf="@id/bottomNavBar"
         app:layout_constraintTop_toBottomOf="@id/topBar" />
 
-    <!-- Clean In-Game Action HUD (Right side: ONLY Like & Game-Specific Hint) -->
+    <!-- Clean In-Game Action HUD (Right side: ONLY Like Button) -->
     <LinearLayout
         android:id="@+id/inGameHud"
         android:layout_width="wrap_content"
@@ -141,18 +141,6 @@
             android:elevation="6dp"
             android:src="@drawable/ic_heart"
             app:tint="#64748B" />
-
-        <!-- Game-Specific Hint / Rewarded Video Button (Visible ONLY on supported games) -->
-        <ImageButton
-            android:id="@+id/btnHint"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/bg_round_button"
-            android:contentDescription="Get Hint / Rewarded Ad"
-            android:elevation="6dp"
-            android:src="@drawable/ic_hint"
-            android:visibility="gone" />
     </LinearLayout>
 
     <!-- Firmly Docked Bottom Navigation Bar (Solid pinned to bottom edge) -->
