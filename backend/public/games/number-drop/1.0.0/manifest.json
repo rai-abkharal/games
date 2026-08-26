@@ -2,7 +2,7 @@
   "id": "number-drop",
   "title": "Number Drop",
   "version": "1.0.0",
-  "description": "Drop and merge falling number blocks across a 5-column grid. Strategically stack identical numbers to trigger cascading 2048 chain merges, column gravity drops, and high score combos.",
+  "description": "Drop and merge falling number blocks across a 5-column grid. Features dynamic smoke exhaust trails, smooth juicy merge shockwaves, vibrant enhanced blocks, and cascading chain combos.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Puzzle",
