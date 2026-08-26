@@ -2,7 +2,7 @@
   "id": "number-chain",
   "title": "Number Chain",
   "version": "1.0.0",
-  "description": "Connect matching and doubling power-of-two number tiles in continuous 8-way diagonal and orthogonal paths. Features falling tile physics, ripple selection animations, multiple grid modes, and undo support.",
+  "description": "Connect matching and doubling power-of-two number tiles with 8-way paths rendered seamlessly behind the tiles. Features diverse number distributions, crisp white border highlights, falling tile physics, and undo support.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Puzzle",
