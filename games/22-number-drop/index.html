@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Number Drop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800;900&family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #3B4454;
+      font-family: 'Fredoka', 'Inter', system-ui, -apple-system, sans-serif;
+      touch-action: none;
+    }
+    #game-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <script>
+    'use strict';
+
+    // 1. TILE PALETTE (Exact match to reference screenshots)
+    const TILE_PALETTE = {
+      2:    { bg: '#FF5E62', text: '#FFFFFF', border: '#E04A4E' },
+      4:    { bg: '#9C51E0', text: '#FFFFFF', border: '#8338CF' },
+      8:    { bg: '#F59E0B', text: '#FFFFFF', border: '#D97706' },
+      16:   { bg: '#84CC16', text: '#FFFFFF', border: '#65A30D' },
+      32:   { bg: '#38BDF8', text: '#FFFFFF', border: '#0EA5E9' },
+      64:   { bg: '#FB923C', text: '#FFFFFF', border: '#EA580C' },
+      128:  { bg: '#3B82F6', text: '#FFFFFF', border: '#2563EB' },
+      256:  { bg: '#A1887F', text: '#FFFFFF', border: '#8D6E63' },
+      512:  { bg: '#00BFA5', text: '#FFFFFF', border: '#00897B' },
+      1024: { bg: '#5C6BC0', text: '#FFFFFF', border: '#3F51B5' },
+      2048: { bg: '#22D3EE', text: '#FFFFFF', border: '#FFFFFF', glow: true },
+      4096: { bg: '#EC4899', text: '#FFFFFF', border: '#FFFFFF', glow: true },
+      8192: { bg: '#F43F5E', text: '#FFFFFF', border: '#FFFFFF', glow: true }
+    };
+
+    const THEME = {
+      bg: '#3B4454',
+      boardBg: '#1A232E',
+      boardBorder: '#121A22',
+      colLine: 'rgba(255, 255, 255, 0.04)',
+      dangerTop: 'rgba(239, 68, 68, 0.28)',
+      dangerBottom: 'rgba(239, 68, 68, 0.0)',
+      pillBg: '#13212B',
+      pillBorder: '#233747',
+      textMain: '#FFFFFF',
+      textMuted: '#94A3B8',
+      accentCrown: '#2DD4BF',
+      btnBg: '#FFFFFF',
+      btnIcon: '#F43F5E',
+      undoBg: '#F59E0B',
+      undoText: '#FFFFFF'
+    };
+
+    // 2. AUDIO SYNTHESIZER
+    class SoundSynth {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      playDrop() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(320, t);
+        osc.frequency.exponentialRampToValueAtTime(140, t + 0.10);
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.10);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.11);
+      }
+
+      playLand() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(180, t);
+        osc.frequency.exponentialRampToValueAtTime(70, t + 0.06);
+        gain.gain.setValueAtTime(0.15, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.07);
+      }
+
+      playMerge(value = 4) {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const step = Math.min(8, Math.max(1, Math.log2(value) - 1));
+        const baseFreq = 261.63 * Math.pow(1.122, step); // Chromatic rise
+        [baseFreq, baseFreq * 1.25, baseFreq * 1.5].forEach((freq, i) => {
+          const t = this.ctx.currentTime + i * 0.03;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.30);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.32);
+        });
+      }
+
+      playTap() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(580, t);
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.06);
+      }
+
+      playUndo() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, t);
+        osc.frequency.exponentialRampToValueAtTime(200, t + 0.08);
+        gain.gain.setValueAtTime(0.10, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.09);
+      }
+
+      playGameOver() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const notes = [300, 260, 220, 180];
+        notes.forEach((freq, i) => {
+          const t = this.ctx.currentTime + i * 0.12;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.12, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.29);
+        });
+      }
+    }
+
+    // 3. HOST PLATFORM BRIDGE
+    const Host = {
+      post(action, payload) {
+        const body = payload || {};
+        const msg = JSON.stringify({ action: action, payload: body });
+        try {
+          if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+            window.flutter_inappwebview.callHandler('GameBridgeChannel', msg);
+          }
+        } catch (e) {}
+        try {
+          if (window.FlutterGameBridge && window.FlutterGameBridge.postMessage) {
+            window.FlutterGameBridge.postMessage(msg);
+          }
+        } catch (e) {}
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ source: 'GameBridge', action: action, payload: body }, '*');
+          }
+        } catch (e) {}
+      }
+    };
+
+    // 4. MAIN NUMBER DROP GAME ENGINE
+    class NumberDropGame {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.synth = new SoundSynth();
+
+        this.cols = 5;
+        this.maxRows = 8; // Max stack capacity per column
+
+        // Grid stores columns of blocks: columns[c] is an array of blocks from bottom (index 0) to top
+        this.columns = [[], [], [], [], []];
+
+        this.currentCol = 2; // Selected drop column (0..4)
+        this.currentVal = 2; // Value of piece being held
+        this.nextVal = 4;    // Upcoming preview piece
+
+        this.fallingPiece = null; // Active falling piece object { col, val, x, y, vy, targetY }
+        this.mergingPieces = [];  // Pieces currently animating merge pop
+        this.floatingScores = []; // Floating '+128' scores
+
+        this.score = 0;
+        this.allTimeBest = this.loadBestScore();
+        this.undoCharges = 1;
+        this.history = [];
+
+        this.state = 'AIMING'; // 'AIMING', 'FALLING', 'RESOLVING', 'GAME_OVER'
+        this.toast = null;
+        this.isPointerDown = false;
+
+        this.initLayout();
+        this.bindEvents();
+        this.startNewGame();
+
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      loadBestScore() {
+        try {
+          const s = localStorage.getItem('number_drop_best_score');
+          return s ? parseInt(s) || 11847 : 11847;
+        } catch (e) {
+          return 11847;
+        }
+      }
+
+      saveBestScore() {
+        try {
+          localStorage.setItem('number_drop_best_score', this.allTimeBest.toString());
+        } catch (e) {}
+      }
+
+      startNewGame() {
+        this.columns = [[], [], [], [], []];
+        this.score = 0;
+        this.undoCharges = 1;
+        this.history = [];
+        this.fallingPiece = null;
+        this.mergingPieces = [];
+        this.floatingScores = [];
+        this.state = 'AIMING';
+        this.currentCol = 2;
+
+        this.currentVal = this.generateWeightedValue();
+        this.nextVal = this.generateWeightedValue();
+
+        this.saveHistoryState();
+        Host.post('onGameStarted', { mode: 'easy' });
+      }
+
+      getHighestTileOnBoard() {
+        let maxVal = 2;
+        for (let c = 0; c < this.cols; c++) {
+          for (let r = 0; r < this.columns[c].length; r++) {
+            if (this.columns[c][r].val > maxVal) {
+              maxVal = this.columns[c][r].val;
+            }
+          }
+        }
+        return maxVal;
+      }
+
+      generateWeightedValue() {
+        const highest = this.getHighestTileOnBoard();
+        const options = [
+          { val: 2, w: 32 },
+          { val: 4, w: 28 },
+          { val: 8, w: 20 },
+          { val: 16, w: 12 },
+          { val: 32, w: 6 },
+          { val: 64, w: 2 }
+        ];
+
+        if (highest >= 128) options.push({ val: 128, w: 1 });
+        if (highest >= 512) options.push({ val: 256, w: 1 });
+
+        const totalWeight = options.reduce((sum, o) => sum + o.w, 0);
+        let rand = Math.random() * totalWeight;
+
+        for (const opt of options) {
+          if (rand < opt.w) return opt.val;
+          rand -= opt.w;
+        }
+        return 2;
+      }
+
+      saveHistoryState() {
+        const snapshot = this.columns.map(col => col.map(block => ({ ...block })));
+        this.history.push({
+          columns: snapshot,
+          score: this.score,
+          currentVal: this.currentVal,
+          nextVal: this.nextVal,
+          undoCharges: this.undoCharges
+        });
+        if (this.history.length > 5) this.history.shift();
+      }
+
+      handleUndo() {
+        if (this.state !== 'AIMING') return;
+        if (this.undoCharges <= 0 || this.history.length <= 1) {
+          this.toast = { text: 'No Undos Remaining!', t: 1.5 };
+          return;
+        }
+
+        this.history.pop();
+        const prev = this.history[this.history.length - 1];
+        if (prev) {
+          this.columns = prev.columns.map(col => col.map(b => ({ ...b })));
+          this.score = prev.score;
+          this.currentVal = prev.currentVal;
+          this.nextVal = prev.nextVal;
+          this.undoCharges--;
+          this.synth.playUndo();
+          this.toast = { text: '↺ Move Undone!', t: 1.2 };
+        }
+      }
+
+      initLayout() {
+        const dpr = window.devicePixelRatio || 1;
+        this.dpr = dpr;
+        this.width = window.innerWidth || 360;
+        this.height = window.innerHeight || 640;
+        this.canvas.width = Math.round(this.width * dpr);
+        this.canvas.height = Math.round(this.height * dpr);
+
+        const topPadding = 110;
+        const bottomAdHeight = 65;
+        const availableH = this.height - topPadding - bottomAdHeight - 75;
+        const availableW = this.width - 32;
+
+        this.colWidth = Math.floor(Math.min(availableW / this.cols, availableH / this.maxRows, 68));
+        this.tileSize = this.colWidth - 4;
+        this.boardW = this.cols * this.colWidth;
+        this.boardH = this.maxRows * this.colWidth;
+
+        this.boardX = Math.round((this.width - this.boardW) / 2);
+        this.boardY = Math.round(topPadding + 65);
+
+        this.headerY = 16;
+        this.subHudY = this.boardY - 60;
+        this.spawnY = this.boardY - this.colWidth - 6;
+      }
+
+      bindEvents() {
+        window.addEventListener('resize', () => this.initLayout());
+
+        const getPos = (e) => {
+          const rect = this.canvas.getBoundingClientRect();
+          const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+          const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+          return { px: clientX - rect.left, py: clientY - rect.top };
+        };
+
+        const handleDown = (e) => {
+          e.preventDefault();
+          this.synth.init();
+          if (e.pointerId !== undefined) {
+            try { this.canvas.setPointerCapture(e.pointerId); } catch (_) {}
+          }
+          const { px, py } = getPos(e);
+          this.isPointerDown = true;
+
+          // Header Clicks
+          if (py >= this.headerY - 4 && py <= this.headerY + 54) {
+            // Back Button (<)
+            if (px >= 14 && px <= 54) {
+              this.synth.playTap();
+              Host.post('onBackClicked');
+              return;
+            }
+            // Restart Button (↺)
+            if (px >= this.width - 56 && px <= this.width - 14) {
+              this.synth.playTap();
+              this.startNewGame();
+              return;
+            }
+          }
+
+          // Sub-HUD Undo Button (Left)
+          if (py >= this.subHudY - 6 && py <= this.subHudY + 50 && px >= 14 && px <= 78) {
+            this.handleUndo();
+            return;
+          }
+
+          // Game Over Modal Restart
+          if (this.state === 'GAME_OVER') {
+            const btnW = 200, btnH = 48;
+            const btnX = (this.width - btnW) / 2;
+            const btnY = this.height * 0.62;
+            if (px >= btnX && px <= btnX + btnW && py >= btnY && py <= btnY + btnH) {
+              this.synth.playTap();
+              this.startNewGame();
+            }
+            return;
+          }
+
+          // Aiming / Moving Column
+          if (this.state === 'AIMING') {
+            this.updateCurrentColumn(px);
+          }
+        };
+
+        const handleMove = (e) => {
+          if (!this.isPointerDown || this.state !== 'AIMING') return;
+          e.preventDefault();
+          const { px } = getPos(e);
+          this.updateCurrentColumn(px);
+        };
+
+        const handleUp = (e) => {
+          if (!this.isPointerDown) return;
+          this.isPointerDown = false;
+
+          if (this.state === 'AIMING') {
+            this.dropCurrentPiece();
+          }
+        };
+
+        this.canvas.addEventListener('pointerdown', handleDown);
+        window.addEventListener('pointermove', handleMove);
+        window.addEventListener('pointerup', handleUp);
+        window.addEventListener('pointercancel', handleUp);
+      }
+
+      updateCurrentColumn(px) {
+        let col = Math.floor((px - this.boardX) / this.colWidth);
+        col = Math.max(0, Math.min(this.cols - 1, col));
+        this.currentCol = col;
+      }
+
+      dropCurrentPiece() {
+        if (this.state !== 'AIMING') return;
+
+        const col = this.currentCol;
+        // Check if column is already completely full
+        if (this.columns[col].length >= this.maxRows) {
+          this.toast = { text: 'Column Full!', t: 1.0 };
+          return;
+        }
+
+        this.saveHistoryState();
+        this.state = 'FALLING';
+        this.synth.playDrop();
+        this.haptic(10);
+
+        const startX = this.boardX + col * this.colWidth + this.colWidth / 2;
+        const startY = this.spawnY + this.colWidth / 2;
+        const stackHeight = this.columns[col].length;
+        const targetRow = stackHeight; // Sits at row index = stackHeight
+        const targetY = this.boardY + (this.maxRows - 1 - targetRow) * this.colWidth + this.colWidth / 2;
+
+        this.fallingPiece = {
+          col: col,
+          val: this.currentVal,
+          x: startX,
+          y: startY,
+          targetY: targetY,
+          targetRow: targetRow,
+          vy: 600 // initial downward drop speed
+        };
+      }
+
+      // RESOLUTION PIPELINE: Cascading Same-Value Merges & Gravity
+      resolveLanding() {
+        if (!this.fallingPiece) return;
+
+        const p = this.fallingPiece;
+        const col = p.col;
+        const val = p.val;
+        this.fallingPiece = null;
+
+        this.synth.playLand();
+        this.haptic(15);
+
+        // Add block to column stack
+        this.columns[col].push({
+          val: val,
+          highlight: 1.0,
+          scale: 1.0
+        });
+
+        this.state = 'RESOLVING';
+        this.resolveChainMerges();
+      }
+
+      resolveChainMerges() {
+        let mergeFound = false;
+
+        // 1. Check Vertical Landing Merge First (Top of each column matches block below it)
+        for (let c = 0; c < this.cols; c++) {
+          const col = this.columns[c];
+          if (col.length >= 2) {
+            const topIdx = col.length - 1;
+            const topBlock = col[topIdx];
+            const belowBlock = col[topIdx - 1];
+
+            if (topBlock.val === belowBlock.val) {
+              // Combine into doubled value at lower position
+              const mergedVal = belowBlock.val * 2;
+              belowBlock.val = mergedVal;
+              belowBlock.highlight = 1.0;
+              col.pop(); // Remove top block
+
+              this.handleMergeSuccess(c, topIdx - 1, mergedVal);
+              mergeFound = true;
+              break;
+            }
+          }
+        }
+
+        // 2. Check Horizontal Adjacency Merges if no vertical merge happened
+        if (!mergeFound) {
+          for (let c = 0; c < this.cols - 1; c++) {
+            const colA = this.columns[c];
+            const colB = this.columns[c + 1];
+            const minLen = Math.min(colA.length, colB.length);
+
+            for (let r = 0; r < minLen; r++) {
+              if (colA[r] && colB[r] && colA[r].val === colB[r].val) {
+                // Merge from B into A (or into newly placed column)
+                const mergedVal = colA[r].val * 2;
+                colA[r].val = mergedVal;
+                colA[r].highlight = 1.0;
+                colB.splice(r, 1); // remove from colB
+
+                this.handleMergeSuccess(c, r, mergedVal);
+                mergeFound = true;
+                break;
+              }
+            }
+            if (mergeFound) break;
+          }
+        }
+
+        if (mergeFound) {
+          // Trigger next chain step after a short delay for animation
+          setTimeout(() => {
+            this.resolveChainMerges();
+          }, 140);
+        } else {
+          this.finalizeTurn();
+        }
+      }
+
+      handleMergeSuccess(col, row, mergedVal) {
+        this.score += mergedVal;
+        if (this.score > this.allTimeBest) {
+          this.allTimeBest = this.score;
+          this.saveBestScore();
+        }
+
+        this.synth.playMerge(mergedVal);
+        this.haptic(25);
+
+        const x = this.boardX + col * this.colWidth + this.colWidth / 2;
+        const y = this.boardY + (this.maxRows - 1 - row) * this.colWidth + this.colWidth / 2;
+
+        this.floatingScores.push({
+          x: x,
+          y: y - 10,
+          text: '+' + mergedVal.toLocaleString(),
+          alpha: 1.0
+        });
+
+        Host.post('onScoreUpdated', { score: this.score, earned: mergedVal });
+      }
+
+      finalizeTurn() {
+        // Advance pieces
+        this.currentVal = this.nextVal;
+        this.nextVal = this.generateWeightedValue();
+        this.state = 'AIMING';
+
+        // Check Game Over: If all columns are filled to maxRows and no space exists
+        let isFull = true;
+        for (let c = 0; c < this.cols; c++) {
+          if (this.columns[c].length < this.maxRows) {
+            isFull = false;
+            break;
+          }
+        }
+
+        if (isFull) {
+          this.state = 'GAME_OVER';
+          this.synth.playGameOver();
+          Host.post('onGameOver', { score: this.score, best: this.allTimeBest });
+        }
+      }
+
+      haptic(ms) {
+        try {
+          if (navigator.vibrate) navigator.vibrate(ms);
+        } catch (e) {}
+      }
+
+      loop(timestamp) {
+        const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
+        this.lastTime = timestamp;
+
+        // Animate Falling Piece
+        if (this.state === 'FALLING' && this.fallingPiece) {
+          const p = this.fallingPiece;
+          p.vy += 2200 * dt; // gravity acceleration
+          p.y += p.vy * dt;
+
+          if (p.y >= p.targetY) {
+            p.y = p.targetY;
+            this.resolveLanding();
+          }
+        }
+
+        // Fade Highlights
+        for (let c = 0; c < this.cols; c++) {
+          for (let r = 0; r < this.columns[c].length; r++) {
+            const b = this.columns[c][r];
+            if (b.highlight > 0) {
+              b.highlight = Math.max(0, b.highlight - dt * 3.0);
+            }
+          }
+        }
+
+        // Update Floating Scores
+        for (let i = this.floatingScores.length - 1; i >= 0; i--) {
+          const fs = this.floatingScores[i];
+          fs.y -= 45 * dt;
+          fs.alpha -= dt * 1.2;
+          if (fs.alpha <= 0) this.floatingScores.splice(i, 1);
+        }
+
+        // Update Toast
+        if (this.toast) {
+          this.toast.t -= dt;
+          if (this.toast.t <= 0) this.toast = null;
+        }
+
+        this.render();
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      // --- RENDERING PIPELINE ---
+      render() {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.scale(this.dpr, this.dpr);
+
+        // 1. Overall Background
+        ctx.fillStyle = THEME.bg;
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        // 2. Top Header & Sub-HUD
+        this.renderHeader(ctx);
+        this.renderSubHUD(ctx);
+
+        // 3. Play Container & Column Beam
+        this.renderBoardContainer(ctx);
+
+        // 4. Stacked Blocks & Active Falling Piece
+        this.renderBlocks(ctx);
+
+        // 5. Overlays (Toasts, Modals, Banner Area)
+        this.renderOverlays(ctx);
+
+        if (this.toast) this.renderToast(ctx);
+        if (this.state === 'GAME_OVER') this.renderGameOverModal(ctx);
+
+        ctx.restore();
+      }
+
+      renderHeader(ctx) {
+        const y = this.headerY;
+
+        // Back Chevron Button (<)
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(36, y + 20, 20, 0, Math.PI * 2);
+        ctx.fillStyle = THEME.btnBg;
+        ctx.fill();
+
+        ctx.font = '900 18px sans-serif';
+        ctx.fillStyle = THEME.btnIcon;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('‹', 36, y + 20);
+        ctx.restore();
+
+        // Mode & Live Score Pill
+        const modePillW = 108;
+        const modePillX = (this.width / 2) - modePillW - 8;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(modePillX, y, modePillW, 42, 10);
+        ctx.fillStyle = THEME.pillBg;
+        ctx.fill();
+        ctx.strokeStyle = THEME.pillBorder;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '800 10.5px Fredoka, sans-serif';
+        ctx.fillStyle = THEME.textMuted;
+        ctx.textAlign = 'center';
+        ctx.fillText('EASY MODE', modePillX + modePillW / 2, y + 14);
+
+        ctx.font = '900 16px Fredoka, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(this.score.toLocaleString(), modePillX + modePillW / 2, y + 32);
+        ctx.restore();
+
+        // All Time High Score Pill
+        const bestPillW = 108;
+        const bestPillX = (this.width / 2) + 8;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(bestPillX, y, bestPillW, 42, 10);
+        ctx.fillStyle = THEME.pillBg;
+        ctx.fill();
+        ctx.strokeStyle = THEME.pillBorder;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '800 10px Fredoka, sans-serif';
+        ctx.fillStyle = THEME.accentCrown;
+        ctx.textAlign = 'center';
+        ctx.fillText('👑 ALL TIME', bestPillX + bestPillW / 2, y + 14);
+
+        ctx.font = '900 16px Fredoka, sans-serif';
+        ctx.fillStyle = THEME.accentCrown;
+        ctx.fillText(this.allTimeBest.toLocaleString(), bestPillX + bestPillW / 2, y + 32);
+        ctx.restore();
+
+        // Restart Button (↺)
+        const restartX = this.width - 36;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(restartX, y + 20, 20, 0, Math.PI * 2);
+        ctx.fillStyle = THEME.btnBg;
+        ctx.fill();
+
+        ctx.font = '900 18px sans-serif';
+        ctx.fillStyle = THEME.btnIcon;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('↺', restartX, y + 20);
+        ctx.restore();
+      }
+
+      renderSubHUD(ctx) {
+        const y = this.subHudY;
+
+        // 1. Undo Button (Left)
+        const undoX = 36;
+        const undoY = y + 18;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(undoX, undoY, 22, 0, Math.PI * 2);
+        ctx.fillStyle = THEME.undoBg;
+        ctx.fill();
+
+        ctx.font = '900 18px sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('↶', undoX, undoY - 1);
+
+        // Badge counter
+        ctx.beginPath();
+        ctx.arc(undoX + 15, undoY - 15, 8, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.font = '900 10.5px Inter, sans-serif';
+        ctx.fillStyle = '#000000';
+        ctx.fillText(this.undoCharges.toString(), undoX + 15, undoY - 15);
+        ctx.restore();
+
+        // 2. Next Upcoming Piece Preview (Right)
+        const previewSize = 36;
+        const previewX = this.width - 36 - previewSize / 2;
+        const previewY = y;
+        const nextPal = TILE_PALETTE[this.nextVal] || TILE_PALETTE[2];
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(previewX, previewY, previewSize, previewSize, 7);
+        ctx.fillStyle = nextPal.bg;
+        ctx.fill();
+
+        // Subtle shadow
+        ctx.beginPath();
+        ctx.roundRect(previewX, previewY + previewSize - 3, previewSize, 3, [0, 0, 7, 7]);
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.fill();
+
+        ctx.font = '900 15px Fredoka, sans-serif';
+        ctx.fillStyle = nextPal.text;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.nextVal.toString(), previewX + previewSize / 2, previewY + previewSize / 2 + 1);
+        ctx.restore();
+      }
+
+      renderBoardContainer(ctx) {
+        const bx = this.boardX;
+        const by = this.boardY;
+        const bw = this.boardW;
+        const bh = this.boardH;
+
+        // Main Board Container Body
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 18;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, bw, bh, 14);
+        ctx.fillStyle = THEME.boardBg;
+        ctx.fill();
+        ctx.strokeStyle = THEME.boardBorder;
+        ctx.lineWidth = 3.0;
+        ctx.stroke();
+        ctx.restore();
+
+        // Column Divider Lines
+        ctx.save();
+        ctx.strokeStyle = THEME.colLine;
+        ctx.lineWidth = 1.2;
+        for (let c = 1; c < this.cols; c++) {
+          const lx = bx + c * this.colWidth;
+          ctx.beginPath();
+          ctx.moveTo(lx, by + 4);
+          ctx.lineTo(lx, by + bh - 4);
+          ctx.stroke();
+        }
+
+        // Upper Danger Warning Gradient (Reddish glow near top of container)
+        const dangerH = this.colWidth * 1.5;
+        const dangerGrad = ctx.createLinearGradient(0, by, 0, by + dangerH);
+        dangerGrad.addColorStop(0, THEME.dangerTop);
+        dangerGrad.addColorStop(1, THEME.dangerBottom);
+        ctx.fillStyle = dangerGrad;
+        ctx.beginPath();
+        ctx.roundRect(bx + 2, by + 2, bw - 4, dangerH, [12, 12, 0, 0]);
+        ctx.fill();
+
+        // ACTIVE COLUMN BEAM GLOW (Vertical light beam trailing current piece down the column!)
+        const activeCol = (this.state === 'FALLING' && this.fallingPiece) ? this.fallingPiece.col : this.currentCol;
+        const activeVal = (this.state === 'FALLING' && this.fallingPiece) ? this.fallingPiece.val : this.currentVal;
+        const pal = TILE_PALETTE[activeVal] || TILE_PALETTE[2];
+
+        const beamX = bx + activeCol * this.colWidth;
+        const beamGrad = ctx.createLinearGradient(0, by, 0, by + bh);
+        beamGrad.addColorStop(0, pal.bg + '30');
+        beamGrad.addColorStop(0.7, pal.bg + '12');
+        beamGrad.addColorStop(1, pal.bg + '00');
+
+        ctx.fillStyle = beamGrad;
+        ctx.fillRect(beamX + 2, by + 2, this.colWidth - 4, bh - 4);
+
+        ctx.restore();
+      }
+
+      renderBlocks(ctx) {
+        const bx = this.boardX;
+        const by = this.boardY;
+        const cs = this.colWidth;
+        const ts = this.tileSize;
+
+        // 1. Render Settled Stacked Blocks in Columns
+        for (let c = 0; c < this.cols; c++) {
+          const col = this.columns[c];
+          for (let r = 0; r < col.length; r++) {
+            const block = col[r];
+            const pal = TILE_PALETTE[block.val] || TILE_PALETTE[2];
+
+            const cx = bx + c * cs + cs / 2;
+            const cy = by + (this.maxRows - 1 - r) * cs + cs / 2;
+
+            this.drawTile(ctx, cx, cy, ts, block.val, pal, block.highlight);
+          }
+        }
+
+        // 2. Render Falling Block
+        if (this.state === 'FALLING' && this.fallingPiece) {
+          const p = this.fallingPiece;
+          const pal = TILE_PALETTE[p.val] || TILE_PALETTE[2];
+          this.drawTile(ctx, p.x, p.y, ts, p.val, pal, 0.5);
+        }
+
+        // 3. Render Current Piece Being Positioned Above Container (AIMING state)
+        if (this.state === 'AIMING') {
+          const cx = bx + this.currentCol * cs + cs / 2;
+          const cy = this.spawnY + cs / 2;
+          const pal = TILE_PALETTE[this.currentVal] || TILE_PALETTE[2];
+          this.drawTile(ctx, cx, cy, ts, this.currentVal, pal, 0.0);
+        }
+      }
+
+      drawTile(ctx, cx, cy, ts, val, pal, highlight = 0) {
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        const x0 = -ts / 2;
+        const y0 = -ts / 2;
+
+        // Solid Body
+        ctx.beginPath();
+        ctx.roundRect(x0, y0, ts, ts, 8);
+        ctx.fillStyle = pal.bg;
+        ctx.fill();
+
+        // Subtle 3D bottom edge
+        ctx.beginPath();
+        ctx.roundRect(x0, y0 + ts - 4, ts, 4, [0, 0, 8, 8]);
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.fill();
+
+        // Border / Highlight
+        ctx.beginPath();
+        ctx.roundRect(x0, y0, ts, ts, 8);
+        ctx.strokeStyle = (highlight > 0 || pal.glow) ? '#FFFFFF' : pal.border;
+        ctx.lineWidth = (highlight > 0 || pal.glow) ? 2.5 : 1.0;
+        ctx.stroke();
+
+        // Number Text
+        const fontSize = val >= 1000 ? Math.floor(ts * 0.32) : Math.floor(ts * 0.44);
+        ctx.font = '900 ' + fontSize + 'px Fredoka, sans-serif';
+        ctx.fillStyle = pal.text;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(val.toString(), 0, 1);
+
+        ctx.restore();
+      }
+
+      renderOverlays(ctx) {
+        // Floating Scores
+        for (const fs of this.floatingScores) {
+          ctx.save();
+          ctx.font = '900 20px Fredoka, sans-serif';
+          ctx.fillStyle = '#FACC15';
+          ctx.globalAlpha = fs.alpha;
+          ctx.textAlign = 'center';
+          ctx.fillText(fs.text, fs.x, fs.y);
+          ctx.restore();
+        }
+
+        // Bottom Reserved Ad Banner Space
+        const bannerH = 50;
+        const bannerY = this.height - bannerH - 8;
+        const bannerW = Math.min(330, this.width - 24);
+        const bannerX = (this.width - bannerW) / 2;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(bannerX, bannerY, bannerW, bannerH, 6);
+        ctx.fillStyle = '#0F172A';
+        ctx.fill();
+        ctx.strokeStyle = '#1E293B';
+        ctx.lineWidth = 1.0;
+        ctx.stroke();
+
+        ctx.font = '700 11px Inter, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('ADVERTISEMENT AREA', bannerX + bannerW / 2, bannerY + bannerH / 2);
+        ctx.restore();
+      }
+
+      renderToast(ctx) {
+        const t = this.toast;
+        if (!t) return;
+        const tw = Math.min(260, this.width - 40);
+        const tx = (this.width - tw) / 2;
+        const ty = this.boardY - 45;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.roundRect(tx, ty, tw, 36, 18);
+        ctx.fillStyle = '#172733';
+        ctx.fill();
+        ctx.strokeStyle = '#38BDF8';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '800 13px Inter, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(t.text, tx + tw / 2, ty + 18);
+        ctx.restore();
+      }
+
+      renderGameOverModal(ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 310;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        ctx.shadowBlur = 32;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.fillStyle = '#1A2936';
+        ctx.fill();
+        ctx.strokeStyle = '#EF4444';
+        ctx.lineWidth = 2.0;
+        ctx.stroke();
+
+        ctx.font = '900 24px Fredoka, sans-serif';
+        ctx.fillStyle = '#EF4444';
+        ctx.textAlign = 'center';
+        ctx.fillText('BOARD IS FULL!', this.width / 2, cardY + 48);
+
+        ctx.font = '700 14px Inter, sans-serif';
+        ctx.fillStyle = '#94A3B8';
+        ctx.fillText('FINAL SCORE', this.width / 2, cardY + 86);
+
+        ctx.font = '900 32px Fredoka, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(this.score.toLocaleString(), this.width / 2, cardY + 124);
+
+        ctx.font = '700 13px Inter, sans-serif';
+        ctx.fillStyle = '#2DD4BF';
+        ctx.fillText('👑 All-Time Best: ' + this.allTimeBest.toLocaleString(), this.width / 2, cardY + 160);
+
+        const btnW = 200, btnH = 48;
+        const btnX = (this.width - btnW) / 2;
+        const btnY = this.height * 0.62;
+
+        ctx.beginPath();
+        ctx.roundRect(btnX, btnY, btnW, btnH, 24);
+        ctx.fillStyle = '#38BDF8';
+        ctx.fill();
+
+        ctx.font = '900 16px Fredoka, sans-serif';
+        ctx.fillStyle = '#000000';
+        ctx.fillText('PLAY AGAIN 🔄', this.width / 2, btnY + 24);
+        ctx.restore();
+      }
+    }
+
+    function initGame() {
+      const canvas = document.getElementById('gameCanvas');
+      if (canvas && !window.game) {
+        window.game = new NumberDropGame(canvas);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initGame);
+    } else {
+      initGame();
+    }
+  </script>
+</body>
+</html>

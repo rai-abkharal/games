@@ -526,6 +526,27 @@
         "undo": true
       },
       "status": "published"
+    },
+    {
+      "id": "number-drop",
+      "title": "Number Drop",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/number-drop/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/number-drop.webp",
+      "sizeBytes": 27500,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/number-drop/1.0.0/manifest.json",
+      "feedOrder": 24,
+      "category": "Puzzle",
+      "description": "Drop and merge numbered blocks across a 5-column grid. Stack matching power-of-two blocks to trigger cascading chain merges, column gravity drops, and high score combos.",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "undo": true
+      },
+      "status": "published"
     }
   ]
 }
