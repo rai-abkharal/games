@@ -1,8 +1,8 @@
 {
   "id": "color-connect",
   "title": "Color Connect",
-  "version": "3.0.0",
-  "description": "Connect matching color dots across 90 mathematically proven shortcut-free puzzle levels. Zero empty cells and zero alternative shortcuts guaranteed.",
+  "version": "1.0.0",
+  "description": "Connect matching color dots with smooth continuous paths. Every puzzle features a unique full-board solution with 100% grid coverage across Easy, Medium, and Hard progressions.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Puzzle",
