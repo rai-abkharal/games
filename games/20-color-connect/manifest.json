@@ -2,7 +2,7 @@
   "id": "color-connect",
   "title": "Color Connect",
   "version": "1.0.0",
-  "description": "Connect matching color dots with smooth continuous paths. Every puzzle features a unique full-board solution with 100% grid coverage across Easy, Medium, and Hard progressions.",
+  "description": "Connect matching color dots with smooth continuous paths. Features Sudoku Pro style difficulty selection, clean top bar, tactile floating gesture guides, and 90 shortcut-free puzzle levels.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Puzzle",
