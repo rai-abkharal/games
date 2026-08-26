@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Number Chain</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800;900&family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #253C4D;
+      font-family: 'Fredoka', 'Inter', system-ui, -apple-system, sans-serif;
+      touch-action: none;
+    }
+    #game-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <script>
+    'use strict';
+
+    // 1. TILE COLOR SCHEME (Exact Match to Game Reference)
+    const TILE_PALETTE = {
+      2:    { bg: '#FF5E62', text: '#1E293B', border: '#E04A4E' },
+      4:    { bg: '#9C51E0', text: '#FFFFFF', border: '#8338CF' },
+      8:    { bg: '#F59E0B', text: '#1E293B', border: '#D97706' },
+      16:   { bg: '#84CC16', text: '#1E293B', border: '#65A30D' },
+      32:   { bg: '#38BDF8', text: '#1E293B', border: '#0EA5E9' },
+      64:   { bg: '#FB923C', text: '#1E293B', border: '#EA580C' },
+      128:  { bg: '#3B82F6', text: '#FFFFFF', border: '#2563EB' },
+      256:  { bg: '#A1887F', text: '#FFFFFF', border: '#8D6E63' },
+      512:  { bg: '#00BFA5', text: '#FFFFFF', border: '#00897B' },
+      1024: { bg: '#5C6BC0', text: '#FFFFFF', border: '#3F51B5' },
+      2048: { bg: '#22D3EE', text: '#1E293B', border: '#FFFFFF', glow: true },
+      4096: { bg: '#EC4899', text: '#FFFFFF', border: '#FFFFFF', glow: true },
+      8192: { bg: '#F43F5E', text: '#FFFFFF', border: '#FFFFFF', glow: true }
+    };
+
+    const MODES = [
+      { id: 'easy', label: 'EASY MODE', rows: 8, cols: 5, subtitle: '8×5 Grid • Relaxed & Strategic' },
+      { id: 'medium', label: 'MEDIUM MODE', rows: 7, cols: 5, subtitle: '7×5 Grid • Balanced Flow' },
+      { id: 'hard', label: 'HARD MODE', rows: 6, cols: 5, subtitle: '6×5 Grid • Tight Spatial Logic' }
+    ];
+
+    const THEME = {
+      bgTop: '#2A4356',
+      bgBottom: '#1D303E',
+      pillBg: '#13212B',
+      pillBorder: '#233747',
+      textMain: '#FFFFFF',
+      textMuted: '#94A3B8',
+      accentCrown: '#2DD4BF',
+      btnBg: '#FFFFFF',
+      btnIcon: '#A855F7',
+      undoBg: '#F59E0B',
+      undoText: '#FFFFFF'
+    };
+
+    // 2. AUDIO SYNTHESIZER
+    class SoundSynth {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      playStep(stepIndex = 1) {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const baseFreq = 261.63; // C4
+        const pentatonicIntervals = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
+        const semitone = pentatonicIntervals[(stepIndex - 1) % pentatonicIntervals.length];
+        const freq = baseFreq * Math.pow(2, semitone / 12);
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, t);
+
+        gain.gain.setValueAtTime(0.16, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.15);
+      }
+
+      playBacktrack() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.exponentialRampToValueAtTime(220, t + 0.07);
+        gain.gain.setValueAtTime(0.09, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.08);
+      }
+
+      playMerge(value = 4) {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const base = 220 * Math.min(2.5, Math.max(1, Math.log2(value) * 0.25));
+        [base, base * 1.25, base * 1.5, base * 2.0].forEach((freq, i) => {
+          const t = this.ctx.currentTime + i * 0.035;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.20, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.39);
+        });
+      }
+
+      playDropLanding() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(160, t);
+        osc.frequency.exponentialRampToValueAtTime(80, t + 0.05);
+        gain.gain.setValueAtTime(0.06, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.06);
+      }
+
+      playTap() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, t);
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.06);
+      }
+
+      playGameOver() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const notes = [330, 293.66, 261.63, 220];
+        notes.forEach((freq, i) => {
+          const t = this.ctx.currentTime + i * 0.12;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.12, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.29);
+        });
+      }
+    }
+
+    // 3. HOST PLATFORM BRIDGE
+    const Host = {
+      post(action, payload) {
+        const body = payload || {};
+        const msg = JSON.stringify({ action: action, payload: body });
+        try {
+          if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+            window.flutter_inappwebview.callHandler('GameBridgeChannel', msg);
+          }
+        } catch (e) {}
+        try {
+          if (window.FlutterGameBridge && window.FlutterGameBridge.postMessage) {
+            window.FlutterGameBridge.postMessage(msg);
+          }
+        } catch (e) {}
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ source: 'GameBridge', action: action, payload: body }, '*');
+          }
+        } catch (e) {}
+      }
+    };
+
+    // 4. MAIN GAME ENGINE
+    class NumberChainGame {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.synth = new SoundSynth();
+
+        this.modeId = 'easy';
+        this.mode = MODES.find(m => m.id === this.modeId) || MODES[0];
+        this.rows = this.mode.rows;
+        this.cols = this.mode.cols;
+
+        this.grid = [];
+        this.fallingTiles = [];
+        this.floatingScores = [];
+        this.ripples = [];
+
+        this.score = 0;
+        this.allTimeBest = this.loadBestScore();
+        this.undoCharges = 1;
+        this.history = [];
+
+        this.activePath = [];
+        this.isDragging = false;
+        this.pointerPos = { px: 0, py: 0 };
+        this.cursorPos = { x: 0, y: 0 };
+
+        this.state = 'PLAYING'; // PLAYING, ANIMATING, MODE_SELECT, GAME_OVER
+        this.toast = null;
+
+        this.initLayout();
+        this.bindEvents();
+        this.startNewGame();
+
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      loadBestScore() {
+        try {
+          const s = localStorage.getItem('number_chain_best_score');
+          return s ? parseInt(s) || 21904 : 21904;
+        } catch (e) {
+          return 21904;
+        }
+      }
+
+      saveBestScore() {
+        try {
+          localStorage.setItem('number_chain_best_score', this.allTimeBest.toString());
+        } catch (e) {}
+      }
+
+      startNewGame() {
+        this.mode = MODES.find(m => m.id === this.modeId) || MODES[0];
+        this.rows = this.mode.rows;
+        this.cols = this.mode.cols;
+        this.score = 0;
+        this.undoCharges = 1;
+        this.history = [];
+        this.activePath = [];
+        this.isDragging = false;
+        this.fallingTiles = [];
+        this.floatingScores = [];
+        this.ripples = [];
+        this.state = 'PLAYING';
+
+        this.initLayout();
+        this.generateInitialGrid();
+        this.saveHistoryState();
+
+        Host.post('onGameStarted', { mode: this.modeId });
+      }
+
+      generateWeightedValue(maxTileOnBoard = 16) {
+        // Weighted power of 2 generator
+        const baseWeights = [
+          { val: 2, weight: 45 },
+          { val: 4, weight: 30 },
+          { val: 8, weight: 15 },
+          { val: 16, weight: 7 },
+          { val: 32, weight: 3 }
+        ];
+
+        if (maxTileOnBoard >= 64) {
+          baseWeights.push({ val: 64, weight: 2 });
+        }
+        if (maxTileOnBoard >= 256) {
+          baseWeights.push({ val: 128, weight: 1 });
+        }
+
+        const totalWeight = baseWeights.reduce((acc, item) => acc + item.weight, 0);
+        let rand = Math.random() * totalWeight;
+
+        for (const item of baseWeights) {
+          if (rand < item.weight) return item.val;
+          rand -= item.weight;
+        }
+        return 2;
+      }
+
+      generateInitialGrid() {
+        this.grid = [];
+        for (let r = 0; r < this.rows; r++) {
+          const row = [];
+          for (let c = 0; c < this.cols; c++) {
+            row.push({
+              val: this.generateWeightedValue(32),
+              scale: 1.0,
+              offsetY: 0,
+              alpha: 1.0,
+              highlight: 0
+            });
+          }
+          row.forEach(tile => {});
+          this.grid.push(row);
+        }
+
+        // Guarantee at least 3 valid initial moves
+        while (!this.hasValidMove()) {
+          const r = Math.floor(Math.random() * (this.rows - 1));
+          const c = Math.floor(Math.random() * this.cols);
+          this.grid[r + 1][c].val = this.grid[r][c].val;
+        }
+      }
+
+      saveHistoryState() {
+        const snapshot = this.grid.map(row => row.map(cell => ({ ...cell })));
+        this.history.push({
+          grid: snapshot,
+          score: this.score,
+          undoCharges: this.undoCharges
+        });
+        if (this.history.length > 5) this.history.shift();
+      }
+
+      initLayout() {
+        const dpr = window.devicePixelRatio || 1;
+        this.dpr = dpr;
+        this.width = window.innerWidth || 360;
+        this.height = window.innerHeight || 640;
+        this.canvas.width = Math.round(this.width * dpr);
+        this.canvas.height = Math.round(this.height * dpr);
+
+        const topPadding = 100;
+        const bottomPadding = 110;
+        const availableH = this.height - topPadding - bottomPadding;
+        const availableW = this.width - 24;
+
+        const maxCellByW = availableW / this.cols;
+        const maxCellByH = availableH / this.rows;
+        this.cellSize = Math.floor(Math.min(maxCellByW, maxCellByH, 68));
+        this.cellGap = Math.max(3, Math.floor(this.cellSize * 0.08));
+        this.tileInnerSize = this.cellSize - this.cellGap;
+
+        this.boardW = this.cols * this.cellSize;
+        this.boardH = this.rows * this.cellSize;
+        this.boardX = Math.round((this.width - this.boardW) / 2);
+        this.boardY = Math.round(topPadding + (availableH - this.boardH) / 2);
+
+        this.headerY = Math.max(16, this.boardY - 76);
+        this.hudY = this.boardY + this.boardH + 18;
+      }
+
+      bindEvents() {
+        window.addEventListener('resize', () => this.initLayout());
+
+        const getPos = (e) => {
+          const rect = this.canvas.getBoundingClientRect();
+          const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+          const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+          return { px: clientX - rect.left, py: clientY - rect.top };
+        };
+
+        const handleDown = (e) => {
+          e.preventDefault();
+          this.synth.init();
+          if (e.pointerId !== undefined) {
+            try { this.canvas.setPointerCapture(e.pointerId); } catch (_) {}
+          }
+          const { px, py } = getPos(e);
+          this.pointerPos = { px, py };
+          this.cursorPos = { x: px, y: py };
+
+          if (this.state !== 'PLAYING') {
+            this.handleModalClick(px, py);
+            return;
+          }
+
+          // Top Header Clicks
+          if (py >= this.headerY - 4 && py <= this.headerY + 54) {
+            // Mode Select Button (Left)
+            if (px >= 14 && px <= 146) {
+              this.synth.playTap();
+              this.state = 'MODE_SELECT';
+              return;
+            }
+            // Back Button (<)
+            if (px >= 14 && px <= 54) {
+              this.synth.playTap();
+              this.state = 'MODE_SELECT';
+              return;
+            }
+            // Restart Button (Right ↺)
+            if (px >= this.width - 56 && px <= this.width - 14) {
+              this.synth.playTap();
+              this.startNewGame();
+              return;
+            }
+          }
+
+          // Bottom Undo Button
+          if (py >= this.hudY - 4 && py <= this.hudY + 68 && px >= this.width - 76 && px <= this.width - 14) {
+            this.handleUndo();
+            return;
+          }
+
+          // Board Touch Start
+          const cell = this.getCellFromPos(px, py);
+          if (cell) {
+            this.startPath(cell.r, cell.c);
+          }
+        };
+
+        const handleMove = (e) => {
+          if (!this.isDragging || this.state !== 'PLAYING') return;
+          e.preventDefault();
+          const { px, py } = getPos(e);
+          this.pointerPos = { px, py };
+          this.processContinuousDrag(px, py);
+        };
+
+        const handleUp = (e) => {
+          if (this.isDragging) {
+            this.finishPath();
+          }
+        };
+
+        this.canvas.addEventListener('pointerdown', handleDown);
+        window.addEventListener('pointermove', handleMove);
+        window.addEventListener('pointerup', handleUp);
+        window.addEventListener('pointercancel', handleUp);
+      }
+
+      getCellFromPos(px, py) {
+        if (px < this.boardX || px > this.boardX + this.boardW ||
+            py < this.boardY || py > this.boardY + this.boardH) {
+          return null;
+        }
+        const c = Math.floor((px - this.boardX) / this.cellSize);
+        const r = Math.floor((py - this.boardY) / this.cellSize);
+        if (r >= 0 && r < this.rows && c >= 0 && c < this.cols) {
+          return { r, c };
+        }
+        return null;
+      }
+
+      startPath(r, c) {
+        this.activePath = [{ r, c }];
+        this.isDragging = true;
+        this.addRipple(r, c);
+        this.synth.playStep(1);
+        this.haptic(10);
+      }
+
+      processContinuousDrag(px, py) {
+        if (!this.isDragging || this.activePath.length === 0) return;
+        const cell = this.getCellFromPos(px, py);
+        if (!cell) return;
+
+        const currentHead = this.activePath[this.activePath.length - 1];
+        if (currentHead.r === cell.r && currentHead.c === cell.c) return;
+
+        // 1. Backtracking Support
+        if (this.activePath.length >= 2) {
+          const prev = this.activePath[this.activePath.length - 2];
+          if (prev.r === cell.r && prev.c === cell.c) {
+            this.activePath.pop();
+            this.synth.playBacktrack();
+            this.haptic(6);
+            return;
+          }
+        }
+
+        // 2. Validate Step
+        if (this.isValidNextCell(cell.r, cell.c)) {
+          this.activePath.push({ r: cell.r, c: cell.c });
+          this.addRipple(cell.r, cell.c);
+          this.synth.playStep(this.activePath.length);
+          this.haptic(8);
+        }
+      }
+
+      isValidNextCell(r, c) {
+        if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) return false;
+        if (this.activePath.length === 0) return true;
+
+        // Must be orthogonally adjacent (Up, Down, Left, Right)
+        const head = this.activePath[this.activePath.length - 1];
+        const dr = Math.abs(head.r - r);
+        const dc = Math.abs(head.c - c);
+        if (dr + dc !== 1) return false;
+
+        // Cannot revisit an already selected cell
+        if (this.activePath.some(pt => pt.r === r && pt.c === c)) return false;
+
+        const prevVal = this.grid[head.r][head.c].val;
+        const nextVal = this.grid[r][c].val;
+
+        // Sequence Rule: Next tile must be EQUAL or DOUBLE the previous tile
+        return (nextVal === prevVal || nextVal === prevVal * 2);
+      }
+
+      finishPath() {
+        this.isDragging = false;
+        if (this.activePath.length < 2) {
+          this.activePath = [];
+          return;
+        }
+
+        // Execute Merge
+        this.saveHistoryState();
+        this.state = 'ANIMATING';
+
+        const lastCell = this.activePath[this.activePath.length - 1];
+        let totalSum = 0;
+        for (const pt of this.activePath) {
+          totalSum += this.grid[pt.r][pt.c].val;
+        }
+
+        // Nearest power of 2 >= totalSum
+        const mergedValue = Math.pow(2, Math.ceil(Math.log2(totalSum)));
+        const earnedScore = mergedValue * this.activePath.length;
+        this.score += earnedScore;
+
+        if (this.score > this.allTimeBest) {
+          this.allTimeBest = this.score;
+          this.saveBestScore();
+        }
+
+        this.synth.playMerge(mergedValue);
+        this.haptic(25);
+
+        // Add Floating Score Text
+        const lastX = this.boardX + lastCell.c * this.cellSize + this.cellSize / 2;
+        const lastY = this.boardY + lastCell.r * this.cellSize + this.cellSize / 2;
+        this.floatingScores.push({
+          x: lastX,
+          y: lastY - 10,
+          text: '+' + earnedScore.toLocaleString(),
+          alpha: 1.0,
+          life: 0.9
+        });
+
+        // Set Target Cell to Merged Value with Punchy Bounce Scale
+        this.grid[lastCell.r][lastCell.c].val = mergedValue;
+        this.grid[lastCell.r][lastCell.c].scale = 1.35;
+        this.grid[lastCell.r][lastCell.c].highlight = 1.0;
+
+        // Clear Consumed Tiles & Animate Fall From Above
+        const consumedCells = this.activePath.slice(0, this.activePath.length - 1);
+        this.activePath = [];
+
+        for (const pt of consumedCells) {
+          const newNumber = this.generateWeightedValue(mergedValue);
+          this.grid[pt.r][pt.c].val = newNumber;
+          this.grid[pt.r][pt.c].offsetY = -this.boardH * 0.45;
+          this.grid[pt.r][pt.c].alpha = 0.2;
+          this.grid[pt.r][pt.c].scale = 0.8;
+          this.fallingTiles.push({ r: pt.r, c: pt.c, targetY: 0 });
+        }
+
+        setTimeout(() => {
+          this.synth.playDropLanding();
+          this.state = 'PLAYING';
+
+          if (!this.hasValidMove()) {
+            this.handleGameOver();
+          }
+        }, 320);
+
+        Host.post('onScoreUpdated', { score: this.score, earned: earnedScore });
+      }
+
+      handleUndo() {
+        if (this.undoCharges <= 0 || this.history.length <= 1) {
+          this.toast = { text: 'No Undos Remaining!', t: 1.5 };
+          return;
+        }
+
+        this.history.pop(); // discard current
+        const prevState = this.history[this.history.length - 1];
+        if (prevState) {
+          this.grid = prevState.grid.map(row => row.map(c => ({ ...c })));
+          this.score = prevState.score;
+          this.undoCharges--;
+          this.synth.playBacktrack();
+          this.toast = { text: '↺ Move Undone!', t: 1.2 };
+        }
+      }
+
+      hasValidMove() {
+        for (let r = 0; r < this.rows; r++) {
+          for (let c = 0; c < this.cols; c++) {
+            const v = this.grid[r][c].val;
+            const nbrs = [
+              [r - 1, c],
+              [r + 1, c],
+              [r, c - 1],
+              [r, c + 1]
+            ];
+            for (const [nr, nc] of nbrs) {
+              if (nr >= 0 && nr < this.rows && nc >= 0 && nc < this.cols) {
+                const nv = this.grid[nr][nc].val;
+                if (nv === v || nv === v * 2) return true;
+              }
+            }
+          }
+        }
+        return false;
+      }
+
+      handleGameOver() {
+        this.state = 'GAME_OVER';
+        this.synth.playGameOver();
+        Host.post('onGameOver', { score: this.score, best: this.allTimeBest });
+      }
+
+      addRipple(r, c) {
+        const x = this.boardX + c * this.cellSize + this.cellSize / 2;
+        const y = this.boardY + r * this.cellSize + this.cellSize / 2;
+        this.ripples.push({ x, y, radius: this.cellSize * 0.2, alpha: 1.0, maxR: this.cellSize * 0.85 });
+      }
+
+      haptic(ms) {
+        try {
+          if (navigator.vibrate) navigator.vibrate(ms);
+        } catch (e) {}
+      }
+
+      handleModalClick(px, py) {
+        if (this.state === 'MODE_SELECT') {
+          const cardW = Math.min(320, this.width - 36);
+          const cardH = 340;
+          const cardX = (this.width - cardW) / 2;
+          const cardY = (this.height - cardH) / 2;
+
+          if (px >= cardX + cardW - 44 && px <= cardX + cardW - 10 && py >= cardY + 10 && py <= cardY + 44) {
+            this.synth.playTap();
+            this.state = 'PLAYING';
+            return;
+          }
+
+          const optH = 70;
+          const startY = cardY + 70;
+
+          for (let i = 0; i < MODES.length; i++) {
+            const m = MODES[i];
+            const optY = startY + i * (optH + 12);
+            if (px >= cardX + 16 && px <= cardX + cardW - 16 && py >= optY && py <= optY + optH) {
+              this.synth.playTap();
+              this.modeId = m.id;
+              this.startNewGame();
+              return;
+            }
+          }
+
+          if (px < cardX || px > cardX + cardW || py < cardY || py > cardY + cardH) {
+            this.state = 'PLAYING';
+          }
+          return;
+        }
+
+        if (this.state === 'GAME_OVER') {
+          const btnW = 200, btnH = 48;
+          const btnX = (this.width - btnW) / 2;
+          const btnY = this.height * 0.64;
+
+          if (px >= btnX && px <= btnX + btnW && py >= btnY && py <= btnY + btnH) {
+            this.synth.playTap();
+            this.startNewGame();
+          }
+        }
+      }
+
+      loop(timestamp) {
+        const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
+        this.lastTime = timestamp;
+
+        // Smooth cursor interpolation
+        if (this.isDragging && this.pointerPos) {
+          this.cursorPos.x += (this.pointerPos.px - this.cursorPos.x) * 0.5;
+          this.cursorPos.y += (this.pointerPos.py - this.cursorPos.y) * 0.5;
+        }
+
+        // Animate Tile Falling & Scaling
+        for (let r = 0; r < this.rows; r++) {
+          for (let c = 0; c < this.cols; c++) {
+            const cell = this.grid[r][c];
+            if (cell.offsetY < 0) {
+              cell.offsetY += (-cell.offsetY) * 18 * dt;
+              if (Math.abs(cell.offsetY) < 1.0) cell.offsetY = 0;
+            }
+            if (cell.scale > 1.0) {
+              cell.scale -= (cell.scale - 1.0) * 10 * dt;
+            }
+            if (cell.alpha < 1.0) {
+              cell.alpha = Math.min(1.0, cell.alpha + dt * 6);
+            }
+            if (cell.highlight > 0) {
+              cell.highlight = Math.max(0, cell.highlight - dt * 3);
+            }
+          }
+        }
+
+        // Update Ripples
+        for (let i = this.ripples.length - 1; i >= 0; i--) {
+          const rip = this.ripples[i];
+          rip.radius += (rip.maxR - rip.radius) * 12 * dt;
+          rip.alpha -= dt * 3.5;
+          if (rip.alpha <= 0) this.ripples.splice(i, 1);
+        }
+
+        // Update Floating Scores
+        for (let i = this.floatingScores.length - 1; i >= 0; i--) {
+          const fs = this.floatingScores[i];
+          fs.y -= 45 * dt;
+          fs.alpha -= dt * 1.2;
+          if (fs.alpha <= 0) this.floatingScores.splice(i, 1);
+        }
+
+        // Update Toast
+        if (this.toast) {
+          this.toast.t -= dt;
+          if (this.toast.t <= 0) this.toast = null;
+        }
+
+        this.render();
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      // --- RENDERING PIPELINE ---
+      render() {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.scale(this.dpr, this.dpr);
+
+        // Background
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, this.height);
+        bgGrad.addColorStop(0, THEME.bgTop);
+        bgGrad.addColorStop(1, THEME.bgBottom);
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        this.renderHeader(ctx);
+        this.renderBoard(ctx);
+        this.renderPathLines(ctx);
+        this.renderHUD(ctx);
+        this.renderOverlays(ctx);
+
+        if (this.toast) this.renderToast(ctx);
+        if (this.state === 'MODE_SELECT') this.renderModeDialog(ctx);
+        if (this.state === 'GAME_OVER') this.renderGameOverModal(ctx);
+
+        ctx.restore();
+      }
+
+      renderHeader(ctx) {
+        const y = this.headerY;
+
+        // 1. Back Chevron Button (<)
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(36, y + 20, 20, 0, Math.PI * 2);
+        ctx.fillStyle = THEME.btnBg;
+        ctx.fill();
+
+        ctx.font = '900 18px sans-serif';
+        ctx.fillStyle = THEME.btnIcon;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('‹', 36, y + 20);
+        ctx.restore();
+
+        // 2. Mode & Live Score Pill
+        const modePillW = 108;
+        const modePillX = (this.width / 2) - modePillW - 8;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(modePillX, y, modePillW, 42, 10);
+        ctx.fillStyle = THEME.pillBg;
+        ctx.fill();
+        ctx.strokeStyle = THEME.pillBorder;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '800 10.5px Fredoka, sans-serif';
+        ctx.fillStyle = THEME.textMuted;
+        ctx.textAlign = 'center';
+        ctx.fillText(this.mode.label, modePillX + modePillW / 2, y + 14);
+
+        ctx.font = '900 16px Fredoka, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(this.score.toLocaleString(), modePillX + modePillW / 2, y + 32);
+        ctx.restore();
+
+        // 3. All Time High Score Pill (with Crown)
+        const bestPillW = 108;
+        const bestPillX = (this.width / 2) + 8;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(bestPillX, y, bestPillW, 42, 10);
+        ctx.fillStyle = THEME.pillBg;
+        ctx.fill();
+        ctx.strokeStyle = THEME.pillBorder;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '800 10px Fredoka, sans-serif';
+        ctx.fillStyle = THEME.accentCrown;
+        ctx.textAlign = 'center';
+        ctx.fillText('👑 ALL TIME', bestPillX + bestPillW / 2, y + 14);
+
+        ctx.font = '900 16px Fredoka, sans-serif';
+        ctx.fillStyle = THEME.accentCrown;
+        ctx.fillText(this.allTimeBest.toLocaleString(), bestPillX + bestPillW / 2, y + 32);
+        ctx.restore();
+
+        // 4. Restart Button (↺)
+        const restartX = this.width - 36;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(restartX, y + 20, 20, 0, Math.PI * 2);
+        ctx.fillStyle = THEME.btnBg;
+        ctx.fill();
+
+        ctx.font = '900 18px sans-serif';
+        ctx.fillStyle = THEME.btnIcon;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('↺', restartX, y + 20);
+        ctx.restore();
+      }
+
+      renderBoard(ctx) {
+        const bx = this.boardX;
+        const by = this.boardY;
+        const cs = this.cellSize;
+        const tis = this.tileInnerSize;
+
+        for (let r = 0; r < this.rows; r++) {
+          for (let c = 0; c < this.cols; c++) {
+            const cell = this.grid[r][c];
+            const pal = TILE_PALETTE[cell.val] || TILE_PALETTE[2];
+
+            const cx = bx + c * cs + cs / 2;
+            const cy = by + r * cs + cs / 2 + cell.offsetY;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(cell.scale, cell.scale);
+            ctx.globalAlpha = cell.alpha;
+
+            // Tile Card Body
+            const x0 = -tis / 2;
+            const y0 = -tis / 2;
+
+            ctx.beginPath();
+            ctx.roundRect(x0, y0, tis, tis, 8);
+            ctx.fillStyle = pal.bg;
+            ctx.fill();
+
+            // Bottom Shadow Edge
+            ctx.beginPath();
+            ctx.roundRect(x0, y0 + tis - 4, tis, 4, [0, 0, 8, 8]);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            ctx.fill();
+
+            // Border
+            ctx.beginPath();
+            ctx.roundRect(x0, y0, tis, tis, 8);
+            ctx.strokeStyle = (cell.highlight > 0 || pal.glow) ? '#FFFFFF' : pal.border;
+            ctx.lineWidth = (cell.highlight > 0 || pal.glow) ? 2.5 : 1.0;
+            ctx.stroke();
+
+            // Number Text
+            const fontSize = cell.val >= 1000 ? Math.floor(tis * 0.32) : Math.floor(tis * 0.44);
+            ctx.font = '900 ' + fontSize + 'px Fredoka, sans-serif';
+            ctx.fillStyle = pal.text;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(cell.val.toString(), 0, 1);
+
+            ctx.restore();
+          }
+        }
+
+        // Render Ripples
+        for (const rip of this.ripples) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(rip.x, rip.y, rip.radius, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255, 255, 255, ' + rip.alpha + ')';
+          ctx.lineWidth = 3.0;
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      renderPathLines(ctx) {
+        if (this.activePath.length === 0) return;
+
+        const bx = this.boardX;
+        const by = this.boardY;
+        const cs = this.cellSize;
+
+        const firstPt = this.activePath[0];
+        const firstVal = this.grid[firstPt.r][firstPt.c].val;
+        const activePal = TILE_PALETTE[firstVal] || TILE_PALETTE[2];
+
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = activePal.bg;
+        ctx.lineWidth = cs * 0.24;
+
+        ctx.beginPath();
+        for (let i = 0; i < this.activePath.length; i++) {
+          const pt = this.activePath[i];
+          const px = bx + pt.c * cs + cs / 2;
+          const py = by + pt.r * cs + cs / 2;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+
+        // Connect to active finger position
+        if (this.isDragging && this.cursorPos) {
+          ctx.lineTo(this.cursorPos.x, this.cursorPos.y);
+        }
+        ctx.stroke();
+
+        // Selected Cell Rings
+        for (const pt of this.activePath) {
+          const px = bx + pt.c * cs + cs / 2;
+          const py = by + pt.r * cs + cs / 2;
+          ctx.beginPath();
+          ctx.arc(px, py, cs * 0.32, 0, Math.PI * 2);
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+        }
+
+        // Floating Tactile Aura Guide Ball under finger
+        if (this.isDragging && this.cursorPos) {
+          const auraR = cs * 0.55;
+          const coreR = cs * 0.26;
+
+          // Outer Soft Aura
+          ctx.beginPath();
+          ctx.arc(this.cursorPos.x, this.cursorPos.y, auraR, 0, Math.PI * 2);
+          ctx.fillStyle = activePal.bg + '44';
+          ctx.fill();
+          ctx.strokeStyle = activePal.bg;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // Inner Vibrant Core
+          ctx.beginPath();
+          ctx.arc(this.cursorPos.x, this.cursorPos.y, coreR, 0, Math.PI * 2);
+          ctx.fillStyle = activePal.bg;
+          ctx.fill();
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 2.0;
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+      renderHUD(ctx) {
+        const y = this.hudY;
+
+        // Undo Button (Yellow circular icon matching screenshot)
+        const undoX = this.width - 48;
+        const undoY = y + 16;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(undoX, undoY, 24, 0, Math.PI * 2);
+        ctx.fillStyle = THEME.undoBg;
+        ctx.fill();
+
+        ctx.font = '900 20px sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('↶', undoX, undoY - 1);
+
+        // Badge 1 on Undo
+        ctx.beginPath();
+        ctx.arc(undoX + 16, undoY - 16, 9, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.font = '900 11px Inter, sans-serif';
+        ctx.fillStyle = '#000000';
+        ctx.fillText(this.undoCharges.toString(), undoX + 16, undoY - 16);
+
+        ctx.font = '800 12px Fredoka, sans-serif';
+        ctx.fillStyle = THEME.undoBg;
+        ctx.fillText('Undo', undoX, undoY + 36);
+        ctx.restore();
+      }
+
+      renderOverlays(ctx) {
+        // Floating +Score text
+        for (const fs of this.floatingScores) {
+          ctx.save();
+          ctx.font = '900 20px Fredoka, sans-serif';
+          ctx.fillStyle = '#FACC15';
+          ctx.globalAlpha = fs.alpha;
+          ctx.textAlign = 'center';
+          ctx.fillText(fs.text, fs.x, fs.y);
+          ctx.restore();
+        }
+      }
+
+      renderToast(ctx) {
+        const t = this.toast;
+        if (!t) return;
+        const tw = Math.min(260, this.width - 40);
+        const tx = (this.width - tw) / 2;
+        const ty = this.boardY - 45;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.roundRect(tx, ty, tw, 36, 18);
+        ctx.fillStyle = '#172733';
+        ctx.fill();
+        ctx.strokeStyle = '#38BDF8';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '800 13px Inter, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(t.text, tx + tw / 2, ty + 18);
+        ctx.restore();
+      }
+
+      renderModeDialog(ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 340;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        ctx.shadowBlur = 32;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.fillStyle = '#1A2936';
+        ctx.fill();
+        ctx.strokeStyle = '#2D4457';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.font = '900 18px Fredoka, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.fillText('SELECT GRID MODE', this.width / 2, cardY + 38);
+
+        ctx.font = '800 18px sans-serif';
+        ctx.fillStyle = '#94A3B8';
+        ctx.fillText('✕', cardX + cardW - 26, cardY + 38);
+
+        const optH = 70;
+        const startY = cardY + 70;
+
+        for (let i = 0; i < MODES.length; i++) {
+          const m = MODES[i];
+          const optY = startY + i * (optH + 12);
+          const isSelected = (this.modeId === m.id);
+
+          ctx.beginPath();
+          ctx.roundRect(cardX + 16, optY, cardW - 32, optH, 16);
+          ctx.fillStyle = isSelected ? '#121D27' : '#1F3140';
+          ctx.fill();
+          ctx.strokeStyle = isSelected ? '#38BDF8' : '#2D4457';
+          ctx.lineWidth = isSelected ? 2.0 : 1.2;
+          ctx.stroke();
+
+          ctx.font = '900 15px Fredoka, sans-serif';
+          ctx.fillStyle = isSelected ? '#38BDF8' : '#FFFFFF';
+          ctx.textAlign = 'left';
+          ctx.fillText(m.label, cardX + 32, optY + 26);
+
+          ctx.font = '600 12px Inter, sans-serif';
+          ctx.fillStyle = '#94A3B8';
+          ctx.fillText(m.subtitle, cardX + 32, optY + 48);
+
+          if (isSelected) {
+            ctx.font = '900 16px sans-serif';
+            ctx.fillStyle = '#38BDF8';
+            ctx.textAlign = 'right';
+            ctx.fillText('✓', cardX + cardW - 32, optY + optH / 2);
+          }
+        }
+        ctx.restore();
+      }
+
+      renderGameOverModal(ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 310;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        ctx.shadowBlur = 32;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.fillStyle = '#1A2936';
+        ctx.fill();
+        ctx.strokeStyle = '#EF4444';
+        ctx.lineWidth = 2.0;
+        ctx.stroke();
+
+        ctx.font = '900 24px Fredoka, sans-serif';
+        ctx.fillStyle = '#EF4444';
+        ctx.textAlign = 'center';
+        ctx.fillText('NO MORE MOVES!', this.width / 2, cardY + 48);
+
+        ctx.font = '700 14px Inter, sans-serif';
+        ctx.fillStyle = '#94A3B8';
+        ctx.fillText('FINAL SCORE', this.width / 2, cardY + 86);
+
+        ctx.font = '900 32px Fredoka, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(this.score.toLocaleString(), this.width / 2, cardY + 124);
+
+        ctx.font = '700 13px Inter, sans-serif';
+        ctx.fillStyle = '#2DD4BF';
+        ctx.fillText('👑 All-Time Best: ' + this.allTimeBest.toLocaleString(), this.width / 2, cardY + 160);
+
+        const btnW = 200, btnH = 48;
+        const btnX = (this.width - btnW) / 2;
+        const btnY = this.height * 0.64;
+
+        ctx.beginPath();
+        ctx.roundRect(btnX, btnY, btnW, btnH, 24);
+        ctx.fillStyle = '#38BDF8';
+        ctx.fill();
+
+        ctx.font = '900 16px Fredoka, sans-serif';
+        ctx.fillStyle = '#000000';
+        ctx.fillText('PLAY AGAIN 🔄', this.width / 2, btnY + 24);
+        ctx.restore();
+      }
+    }
+
+    function initGame() {
+      const canvas = document.getElementById('gameCanvas');
+      if (canvas && !window.game) {
+        window.game = new NumberChainGame(canvas);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initGame);
+    } else {
+      initGame();
+    }
+  </script>
+</body>
+</html>

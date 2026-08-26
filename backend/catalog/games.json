@@ -505,6 +505,27 @@
         "vibration": true,
         "hint": true
       }
+    },
+    {
+      "id": "number-chain",
+      "title": "Number Chain",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/number-chain/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/number-chain.webp",
+      "sizeBytes": 28500,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/number-chain/1.0.0/manifest.json",
+      "feedOrder": 23,
+      "category": "Puzzle",
+      "description": "Connect matching and doubling power-of-two number tiles in continuous paths. Features satisfying top-down falling tile physics, ripple selection animations, multiple grid modes, and undo support.",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "undo": true
+      },
+      "status": "published"
     }
   ]
 }
