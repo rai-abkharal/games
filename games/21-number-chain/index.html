@@ -320,7 +320,7 @@
         return maxVal;
       }
 
-      // DIVERSE WEIGHTED VALUE (Supports up to 128+ from the start, no monochrome clusters)
+      // DIVERSE WEIGHTED VALUE (Supports up to 128+ from start, no clumping)
       generateWeightedValue() {
         const highest = this.grid.length > 0 ? this.getHighestTileOnBoard() : 128;
 
@@ -347,7 +347,7 @@
         return 2;
       }
 
-      // INITIAL GRID WITH ROW-BY-ROW CASCADE ENTRANCE & ANTI-CLUMPING
+      // INSTANT INITIAL GRID (No entrance drop delay or bunching)
       generateInitialGrid() {
         this.grid = [];
         for (let r = 0; r < this.rows; r++) {
@@ -362,14 +362,9 @@
               val = (val === 128) ? 2 : val * 2;
             }
 
-            // Staggered Row-by-Row Entrance Animation Delay
-            const dropDelay = r * 0.042 + c * 0.010;
-            const startOffset = -((this.rows - r + 3) * this.cellSize);
-
             row.push({
               val: val,
-              offsetY: startOffset,
-              dropDelay: dropDelay,
+              offsetY: 0, // Instantly at position 0
               highlight: 0
             });
           }
@@ -568,7 +563,7 @@
         return (nextVal === prevVal || nextVal === prevVal * 2);
       }
 
-      // TRUE COLUMN GRAVITY DROP PHYSICS
+      // TRUE COLUMN GRAVITY DROP (Occurs on moves during gameplay)
       finishPath() {
         this.isDragging = false;
         if (this.activePath.length < 2) {
@@ -638,7 +633,6 @@
             this.grid[writeR][c] = {
               val: item.val,
               offsetY: -rowsFallen * this.cellSize,
-              dropDelay: 0,
               highlight: item.highlight
             };
             writeR--;
@@ -651,7 +645,6 @@
             this.grid[writeR][c] = {
               val: newVal,
               offsetY: -fallDistance,
-              dropDelay: 0,
               highlight: 0
             };
             writeR--;
@@ -666,7 +659,7 @@
           if (!this.hasValidMove()) {
             this.handleGameOver();
           }
-        }, 340);
+        }, 320);
 
         Host.post('onScoreUpdated', { score: this.score, earned: earnedScore });
       }
@@ -688,7 +681,6 @@
         }
       }
 
-      // 8-WAY NEIGHBOR CHECK FOR GAME OVER
       hasValidMove() {
         for (let r = 0; r < this.rows; r++) {
           for (let c = 0; c < this.cols; c++) {
@@ -780,16 +772,12 @@
           this.cursorPos.y += (this.pointerPos.py - this.cursorPos.y) * 0.55;
         }
 
-        // Animate Tile Gravity Sliding & Cascading
+        // Animate Tile Gravity Sliding during gameplay moves only
         for (let r = 0; r < this.rows; r++) {
           for (let c = 0; c < this.cols; c++) {
             const cell = this.grid[r][c];
-            if (cell.dropDelay > 0) {
-              cell.dropDelay -= dt;
-              continue;
-            }
             if (cell.offsetY < 0) {
-              cell.offsetY += (-cell.offsetY) * 16 * dt;
+              cell.offsetY += (-cell.offsetY) * 18 * dt;
               if (Math.abs(cell.offsetY) < 1.0) cell.offsetY = 0;
             }
             if (cell.highlight > 0) {

@@ -2,7 +2,7 @@
   "id": "number-chain",
   "title": "Number Chain",
   "version": "1.0.0",
-  "description": "Connect matching and doubling power-of-two number tiles with full 8-way diagonal and orthogonal movement. Features row-by-row cascade entrance animations, diverse numbers up to 128, left-side undo, and true column gravity physics.",
+  "description": "Connect matching and doubling power-of-two number tiles with full 8-way diagonal and orthogonal movement. Features instant startup, diverse numbers up to 128, left-side undo, and true column gravity physics.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Puzzle",
