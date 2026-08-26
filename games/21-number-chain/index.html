@@ -48,18 +48,18 @@
   <script>
     'use strict';
 
-    // 1. TILE COLOR SCHEME (Exact Match to Game Reference)
+    // 1. TILE PALETTE CONFIGURATION (Exact Reference Colors)
     const TILE_PALETTE = {
-      2:    { bg: '#FF5E62', text: '#1E293B', border: 'rgba(0,0,0,0.12)' },
-      4:    { bg: '#9C51E0', text: '#FFFFFF', border: 'rgba(0,0,0,0.12)' },
-      8:    { bg: '#F59E0B', text: '#1E293B', border: 'rgba(0,0,0,0.12)' },
-      16:   { bg: '#84CC16', text: '#1E293B', border: 'rgba(0,0,0,0.12)' },
-      32:   { bg: '#38BDF8', text: '#1E293B', border: 'rgba(0,0,0,0.12)' },
-      64:   { bg: '#FB923C', text: '#1E293B', border: 'rgba(0,0,0,0.12)' },
-      128:  { bg: '#3B82F6', text: '#FFFFFF', border: 'rgba(0,0,0,0.12)' },
-      256:  { bg: '#A1887F', text: '#FFFFFF', border: 'rgba(0,0,0,0.12)' },
-      512:  { bg: '#00BFA5', text: '#FFFFFF', border: 'rgba(0,0,0,0.12)' },
-      1024: { bg: '#5C6BC0', text: '#FFFFFF', border: 'rgba(0,0,0,0.12)' },
+      2:    { bg: '#FF5E62', text: '#1E293B', border: '#E04A4E' },
+      4:    { bg: '#9C51E0', text: '#FFFFFF', border: '#8338CF' },
+      8:    { bg: '#F59E0B', text: '#1E293B', border: '#D97706' },
+      16:   { bg: '#84CC16', text: '#1E293B', border: '#65A30D' },
+      32:   { bg: '#38BDF8', text: '#1E293B', border: '#0EA5E9' },
+      64:   { bg: '#FB923C', text: '#1E293B', border: '#EA580C' },
+      128:  { bg: '#3B82F6', text: '#FFFFFF', border: '#2563EB' },
+      256:  { bg: '#A1887F', text: '#FFFFFF', border: '#8D6E63' },
+      512:  { bg: '#00BFA5', text: '#FFFFFF', border: '#00897B' },
+      1024: { bg: '#5C6BC0', text: '#FFFFFF', border: '#3F51B5' },
       2048: { bg: '#22D3EE', text: '#1E293B', border: '#FFFFFF', isHighest: true },
       4096: { bg: '#EC4899', text: '#FFFFFF', border: '#FFFFFF', isHighest: true },
       8192: { bg: '#F43F5E', text: '#FFFFFF', border: '#FFFFFF', isHighest: true }
@@ -237,7 +237,7 @@
       }
     };
 
-    // 4. MAIN GAME ENGINE
+    // 4. MAIN NUMBER CHAIN GAME ENGINE
     class NumberChainGame {
       constructor(canvas) {
         this.canvas = canvas;
@@ -320,18 +320,17 @@
         return maxVal;
       }
 
-      // BALANCED DIVERSE NUMBER GENERATOR (Prevents excessive identical clumps)
       generateWeightedValue() {
         const highest = this.grid.length > 0 ? this.getHighestTileOnBoard() : 32;
 
         const options = [
-          { val: 2, w: 28 },
+          { val: 2, w: 26 },
           { val: 4, w: 24 },
           { val: 8, w: 20 },
           { val: 16, w: 14 },
           { val: 32, w: 9 },
-          { val: 64, w: 4 },
-          { val: 128, w: 1 }
+          { val: 64, w: 5 },
+          { val: 128, w: 2 }
         ];
 
         if (highest >= 256) {
@@ -356,14 +355,12 @@
             row.push({
               val: this.generateWeightedValue(),
               offsetY: 0,
-              alpha: 1.0,
               highlight: 0
             });
           }
           this.grid.push(row);
         }
 
-        // Guarantee at least 2 valid initial moves without clumping
         while (!this.hasValidMove()) {
           const r = Math.floor(Math.random() * (this.rows - 1));
           const c = Math.floor(Math.random() * this.cols);
@@ -389,8 +386,8 @@
         this.canvas.width = Math.round(this.width * dpr);
         this.canvas.height = Math.round(this.height * dpr);
 
-        const topPadding = 100;
-        const bottomPadding = 110;
+        const topPadding = 95;
+        const bottomPadding = 105;
         const availableH = this.height - topPadding - bottomPadding;
         const availableW = this.width - 24;
 
@@ -405,8 +402,8 @@
         this.boardX = Math.round((this.width - this.boardW) / 2);
         this.boardY = Math.round(topPadding + (availableH - this.boardH) / 2);
 
-        this.headerY = Math.max(16, this.boardY - 76);
-        this.hudY = this.boardY + this.boardH + 18;
+        this.headerY = Math.max(16, this.boardY - 74);
+        this.hudY = this.boardY + this.boardH + 16;
       }
 
       bindEvents() {
@@ -515,7 +512,7 @@
         const currentHead = this.activePath[this.activePath.length - 1];
         if (currentHead.r === cell.r && currentHead.c === cell.c) return;
 
-        // Backtracking Support
+        // Backtrack
         if (this.activePath.length >= 2) {
           const prev = this.activePath[this.activePath.length - 2];
           if (prev.r === cell.r && prev.c === cell.c) {
@@ -526,7 +523,7 @@
           }
         }
 
-        // Full 8-Way Movement (Orthogonal + Diagonal)
+        // Full 8-Way Connection (Orthogonal & Diagonal)
         if (this.isValidNextCell(cell.r, cell.c)) {
           this.activePath.push({ r: cell.r, c: cell.c });
           this.addRipple(cell.r, cell.c);
@@ -543,18 +540,20 @@
         const dr = Math.abs(head.r - r);
         const dc = Math.abs(head.c - c);
 
-        // 8-Way Connection (Orthogonal & Diagonal)
+        // 8-way: Max delta 1 in both directions allows Up, Down, Left, Right and all 4 Diagonals!
         if (dr > 1 || dc > 1 || (dr === 0 && dc === 0)) return false;
 
-        // No duplicate node in same path
+        // No node reuse in active path
         if (this.activePath.some(pt => pt.r === r && pt.c === c)) return false;
 
         const prevVal = this.grid[head.r][head.c].val;
         const nextVal = this.grid[r][c].val;
 
+        // Rule: Equal or Double
         return (nextVal === prevVal || nextVal === prevVal * 2);
       }
 
+      // TRUE COLUMN GRAVITY DROP PHYSICS
       finishPath() {
         this.isDragging = false;
         if (this.activePath.length < 2) {
@@ -583,7 +582,7 @@
         this.synth.playMerge(mergedValue);
         this.haptic(25);
 
-        // Floating Score
+        // Floating Score Text
         const lastX = this.boardX + lastCell.c * this.cellSize + this.cellSize / 2;
         const lastY = this.boardY + lastCell.r * this.cellSize + this.cellSize / 2;
         this.floatingScores.push({
@@ -594,19 +593,57 @@
           life: 0.9
         });
 
-        // Set Target Cell to Merged Value (Steady size, crisp white border highlight)
+        // 1. Destination cell receives the merged value with a white border highlight
         this.grid[lastCell.r][lastCell.c].val = mergedValue;
         this.grid[lastCell.r][lastCell.c].highlight = 1.0;
 
-        // Clear Consumed Tiles & Animate Fall From Above
+        // 2. Consumed cells to clear (all path nodes EXCEPT the last destination)
         const consumedCells = this.activePath.slice(0, this.activePath.length - 1);
+        const clearedLookup = new Set(consumedCells.map(p => p.r + ',' + p.c));
         this.activePath = [];
 
-        for (const pt of consumedCells) {
-          const newNumber = this.generateWeightedValue();
-          this.grid[pt.r][pt.c].val = newNumber;
-          this.grid[pt.r][pt.c].offsetY = -this.boardH * 0.40;
-          this.grid[pt.r][pt.c].alpha = 0.2;
+        // 3. COLUMN BY COLUMN GRAVITY DROP
+        for (let c = 0; c < this.cols; c++) {
+          const surviving = [];
+
+          // Collect surviving tiles in column c from bottom to top
+          for (let r = this.rows - 1; r >= 0; r--) {
+            if (!clearedLookup.has(r + ',' + c)) {
+              surviving.push({
+                val: this.grid[r][c].val,
+                oldRow: r,
+                highlight: this.grid[r][c].highlight
+              });
+            }
+          }
+
+          // Write surviving tiles into lower rows
+          let writeR = this.rows - 1;
+          for (let i = 0; i < surviving.length; i++) {
+            const item = surviving[i];
+            const rowsFallen = writeR - item.oldRow;
+            this.grid[writeR][c] = {
+              val: item.val,
+              offsetY: -rowsFallen * this.cellSize,
+              highlight: item.highlight
+            };
+            writeR--;
+          }
+
+          // Spawn new replacement tiles falling from above into the top empty rows
+          const newTilesCount = writeR + 1;
+          let spawnIndex = 0;
+          while (writeR >= 0) {
+            const newVal = this.generateWeightedValue();
+            const fallDistance = (writeR + 1 + spawnIndex) * this.cellSize;
+            this.grid[writeR][c] = {
+              val: newVal,
+              offsetY: -fallDistance,
+              highlight: 0
+            };
+            writeR--;
+            spawnIndex++;
+          }
         }
 
         setTimeout(() => {
@@ -616,7 +653,7 @@
           if (!this.hasValidMove()) {
             this.handleGameOver();
           }
-        }, 300);
+        }, 340);
 
         Host.post('onScoreUpdated', { score: this.score, earned: earnedScore });
       }
@@ -638,6 +675,7 @@
         }
       }
 
+      // 8-WAY NEIGHBOR CHECK FOR GAME OVER
       hasValidMove() {
         for (let r = 0; r < this.rows; r++) {
           for (let c = 0; c < this.cols; c++) {
@@ -724,21 +762,19 @@
         const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
         this.lastTime = timestamp;
 
+        // Smooth cursor interpolation
         if (this.isDragging && this.pointerPos) {
-          this.cursorPos.x += (this.pointerPos.px - this.cursorPos.x) * 0.5;
-          this.cursorPos.y += (this.pointerPos.py - this.cursorPos.y) * 0.5;
+          this.cursorPos.x += (this.pointerPos.px - this.cursorPos.x) * 0.55;
+          this.cursorPos.y += (this.pointerPos.py - this.cursorPos.y) * 0.55;
         }
 
-        // Animate Tile Falling (Steady Size, No Shrinking/Expanding)
+        // Animate Tile Gravity Sliding (Steady Tile Sizes)
         for (let r = 0; r < this.rows; r++) {
           for (let c = 0; c < this.cols; c++) {
             const cell = this.grid[r][c];
             if (cell.offsetY < 0) {
-              cell.offsetY += (-cell.offsetY) * 18 * dt;
+              cell.offsetY += (-cell.offsetY) * 16 * dt;
               if (Math.abs(cell.offsetY) < 1.0) cell.offsetY = 0;
-            }
-            if (cell.alpha < 1.0) {
-              cell.alpha = Math.min(1.0, cell.alpha + dt * 6);
             }
             if (cell.highlight > 0) {
               cell.highlight = Math.max(0, cell.highlight - dt * 2.5);
@@ -787,13 +823,13 @@
         // 2. Header
         this.renderHeader(ctx);
 
-        // 3. Grid Background Slots
+        // 3. Grid Slot Base
         this.renderGridSlots(ctx);
 
-        // 4. CONNECTING PATH LINE (Rendered IN THE BACK behind the tile boxes)
+        // 4. CONNECTING PATH LINE (Rendered in the background under the tiles)
         this.renderPathLinesBehind(ctx);
 
-        // 5. TILE BOXES (Rendered ON TOP of the connecting line)
+        // 5. TILE BOXES (Rendered on top with steady sizes and crisp white borders)
         this.renderTileBoxes(ctx);
 
         // 6. HUD & Overlays
@@ -900,13 +936,13 @@
             const cy = by + r * cs + cs / 2;
             ctx.beginPath();
             ctx.roundRect(cx - tis / 2, cy - tis / 2, tis, tis, 8);
-            ctx.fillStyle = 'rgba(19, 33, 43, 0.45)';
+            ctx.fillStyle = 'rgba(19, 33, 43, 0.5)';
             ctx.fill();
           }
         }
       }
 
-      // CONNECTING LINE IN THE BACKGROUND (Behind the tile boxes)
+      // CONNECTING PATH LINE (Behind the tile boxes)
       renderPathLinesBehind(ctx) {
         if (this.activePath.length === 0) return;
 
@@ -921,9 +957,10 @@
         ctx.save();
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.strokeStyle = activePal.bg;
-        ctx.lineWidth = cs * 0.38; // Thick connecting pipe in background
 
+        // Outer Soft Glow Behind
+        ctx.lineWidth = cs * 0.46;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
         ctx.beginPath();
         for (let i = 0; i < this.activePath.length; i++) {
           const pt = this.activePath[i];
@@ -932,21 +969,20 @@
           if (i === 0) ctx.moveTo(px, py);
           else ctx.lineTo(px, py);
         }
-
         if (this.isDragging && this.cursorPos) {
           ctx.lineTo(this.cursorPos.x, this.cursorPos.y);
         }
         ctx.stroke();
 
-        // Glowing outer stroke behind
-        ctx.lineWidth = cs * 0.50;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+        // Main Vibrant Color Path Line
+        ctx.lineWidth = cs * 0.30;
+        ctx.strokeStyle = activePal.bg;
         ctx.stroke();
 
         ctx.restore();
       }
 
-      // TILE BOXES RENDERED ON TOP (Steady sizing with clean white border highlights)
+      // TILE BOXES (Steady size, crisp white border for selected and highest tiles)
       renderTileBoxes(ctx) {
         const bx = this.boardX;
         const by = this.boardY;
@@ -954,6 +990,12 @@
         const tis = this.tileInnerSize;
 
         const highestVal = this.getHighestTileOnBoard();
+
+        // Clip board rendering region so falling tiles don't spill above header
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(bx - 10, by - 4, this.boardW + 20, this.boardH + 8);
+        ctx.clip();
 
         for (let r = 0; r < this.rows; r++) {
           for (let c = 0; c < this.cols; c++) {
@@ -968,29 +1010,28 @@
 
             ctx.save();
             ctx.translate(cx, cy);
-            ctx.globalAlpha = cell.alpha;
 
             const x0 = -tis / 2;
             const y0 = -tis / 2;
 
-            // 1. Tile Solid Body (Constant size, no scale distortion)
+            // 1. Tile Solid Body
             ctx.beginPath();
             ctx.roundRect(x0, y0, tis, tis, 8);
             ctx.fillStyle = pal.bg;
             ctx.fill();
 
-            // 2. Subtle Bottom Shadow Edge
+            // 2. Bottom Shadow Edge
             ctx.beginPath();
             ctx.roundRect(x0, y0 + tis - 4, tis, 4, [0, 0, 8, 8]);
             ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
             ctx.fill();
 
-            // 3. Crisp White Border Highlight for Highest or Selected Tiles
+            // 3. Border (Crisp white border for selected or highest tiles)
             if (cell.highlight > 0 || isSelected || isHighest) {
               ctx.beginPath();
               ctx.roundRect(x0, y0, tis, tis, 8);
               ctx.strokeStyle = '#FFFFFF';
-              ctx.lineWidth = (isSelected || cell.highlight > 0) ? 2.5 : 2.0;
+              ctx.lineWidth = (isSelected || cell.highlight > 0) ? 2.8 : 2.0;
               ctx.stroke();
             } else {
               ctx.beginPath();
@@ -1011,6 +1052,7 @@
             ctx.restore();
           }
         }
+        ctx.restore();
 
         // Selection Ripples
         for (const rip of this.ripples) {
