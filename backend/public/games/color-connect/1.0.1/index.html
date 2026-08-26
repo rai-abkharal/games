@@ -48,7 +48,7 @@
   <script>
     'use strict';
 
-    // 1. PALETTE & THEME CONFIGURATION (Matches Reference Screenshots)
+    // 1. PALETTE & THEME CONFIGURATION
     const PALETTE = [
       { id: 0, name: 'Red', hex: '#EF4444', tint: 'rgba(239, 68, 68, 0.16)', dark: '#7F1D1D', note: 261.63 },     // C4
       { id: 1, name: 'Blue', hex: '#2563EB', tint: 'rgba(37, 99, 235, 0.16)', dark: '#1E3A8A', note: 293.66 },    // D4
@@ -79,7 +79,7 @@
       accentRed: '#EF4444'
     };
 
-    // 2. SOUND SYNTHESIZER WITH CELL-STEP AND HARMONIC CONNECT NOTES
+    // 2. SOUND SYNTHESIZER
     class SoundSynth {
       constructor() {
         this.ctx = null;
@@ -96,7 +96,6 @@
         }
       }
 
-      // Crisp musical step sound on each cell entered while dragging
       playCellStep(colorId, stepLen = 1) {
         if (this.muted || !this.ctx) return;
         this.init();
@@ -137,7 +136,6 @@
         osc.stop(t + 0.13);
       }
 
-      // Lush 3-note harmonic chime chord on reaching matching ball
       playConnected(colorId) {
         if (this.muted || !this.ctx) return;
         this.init();
@@ -322,7 +320,7 @@
       }
     };
 
-    // 5. 100% MATHEMATICALLY VERIFIED SOLVABLE PUZZLE PACKS (FULL BOARD PARTITIONS)
+    // 5. 100% MATHEMATICALLY VERIFIED SOLVABLE PUZZLE PACKS
     const VERIFIED_PUZZLES = {
   "easy": [
     {
@@ -11053,7 +11051,7 @@
         this.level = 1;
         this.maxLevels = 30;
 
-        this.state = 'PLAYING'; // 'PLAYING' | 'CELEBRATING' | 'LEVEL_SELECT' | 'DIFF_SELECT' | 'VICTORY'
+        this.state = 'PLAYING';
         this.progress = this.loadProgress();
 
         this.gridSize = 5;
@@ -11079,7 +11077,7 @@
 
       loadProgress() {
         try {
-          const s = localStorage.getItem('color_connect_progress_v103');
+          const s = localStorage.getItem('color_connect_progress_v104');
           return s ? JSON.parse(s) : { easy: 1, medium: 1, hard: 1, stars: {} };
         } catch (e) {
           return { easy: 1, medium: 1, hard: 1, stars: {} };
@@ -11088,7 +11086,7 @@
 
       saveProgress() {
         try {
-          localStorage.setItem('color_connect_progress_v103', JSON.stringify(this.progress));
+          localStorage.setItem('color_connect_progress_v104', JSON.stringify(this.progress));
         } catch (e) {}
       }
 
@@ -11361,18 +11359,16 @@
             this.isDragging = false;
             this.activeColor = null;
 
-            // MANDATORY WIN CONDITION: All colors connected AND 100% board fill!
+            // Connecting all colors completes the puzzle immediately!
             if (this.checkLevelComplete()) {
               this.startVictoryCelebration();
-            } else if (this.completedColors.size === this.dots.length && this.getBoardFillPercentage() < 100) {
-              this.toast = { text: 'Fill the remaining empty cells to solve!', t: 1.8 };
             }
           }
         }
       }
 
       checkLevelComplete() {
-        return (this.completedColors.size === this.dots.length) && (this.getBoardFillPercentage() === 100);
+        return this.completedColors.size === this.dots.length;
       }
 
       getBoardFillPercentage() {
@@ -11385,7 +11381,7 @@
         return Math.round((occupied.size / (this.gridSize * this.gridSize)) * 100);
       }
 
-      // Smooth Level Solved Celebration Sequence (1.6 seconds of glowing zoom-out pulse before popup)
+      // Smooth Celebration Sequence (1.6s zoom glow pulse before popup)
       startVictoryCelebration() {
         if (this.state === 'CELEBRATING' || this.state === 'VICTORY') return;
         this.state = 'CELEBRATING';
@@ -11739,7 +11735,7 @@
           }
         }
 
-        // 2. Smooth Continuous Path Lines (Slimmer Elegant Width = 0.27 * cs)
+        // 2. Smooth Continuous Path Lines (Slimmer Width = 0.27 * cs)
         for (const [colIdStr, pathArr] of Object.entries(this.paths)) {
           if (!pathArr || pathArr.length === 0) continue;
           const colorId = parseInt(colIdStr);
@@ -11750,7 +11746,7 @@
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
           ctx.strokeStyle = colorObj.hex;
-          ctx.lineWidth = cs * 0.27; // Reduced width for slim elegant lines!
+          ctx.lineWidth = cs * 0.27;
 
           if (this.state === 'CELEBRATING') {
             ctx.shadowColor = colorObj.hex;
@@ -11789,7 +11785,7 @@
           ctx.restore();
         }
 
-        // 3. Endpoint Dots (Clean Balanced Ball Size radius = 0.27 * cs)
+        // 3. Endpoint Dots (Ball Size radius = 0.27 * cs)
         for (const dot of this.dots) {
           const colorObj = PALETTE[dot.color % PALETTE.length];
           const isConnected = this.completedColors.has(dot.color);
@@ -11800,7 +11796,7 @@
           [dot.p1, dot.p2].forEach(([r, c]) => {
             const cx = bx + c * cs + cs / 2;
             const cy = by + r * cs + cs / 2;
-            const radius = cs * 0.27; // Clean slim ball radius
+            const radius = cs * 0.27;
 
             ctx.save();
             ctx.beginPath();
@@ -12083,7 +12079,7 @@
         ctx.font = '700 14px Inter, sans-serif';
         ctx.fillStyle = THEME.textMuted;
         ctx.fillText('Difficulty: ' + this.difficulty.toUpperCase(), this.width / 2, cardY + 144);
-        ctx.fillText('Level: ' + this.level + ' • 100% Pipe Filled', this.width / 2, cardY + 172);
+        ctx.fillText('Level: ' + this.level + ' • Complete', this.width / 2, cardY + 172);
 
         const btnW = 200, btnH = 48;
         const btnX = (this.width - btnW) / 2;
