@@ -48,7 +48,7 @@
   <script>
     'use strict';
 
-    // 1. TILE PALETTE CONFIGURATION (Exact Reference Colors)
+    // 1. TILE PALETTE CONFIGURATION
     const TILE_PALETTE = {
       2:    { bg: '#FF5E62', text: '#1E293B', border: '#E04A4E' },
       4:    { bg: '#9C51E0', text: '#FFFFFF', border: '#8338CF' },
@@ -161,23 +161,6 @@
         });
       }
 
-      playDropLanding() {
-        if (this.muted || !this.ctx) return;
-        this.init();
-        const t = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(160, t);
-        osc.frequency.exponentialRampToValueAtTime(80, t + 0.05);
-        gain.gain.setValueAtTime(0.06, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.06);
-      }
-
       playTap() {
         if (this.muted || !this.ctx) return;
         this.init();
@@ -237,7 +220,7 @@
       }
     };
 
-    // 4. MAIN NUMBER CHAIN GAME ENGINE
+    // 4. MAIN NUMBER CHAIN GAME ENGINE (Instant & Snappy, Zero Animation Delays)
     class NumberChainGame {
       constructor(canvas) {
         this.canvas = canvas;
@@ -320,7 +303,6 @@
         return maxVal;
       }
 
-      // DIVERSE WEIGHTED VALUE (Supports up to 128+ from start, no clumping)
       generateWeightedValue() {
         const highest = this.grid.length > 0 ? this.getHighestTileOnBoard() : 128;
 
@@ -347,7 +329,6 @@
         return 2;
       }
 
-      // INSTANT INITIAL GRID (No entrance drop delay or bunching)
       generateInitialGrid() {
         this.grid = [];
         for (let r = 0; r < this.rows; r++) {
@@ -355,7 +336,6 @@
           for (let c = 0; c < this.cols; c++) {
             let val = this.generateWeightedValue();
 
-            // Anti-clumping: avoid having 3 identical tiles touching directly
             const leftVal = c > 0 ? row[c - 1].val : null;
             const topVal = r > 0 ? this.grid[r - 1][c].val : null;
             if (val === leftVal && val === topVal) {
@@ -364,7 +344,6 @@
 
             row.push({
               val: val,
-              offsetY: 0, // Instantly at position 0
               highlight: 0
             });
           }
@@ -550,20 +529,16 @@
         const dr = Math.abs(head.r - r);
         const dc = Math.abs(head.c - c);
 
-        // 8-way: Max delta 1 in both directions allows Up, Down, Left, Right and all 4 Diagonals!
         if (dr > 1 || dc > 1 || (dr === 0 && dc === 0)) return false;
-
-        // No node reuse in active path
         if (this.activePath.some(pt => pt.r === r && pt.c === c)) return false;
 
         const prevVal = this.grid[head.r][head.c].val;
         const nextVal = this.grid[r][c].val;
 
-        // Rule: Equal or Double
         return (nextVal === prevVal || nextVal === prevVal * 2);
       }
 
-      // TRUE COLUMN GRAVITY DROP (Occurs on moves during gameplay)
+      // INSTANT MERGE & REFILL (Zero animation delays)
       finishPath() {
         this.isDragging = false;
         if (this.activePath.length < 2) {
@@ -572,7 +547,6 @@
         }
 
         this.saveHistoryState();
-        this.state = 'ANIMATING';
 
         const lastCell = this.activePath[this.activePath.length - 1];
         let totalSum = 0;
@@ -592,7 +566,7 @@
         this.synth.playMerge(mergedValue);
         this.haptic(25);
 
-        // Floating Score Text
+        // Floating Score
         const lastX = this.boardX + lastCell.c * this.cellSize + this.cellSize / 2;
         const lastY = this.boardY + lastCell.r * this.cellSize + this.cellSize / 2;
         this.floatingScores.push({
@@ -603,16 +577,16 @@
           life: 0.9
         });
 
-        // 1. Destination cell receives the merged value with a white border highlight
+        // 1. Destination cell receives merged value with highlight
         this.grid[lastCell.r][lastCell.c].val = mergedValue;
         this.grid[lastCell.r][lastCell.c].highlight = 1.0;
 
-        // 2. Consumed cells to clear
+        // 2. Consumed cells
         const consumedCells = this.activePath.slice(0, this.activePath.length - 1);
         const clearedLookup = new Set(consumedCells.map(p => p.r + ',' + p.c));
         this.activePath = [];
 
-        // 3. COLUMN BY COLUMN GRAVITY DROP
+        // 3. Instant Column Refill (Zero Animation Delay)
         for (let c = 0; c < this.cols; c++) {
           const surviving = [];
 
@@ -620,7 +594,6 @@
             if (!clearedLookup.has(r + ',' + c)) {
               surviving.push({
                 val: this.grid[r][c].val,
-                oldRow: r,
                 highlight: this.grid[r][c].highlight
               });
             }
@@ -629,37 +602,28 @@
           let writeR = this.rows - 1;
           for (let i = 0; i < surviving.length; i++) {
             const item = surviving[i];
-            const rowsFallen = writeR - item.oldRow;
             this.grid[writeR][c] = {
               val: item.val,
-              offsetY: -rowsFallen * this.cellSize,
               highlight: item.highlight
             };
             writeR--;
           }
 
-          let spawnIndex = 0;
           while (writeR >= 0) {
             const newVal = this.generateWeightedValue();
-            const fallDistance = (writeR + 1 + spawnIndex) * this.cellSize;
             this.grid[writeR][c] = {
               val: newVal,
-              offsetY: -fallDistance,
               highlight: 0
             };
             writeR--;
-            spawnIndex++;
           }
         }
 
-        setTimeout(() => {
-          this.synth.playDropLanding();
-          this.state = 'PLAYING';
+        this.state = 'PLAYING';
 
-          if (!this.hasValidMove()) {
-            this.handleGameOver();
-          }
-        }, 320);
+        if (!this.hasValidMove()) {
+          this.handleGameOver();
+        }
 
         Host.post('onScoreUpdated', { score: this.score, earned: earnedScore });
       }
@@ -772,14 +736,10 @@
           this.cursorPos.y += (this.pointerPos.py - this.cursorPos.y) * 0.55;
         }
 
-        // Animate Tile Gravity Sliding during gameplay moves only
+        // Fade highlight
         for (let r = 0; r < this.rows; r++) {
           for (let c = 0; c < this.cols; c++) {
             const cell = this.grid[r][c];
-            if (cell.offsetY < 0) {
-              cell.offsetY += (-cell.offsetY) * 18 * dt;
-              if (Math.abs(cell.offsetY) < 1.0) cell.offsetY = 0;
-            }
             if (cell.highlight > 0) {
               cell.highlight = Math.max(0, cell.highlight - dt * 2.5);
             }
@@ -995,18 +955,13 @@
 
         const highestVal = this.getHighestTileOnBoard();
 
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(bx - 10, by - 4, this.boardW + 20, this.boardH + 8);
-        ctx.clip();
-
         for (let r = 0; r < this.rows; r++) {
           for (let c = 0; c < this.cols; c++) {
             const cell = this.grid[r][c];
             const pal = TILE_PALETTE[cell.val] || TILE_PALETTE[2];
 
             const cx = bx + c * cs + cs / 2;
-            const cy = by + r * cs + cs / 2 + cell.offsetY;
+            const cy = by + r * cs + cs / 2;
 
             const isSelected = this.activePath.some(pt => pt.r === r && pt.c === c);
             const isHighest = (cell.val === highestVal && cell.val >= 128) || pal.isHighest;
@@ -1055,7 +1010,6 @@
             ctx.restore();
           }
         }
-        ctx.restore();
 
         // Selection Ripples
         for (const rip of this.ripples) {
@@ -1101,7 +1055,6 @@
       renderHUD(ctx) {
         const y = this.hudY;
 
-        // Undo Button placed on the LEFT side (x: 48)
         const undoX = 48;
         const undoY = y + 16;
         ctx.save();
@@ -1118,7 +1071,6 @@
         ctx.textBaseline = 'middle';
         ctx.fillText('↶', undoX, undoY - 1);
 
-        // Badge counter
         ctx.beginPath();
         ctx.arc(undoX + 16, undoY - 16, 9, 0, Math.PI * 2);
         ctx.fillStyle = '#FFFFFF';
