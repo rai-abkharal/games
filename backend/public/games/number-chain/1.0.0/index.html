@@ -320,22 +320,22 @@
         return maxVal;
       }
 
+      // DIVERSE WEIGHTED VALUE (Supports up to 128+ from the start, no monochrome clusters)
       generateWeightedValue() {
-        const highest = this.grid.length > 0 ? this.getHighestTileOnBoard() : 32;
+        const highest = this.grid.length > 0 ? this.getHighestTileOnBoard() : 128;
 
         const options = [
-          { val: 2, w: 26 },
-          { val: 4, w: 24 },
-          { val: 8, w: 20 },
-          { val: 16, w: 14 },
-          { val: 32, w: 9 },
-          { val: 64, w: 5 },
-          { val: 128, w: 2 }
+          { val: 2, w: 20 },
+          { val: 4, w: 20 },
+          { val: 8, w: 18 },
+          { val: 16, w: 16 },
+          { val: 32, w: 12 },
+          { val: 64, w: 9 },
+          { val: 128, w: 5 }
         ];
 
-        if (highest >= 256) {
-          options.push({ val: 256, w: 1 });
-        }
+        if (highest >= 256) options.push({ val: 256, w: 2 });
+        if (highest >= 512) options.push({ val: 512, w: 1 });
 
         const totalWeight = options.reduce((sum, o) => sum + o.w, 0);
         let rand = Math.random() * totalWeight;
@@ -347,14 +347,29 @@
         return 2;
       }
 
+      // INITIAL GRID WITH ROW-BY-ROW CASCADE ENTRANCE & ANTI-CLUMPING
       generateInitialGrid() {
         this.grid = [];
         for (let r = 0; r < this.rows; r++) {
           const row = [];
           for (let c = 0; c < this.cols; c++) {
+            let val = this.generateWeightedValue();
+
+            // Anti-clumping: avoid having 3 identical tiles touching directly
+            const leftVal = c > 0 ? row[c - 1].val : null;
+            const topVal = r > 0 ? this.grid[r - 1][c].val : null;
+            if (val === leftVal && val === topVal) {
+              val = (val === 128) ? 2 : val * 2;
+            }
+
+            // Staggered Row-by-Row Entrance Animation Delay
+            const dropDelay = r * 0.042 + c * 0.010;
+            const startOffset = -((this.rows - r + 3) * this.cellSize);
+
             row.push({
-              val: this.generateWeightedValue(),
-              offsetY: 0,
+              val: val,
+              offsetY: startOffset,
+              dropDelay: dropDelay,
               highlight: 0
             });
           }
@@ -450,8 +465,8 @@
             }
           }
 
-          // Bottom Undo Button
-          if (py >= this.hudY - 4 && py <= this.hudY + 68 && px >= this.width - 76 && px <= this.width - 14) {
+          // Bottom LEFT Undo Button
+          if (py >= this.hudY - 4 && py <= this.hudY + 68 && px >= 14 && px <= 84) {
             this.handleUndo();
             return;
           }
@@ -597,7 +612,7 @@
         this.grid[lastCell.r][lastCell.c].val = mergedValue;
         this.grid[lastCell.r][lastCell.c].highlight = 1.0;
 
-        // 2. Consumed cells to clear (all path nodes EXCEPT the last destination)
+        // 2. Consumed cells to clear
         const consumedCells = this.activePath.slice(0, this.activePath.length - 1);
         const clearedLookup = new Set(consumedCells.map(p => p.r + ',' + p.c));
         this.activePath = [];
@@ -606,7 +621,6 @@
         for (let c = 0; c < this.cols; c++) {
           const surviving = [];
 
-          // Collect surviving tiles in column c from bottom to top
           for (let r = this.rows - 1; r >= 0; r--) {
             if (!clearedLookup.has(r + ',' + c)) {
               surviving.push({
@@ -617,7 +631,6 @@
             }
           }
 
-          // Write surviving tiles into lower rows
           let writeR = this.rows - 1;
           for (let i = 0; i < surviving.length; i++) {
             const item = surviving[i];
@@ -625,13 +638,12 @@
             this.grid[writeR][c] = {
               val: item.val,
               offsetY: -rowsFallen * this.cellSize,
+              dropDelay: 0,
               highlight: item.highlight
             };
             writeR--;
           }
 
-          // Spawn new replacement tiles falling from above into the top empty rows
-          const newTilesCount = writeR + 1;
           let spawnIndex = 0;
           while (writeR >= 0) {
             const newVal = this.generateWeightedValue();
@@ -639,6 +651,7 @@
             this.grid[writeR][c] = {
               val: newVal,
               offsetY: -fallDistance,
+              dropDelay: 0,
               highlight: 0
             };
             writeR--;
@@ -762,16 +775,19 @@
         const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
         this.lastTime = timestamp;
 
-        // Smooth cursor interpolation
         if (this.isDragging && this.pointerPos) {
           this.cursorPos.x += (this.pointerPos.px - this.cursorPos.x) * 0.55;
           this.cursorPos.y += (this.pointerPos.py - this.cursorPos.y) * 0.55;
         }
 
-        // Animate Tile Gravity Sliding (Steady Tile Sizes)
+        // Animate Tile Gravity Sliding & Cascading
         for (let r = 0; r < this.rows; r++) {
           for (let c = 0; c < this.cols; c++) {
             const cell = this.grid[r][c];
+            if (cell.dropDelay > 0) {
+              cell.dropDelay -= dt;
+              continue;
+            }
             if (cell.offsetY < 0) {
               cell.offsetY += (-cell.offsetY) * 16 * dt;
               if (Math.abs(cell.offsetY) < 1.0) cell.offsetY = 0;
@@ -826,10 +842,10 @@
         // 3. Grid Slot Base
         this.renderGridSlots(ctx);
 
-        // 4. CONNECTING PATH LINE (Rendered in the background under the tiles)
+        // 4. CONNECTING PATH LINE (Behind the tiles)
         this.renderPathLinesBehind(ctx);
 
-        // 5. TILE BOXES (Rendered on top with steady sizes and crisp white borders)
+        // 5. TILE BOXES
         this.renderTileBoxes(ctx);
 
         // 6. HUD & Overlays
@@ -991,7 +1007,6 @@
 
         const highestVal = this.getHighestTileOnBoard();
 
-        // Clip board rendering region so falling tiles don't spill above header
         ctx.save();
         ctx.beginPath();
         ctx.rect(bx - 10, by - 4, this.boardW + 20, this.boardH + 8);
@@ -1094,11 +1109,12 @@
         }
       }
 
+      // HUD: UNDO BUTTON ON THE LEFT SIDE
       renderHUD(ctx) {
         const y = this.hudY;
 
-        // Undo Button
-        const undoX = this.width - 48;
+        // Undo Button placed on the LEFT side (x: 48)
+        const undoX = 48;
         const undoY = y + 16;
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
@@ -1114,6 +1130,7 @@
         ctx.textBaseline = 'middle';
         ctx.fillText('↶', undoX, undoY - 1);
 
+        // Badge counter
         ctx.beginPath();
         ctx.arc(undoX + 16, undoY - 16, 9, 0, Math.PI * 2);
         ctx.fillStyle = '#FFFFFF';
