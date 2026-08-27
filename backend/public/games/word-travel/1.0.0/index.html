@@ -9,7 +9,7 @@
   <title>Word Travel</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800;900&family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800;900&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
   <style>
     * {
       box-sizing: border-box;
@@ -24,7 +24,7 @@
       height: 100%;
       overflow: hidden;
       background: #0284C7;
-      font-family: 'Fredoka', 'Inter', system-ui, -apple-system, sans-serif;
+      font-family: 'Outfit', 'Nunito', system-ui, -apple-system, sans-serif;
       touch-action: none;
     }
     #game-container {
@@ -53,16 +53,17 @@
 
     // 1. VIBRANT HIGHLIGHT PALETTE FOR FOUND WORDS
     const WORD_COLORS = [
-      { bg: '#38BDF8', topBg: '#7DD3FC', text: '#FFFFFF', border: '#0284C7', glow: '#38BDF8' },
-      { bg: '#F43F5E', topBg: '#FB7185', text: '#FFFFFF', border: '#E11D48', glow: '#F43F5E' },
-      { bg: '#10B981', topBg: '#34D399', text: '#FFFFFF', border: '#059669', glow: '#10B981' },
-      { bg: '#A855F7', topBg: '#C084FC', text: '#FFFFFF', border: '#9333EA', glow: '#A855F7' },
-      { bg: '#F59E0B', topBg: '#FBBF24', text: '#FFFFFF', border: '#D97706', glow: '#F59E0B' },
-      { bg: '#EC4899', topBg: '#F472B6', text: '#FFFFFF', border: '#DB2777', glow: '#EC4899' },
-      { bg: '#06B6D4', topBg: '#22D3EE', text: '#FFFFFF', border: '#0891B2', glow: '#06B6D4' },
-      { bg: '#84CC16', topBg: '#A3E635', text: '#FFFFFF', border: '#65A30D', glow: '#84CC16' },
-      { bg: '#6366F1', topBg: '#818CF8', text: '#FFFFFF', border: '#4F46E5', glow: '#6366F1' },
-      { bg: '#14B8A6', topBg: '#2DD4BF', text: '#FFFFFF', border: '#0D9488', glow: '#14B8A6' }
+      { bg: '#06B6D4', topBg: '#22D3EE', text: '#FFFFFF', border: '#0891B2', glow: '#06B6D4' }, // Cyan
+      { bg: '#F43F5E', topBg: '#FB7185', text: '#FFFFFF', border: '#E11D48', glow: '#F43F5E' }, // Rose Pink
+      { bg: '#10B981', topBg: '#34D399', text: '#FFFFFF', border: '#059669', glow: '#10B981' }, // Emerald
+      { bg: '#8B5CF6', topBg: '#A78BFA', text: '#FFFFFF', border: '#7C3AED', glow: '#8B5CF6' }, // Purple
+      { bg: '#F59E0B', topBg: '#FBBF24', text: '#FFFFFF', border: '#D97706', glow: '#F59E0B' }, // Amber
+      { bg: '#EC4899', topBg: '#F472B6', text: '#FFFFFF', border: '#DB2777', glow: '#EC4899' }, // Magenta
+      { bg: '#3B82F6', topBg: '#60A5FA', text: '#FFFFFF', border: '#2563EB', glow: '#3B82F6' }, // Blue
+      { bg: '#84CC16', topBg: '#A3E635', text: '#FFFFFF', border: '#65A30D', glow: '#84CC16' }, // Lime Green
+      { bg: '#6366F1', topBg: '#818CF8', text: '#FFFFFF', border: '#4F46E5', glow: '#6366F1' }, // Indigo
+      { bg: '#14B8A6', topBg: '#2DD4BF', text: '#FFFFFF', border: '#0D9488', glow: '#14B8A6' }, // Teal
+      { bg: '#FB923C', topBg: '#FDBA74', text: '#FFFFFF', border: '#EA580C', glow: '#FB923C' }  // Orange
     ];
 
     const PRAISE_MESSAGES = [
@@ -76,10 +77,10 @@
         id: 'maldives',
         country: 'MALDIVES',
         tagline: 'Tropical Paradise & Turquoise Waters',
-        skyTop: '#0369A1',
+        skyTop: '#0284C7',
         skyMid: '#38BDF8',
         waterColor: '#0EA5E9',
-        sandColor: '#FEF3C7',
+        sandColor: '#BAE6FD',
         accentColor: '#F97316',
         icon: '🌴',
         levels: [
@@ -117,7 +118,7 @@
         skyTop: '#1E3A8A',
         skyMid: '#60A5FA',
         waterColor: '#3B82F6',
-        sandColor: '#FDE68A',
+        sandColor: '#BFDBFE',
         accentColor: '#EA580C',
         icon: '🏛️',
         levels: [
@@ -150,7 +151,7 @@
         skyTop: '#7C2D12',
         skyMid: '#EA580C',
         waterColor: '#C2410C',
-        sandColor: '#FCD34D',
+        sandColor: '#FED7AA',
         accentColor: '#F59E0B',
         icon: '🏜️',
         levels: [
@@ -178,7 +179,7 @@
         skyTop: '#4C1D95',
         skyMid: '#F472B6',
         waterColor: '#EC4899',
-        sandColor: '#FDF2F8',
+        sandColor: '#FCE7F3',
         accentColor: '#E11D48',
         icon: '⛩️',
         levels: [
@@ -381,7 +382,17 @@
       }
     };
 
-    // 5. INSTANT GUARANTEED WORD SEARCH GRID GENERATOR
+    // 5. SHUFFLE HELPER UTILITY
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    // 6. INSTANT GUARANTEED WORD SEARCH GRID GENERATOR
     class GridGenerator {
       static generate(words, size) {
         const directions = [
@@ -395,14 +406,16 @@
           { dr: -1, dc: 1 }
         ];
 
-        const sortedWords = [...words].sort((a, b) => b.length - a.length);
+        // Shuffle words with subtle sorting
+        const shuffledWords = shuffleArray(words);
+        shuffledWords.sort((a, b) => b.length - a.length);
 
-        for (let restart = 0; restart < 20; restart++) {
+        for (let restart = 0; restart < 25; restart++) {
           const grid = Array(size).fill(null).map(() => Array(size).fill(''));
           const placements = [];
           let allPlaced = true;
 
-          for (const word of sortedWords) {
+          for (const word of shuffledWords) {
             const slots = [];
             for (let r = 0; r < size; r++) {
               for (let c = 0; c < size; c++) {
@@ -459,7 +472,7 @@
       }
     }
 
-    // 6. MAIN WORD TRAVEL ENGINE
+    // 7. MAIN WORD TRAVEL ENGINE
     class WordTravelGame {
       constructor(canvas) {
         this.canvas = canvas;
@@ -484,6 +497,7 @@
         this.lightningFlash = 0;
         this.confetti = [];
 
+        this.levelColors = [];
         this.modalBtnRect = null;
         this.modalAnimProgress = 0;
 
@@ -577,7 +591,12 @@
         this.isLastLevelInCountry = info.isLastLevelInCountry;
 
         this.gridSize = this.levelData.gridSize || 6;
-        this.targetWords = [...this.levelData.words];
+        
+        // Shuffle target words display list
+        this.targetWords = shuffleArray(this.levelData.words);
+
+        // Assign shuffled non-repeating unique colors for this level!
+        this.levelColors = shuffleArray(WORD_COLORS);
 
         const { grid, placements } = GridGenerator.generate(this.targetWords, this.gridSize);
         this.grid = grid;
@@ -806,11 +825,11 @@
         }
 
         if (matchWord) {
-          const colorIndex = this.foundWords.length % WORD_COLORS.length;
+          const colorObj = this.levelColors[this.foundWords.length % this.levelColors.length] || WORD_COLORS[0];
           this.foundWords.push({
             word: matchWord,
             coords: [...this.activePath],
-            colorIndex: colorIndex
+            colorObj: colorObj
           });
 
           this.synth.playWordFound();
@@ -853,11 +872,11 @@
         this.synth.playLightning();
         this.haptic(40);
 
-        const colorIndex = this.foundWords.length % WORD_COLORS.length;
+        const colorObj = this.levelColors[this.foundWords.length % this.levelColors.length] || WORD_COLORS[0];
         this.foundWords.push({
           word: unsolved.word,
           coords: [...unsolved.coords],
-          colorIndex: colorIndex
+          colorObj: colorObj
         });
 
         this.toast = { text: '⚡ ' + unsolved.word + ' REVEALED!', t: 1.5 };
@@ -878,7 +897,7 @@
             y: this.height / 2,
             vx: (Math.random() - 0.5) * 280,
             vy: -120 - Math.random() * 220,
-            color: WORD_COLORS[i % WORD_COLORS.length].bg,
+            color: this.levelColors[i % this.levelColors.length].bg,
             size: 5 + Math.random() * 5,
             alpha: 1.0,
             rot: Math.random() * Math.PI,
@@ -947,9 +966,9 @@
         ctx.save();
         ctx.scale(this.dpr, this.dpr);
 
-        this.renderRichScenicBackground(ctx);
+        this.renderCleanScenicBackground(ctx);
         this.renderHeader(ctx);
-        this.renderThemeAndTargetWords(ctx);
+        this.renderEnhancedThemeCard(ctx);
         this.renderFramedGridCard(ctx);
         this.renderBottomControls(ctx);
 
@@ -971,14 +990,14 @@
         ctx.restore();
       }
 
-      // RICH SCENIC ILLUSTRATED BACKGROUND
-      renderRichScenicBackground(ctx) {
+      // CLEAN GORGEOUS SCENIC BACKGROUND (No weird gray lines)
+      renderCleanScenicBackground(ctx) {
         const dest = this.destination;
         const w = this.width;
         const h = this.height;
 
-        // Multi-stop Sky Gradient
-        const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.75);
+        // Rich Multi-stop Sky Gradient
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
         skyGrad.addColorStop(0, dest.skyTop);
         skyGrad.addColorStop(0.55, dest.skyMid);
         skyGrad.addColorStop(1, dest.sandColor);
@@ -988,13 +1007,13 @@
 
         ctx.save();
 
-        // 1. Radiant Glowing Sun & Rays
+        // 1. Radiant Glowing Sun & Soft Lens Flare
         const sunX = w * 0.82;
-        const sunY = h * 0.16;
+        const sunY = h * 0.15;
 
         const sunHalo = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 70);
-        sunHalo.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
-        sunHalo.addColorStop(0.5, 'rgba(254, 240, 138, 0.22)');
+        sunHalo.addColorStop(0, 'rgba(255, 255, 255, 0.40)');
+        sunHalo.addColorStop(0.5, 'rgba(254, 240, 138, 0.18)');
         sunHalo.addColorStop(1, 'rgba(254, 240, 138, 0)');
         ctx.fillStyle = sunHalo;
         ctx.beginPath();
@@ -1003,42 +1022,16 @@
 
         ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
-        ctx.arc(sunX, sunY, 22, 0, Math.PI * 2);
+        ctx.arc(sunX, sunY, 20, 0, Math.PI * 2);
         ctx.fill();
 
-        // 2. Soft Scenic Mountain Silhouettes
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.08)';
+        // 2. Soft Floating Tropical Clouds
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
         ctx.beginPath();
-        ctx.moveTo(0, h * 0.44);
-        ctx.lineTo(w * 0.25, h * 0.36);
-        ctx.lineTo(w * 0.55, h * 0.46);
-        ctx.lineTo(w * 0.85, h * 0.38);
-        ctx.lineTo(w, h * 0.43);
-        ctx.lineTo(w, h);
-        ctx.lineTo(0, h);
+        ctx.arc(w * 0.20, h * 0.12, 28, 0, Math.PI * 2);
+        ctx.arc(w * 0.28, h * 0.11, 38, 0, Math.PI * 2);
+        ctx.arc(w * 0.36, h * 0.13, 24, 0, Math.PI * 2);
         ctx.fill();
-
-        // 3. Turquoise Ocean & Waves
-        const seaY = h * 0.70;
-        const seaGrad = ctx.createLinearGradient(0, seaY, 0, h);
-        seaGrad.addColorStop(0, dest.waterColor);
-        seaGrad.addColorStop(1, dest.sandColor);
-
-        ctx.fillStyle = seaGrad;
-        ctx.beginPath();
-        ctx.moveTo(0, seaY);
-        ctx.bezierCurveTo(w * 0.3, seaY - 14, w * 0.7, seaY + 14, w, seaY);
-        ctx.lineTo(w, h);
-        ctx.lineTo(0, h);
-        ctx.fill();
-
-        // 4. Palm Silhouettes / Atmosphere Trimmings
-        ctx.strokeStyle = 'rgba(2, 44, 34, 0.18)';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(w * 0.08, h);
-        ctx.quadraticCurveTo(w * 0.04, h * 0.65, w * 0.12, h * 0.50);
-        ctx.stroke();
 
         ctx.restore();
       }
@@ -1046,12 +1039,12 @@
       renderHeader(ctx) {
         const y = this.headerY;
 
-        // Level Number (Clean Centered Header)
+        // Level Number (Clean Centered Header with Outfit Typography)
         ctx.save();
-        ctx.font = '900 21px Fredoka, sans-serif';
+        ctx.font = '900 22px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
-        ctx.shadowColor = 'rgba(0,0,0,0.4)';
+        ctx.shadowColor = 'rgba(0,0,0,0.35)';
         ctx.shadowBlur = 8;
         ctx.fillText('Level ' + (this.levelIndex + 1), this.width / 2, y + 21);
         ctx.restore();
@@ -1070,7 +1063,7 @@
         ctx.lineWidth = 1.2;
         ctx.stroke();
 
-        ctx.font = '900 13.5px Fredoka, sans-serif';
+        ctx.font = '900 14px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'left';
         ctx.fillText(this.coins.toLocaleString(), coinPillX + 14, y + 23);
@@ -1080,8 +1073,8 @@
         ctx.restore();
       }
 
-      // CATEGORY STRIP WITH ROUNDED WORD CHIPS
-      renderThemeAndTargetWords(ctx) {
+      // ENHANCED CATEGORY STRIP WITH ROUNDED WORD CHIPS
+      renderEnhancedThemeCard(ctx) {
         const bx = this.themeBoxX;
         const by = this.themeBoxY;
         const bw = this.themeBoxW;
@@ -1106,7 +1099,7 @@
         ctx.lineWidth = 1.0;
         ctx.stroke();
 
-        ctx.font = '900 12.5px Fredoka, sans-serif';
+        ctx.font = '900 13px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -1133,12 +1126,12 @@
             const wx = bx + 8 + step * (idx + 1);
             const foundObj = this.foundWords.find(fw => fw.word === word);
 
-            ctx.font = '900 13px Fredoka, sans-serif';
+            ctx.font = '900 13px Outfit, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
             if (foundObj) {
-              const pal = WORD_COLORS[foundObj.colorIndex] || WORD_COLORS[0];
+              const pal = foundObj.colorObj;
               const metrics = ctx.measureText(word);
               const chipW = metrics.width + 16;
               const chipH = 20;
@@ -1166,16 +1159,15 @@
         ctx.restore();
       }
 
-      // FRAMED GLASS LETTER GRID CARD WITH DYNAMIC NEXT-COLOR DRAG
+      // FRAMED GRID CARD WITH CLEAN STYLISH TYPOGRAPHY
       renderFramedGridCard(ctx) {
         const cx = this.cardX;
         const cy = this.cardY;
         const cw = this.cardW;
         const ch = this.cardH;
 
-        // Outer Shadow & Polished Double-Border Card
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.32)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.30)';
         ctx.shadowBlur = 20;
         ctx.shadowOffsetY = 8;
         ctx.beginPath();
@@ -1194,7 +1186,7 @@
 
         // 1. Found Words Highlight Capsules
         for (const fw of this.foundWords) {
-          const pal = WORD_COLORS[fw.colorIndex] || WORD_COLORS[0];
+          const pal = fw.colorObj;
           ctx.save();
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
@@ -1213,17 +1205,16 @@
           ctx.restore();
         }
 
-        // 2. ACTIVE DRAG LINE (DYNAMICALLY USES THE EXACT NEXT PALETTE COLOR!)
+        // 2. ACTIVE DRAG LINE (DYNAMICALLY USES THE EXACT NEXT SHUFFLED PALETTE COLOR!)
         if (this.isDragging && this.activePath.length > 0) {
-          const nextColorIndex = this.foundWords.length % WORD_COLORS.length;
-          const activePal = WORD_COLORS[nextColorIndex];
+          const nextColor = this.levelColors[this.foundWords.length % this.levelColors.length] || WORD_COLORS[0];
 
           ctx.save();
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
           ctx.lineWidth = cs * 0.76;
-          ctx.strokeStyle = activePal.bg;
-          ctx.shadowColor = activePal.glow || activePal.bg;
+          ctx.strokeStyle = nextColor.bg;
+          ctx.shadowColor = nextColor.glow || nextColor.bg;
           ctx.shadowBlur = 12;
 
           ctx.beginPath();
@@ -1253,7 +1244,7 @@
           ctx.restore();
         }
 
-        // 4. Letters (Styled with Crisp Depth)
+        // 4. Letters (Styled with Clean Bold Outfit Font)
         for (let r = 0; r < this.gridSize; r++) {
           for (let c = 0; c < this.gridSize; c++) {
             const letter = this.grid[r][c];
@@ -1264,7 +1255,7 @@
             const isPartOfActive = this.activePath.some(pt => pt.r === r && pt.c === c);
 
             ctx.save();
-            ctx.font = '900 ' + Math.floor(cs * 0.50) + 'px Fredoka, sans-serif';
+            ctx.font = '900 ' + Math.floor(cs * 0.52) + 'px Outfit, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
@@ -1314,7 +1305,7 @@
         ctx.fillText(icon, x, subtext ? y - 3 : y);
 
         if (subtext) {
-          ctx.font = '800 8.5px Inter, sans-serif';
+          ctx.font = '800 8.5px Outfit, sans-serif';
           ctx.fillStyle = '#FEF08A';
           ctx.fillText(subtext, x, y + 11);
         }
@@ -1324,7 +1315,7 @@
           ctx.arc(x + 14, y - 14, 7.5, 0, Math.PI * 2);
           ctx.fillStyle = '#38BDF8';
           ctx.fill();
-          ctx.font = '900 9.5px Inter, sans-serif';
+          ctx.font = '900 9.5px Outfit, sans-serif';
           ctx.fillStyle = '#FFFFFF';
           ctx.fillText(badge.toString(), x + 14, y - 14);
         }
@@ -1362,7 +1353,7 @@
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        ctx.font = '800 13px Fredoka, sans-serif';
+        ctx.font = '800 13.5px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -1403,7 +1394,6 @@
         ctx.scale(scale, scale);
         ctx.translate(-this.width / 2, -this.height / 2);
 
-        // Framed Card with Subtle Gradient
         ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
         ctx.shadowBlur = 32;
         ctx.beginPath();
@@ -1438,7 +1428,7 @@
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        ctx.font = '900 20px Fredoka, sans-serif';
+        ctx.font = '900 20px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -1467,12 +1457,12 @@
         ctx.restore();
 
         // Wisdom Score & Progress Bar
-        ctx.font = '800 12.5px Inter, sans-serif';
+        ctx.font = '800 13px Outfit, sans-serif';
         ctx.fillStyle = '#64748B';
         ctx.textAlign = 'center';
         ctx.fillText('WISDOM PROGRESS', this.width / 2, badgeY + 56);
 
-        ctx.font = '900 26px Fredoka, sans-serif';
+        ctx.font = '900 26px Outfit, sans-serif';
         ctx.fillStyle = '#0284C7';
         ctx.fillText('✨ ' + this.wisdom, this.width / 2, badgeY + 86);
 
@@ -1517,7 +1507,7 @@
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        ctx.font = '900 17px Fredoka, sans-serif';
+        ctx.font = '900 17px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -1555,16 +1545,16 @@
         ctx.lineWidth = 2.2;
         ctx.stroke();
 
-        ctx.font = '900 22px Fredoka, sans-serif';
+        ctx.font = '900 22px Outfit, sans-serif';
         ctx.fillStyle = '#EA580C';
         ctx.textAlign = 'center';
         ctx.fillText('🎉 Country Complete! 🎉', this.width / 2, cardY + 38);
 
-        ctx.font = '900 28px Fredoka, sans-serif';
+        ctx.font = '900 28px Outfit, sans-serif';
         ctx.fillStyle = '#0F172A';
         ctx.fillText(this.destination.country, this.width / 2, cardY + 74);
 
-        ctx.font = '600 12px Inter, sans-serif';
+        ctx.font = '600 13px Outfit, sans-serif';
         ctx.fillStyle = '#64748B';
         ctx.fillText(this.destination.tagline, this.width / 2, cardY + 95);
 
@@ -1581,7 +1571,7 @@
         ctx.font = '44px sans-serif';
         ctx.fillText('🎁', this.width / 2, giftY + 5);
 
-        ctx.font = '900 24px Fredoka, sans-serif';
+        ctx.font = '900 24px Outfit, sans-serif';
         ctx.fillStyle = '#D97706';
         ctx.fillText('+25 COINS', this.width / 2, giftY + 70);
 
@@ -1599,7 +1589,7 @@
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        ctx.font = '900 17px Fredoka, sans-serif';
+        ctx.font = '900 17px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.fillText('COLLECT & TRAVEL ➔', this.width / 2, btnY + btnH / 2 + 1);
         ctx.restore();
@@ -1623,7 +1613,7 @@
         ctx.lineWidth = 1.2;
         ctx.stroke();
 
-        ctx.font = '800 13px Fredoka, sans-serif';
+        ctx.font = '800 13.5px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
