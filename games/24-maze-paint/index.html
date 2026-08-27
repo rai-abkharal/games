@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Maze Paint</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0F172A;
+      font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+      touch-action: none;
+    }
+    #game-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <script>
+    'use strict';
+
+    // 1. VIBRANT JUICY PAINT THEMES PER LEVEL
+    const PAINT_THEMES = [
+      { id: 'cyan', paintBg: '#06B6D4', paintGlow: '#22D3EE', floorBg: '#1E293B', wallBg: '#0F172A', wallRim: '#334155', ballColor: '#22D3EE' },
+      { id: 'rose', paintBg: '#F43F5E', paintGlow: '#FB7185', floorBg: '#1E293B', wallBg: '#0F172A', wallRim: '#334155', ballColor: '#FB7185' },
+      { id: 'emerald', paintBg: '#10B981', paintGlow: '#34D399', floorBg: '#1E293B', wallBg: '#0F172A', wallRim: '#334155', ballColor: '#34D399' },
+      { id: 'purple', paintBg: '#8B5CF6', paintGlow: '#A78BFA', floorBg: '#1E293B', wallBg: '#0F172A', wallRim: '#334155', ballColor: '#A78BFA' },
+      { id: 'amber', paintBg: '#F59E0B', paintGlow: '#FBBF24', floorBg: '#1E293B', wallBg: '#0F172A', wallRim: '#334155', ballColor: '#FBBF24' },
+      { id: 'magenta', paintBg: '#EC4899', paintGlow: '#F472B6', floorBg: '#1E293B', wallBg: '#0F172A', wallRim: '#334155', ballColor: '#F472B6' },
+      { id: 'lime', paintBg: '#84CC16', paintGlow: '#A3E635', floorBg: '#1E293B', wallBg: '#0F172A', wallRim: '#334155', ballColor: '#A3E635' }
+    ];
+
+    const MODES = [
+      { id: 'easy', label: 'EASY', desc: 'Open chambers & gentle turns' },
+      { id: 'medium', label: 'MEDIUM', desc: 'Corridors & strategic backtracking' },
+      { id: 'hard', label: 'HARD', desc: 'Complex labyrinths with obstacle pillars' }
+    ];
+
+    // 2. AUDIO SYNTHESIZER
+    class SoundSynth {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      playRoll() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(320, t);
+        osc.frequency.exponentialRampToValueAtTime(180, t + 0.12);
+        gain.gain.setValueAtTime(0.10, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.13);
+      }
+
+      playImpact() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(140, t);
+        osc.frequency.exponentialRampToValueAtTime(60, t + 0.08);
+        gain.gain.setValueAtTime(0.20, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.09);
+      }
+
+      playPaintTile() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440 + Math.random() * 80, t);
+        gain.gain.setValueAtTime(0.06, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.05);
+      }
+
+      playLevelWin() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+        notes.forEach((freq, i) => {
+          const t = this.ctx.currentTime + i * 0.08;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.22, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.46);
+        });
+      }
+
+      playTap() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(540, t);
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.06);
+      }
+    }
+
+    // 3. HOST PLATFORM BRIDGE
+    const Host = {
+      post(action, payload) {
+        const body = payload || {};
+        const msg = JSON.stringify({ action: action, payload: body });
+        try {
+          if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+            window.flutter_inappwebview.callHandler('GameBridgeChannel', msg);
+          }
+        } catch (e) {}
+        try {
+          if (window.FlutterGameBridge && window.FlutterGameBridge.postMessage) {
+            window.FlutterGameBridge.postMessage(msg);
+          }
+        } catch (e) {}
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ source: 'GameBridge', action: action, payload: body }, '*');
+          }
+        } catch (e) {}
+      }
+    };
+
+    // 4. MAZE LEVEL GENERATOR (GUARANTEED REACHABLE & SOLVABLE)
+    class MazeGenerator {
+      static generate(levelIndex, modeId) {
+        let cols, rows, obstacleCount;
+
+        if (modeId === 'easy') {
+          cols = 5;
+          rows = 6;
+          obstacleCount = Math.min(2, Math.floor(levelIndex / 3));
+        } else if (modeId === 'hard') {
+          cols = 7;
+          rows = 9;
+          obstacleCount = 3 + Math.min(5, Math.floor(levelIndex / 2));
+        } else {
+          cols = 6;
+          rows = 7;
+          obstacleCount = 1 + Math.min(3, Math.floor(levelIndex / 3));
+        }
+
+        // Initialize empty maze grid (0 = path, 1 = wall/obstacle)
+        const grid = Array(rows).fill(null).map(() => Array(cols).fill(0));
+
+        // Place random internal obstacle pillars (keeping maze fully connected)
+        let placedObstacles = 0;
+        let attempts = 0;
+
+        while (placedObstacles < obstacleCount && attempts < 100) {
+          attempts++;
+          const r = 1 + Math.floor(Math.random() * (rows - 2));
+          const c = 1 + Math.floor(Math.random() * (cols - 2));
+
+          if (grid[r][c] === 0 && !(r === 0 && c === 0)) {
+            grid[r][c] = 1;
+
+            // Verify grid is still connected using flood-fill
+            if (MazeGenerator.isConnected(grid, rows, cols)) {
+              placedObstacles++;
+            } else {
+              grid[r][c] = 0;
+            }
+          }
+        }
+
+        // Start position (first empty tile)
+        let startR = 0, startC = 0;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (grid[r][c] === 0) {
+              startR = r;
+              startC = c;
+              break;
+            }
+          }
+          if (grid[startR][startC] === 0) break;
+        }
+
+        // Count total paintable tiles
+        let totalTiles = 0;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (grid[r][c] === 0) totalTiles++;
+          }
+        }
+
+        return { rows, cols, grid, startR, startC, totalTiles };
+      }
+
+      static isConnected(grid, rows, cols) {
+        let startR = -1, startC = -1;
+        let totalEmpty = 0;
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (grid[r][c] === 0) {
+              totalEmpty++;
+              if (startR === -1) {
+                startR = r;
+                startC = c;
+              }
+            }
+          }
+        }
+
+        if (totalEmpty === 0) return false;
+
+        const visited = Array(rows).fill(null).map(() => Array(cols).fill(false));
+        const queue = [{ r: startR, c: startC }];
+        visited[startR][startC] = true;
+        let count = 0;
+
+        while (queue.length > 0) {
+          const { r, c } = queue.shift();
+          count++;
+
+          const neighbors = [
+            { r: r - 1, c: c },
+            { r: r + 1, c: c },
+            { r: r, c: c - 1 },
+            { r: r, c: c + 1 }
+          ];
+
+          for (const n of neighbors) {
+            if (n.r >= 0 && n.r < rows && n.c >= 0 && n.c < cols) {
+              if (grid[n.r][n.c] === 0 && !visited[n.r][n.c]) {
+                visited[n.r][n.c] = true;
+                queue.push(n);
+              }
+            }
+          }
+        }
+
+        return count === totalEmpty;
+      }
+    }
+
+    // 5. MAIN MAZE PAINT ENGINE
+    class MazePaintGame {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.synth = new SoundSynth();
+
+        this.levelIndex = this.loadLevelIndex();
+        this.modeId = 'easy';
+        this.theme = PAINT_THEMES[0];
+
+        this.state = 'IDLE'; // 'IDLE', 'ROLLING', 'WIN', 'MODE_SELECT'
+        this.toast = null;
+
+        // Ball State
+        this.ball = {
+          r: 0,
+          c: 0,
+          x: 0,
+          y: 0,
+          targetX: 0,
+          targetY: 0,
+          targetR: 0,
+          targetC: 0,
+          vx: 0,
+          vy: 0,
+          radius: 16,
+          squashX: 1.0,
+          squashY: 1.0
+        };
+
+        this.painted = []; // Boolean matrix
+        this.paintedCount = 0;
+        this.totalTiles = 0;
+
+        this.splats = [];
+        this.confetti = [];
+        this.modalAnimProgress = 0;
+        this.winNextBtnRect = null;
+
+        this.touchStart = null;
+
+        this.initLayout();
+        this.bindEvents();
+        this.loadLevel(this.levelIndex);
+
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      loadLevelIndex() {
+        try {
+          const v = localStorage.getItem('mp_level_idx');
+          return v ? parseInt(v) || 0 : 0;
+        } catch (e) {
+          return 0;
+        }
+      }
+
+      saveLevelIndex() {
+        try {
+          localStorage.setItem('mp_level_idx', this.levelIndex.toString());
+        } catch (e) {}
+      }
+
+      loadLevel(idx) {
+        this.levelIndex = idx;
+        this.saveLevelIndex();
+
+        this.theme = PAINT_THEMES[this.levelIndex % PAINT_THEMES.length];
+
+        const mazeData = MazeGenerator.generate(this.levelIndex, this.modeId);
+        this.rows = mazeData.rows;
+        this.cols = mazeData.cols;
+        this.grid = mazeData.grid;
+        this.totalTiles = mazeData.totalTiles;
+
+        this.painted = Array(this.rows).fill(null).map(() => Array(this.cols).fill(false));
+
+        this.ball.r = mazeData.startR;
+        this.ball.c = mazeData.startC;
+        this.ball.targetR = this.ball.r;
+        this.ball.targetC = this.ball.c;
+        this.ball.vx = 0;
+        this.ball.vy = 0;
+        this.ball.squashX = 1.0;
+        this.ball.squashY = 1.0;
+
+        this.painted[this.ball.r][this.ball.c] = true;
+        this.paintedCount = 1;
+
+        this.splats = [];
+        this.confetti = [];
+        this.modalAnimProgress = 0;
+        this.state = 'IDLE';
+
+        this.initLayout();
+        Host.post('onGameStarted', { level: this.levelIndex + 1, mode: this.modeId });
+      }
+
+      initLayout() {
+        const dpr = window.devicePixelRatio || 1;
+        this.dpr = dpr;
+        this.width = window.innerWidth || 360;
+        this.height = window.innerHeight || 640;
+        this.canvas.width = Math.round(this.width * dpr);
+        this.canvas.height = Math.round(this.height * dpr);
+
+        this.headerY = 16;
+
+        // Maze Card Dimensions
+        const availableW = this.width - 32;
+        const availableH = this.height - 180;
+
+        this.tileSize = Math.floor(Math.min(availableW / this.cols, availableH / this.rows, 56));
+        this.boardW = this.cols * this.tileSize;
+        this.boardH = this.rows * this.tileSize;
+
+        this.boardX = Math.round((this.width - this.boardW) / 2);
+        this.boardY = Math.round(90 + (availableH - this.boardH) / 2);
+
+        this.ball.radius = Math.floor(this.tileSize * 0.38);
+        this.ball.x = this.boardX + this.ball.c * this.tileSize + this.tileSize / 2;
+        this.ball.y = this.boardY + this.ball.r * this.tileSize + this.tileSize / 2;
+        this.ball.targetX = this.ball.x;
+        this.ball.targetY = this.ball.y;
+      }
+
+      bindEvents() {
+        window.addEventListener('resize', () => this.initLayout());
+
+        const getPos = (e) => {
+          const rect = this.canvas.getBoundingClientRect();
+          const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+          const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+          return { px: clientX - rect.left, py: clientY - rect.top };
+        };
+
+        const handleDown = (e) => {
+          e.preventDefault();
+          this.synth.init();
+          if (e.pointerId !== undefined) {
+            try { this.canvas.setPointerCapture(e.pointerId); } catch (_) {}
+          }
+          const { px, py } = getPos(e);
+
+          if (this.state === 'MODE_SELECT') {
+            this.handleModeModalClick(px, py);
+            return;
+          }
+
+          // Header Clicks (Mode & Restart)
+          if (py >= this.headerY - 4 && py <= this.headerY + 50) {
+            // Mode Select Pill
+            const modePillW = 100;
+            const modePillX = (this.width / 2) - modePillW - 8;
+            if (px >= modePillX && px <= modePillX + modePillW) {
+              this.synth.playTap();
+              this.state = 'MODE_SELECT';
+              return;
+            }
+
+            // Restart Button (Right)
+            if (px >= this.width - 56 && px <= this.width - 12) {
+              this.synth.playTap();
+              this.loadLevel(this.levelIndex);
+              return;
+            }
+          }
+
+          // Level Win Button Click
+          if (this.state === 'WIN') {
+            if (this.winNextBtnRect) {
+              const r = this.winNextBtnRect;
+              if (px >= r.x - 20 && px <= r.x + r.w + 20 && py >= r.y - 15 && py <= r.y + r.h + 25) {
+                this.synth.playTap();
+                this.loadLevel(this.levelIndex + 1);
+              }
+            } else {
+              this.synth.playTap();
+              this.loadLevel(this.levelIndex + 1);
+            }
+            return;
+          }
+
+          this.touchStart = { px, py };
+        };
+
+        const handleUp = (e) => {
+          if (!this.touchStart || this.state !== 'IDLE') return;
+          const { px, py } = getPos(e);
+
+          const dx = px - this.touchStart.px;
+          const dy = py - this.touchStart.py;
+          this.touchStart = null;
+
+          const absX = Math.abs(dx);
+          const absY = Math.abs(dy);
+          const threshold = 15;
+
+          if (absX < threshold && absY < threshold) return;
+
+          if (absX > absY) {
+            if (dx > 0) this.tryRoll(0, 1);   // Right
+            else this.tryRoll(0, -1);         // Left
+          } else {
+            if (dy > 0) this.tryRoll(1, 0);   // Down
+            else this.tryRoll(-1, 0);          // Up
+          }
+        };
+
+        this.canvas.addEventListener('pointerdown', handleDown);
+        window.addEventListener('pointerup', handleUp);
+        window.addEventListener('pointercancel', handleUp);
+
+        // Keyboard Support (Arrow Keys / WASD)
+        window.addEventListener('keydown', (e) => {
+          if (this.state !== 'IDLE') return;
+          if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') this.tryRoll(0, 1);
+          else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') this.tryRoll(0, -1);
+          else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') this.tryRoll(1, 0);
+          else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') this.tryRoll(-1, 0);
+        });
+      }
+
+      handleModeModalClick(px, py) {
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 310;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        if (px >= cardX + cardW - 44 && px <= cardX + cardW - 10 && py >= cardY + 10 && py <= cardY + 44) {
+          this.synth.playTap();
+          this.state = 'IDLE';
+          return;
+        }
+
+        const optH = 68;
+        const startY = cardY + 68;
+
+        for (let i = 0; i < MODES.length; i++) {
+          const m = MODES[i];
+          const optY = startY + i * (optH + 10);
+          if (px >= cardX + 16 && px <= cardX + cardW - 16 && py >= optY && py <= optY + optH) {
+            this.synth.playTap();
+            this.modeId = m.id;
+            this.loadLevel(this.levelIndex);
+            return;
+          }
+        }
+
+        if (px < cardX || px > cardX + cardW || py < cardY || py > cardY + cardH) {
+          this.state = 'IDLE';
+        }
+      }
+
+      tryRoll(dr, dc) {
+        if (this.state !== 'IDLE') return;
+
+        let currR = this.ball.r;
+        let currC = this.ball.c;
+        let steps = 0;
+
+        while (true) {
+          const nextR = currR + dr;
+          const nextC = currC + dc;
+
+          if (nextR >= 0 && nextR < this.rows && nextC >= 0 && nextC < this.cols && this.grid[nextR][nextC] === 0) {
+            currR = nextR;
+            currC = nextC;
+            steps++;
+          } else {
+            break;
+          }
+        }
+
+        if (steps > 0) {
+          this.state = 'ROLLING';
+          this.ball.targetR = currR;
+          this.ball.targetC = currC;
+          this.ball.targetX = this.boardX + currC * this.tileSize + this.tileSize / 2;
+          this.ball.targetY = this.boardY + currR * this.tileSize + this.tileSize / 2;
+
+          this.rollDir = { dr, dc };
+          this.ballSpeed = 850; // pixels per second
+
+          this.synth.playRoll();
+          this.haptic(10);
+        }
+      }
+
+      onBallReachedDestination() {
+        this.ball.r = this.ball.targetR;
+        this.ball.c = this.ball.targetC;
+        this.ball.x = this.ball.targetX;
+        this.ball.y = this.ball.targetY;
+        this.state = 'IDLE';
+
+        this.synth.playImpact();
+        this.haptic(18);
+
+        // Impact Squishy Splat Particles
+        for (let i = 0; i < 8; i++) {
+          this.splats.push({
+            x: this.ball.x,
+            y: this.ball.y,
+            vx: (Math.random() - 0.5) * 120,
+            vy: (Math.random() - 0.5) * 120,
+            size: 3 + Math.random() * 4,
+            alpha: 1.0
+          });
+        }
+
+        // Check if 100% Paint achieved!
+        if (this.paintedCount >= this.totalTiles) {
+          this.handleWin();
+        }
+      }
+
+      handleWin() {
+        this.state = 'WIN';
+        this.modalAnimProgress = 0;
+        this.synth.playLevelWin();
+        this.haptic(35);
+
+        for (let i = 0; i < 50; i++) {
+          this.confetti.push({
+            x: this.width / 2,
+            y: this.height / 2,
+            vx: (Math.random() - 0.5) * 320,
+            vy: -140 - Math.random() * 240,
+            color: this.theme.paintGlow,
+            size: 5 + Math.random() * 5,
+            alpha: 1.0,
+            rot: Math.random() * Math.PI,
+            vrot: (Math.random() - 0.5) * 8
+          });
+        }
+
+        Host.post('onLevelCompleted', { level: this.levelIndex + 1, mode: this.modeId });
+      }
+
+      haptic(ms) {
+        try {
+          if (navigator.vibrate) navigator.vibrate(ms);
+        } catch (e) {}
+      }
+
+      loop(timestamp) {
+        const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
+        this.lastTime = timestamp;
+
+        if (this.state === 'ROLLING') {
+          const dx = this.ball.targetX - this.ball.x;
+          const dy = this.ball.targetY - this.ball.y;
+          const dist = Math.hypot(dx, dy);
+          const moveDist = this.ballSpeed * dt;
+
+          if (dist <= moveDist) {
+            this.ball.x = this.ball.targetX;
+            this.ball.y = this.ball.targetY;
+            this.paintTileAtPos(this.ball.x, this.ball.y);
+            this.onBallReachedDestination();
+          } else {
+            const angle = Math.atan2(dy, dx);
+            this.ball.x += Math.cos(angle) * moveDist;
+            this.ball.y += Math.sin(angle) * moveDist;
+            this.paintTileAtPos(this.ball.x, this.ball.y);
+          }
+        }
+
+        for (let i = this.splats.length - 1; i >= 0; i--) {
+          const sp = this.splats[i];
+          sp.x += sp.vx * dt;
+          sp.y += sp.vy * dt;
+          sp.alpha -= dt * 2.5;
+          if (sp.alpha <= 0) this.splats.splice(i, 1);
+        }
+
+        for (let i = this.confetti.length - 1; i >= 0; i--) {
+          const c = this.confetti[i];
+          c.x += c.vx * dt;
+          c.y += c.vy * dt;
+          c.vy += 320 * dt;
+          c.rot += c.vrot * dt;
+          c.alpha -= dt * 0.45;
+          if (c.alpha <= 0) this.confetti.splice(i, 1);
+        }
+
+        if (this.state === 'WIN' && this.modalAnimProgress < 1.0) {
+          this.modalAnimProgress = Math.min(1.0, this.modalAnimProgress + dt * 2.8);
+        }
+
+        this.render();
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      paintTileAtPos(x, y) {
+        const c = Math.floor((x - this.boardX) / this.tileSize);
+        const r = Math.floor((y - this.boardY) / this.tileSize);
+
+        if (r >= 0 && r < this.rows && c >= 0 && c < this.cols) {
+          if (this.grid[r][c] === 0 && !this.painted[r][c]) {
+            this.painted[r][c] = true;
+            this.paintedCount++;
+            this.synth.playPaintTile();
+          }
+        }
+      }
+
+      // --- RENDERING PIPELINE ---
+      render() {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.scale(this.dpr, this.dpr);
+
+        ctx.fillStyle = '#0F172A';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        this.renderHeader(ctx);
+        this.renderProgressHeader(ctx);
+        this.renderMazeBoard(ctx);
+        this.renderSplats(ctx);
+        this.renderRollerBall(ctx);
+        this.renderConfetti(ctx);
+
+        if (this.state === 'MODE_SELECT') this.renderModeDialog(ctx);
+        if (this.state === 'WIN') this.renderWinModal(ctx);
+
+        ctx.restore();
+      }
+
+      renderHeader(ctx) {
+        const y = this.headerY;
+
+        // Mode Pill (Left Center)
+        const modePillW = 100;
+        const modePillX = (this.width / 2) - modePillW - 8;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(modePillX, y, modePillW, 36, 12);
+        ctx.fillStyle = '#1E293B';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '900 13px Outfit, sans-serif';
+        ctx.fillStyle = this.theme.paintGlow;
+        ctx.textAlign = 'center';
+        ctx.fillText(this.modeId.toUpperCase() + ' ▾', modePillX + modePillW / 2, y + 23);
+        ctx.restore();
+
+        // Level Pill (Right Center)
+        const lvlPillW = 100;
+        const lvlPillX = (this.width / 2) + 8;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(lvlPillX, y, lvlPillW, 36, 12);
+        ctx.fillStyle = '#1E293B';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '900 14px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.fillText('Level ' + (this.levelIndex + 1), lvlPillX + lvlPillW / 2, y + 23);
+        ctx.restore();
+
+        // Restart Button (Right)
+        const restartX = this.width - 34;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(restartX, y + 18, 18, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+
+        ctx.font = '900 16px sans-serif';
+        ctx.fillStyle = '#F43F5E';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('↺', restartX, y + 18);
+        ctx.restore();
+      }
+
+      renderProgressHeader(ctx) {
+        const y = this.headerY + 44;
+        const barW = Math.min(280, this.width - 60);
+        const barH = 12;
+        const barX = (this.width - barW) / 2;
+
+        const pct = Math.min(100, Math.round((this.paintedCount / this.totalTiles) * 100));
+
+        ctx.save();
+        // Background Bar
+        ctx.beginPath();
+        ctx.roundRect(barX, y, barW, barH, 6);
+        ctx.fillStyle = '#1E293B';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.0;
+        ctx.stroke();
+
+        // Fill Bar
+        const fillW = (barW * pct) / 100;
+        if (fillW > 0) {
+          ctx.beginPath();
+          ctx.roundRect(barX, y, fillW, barH, 6);
+          const fillGrad = ctx.createLinearGradient(barX, 0, barX + fillW, 0);
+          fillGrad.addColorStop(0, this.theme.paintBg);
+          fillGrad.addColorStop(1, this.theme.paintGlow);
+          ctx.fillStyle = fillGrad;
+          ctx.fill();
+        }
+
+        ctx.font = '900 11px Outfit, sans-serif';
+        ctx.fillStyle = '#94A3B8';
+        ctx.textAlign = 'center';
+        ctx.fillText(pct + '% PAINTED', this.width / 2, y + barH + 15);
+        ctx.restore();
+      }
+
+      renderMazeBoard(ctx) {
+        const bx = this.boardX;
+        const by = this.boardY;
+        const ts = this.tileSize;
+
+        // Ambient Occlusion Shadow for the Entire Maze Board
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 10;
+        ctx.beginPath();
+        ctx.roundRect(bx - 6, by - 6, this.boardW + 12, this.boardH + 12, 16);
+        ctx.fillStyle = '#090D16';
+        ctx.fill();
+        ctx.restore();
+
+        // Render Floor Tiles
+        for (let r = 0; r < this.rows; r++) {
+          for (let c = 0; c < this.cols; c++) {
+            const tx = bx + c * ts;
+            const ty = by + r * ts;
+
+            if (this.grid[r][c] === 0) {
+              const isPainted = this.painted[r][c];
+
+              ctx.save();
+              ctx.beginPath();
+              ctx.roundRect(tx + 1, ty + 1, ts - 2, ts - 2, 4);
+
+              if (isPainted) {
+                // Glossy Wet Paint Floor
+                const paintGrad = ctx.createLinearGradient(tx, ty, tx, ty + ts);
+                paintGrad.addColorStop(0, this.theme.paintGlow);
+                paintGrad.addColorStop(1, this.theme.paintBg);
+                ctx.fillStyle = paintGrad;
+                ctx.fill();
+
+                // Glossy Top Sheen
+                ctx.beginPath();
+                ctx.roundRect(tx + 3, ty + 3, ts - 6, (ts - 6) * 0.4, 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+                ctx.fill();
+              } else {
+                // Clean Unpainted Slate Floor Tile
+                ctx.fillStyle = this.theme.floorBg;
+                ctx.fill();
+              }
+              ctx.restore();
+            } else {
+              // 3D Obstacle Wall / Pillar
+              ctx.save();
+              ctx.beginPath();
+              ctx.roundRect(tx + 1, ty + 1, ts - 2, ts - 2, 8);
+              ctx.fillStyle = this.theme.wallBg;
+              ctx.fill();
+
+              ctx.strokeStyle = this.theme.wallRim;
+              ctx.lineWidth = 2.0;
+              ctx.stroke();
+
+              // Top highlight bevel
+              ctx.beginPath();
+              ctx.roundRect(tx + 4, ty + 4, ts - 8, (ts - 8) * 0.35, 4);
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+              ctx.fill();
+              ctx.restore();
+            }
+          }
+        }
+      }
+
+      renderRollerBall(ctx) {
+        const b = this.ball;
+        ctx.save();
+        ctx.translate(b.x, b.y);
+
+        // Bouncy Ball Shadow
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(0, b.radius * 0.85, b.radius * 0.9, b.radius * 0.35, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+        ctx.fill();
+        ctx.restore();
+
+        // 3D Glossy Ball Sphere
+        ctx.beginPath();
+        ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
+        const ballGrad = ctx.createRadialGradient(-b.radius * 0.3, -b.radius * 0.3, b.radius * 0.1, 0, 0, b.radius);
+        ballGrad.addColorStop(0, '#FFFFFF');
+        ballGrad.addColorStop(0.3, this.theme.ballColor);
+        ballGrad.addColorStop(1, this.theme.paintBg);
+        ctx.fillStyle = ballGrad;
+        ctx.fill();
+
+        ctx.shadowColor = this.theme.paintGlow;
+        ctx.shadowBlur = 10;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      renderSplats(ctx) {
+        for (const sp of this.splats) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(sp.x, sp.y, sp.size, 0, Math.PI * 2);
+          ctx.fillStyle = this.theme.paintGlow;
+          ctx.globalAlpha = sp.alpha;
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      renderConfetti(ctx) {
+        for (const c of this.confetti) {
+          ctx.save();
+          ctx.translate(c.x, c.y);
+          ctx.rotate(c.rot);
+          ctx.fillStyle = c.color;
+          ctx.globalAlpha = Math.max(0, c.alpha);
+          ctx.fillRect(-c.size / 2, -c.size / 2, c.size, c.size * 0.7);
+          ctx.restore();
+        }
+      }
+
+      renderModeDialog(ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 320;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        ctx.shadowBlur = 32;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.fillStyle = '#1E293B';
+        ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.font = '900 18px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.fillText('SELECT DIFFICULTY', this.width / 2, cardY + 38);
+
+        ctx.font = '800 18px sans-serif';
+        ctx.fillStyle = '#94A3B8';
+        ctx.fillText('✕', cardX + cardW - 26, cardY + 38);
+
+        const optH = 68;
+        const startY = cardY + 68;
+
+        for (let i = 0; i < MODES.length; i++) {
+          const m = MODES[i];
+          const optY = startY + i * (optH + 10);
+          const isSelected = (this.modeId === m.id);
+
+          ctx.beginPath();
+          ctx.roundRect(cardX + 16, optY, cardW - 32, optH, 16);
+          ctx.fillStyle = isSelected ? '#0F172A' : '#334155';
+          ctx.fill();
+          ctx.strokeStyle = isSelected ? this.theme.paintGlow : '#475569';
+          ctx.lineWidth = isSelected ? 2.0 : 1.2;
+          ctx.stroke();
+
+          ctx.font = '900 15px Outfit, sans-serif';
+          ctx.fillStyle = isSelected ? this.theme.paintGlow : '#FFFFFF';
+          ctx.textAlign = 'left';
+          ctx.fillText(m.label, cardX + 32, optY + 26);
+
+          ctx.font = '600 12px Outfit, sans-serif';
+          ctx.fillStyle = '#94A3B8';
+          ctx.fillText(m.desc, cardX + 32, optY + 48);
+
+          if (isSelected) {
+            ctx.font = '900 16px sans-serif';
+            ctx.fillStyle = this.theme.paintGlow;
+            ctx.textAlign = 'right';
+            ctx.fillText('✓', cardX + cardW - 32, optY + optH / 2);
+          }
+        }
+        ctx.restore();
+      }
+
+      renderWinModal(ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        const t = Math.min(1.0, this.modalAnimProgress);
+        const scale = 0.65 + 0.35 * Math.sin(t * Math.PI / 2);
+
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 300;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        ctx.save();
+        ctx.translate(this.width / 2, this.height / 2);
+        ctx.scale(scale, scale);
+        ctx.translate(-this.width / 2, -this.height / 2);
+
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+        ctx.shadowBlur = 32;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.fillStyle = '#1E293B';
+        ctx.fill();
+        ctx.strokeStyle = this.theme.paintGlow;
+        ctx.lineWidth = 2.0;
+        ctx.stroke();
+
+        ctx.font = '900 24px Outfit, sans-serif';
+        ctx.fillStyle = this.theme.paintGlow;
+        ctx.textAlign = 'center';
+        ctx.fillText('🎉 100% PAINTED! 🎉', this.width / 2, cardY + 54);
+
+        ctx.font = '700 14px Outfit, sans-serif';
+        ctx.fillStyle = '#94A3B8';
+        ctx.fillText('STAGE ' + (this.levelIndex + 1) + ' COMPLETE', this.width / 2, cardY + 92);
+
+        // Big Juicy Paint Splat Icon
+        ctx.font = '46px sans-serif';
+        ctx.fillText('🎨', this.width / 2, cardY + 154);
+
+        const btnW = 208, btnH = 50;
+        const btnX = (this.width - btnW) / 2;
+        const btnY = cardY + cardH - 72;
+
+        this.winNextBtnRect = { x: btnX, y: btnY, w: btnW, h: btnH };
+
+        ctx.save();
+        ctx.shadowColor = this.theme.paintGlow;
+        ctx.shadowBlur = 14;
+        ctx.beginPath();
+        ctx.roundRect(btnX, btnY, btnW, btnH, 25);
+        const btnGrad = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
+        btnGrad.addColorStop(0, this.theme.paintGlow);
+        btnGrad.addColorStop(1, this.theme.paintBg);
+        ctx.fillStyle = btnGrad;
+        ctx.fill();
+
+        ctx.font = '900 17px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('NEXT LEVEL ➔', this.width / 2, btnY + btnH / 2 + 1);
+        ctx.restore();
+
+        ctx.restore();
+      }
+    }
+
+    function initGame() {
+      const canvas = document.getElementById('gameCanvas');
+      if (canvas && !window.game) {
+        window.game = new MazePaintGame(canvas);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initGame);
+    } else {
+      initGame();
+    }
+  </script>
+</body>
+</html>

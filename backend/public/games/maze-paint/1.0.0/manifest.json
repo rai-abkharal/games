@@ -1,0 +1,18 @@
+{
+  "id": "maze-paint",
+  "title": "Maze Paint",
+  "version": "1.0.0",
+  "description": "Juicy roller splat puzzle game! Swipe in 4 directions to roll your paint ball across the maze, splatting glossy colorful paint on every tile to achieve 100% coverage. Features Easy, Medium, and Hard obstacle challenges.",
+  "orientation": "portrait",
+  "engine": "canvas2d",
+  "category": "Puzzle",
+  "feedOrder": 24,
+  "status": "published",
+  "touchZones": [],
+  "features": {
+    "sound": true,
+    "vibration": true,
+    "modes": true,
+    "particles": true
+  }
+}
