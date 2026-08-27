@@ -2,7 +2,7 @@
   "id": "number-chain",
   "title": "Number Chain",
   "version": "1.0.0",
-  "description": "Connect matching and doubling power-of-two number tiles with full 8-way diagonal and orthogonal movement. Features instant snappy refills, diverse numbers up to 128, left-side undo, and crisp tile rendering.",
+  "description": "Connect matching and doubling power-of-two number tiles with full 8-way diagonal and orthogonal movement. Features true column gravity drops, top-spawning new numbers, diverse distributions up to 128, left-side undo, and crisp tile rendering.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Puzzle",
