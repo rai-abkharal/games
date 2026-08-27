@@ -48,7 +48,7 @@
   <script>
     'use strict';
 
-    // 1. TILE PALETTE CONFIGURATION (Exact Reference Colors)
+    // 1. TILE PALETTE CONFIGURATION
     const TILE_PALETTE = {
       2:    { bg: '#FF5E62', text: '#1E293B', border: '#E04A4E' },
       4:    { bg: '#9C51E0', text: '#FFFFFF', border: '#8338CF' },
@@ -106,7 +106,7 @@
         if (this.muted || !this.ctx) return;
         this.init();
         const t = this.ctx.currentTime;
-        const baseFreq = 261.63; // C4
+        const baseFreq = 261.63;
         const pentatonicIntervals = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
         const semitone = pentatonicIntervals[(stepIndex - 1) % pentatonicIntervals.length];
         const freq = baseFreq * Math.pow(2, semitone / 12);
@@ -346,7 +346,6 @@
         return 2;
       }
 
-      // Initial grid loads instantly aligned at 0 offset
       generateInitialGrid() {
         this.grid = [];
         for (let r = 0; r < this.rows; r++) {
@@ -441,16 +440,15 @@
 
           // Top Header Clicks
           if (py >= this.headerY - 4 && py <= this.headerY + 54) {
-            if (px >= 14 && px <= 146) {
+            // Mode Select Pill
+            const modePillW = 112;
+            const modePillX = (this.width / 2) - modePillW - 8;
+            if (px >= modePillX && px <= modePillX + modePillW) {
               this.synth.playTap();
               this.state = 'MODE_SELECT';
               return;
             }
-            if (px >= 14 && px <= 54) {
-              this.synth.playTap();
-              this.state = 'MODE_SELECT';
-              return;
-            }
+            // Restart Button (Right)
             if (px >= this.width - 56 && px <= this.width - 14) {
               this.synth.playTap();
               this.startNewGame();
@@ -520,7 +518,6 @@
         const currentHead = this.activePath[this.activePath.length - 1];
         if (currentHead.r === cell.r && currentHead.c === cell.c) return;
 
-        // Backtrack
         if (this.activePath.length >= 2) {
           const prev = this.activePath[this.activePath.length - 2];
           if (prev.r === cell.r && prev.c === cell.c) {
@@ -531,7 +528,6 @@
           }
         }
 
-        // Full 8-Way Connection (Orthogonal & Diagonal)
         if (this.isValidNextCell(cell.r, cell.c)) {
           this.activePath.push({ r: cell.r, c: cell.c });
           this.addRipple(cell.r, cell.c);
@@ -557,7 +553,6 @@
         return (nextVal === prevVal || nextVal === prevVal * 2);
       }
 
-      // COLUMN GRAVITY DROP + TOP-SPAWN REPLACEMENT
       finishPath() {
         this.isDragging = false;
         if (this.activePath.length < 2) {
@@ -586,7 +581,6 @@
         this.synth.playMerge(mergedValue);
         this.haptic(25);
 
-        // Floating Score
         const lastX = this.boardX + lastCell.c * this.cellSize + this.cellSize / 2;
         const lastY = this.boardY + lastCell.r * this.cellSize + this.cellSize / 2;
         this.floatingScores.push({
@@ -597,16 +591,14 @@
           life: 0.9
         });
 
-        // 1. Destination cell receives merged value with highlight
         this.grid[lastCell.r][lastCell.c].val = mergedValue;
         this.grid[lastCell.r][lastCell.c].highlight = 1.0;
 
-        // 2. Consumed cells to remove (all except destination)
         const consumedCells = this.activePath.slice(0, this.activePath.length - 1);
         const clearedLookup = new Set(consumedCells.map(p => p.r + ',' + p.c));
         this.activePath = [];
 
-        // 3. Column-by-Column Gravity Fall: Surviving tiles drop downward, new tiles enter from TOP!
+        // Column Gravity Fall: Surviving tiles drop downward, new tiles enter from TOP
         for (let c = 0; c < this.cols; c++) {
           const surviving = [];
 
@@ -620,7 +612,6 @@
             }
           }
 
-          // Write surviving tiles into lower rows with downward slide offset
           let writeR = this.rows - 1;
           for (let i = 0; i < surviving.length; i++) {
             const item = surviving[i];
@@ -633,7 +624,6 @@
             writeR--;
           }
 
-          // Spawn new replacement tiles from ABOVE the top of the column!
           let spawnIndex = 0;
           while (writeR >= 0) {
             const newVal = this.generateWeightedValue();
@@ -768,7 +758,6 @@
           this.cursorPos.y += (this.pointerPos.py - this.cursorPos.y) * 0.55;
         }
 
-        // Animate Tile Gravity Sliding down smoothly
         for (let r = 0; r < this.rows; r++) {
           for (let c = 0; c < this.cols; c++) {
             const cell = this.grid[r][c];
@@ -782,7 +771,6 @@
           }
         }
 
-        // Update Ripples
         for (let i = this.ripples.length - 1; i >= 0; i--) {
           const rip = this.ripples[i];
           rip.radius += (rip.maxR - rip.radius) * 12 * dt;
@@ -790,7 +778,6 @@
           if (rip.alpha <= 0) this.ripples.splice(i, 1);
         }
 
-        // Update Floating Scores
         for (let i = this.floatingScores.length - 1; i >= 0; i--) {
           const fs = this.floatingScores[i];
           fs.y -= 45 * dt;
@@ -807,32 +794,21 @@
         requestAnimationFrame((t) => this.loop(t));
       }
 
-      // --- RENDERING PIPELINE ---
       render() {
         const ctx = this.ctx;
         ctx.save();
         ctx.scale(this.dpr, this.dpr);
 
-        // 1. Background
         const bgGrad = ctx.createLinearGradient(0, 0, 0, this.height);
         bgGrad.addColorStop(0, THEME.bgTop);
         bgGrad.addColorStop(1, THEME.bgBottom);
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // 2. Header
         this.renderHeader(ctx);
-
-        // 3. Grid Slot Base
         this.renderGridSlots(ctx);
-
-        // 4. CONNECTING PATH LINE (Behind the tiles)
         this.renderPathLinesBehind(ctx);
-
-        // 5. TILE BOXES
         this.renderTileBoxes(ctx);
-
-        // 6. HUD & Overlays
         this.renderHUD(ctx);
         this.renderOverlays(ctx);
 
@@ -846,24 +822,8 @@
       renderHeader(ctx) {
         const y = this.headerY;
 
-        // Back Chevron Button (<)
-        ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.arc(36, y + 20, 20, 0, Math.PI * 2);
-        ctx.fillStyle = THEME.btnBg;
-        ctx.fill();
-
-        ctx.font = '900 18px sans-serif';
-        ctx.fillStyle = THEME.btnIcon;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('‹', 36, y + 20);
-        ctx.restore();
-
         // Mode & Live Score Pill
-        const modePillW = 108;
+        const modePillW = 112;
         const modePillX = (this.width / 2) - modePillW - 8;
         ctx.save();
         ctx.beginPath();
@@ -885,7 +845,7 @@
         ctx.restore();
 
         // All Time High Score Pill (with Crown)
-        const bestPillW = 108;
+        const bestPillW = 112;
         const bestPillX = (this.width / 2) + 8;
         ctx.save();
         ctx.beginPath();
@@ -942,7 +902,6 @@
         }
       }
 
-      // CONNECTING PATH LINE (Behind the tile boxes)
       renderPathLinesBehind(ctx) {
         if (this.activePath.length === 0) return;
 
@@ -958,7 +917,6 @@
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
-        // Outer Soft Glow Behind
         ctx.lineWidth = cs * 0.46;
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
         ctx.beginPath();
@@ -974,7 +932,6 @@
         }
         ctx.stroke();
 
-        // Main Vibrant Color Path Line
         ctx.lineWidth = cs * 0.30;
         ctx.strokeStyle = activePal.bg;
         ctx.stroke();
@@ -982,7 +939,6 @@
         ctx.restore();
       }
 
-      // TILE BOXES
       renderTileBoxes(ctx) {
         const bx = this.boardX;
         const by = this.boardY;
@@ -1013,19 +969,16 @@
             const x0 = -tis / 2;
             const y0 = -tis / 2;
 
-            // 1. Tile Solid Body
             ctx.beginPath();
             ctx.roundRect(x0, y0, tis, tis, 8);
             ctx.fillStyle = pal.bg;
             ctx.fill();
 
-            // 2. Bottom Shadow Edge
             ctx.beginPath();
             ctx.roundRect(x0, y0 + tis - 4, tis, 4, [0, 0, 8, 8]);
             ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
             ctx.fill();
 
-            // 3. Border (Crisp white border for selected or highest tiles)
             if (cell.highlight > 0 || isSelected || isHighest) {
               ctx.beginPath();
               ctx.roundRect(x0, y0, tis, tis, 8);
@@ -1040,7 +993,6 @@
               ctx.stroke();
             }
 
-            // 4. Number Text
             const fontSize = cell.val >= 1000 ? Math.floor(tis * 0.32) : Math.floor(tis * 0.44);
             ctx.font = '900 ' + fontSize + 'px Fredoka, sans-serif';
             ctx.fillStyle = pal.text;
@@ -1053,7 +1005,6 @@
         }
         ctx.restore();
 
-        // Selection Ripples
         for (const rip of this.ripples) {
           ctx.save();
           ctx.beginPath();
@@ -1064,7 +1015,6 @@
           ctx.restore();
         }
 
-        // Floating Navigating Gesture Ball
         if (this.isDragging && this.activePath.length > 0 && this.cursorPos) {
           const firstPt = this.activePath[0];
           const firstVal = this.grid[firstPt.r][firstPt.c].val;
@@ -1093,7 +1043,6 @@
         }
       }
 
-      // HUD: UNDO BUTTON ON THE LEFT SIDE
       renderHUD(ctx) {
         const y = this.hudY;
 
@@ -1113,7 +1062,6 @@
         ctx.textBaseline = 'middle';
         ctx.fillText('↶', undoX, undoY - 1);
 
-        // Badge counter
         ctx.beginPath();
         ctx.arc(undoX + 16, undoY - 16, 9, 0, Math.PI * 2);
         ctx.fillStyle = '#FFFFFF';
