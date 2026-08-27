@@ -389,21 +389,23 @@
         this.canvas.width = Math.round(this.width * dpr);
         this.canvas.height = Math.round(this.height * dpr);
 
-        const topPadding = 90;
-        const bottomPadding = 30;
-        const availableH = this.height - topPadding - bottomPadding - 75;
-        const availableW = this.width - 32;
+        // Generous top and bottom margins so boxes are compact, comfortable and not oversized
+        const topPadding = 105;
+        const bottomPadding = 65;
+        const availableH = this.height - topPadding - bottomPadding - 65;
+        const availableW = this.width - 40;
 
-        this.colWidth = Math.floor(Math.min(availableW / this.cols, availableH / this.maxRows, 68));
+        // Cap cell size at 54px for compact, balanced appearance
+        this.colWidth = Math.floor(Math.min(availableW / this.cols, availableH / this.maxRows, 54));
         this.tileSize = this.colWidth - 4;
         this.boardW = this.cols * this.colWidth;
         this.boardH = this.maxRows * this.colWidth;
 
         this.boardX = Math.round((this.width - this.boardW) / 2);
-        this.boardY = Math.round(topPadding + 65);
+        this.boardY = Math.round(topPadding + (availableH - this.boardH) / 2 + 35);
 
         this.headerY = 16;
-        this.subHudY = this.boardY - 60;
+        this.subHudY = this.boardY - 50;
         this.spawnY = this.boardY - this.colWidth - 8;
       }
 
@@ -792,7 +794,6 @@
         requestAnimationFrame((t) => this.loop(t));
       }
 
-      // --- RENDERING PIPELINE ---
       render() {
         const ctx = this.ctx;
         ctx.save();
@@ -1019,21 +1020,21 @@
           this.drawTile(ctx, p.x, p.y, ts, p.val, pal, 0.4, 1.0);
         }
 
-        // 3. NEXT UPCOMING BLOCK (Positioned DIAGONALLY TOP-LEFT Behind the center spawn piece)
+        // 3. NEXT UPCOMING BLOCK (Positioned to the TOP-RIGHT side of the center active piece, clearly visible)
         const centerSpawnX = bx + 2 * cs + cs / 2;
         const centerSpawnY = this.spawnY + cs / 2;
         const nextPal = TILE_PALETTE[this.nextVal] || TILE_PALETTE[2];
 
-        // Diagonal offset: shifted slightly up and to the left
-        const diagNextX = centerSpawnX - cs * 0.45;
-        const diagNextY = centerSpawnY - cs * 0.38;
+        // Placed clearly to the top-right side so it is NOT hidden by the active piece
+        const diagNextX = centerSpawnX + cs * 0.85;
+        const diagNextY = centerSpawnY - cs * 0.28;
 
         ctx.save();
-        ctx.globalAlpha = 0.90;
-        this.drawTile(ctx, diagNextX, diagNextY, ts, this.nextVal, nextPal, 0.0, 0.72);
+        ctx.globalAlpha = 0.95;
+        this.drawTile(ctx, diagNextX, diagNextY, ts, this.nextVal, nextPal, 0.0, 0.78);
         ctx.restore();
 
-        // 4. CURRENT ACTIVE PIECE (Rendered in front of the diagonal next piece)
+        // 4. CURRENT ACTIVE PIECE (Center Spawn Area)
         if (this.state === 'AIMING') {
           const cx = this.currentPieceX;
           const cy = centerSpawnY;

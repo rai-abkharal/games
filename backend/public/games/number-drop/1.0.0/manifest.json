@@ -2,7 +2,7 @@
   "id": "number-drop",
   "title": "Number Drop",
   "version": "1.0.0",
-  "description": "Drop and merge falling number blocks across a 5-column grid. Features diagonal-behind upcoming piece preview, touch-bounded drop areas, multi-directional 2048 chain combos, and radiant light streak trails.",
+  "description": "Drop and merge falling number blocks across a 5-column grid. Features compact block sizing, top-right diagonal upcoming piece preview, touch-bounded drop areas, multi-directional 2048 chain combos, and radiant light streak trails.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Puzzle",
