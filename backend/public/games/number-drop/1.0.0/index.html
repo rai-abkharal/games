@@ -107,14 +107,14 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(360, t);
-        osc.frequency.exponentialRampToValueAtTime(120, t + 0.12);
-        gain.gain.setValueAtTime(0.14, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc.frequency.setValueAtTime(320, t);
+        osc.frequency.exponentialRampToValueAtTime(140, t + 0.18);
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(t);
-        osc.stop(t + 0.13);
+        osc.stop(t + 0.19);
       }
 
       playLand() {
@@ -124,14 +124,14 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(190, t);
-        osc.frequency.exponentialRampToValueAtTime(70, t + 0.07);
+        osc.frequency.setValueAtTime(180, t);
+        osc.frequency.exponentialRampToValueAtTime(65, t + 0.09);
         gain.gain.setValueAtTime(0.16, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(t);
-        osc.stop(t + 0.08);
+        osc.stop(t + 0.10);
       }
 
       playMerge(value = 4) {
@@ -140,17 +140,17 @@
         const step = Math.min(8, Math.max(1, Math.log2(value) - 1));
         const baseFreq = 261.63 * Math.pow(1.122, step);
         [baseFreq, baseFreq * 1.25, baseFreq * 1.5].forEach((freq, i) => {
-          const t = this.ctx.currentTime + i * 0.035;
+          const t = this.ctx.currentTime + i * 0.04;
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(freq, t);
-          gain.gain.setValueAtTime(0.20, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
+          gain.gain.setValueAtTime(0.22, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
           osc.connect(gain);
           gain.connect(this.ctx.destination);
           osc.start(t);
-          osc.stop(t + 0.35);
+          osc.stop(t + 0.44);
         });
       }
 
@@ -245,22 +245,21 @@
         this.currentVal = 2;
         this.nextVal = 4;
 
-        this.currentPieceX = 0; // Live X position of piece above board (starts in center)
-        this.targetCol = 2;      // Target column (0..4)
-        this.targetColX = 0;     // Target X corresponding to targetCol
+        this.currentPieceX = 0; // Live X position of piece above board
+        this.targetCol = 2;      // Selected column index (0..4)
 
         this.fallingPiece = null;
-        this.lightPhotons = [];    // Radiant light beam sparks
-        this.shockwaves = [];      // Expanding circular merge shockwaves
-        this.sparkles = [];        // Merge burst sparks
-        this.floatingScores = [];  // Floating '+64' scores
+        this.lightPhotons = [];
+        this.shockwaves = [];
+        this.sparkles = [];
+        this.floatingScores = [];
 
         this.score = 0;
         this.allTimeBest = this.loadBestScore();
         this.undoCharges = 1;
         this.history = [];
 
-        this.state = 'AIMING'; // 'AIMING', 'GLIDING', 'FALLING', 'MERGING', 'GAME_OVER'
+        this.state = 'AIMING'; // 'AIMING', 'FALLING', 'MERGING', 'GAME_OVER'
         this.toast = null;
         this.isPointerDown = false;
 
@@ -301,18 +300,14 @@
         this.currentVal = this.generateWeightedValue();
         this.nextVal = this.generateWeightedValue();
 
-        // Always spawn the new piece in the exact horizontal center
         this.resetPieceToCenter();
-
         this.saveHistoryState();
         Host.post('onGameStarted', { mode: 'easy' });
       }
 
       resetPieceToCenter() {
-        const centerX = this.boardX + 2 * this.colWidth + this.colWidth / 2;
-        this.currentPieceX = centerX;
         this.targetCol = 2;
-        this.targetColX = centerX;
+        this.currentPieceX = this.boardX + 2 * this.colWidth + this.colWidth / 2;
       }
 
       getHighestTileOnBoard() {
@@ -446,7 +441,7 @@
             }
           }
 
-          // Sub-HUD Undo Button (Left)
+          // Sub-HUD Undo Button
           if (py >= this.subHudY - 6 && py <= this.subHudY + 50 && px >= 14 && px <= 78) {
             this.handleUndo();
             return;
@@ -464,9 +459,9 @@
             return;
           }
 
-          // Aiming: update selected column
+          // Aiming: direct smooth tracking under finger with zero jitter
           if (this.state === 'AIMING') {
-            this.updateTargetColumn(px);
+            this.trackFingerPosition(px);
           }
         };
 
@@ -474,7 +469,7 @@
           if (!this.isPointerDown || this.state !== 'AIMING') return;
           e.preventDefault();
           const { px } = getPos(e);
-          this.updateTargetColumn(px);
+          this.trackFingerPosition(px);
         };
 
         const handleUp = (e) => {
@@ -482,7 +477,7 @@
           this.isPointerDown = false;
 
           if (this.state === 'AIMING') {
-            this.initiateDropSequence();
+            this.dropAtCurrentPosition();
           }
         };
 
@@ -492,15 +487,18 @@
         window.addEventListener('pointercancel', handleUp);
       }
 
-      updateTargetColumn(px) {
-        let col = Math.floor((px - this.boardX) / this.colWidth);
-        col = Math.max(0, Math.min(this.cols - 1, col));
-        this.targetCol = col;
-        this.targetColX = this.boardX + col * this.colWidth + this.colWidth / 2;
+      // SMOOTH DIRECT ZERO-JITTER FINGER TRACKING
+      trackFingerPosition(px) {
+        const minX = this.boardX + this.colWidth / 2;
+        const maxX = this.boardX + this.boardW - this.colWidth / 2;
+        this.currentPieceX = Math.max(minX, Math.min(maxX, px));
+
+        // Selected column index
+        const col = Math.floor((this.currentPieceX - this.boardX) / this.colWidth);
+        this.targetCol = Math.max(0, Math.min(this.cols - 1, col));
       }
 
-      // CENTER-TO-COLUMN GLIDE BEFORE DROP
-      initiateDropSequence() {
+      dropAtCurrentPosition() {
         if (this.state !== 'AIMING') return;
 
         const col = this.targetCol;
@@ -510,23 +508,11 @@
         }
 
         this.saveHistoryState();
-
-        // Check if piece already reached target column top
-        if (Math.abs(this.currentPieceX - this.targetColX) < 4) {
-          this.currentPieceX = this.targetColX;
-          this.startVerticalFall();
-        } else {
-          // Glide horizontally to target column top first
-          this.state = 'GLIDING';
-        }
-      }
-
-      startVerticalFall() {
-        const col = this.targetCol;
         this.state = 'FALLING';
         this.synth.playDrop();
         this.haptic(10);
 
+        // Snap cleanly to exact column horizontal center for fall
         const startX = this.boardX + col * this.colWidth + this.colWidth / 2;
         const startY = this.spawnY + this.colWidth / 2;
         const stackHeight = this.columns[col].length;
@@ -540,7 +526,7 @@
           y: startY,
           targetY: targetY,
           targetRow: targetRow,
-          vy: 750
+          vy: 280 // Graceful smooth drop speed
         };
       }
 
@@ -555,7 +541,6 @@
         this.synth.playLand();
         this.haptic(15);
 
-        // Add block to column stack
         this.columns[col].push({
           val: val,
           highlight: 1.0,
@@ -567,11 +552,10 @@
         this.checkAndExecuteMultiMerges(col, landedRow);
       }
 
-      // COMPREHENSIVE MULTI-DIRECTIONAL CONNECTED MERGES (Left, Right, Bottom, Top)
+      // SLOW, VISIBLE, JUICY MULTI-DIRECTIONAL MERGES
       checkAndExecuteMultiMerges(priorityCol = null, priorityRow = null) {
         let bestGroup = null;
 
-        // Helper to find all orthogonal connected matching blocks using BFS
         const findConnected = (startC, startR) => {
           const targetVal = this.columns[startC][startR].val;
           const visited = new Set();
@@ -602,7 +586,6 @@
           return group;
         };
 
-        // First check priority landing cell if provided
         if (priorityCol !== null && priorityRow !== null && priorityRow < this.columns[priorityCol].length) {
           const g = findConnected(priorityCol, priorityRow);
           if (g.length >= 2) {
@@ -610,7 +593,6 @@
           }
         }
 
-        // If no group at priority node, scan all board blocks
         if (!bestGroup) {
           for (let c = 0; c < this.cols; c++) {
             for (let r = 0; r < this.columns[c].length; r++) {
@@ -630,16 +612,13 @@
           const startVal = this.columns[center.c][center.r].val;
           const count = group.length;
 
-          // Value doubles per merged pair (e.g. 2 blocks -> 2x, 3 blocks -> 4x, 4 blocks -> 8x)
           const newVal = startVal * Math.pow(2, count - 1);
 
-          // Update target block
           const targetBlock = this.columns[center.c][center.r];
           targetBlock.val = newVal;
-          targetBlock.scale = 1.38; // juicy pop
+          targetBlock.scale = 1.48; // Large juicy pop
           targetBlock.highlight = 1.0;
 
-          // Remove other participating blocks (sorted descending by row to avoid index shifting)
           const toRemove = group.filter(pt => !(pt.c === center.c && pt.r === center.r));
           toRemove.sort((a, b) => b.r - a.r);
 
@@ -649,10 +628,10 @@
 
           this.triggerMergeEffects(center.c, center.r, newVal);
 
-          // Cascade: repeat check after merge animation
+          // Graceful slow delay (450ms) for visible cascade progression
           setTimeout(() => {
             this.checkAndExecuteMultiMerges(center.c, center.r);
-          }, 240);
+          }, 450);
         } else {
           this.finalizeTurn();
         }
@@ -672,29 +651,29 @@
         const cy = this.boardY + (this.maxRows - 1 - row) * this.colWidth + this.colWidth / 2;
         const pal = TILE_PALETTE[newVal] || TILE_PALETTE[2];
 
-        // Shockwave Ring
+        // Shockwave Ring (Expanding gracefully)
         this.shockwaves.push({
           x: cx,
           y: cy,
-          radius: this.tileSize * 0.3,
-          maxRadius: this.tileSize * 1.30,
+          radius: this.tileSize * 0.35,
+          maxRadius: this.tileSize * 1.45,
           color: pal.bg,
           alpha: 1.0
         });
 
         // Burst Sparkles
-        for (let i = 0; i < 9; i++) {
-          const angle = (Math.PI * 2 * i) / 9 + Math.random() * 0.3;
-          const speed = 45 + Math.random() * 65;
+        for (let i = 0; i < 10; i++) {
+          const angle = (Math.PI * 2 * i) / 10 + Math.random() * 0.3;
+          const speed = 40 + Math.random() * 50;
           this.sparkles.push({
             x: cx,
             y: cy,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed,
             color: pal.topBg || pal.bg,
-            size: 3.5 + Math.random() * 3,
+            size: 4 + Math.random() * 3,
             alpha: 1.0,
-            life: 0.35
+            life: 0.45
           });
         }
 
@@ -715,7 +694,6 @@
         this.resetPieceToCenter();
         this.state = 'AIMING';
 
-        // Check if all columns are full
         let isFull = true;
         for (let c = 0; c < this.cols; c++) {
           if (this.columns[c].length < this.maxRows) {
@@ -741,36 +719,25 @@
         const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
         this.lastTime = timestamp;
 
-        // Smooth horizontal glide for piece aiming / gliding
-        if (this.state === 'AIMING' && this.isPointerDown) {
-          this.currentPieceX += (this.targetColX - this.currentPieceX) * 22 * dt;
-        } else if (this.state === 'GLIDING') {
-          this.currentPieceX += (this.targetColX - this.currentPieceX) * 26 * dt;
-          if (Math.abs(this.currentPieceX - this.targetColX) < 3.5) {
-            this.currentPieceX = this.targetColX;
-            this.startVerticalFall();
-          }
-        }
-
-        // Falling Block Physics & Radiant Light Trail
+        // Smooth falling physics (Slowed down for graceful visible motion)
         if (this.state === 'FALLING' && this.fallingPiece) {
           const p = this.fallingPiece;
-          p.vy += 2600 * dt;
+          p.vy += 1050 * dt; // gentle gravity acceleration
           p.y += p.vy * dt;
 
           const pal = TILE_PALETTE[p.val] || TILE_PALETTE[2];
 
-          // Emit radiant light photons trailing inside the energy beam
+          // Radiant light photons
           for (let i = 0; i < 2; i++) {
             this.lightPhotons.push({
               x: p.x + (Math.random() - 0.5) * (this.tileSize * 0.45),
               y: p.y - this.tileSize * 0.35 + (Math.random() - 0.5) * 4,
-              vy: -50 - Math.random() * 50,
+              vy: -35 - Math.random() * 35,
               size: 2.5 + Math.random() * 2.5,
               color: '#FFFFFF',
               glowColor: pal.glow,
               alpha: 0.85,
-              life: 0.22
+              life: 0.30
             });
           }
 
@@ -784,15 +751,15 @@
         for (let i = this.lightPhotons.length - 1; i >= 0; i--) {
           const lp = this.lightPhotons[i];
           lp.y += lp.vy * dt;
-          lp.alpha -= dt * 3.8;
+          lp.alpha -= dt * 2.8;
           if (lp.alpha <= 0) this.lightPhotons.splice(i, 1);
         }
 
-        // Update Shockwaves
+        // Update Shockwaves (Slow & smooth)
         for (let i = this.shockwaves.length - 1; i >= 0; i--) {
           const sw = this.shockwaves[i];
-          sw.radius += (sw.maxRadius - sw.radius) * 11 * dt;
-          sw.alpha -= dt * 3.5;
+          sw.radius += (sw.maxRadius - sw.radius) * 6 * dt;
+          sw.alpha -= dt * 2.2;
           if (sw.alpha <= 0) this.shockwaves.splice(i, 1);
         }
 
@@ -801,20 +768,20 @@
           const spk = this.sparkles[i];
           spk.x += spk.vx * dt;
           spk.y += spk.vy * dt;
-          spk.alpha -= dt * 3.0;
+          spk.alpha -= dt * 2.2;
           if (spk.alpha <= 0) this.sparkles.splice(i, 1);
         }
 
-        // Settle Block Scales & Highlights
+        // Settle Block Scales (Smooth gradual return to 1.0)
         for (let c = 0; c < this.cols; c++) {
           for (let r = 0; r < this.columns[c].length; r++) {
             const b = this.columns[c][r];
             if (b.scale > 1.0) {
-              b.scale -= (b.scale - 1.0) * 8 * dt;
+              b.scale -= (b.scale - 1.0) * 4.5 * dt;
               if (b.scale < 1.01) b.scale = 1.0;
             }
             if (b.highlight > 0) {
-              b.highlight = Math.max(0, b.highlight - dt * 2.5);
+              b.highlight = Math.max(0, b.highlight - dt * 2.0);
             }
           }
         }
@@ -822,8 +789,8 @@
         // Update Floating Scores
         for (let i = this.floatingScores.length - 1; i >= 0; i--) {
           const fs = this.floatingScores[i];
-          fs.y -= 45 * dt;
-          fs.alpha -= dt * 1.2;
+          fs.y -= 35 * dt;
+          fs.alpha -= dt * 0.9;
           if (fs.alpha <= 0) this.floatingScores.splice(i, 1);
         }
 
@@ -853,7 +820,7 @@
         // 3. Play Container
         this.renderBoardContainer(ctx);
 
-        // 4. Radiant Light Beam & Photons Behind Falling Block
+        // 4. Radiant Light Beam Behind Falling Block
         this.renderRadiantLightBeam(ctx);
 
         // 5. Stacked Blocks & Active Piece
@@ -955,7 +922,7 @@
       renderSubHUD(ctx) {
         const y = this.subHudY;
 
-        // Undo Button (Left)
+        // Undo Button
         const undoX = 36;
         const undoY = y + 18;
         ctx.save();
@@ -972,7 +939,6 @@
         ctx.textBaseline = 'middle';
         ctx.fillText('↶', undoX, undoY - 1);
 
-        // Badge counter
         ctx.beginPath();
         ctx.arc(undoX + 15, undoY - 15, 8, 0, Math.PI * 2);
         ctx.fillStyle = '#FFFFFF';
@@ -982,7 +948,7 @@
         ctx.fillText(this.undoCharges.toString(), undoX + 15, undoY - 15);
         ctx.restore();
 
-        // Upcoming Piece Preview (Right)
+        // Upcoming Piece Preview
         const previewSize = 36;
         const previewX = this.width - 36 - previewSize / 2;
         const previewY = y;
@@ -1013,7 +979,6 @@
         const bw = this.boardW;
         const bh = this.boardH;
 
-        // Container Body
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
         ctx.shadowBlur = 18;
@@ -1026,7 +991,6 @@
         ctx.stroke();
         ctx.restore();
 
-        // Column Dividers
         ctx.save();
         ctx.strokeStyle = THEME.colLine;
         ctx.lineWidth = 1.2;
@@ -1038,7 +1002,6 @@
           ctx.stroke();
         }
 
-        // Top Red Warning Danger Gradient
         const dangerH = this.colWidth * 1.5;
         const dangerGrad = ctx.createLinearGradient(0, by, 0, by + dangerH);
         dangerGrad.addColorStop(0, THEME.dangerTop);
@@ -1051,16 +1014,13 @@
         ctx.restore();
       }
 
-      // RADIANT LIGHT BEAM & PHOTONS (Replacing smoke)
       renderRadiantLightBeam(ctx) {
         if (this.state === 'FALLING' && this.fallingPiece) {
           const p = this.fallingPiece;
           const pal = TILE_PALETTE[p.val] || TILE_PALETTE[2];
-          const beamLen = Math.min(120, p.y - this.boardY + 20);
+          const beamLen = Math.min(130, p.y - this.boardY + 20);
 
           ctx.save();
-
-          // 1. Soft Luminous Background Light Streak
           const glowGrad = ctx.createLinearGradient(0, p.y, 0, p.y - beamLen);
           glowGrad.addColorStop(0, pal.glow + '88');
           glowGrad.addColorStop(0.5, pal.glow + '33');
@@ -1069,7 +1029,6 @@
           ctx.fillStyle = glowGrad;
           ctx.fillRect(p.x - this.tileSize * 0.42, p.y - beamLen, this.tileSize * 0.84, beamLen);
 
-          // 2. Core Bright Energy Line
           const coreGrad = ctx.createLinearGradient(0, p.y, 0, p.y - beamLen * 0.7);
           coreGrad.addColorStop(0, '#FFFFFF');
           coreGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
@@ -1080,11 +1039,9 @@
           ctx.moveTo(p.x, p.y);
           ctx.lineTo(p.x, p.y - beamLen * 0.7);
           ctx.stroke();
-
           ctx.restore();
         }
 
-        // Render Floating Light Photons
         for (const lp of this.lightPhotons) {
           ctx.save();
           ctx.beginPath();
@@ -1098,7 +1055,6 @@
         }
       }
 
-      // BLOCKS RENDERING
       renderBlocks(ctx) {
         const bx = this.boardX;
         const by = this.boardY;
@@ -1126,8 +1082,8 @@
           this.drawTile(ctx, p.x, p.y, ts, p.val, pal, 0.4, 1.0);
         }
 
-        // 3. Piece Above Container (AIMING or GLIDING)
-        if (this.state === 'AIMING' || this.state === 'GLIDING') {
+        // 3. Piece Above Container (AIMING)
+        if (this.state === 'AIMING') {
           const cx = this.currentPieceX;
           const cy = this.spawnY + cs / 2;
           const pal = TILE_PALETTE[this.currentVal] || TILE_PALETTE[2];
@@ -1145,12 +1101,10 @@
         const x0 = -ts / 2;
         const y0 = -ts / 2;
 
-        // Subtle Drop Shadow
         ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
         ctx.shadowBlur = 6;
         ctx.shadowOffsetY = 3;
 
-        // Vibrant Body
         ctx.beginPath();
         ctx.roundRect(x0, y0, ts, ts, 8);
         ctx.fillStyle = pal.bg;
@@ -1158,19 +1112,16 @@
 
         ctx.shadowColor = 'transparent';
 
-        // Top Gloss Curve
         ctx.beginPath();
         ctx.roundRect(x0 + 2, y0 + 2, ts - 4, ts * 0.40, [6, 6, 2, 2]);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.20)';
         ctx.fill();
 
-        // Bottom Edge Bevel
         ctx.beginPath();
         ctx.roundRect(x0, y0 + ts - 4, ts, 4, [0, 0, 8, 8]);
         ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
         ctx.fill();
 
-        // Border / Glow Highlight
         ctx.beginPath();
         ctx.roundRect(x0, y0, ts, ts, 8);
         if (highlight > 0 || pal.isNeon) {
@@ -1182,7 +1133,6 @@
         }
         ctx.stroke();
 
-        // Centered Bold Typography
         const fontSize = val >= 1000 ? Math.floor(ts * 0.32) : Math.floor(ts * 0.46);
         ctx.font = '900 ' + fontSize + 'px Fredoka, sans-serif';
         ctx.fillStyle = pal.text;
@@ -1193,7 +1143,6 @@
         ctx.restore();
       }
 
-      // MERGE SHOCKWAVES & SPARKLES
       renderMergeEffects(ctx) {
         for (const sw of this.shockwaves) {
           ctx.save();
@@ -1232,7 +1181,6 @@
           ctx.restore();
         }
 
-        // Bottom Ad Banner Area
         const bannerH = 50;
         const bannerY = this.height - bannerH - 8;
         const bannerW = Math.min(330, this.width - 24);
