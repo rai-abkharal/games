@@ -1,8 +1,8 @@
 {
   "id": "number-drop",
   "title": "Number Drop",
-  "version": "1.0.0",
-  "description": "Drop and merge falling number blocks across a 5-column grid. Features 3 grid height modes (Easy, Medium, Hard), dynamic top ambient glow matching active piece, 'slide-under' merge absorption animations, spacious top-right diagonal preview, and pure radiant light beam trails.",
+  "version": "1.1.0",
+  "description": "Drop and merge falling number blocks across a 5-column grid. Features 3 grid height modes (Easy, Medium, Hard), dynamic top ambient glow matching active piece, 'slide-under' merge absorption animations, spacious top-right diagonal preview, and pure soft radiant glow trails.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Puzzle",

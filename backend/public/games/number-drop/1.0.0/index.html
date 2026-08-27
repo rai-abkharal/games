@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Number Drop</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -255,7 +258,7 @@
         this.targetCol = 2;
 
         this.fallingPiece = null;
-        this.absorbingBlocks = []; // Animating source blocks sliding UNDER destination block
+        this.absorbingBlocks = [];
         this.shockwaves = [];
         this.sparkles = [];
         this.floatingScores = [];
@@ -265,7 +268,7 @@
         this.undoCharges = 1;
         this.history = [];
 
-        this.state = 'AIMING'; // 'AIMING', 'FALLING', 'MERGING', 'MODE_SELECT', 'GAME_OVER'
+        this.state = 'AIMING';
         this.toast = null;
         this.isPointerDown = false;
         this.validTouchStarted = false;
@@ -445,7 +448,6 @@
 
           // Header Clicks
           if (py >= this.headerY - 4 && py <= this.headerY + 54) {
-            // Mode Select Pill
             const modePillW = 112;
             const modePillX = (this.width / 2) - modePillW - 8;
             if (px >= modePillX && px <= modePillX + modePillW) {
@@ -454,7 +456,6 @@
               return;
             }
 
-            // Restart Button (Right)
             if (px >= this.width - 56 && px <= this.width - 14) {
               this.synth.playTap();
               this.startNewGame();
@@ -480,7 +481,6 @@
             return;
           }
 
-          // ONLY ACCEPT TOUCH IF INSIDE THE BOARD & SPAWN PLAY AREA
           const inPlayZone = (px >= this.boardX - 8 && px <= this.boardX + this.boardW + 8 &&
                               py >= this.spawnY - 20 && py <= this.boardY + this.boardH + 10);
 
@@ -609,7 +609,6 @@
         this.checkAndExecuteMultiMerges(col, landedRow);
       }
 
-      // SLIDE-UNDER-THE-BOX ABSORPTION ANIMATION
       checkAndExecuteMultiMerges(priorityCol = null, priorityRow = null) {
         let bestGroup = null;
 
@@ -623,10 +622,10 @@
           while (queue.length > 0) {
             const { c, r } = queue.shift();
             const neighbors = [
-              { c: c, r: r - 1 }, // Down
-              { c: c - 1, r: r }, // Left
-              { c: c + 1, r: r }, // Right
-              { c: c, r: r + 1 }  // Up
+              { c: c, r: r - 1 },
+              { c: c - 1, r: r },
+              { c: c + 1, r: r },
+              { c: c, r: r + 1 }
             ];
 
             for (const n of neighbors) {
@@ -670,13 +669,11 @@
           const count = group.length;
 
           const newVal = startVal * Math.pow(2, count - 1);
-
           const targetBlock = this.columns[center.c][center.r];
 
           const targetX = this.boardX + center.c * this.colWidth + this.colWidth / 2;
           const targetY = this.boardY + (this.maxRows - 1 - center.r) * this.colWidth + this.colWidth / 2;
 
-          // Queue source blocks to slide underneath the target block
           const toRemove = group.filter(pt => !(pt.c === center.c && pt.r === center.r));
           toRemove.sort((a, b) => b.r - a.r);
 
@@ -698,7 +695,6 @@
             this.columns[pt.c].splice(pt.r, 1);
           }
 
-          // After sliding under, pop destination block with shockwave
           setTimeout(() => {
             targetBlock.val = newVal;
             targetBlock.scale = 1.48;
@@ -706,7 +702,6 @@
             this.triggerMergeEffects(center.c, center.r, newVal);
           }, 320);
 
-          // Graceful slow delay for cascade progression
           setTimeout(() => {
             this.checkAndExecuteMultiMerges(center.c, center.r);
           }, 540);
@@ -805,12 +800,11 @@
           }
         }
 
-        // Animate Absorbing Blocks sliding under destination block
         for (let i = this.absorbingBlocks.length - 1; i >= 0; i--) {
           const ab = this.absorbingBlocks[i];
           ab.progress += dt / ab.duration;
           const t = Math.min(1.0, ab.progress);
-          const ease = t * t * (3 - 2 * t); // smooth smoothstep
+          const ease = t * t * (3 - 2 * t);
 
           ab.currX = ab.x + (ab.targetX - ab.x) * ease;
           ab.currY = ab.y + (ab.targetY - ab.y) * ease;
@@ -866,7 +860,6 @@
         requestAnimationFrame((t) => this.loop(t));
       }
 
-      // --- RENDERING PIPELINE ---
       render() {
         const ctx = this.ctx;
         ctx.save();
@@ -985,7 +978,6 @@
         ctx.restore();
       }
 
-      // DYNAMIC TOP GLOW MATCHING ACTIVE CENTER PIECE COLOR
       renderBoardContainer(ctx) {
         const bx = this.boardX;
         const by = this.boardY;
@@ -1015,7 +1007,7 @@
           ctx.stroke();
         }
 
-        // Dynamic downward glow matching the active piece's color!
+        // Dynamic downward glow matching current piece color
         const activePal = TILE_PALETTE[this.currentVal] || TILE_PALETTE[2];
         const dangerH = this.colWidth * 1.5;
         const dangerGrad = ctx.createLinearGradient(0, by, 0, by + dangerH);
@@ -1029,32 +1021,22 @@
         ctx.restore();
       }
 
-      // PURE RADIANT LIGHT BEAM (Zero particle specks)
+      // PURE SEAMLESS SOFT LIGHT BEAM (Zero lines, Zero particles)
       renderRadiantLightBeam(ctx) {
         if (this.state === 'FALLING' && this.fallingPiece) {
           const p = this.fallingPiece;
           const pal = TILE_PALETTE[p.val] || TILE_PALETTE[2];
-          const beamLen = Math.min(140, p.y - this.boardY + 20);
+          const beamLen = Math.min(130, p.y - this.boardY + 20);
 
           ctx.save();
+          // Soft seamless luminous light gradient
           const glowGrad = ctx.createLinearGradient(0, p.y, 0, p.y - beamLen);
           glowGrad.addColorStop(0, pal.glow + '99');
-          glowGrad.addColorStop(0.5, pal.glow + '35');
+          glowGrad.addColorStop(0.4, pal.glow + '44');
           glowGrad.addColorStop(1, pal.glow + '00');
 
           ctx.fillStyle = glowGrad;
           ctx.fillRect(p.x - this.tileSize * 0.42, p.y - beamLen, this.tileSize * 0.84, beamLen);
-
-          const coreGrad = ctx.createLinearGradient(0, p.y, 0, p.y - beamLen * 0.75);
-          coreGrad.addColorStop(0, '#FFFFFF');
-          coreGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-          ctx.strokeStyle = coreGrad;
-          ctx.lineWidth = 3.2;
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x, p.y - beamLen * 0.75);
-          ctx.stroke();
           ctx.restore();
         }
       }
@@ -1100,7 +1082,6 @@
         const centerSpawnY = this.spawnY + cs / 2;
         const nextPal = TILE_PALETTE[this.nextVal] || TILE_PALETTE[2];
 
-        // Spacious gap separating center block from diagonal preview
         const diagNextX = centerSpawnX + cs * 1.08;
         const diagNextY = centerSpawnY - cs * 0.32;
 
