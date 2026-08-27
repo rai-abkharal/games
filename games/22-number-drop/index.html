@@ -48,7 +48,7 @@
   <script>
     'use strict';
 
-    // 1. ENHANCED VIBRANT TILE PALETTE
+    // 1. TILE PALETTE CONFIGURATION
     const TILE_PALETTE = {
       2:    { bg: '#FF4359', topBg: '#FF6B7D', text: '#FFFFFF', border: '#E02D43', glow: '#FF4359' },
       4:    { bg: '#A855F7', topBg: '#C084FC', text: '#FFFFFF', border: '#9333EA', glow: '#A855F7' },
@@ -65,13 +65,17 @@
       8192: { bg: '#F43F5E', topBg: '#FB7185', text: '#FFFFFF', border: '#FFFFFF', glow: '#F43F5E', isNeon: true }
     };
 
+    const MODES = [
+      { id: 'easy', label: 'EASY MODE', rows: 9, subtitle: '9×5 Tall Grid • Relaxed & Strategic' },
+      { id: 'medium', label: 'MEDIUM MODE', rows: 8, subtitle: '8×5 Grid • Balanced Flow' },
+      { id: 'hard', label: 'HARD MODE', rows: 7, subtitle: '7×5 Compact Grid • Tight & Intense' }
+    ];
+
     const THEME = {
       bg: '#333C4A',
       boardBg: '#18202A',
       boardBorder: '#0F151C',
       colLine: 'rgba(255, 255, 255, 0.05)',
-      dangerTop: 'rgba(239, 68, 68, 0.28)',
-      dangerBottom: 'rgba(239, 68, 68, 0.0)',
       pillBg: '#131B24',
       pillBorder: '#222E3C',
       textMain: '#FFFFFF',
@@ -238,7 +242,9 @@
         this.synth = new SoundSynth();
 
         this.cols = 5;
-        this.maxRows = 8;
+        this.modeId = 'easy';
+        this.mode = MODES.find(m => m.id === this.modeId) || MODES[0];
+        this.maxRows = this.mode.rows;
 
         this.columns = [[], [], [], [], []];
 
@@ -249,7 +255,7 @@
         this.targetCol = 2;
 
         this.fallingPiece = null;
-        this.lightPhotons = [];
+        this.absorbingBlocks = []; // Animating source blocks sliding UNDER destination block
         this.shockwaves = [];
         this.sparkles = [];
         this.floatingScores = [];
@@ -259,7 +265,7 @@
         this.undoCharges = 1;
         this.history = [];
 
-        this.state = 'AIMING'; // 'AIMING', 'FALLING', 'MERGING', 'GAME_OVER'
+        this.state = 'AIMING'; // 'AIMING', 'FALLING', 'MERGING', 'MODE_SELECT', 'GAME_OVER'
         this.toast = null;
         this.isPointerDown = false;
         this.validTouchStarted = false;
@@ -287,24 +293,28 @@
       }
 
       startNewGame() {
+        this.mode = MODES.find(m => m.id === this.modeId) || MODES[0];
+        this.maxRows = this.mode.rows;
         this.columns = [[], [], [], [], []];
         this.score = 0;
         this.undoCharges = 1;
         this.history = [];
         this.fallingPiece = null;
-        this.lightPhotons = [];
+        this.absorbingBlocks = [];
         this.shockwaves = [];
         this.sparkles = [];
         this.floatingScores = [];
         this.state = 'AIMING';
         this.validTouchStarted = false;
 
+        this.initLayout();
+
         this.currentVal = this.generateWeightedValue();
         this.nextVal = this.generateWeightedValue();
 
         this.resetPieceToCenter();
         this.saveHistoryState();
-        Host.post('onGameStarted', { mode: 'easy' });
+        Host.post('onGameStarted', { mode: this.modeId });
       }
 
       resetPieceToCenter() {
@@ -389,13 +399,11 @@
         this.canvas.width = Math.round(this.width * dpr);
         this.canvas.height = Math.round(this.height * dpr);
 
-        // Generous top and bottom margins so boxes are compact, comfortable and not oversized
-        const topPadding = 105;
-        const bottomPadding = 65;
-        const availableH = this.height - topPadding - bottomPadding - 65;
-        const availableW = this.width - 40;
+        const topPadding = 100;
+        const bottomPadding = 60;
+        const availableH = this.height - topPadding - bottomPadding - 60;
+        const availableW = this.width - 36;
 
-        // Cap cell size at 54px for compact, balanced appearance
         this.colWidth = Math.floor(Math.min(availableW / this.cols, availableH / this.maxRows, 54));
         this.tileSize = this.colWidth - 4;
         this.boardW = this.cols * this.colWidth;
@@ -405,7 +413,7 @@
         this.boardY = Math.round(topPadding + (availableH - this.boardH) / 2 + 35);
 
         this.headerY = 16;
-        this.subHudY = this.boardY - 50;
+        this.subHudY = this.boardY - 48;
         this.spawnY = this.boardY - this.colWidth - 8;
       }
 
@@ -430,8 +438,23 @@
           }
           const { px, py } = getPos(e);
 
-          // Header Restart Click
+          if (this.state === 'MODE_SELECT') {
+            this.handleModeModalClick(px, py);
+            return;
+          }
+
+          // Header Clicks
           if (py >= this.headerY - 4 && py <= this.headerY + 54) {
+            // Mode Select Pill
+            const modePillW = 112;
+            const modePillX = (this.width / 2) - modePillW - 8;
+            if (px >= modePillX && px <= modePillX + modePillW) {
+              this.synth.playTap();
+              this.state = 'MODE_SELECT';
+              return;
+            }
+
+            // Restart Button (Right)
             if (px >= this.width - 56 && px <= this.width - 14) {
               this.synth.playTap();
               this.startNewGame();
@@ -491,6 +514,37 @@
         window.addEventListener('pointermove', handleMove);
         window.addEventListener('pointerup', handleUp);
         window.addEventListener('pointercancel', handleUp);
+      }
+
+      handleModeModalClick(px, py) {
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 340;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        if (px >= cardX + cardW - 44 && px <= cardX + cardW - 10 && py >= cardY + 10 && py <= cardY + 44) {
+          this.synth.playTap();
+          this.state = 'AIMING';
+          return;
+        }
+
+        const optH = 70;
+        const startY = cardY + 70;
+
+        for (let i = 0; i < MODES.length; i++) {
+          const m = MODES[i];
+          const optY = startY + i * (optH + 12);
+          if (px >= cardX + 16 && px <= cardX + cardW - 16 && py >= optY && py <= optY + optH) {
+            this.synth.playTap();
+            this.modeId = m.id;
+            this.startNewGame();
+            return;
+          }
+        }
+
+        if (px < cardX || px > cardX + cardW || py < cardY || py > cardY + cardH) {
+          this.state = 'AIMING';
+        }
       }
 
       trackFingerPosition(px) {
@@ -555,6 +609,7 @@
         this.checkAndExecuteMultiMerges(col, landedRow);
       }
 
+      // SLIDE-UNDER-THE-BOX ABSORPTION ANIMATION
       checkAndExecuteMultiMerges(priorityCol = null, priorityRow = null) {
         let bestGroup = null;
 
@@ -617,22 +672,44 @@
           const newVal = startVal * Math.pow(2, count - 1);
 
           const targetBlock = this.columns[center.c][center.r];
-          targetBlock.val = newVal;
-          targetBlock.scale = 1.48;
-          targetBlock.highlight = 1.0;
 
+          const targetX = this.boardX + center.c * this.colWidth + this.colWidth / 2;
+          const targetY = this.boardY + (this.maxRows - 1 - center.r) * this.colWidth + this.colWidth / 2;
+
+          // Queue source blocks to slide underneath the target block
           const toRemove = group.filter(pt => !(pt.c === center.c && pt.r === center.r));
           toRemove.sort((a, b) => b.r - a.r);
 
           for (const pt of toRemove) {
+            const startX = this.boardX + pt.c * this.colWidth + this.colWidth / 2;
+            const startY = this.boardY + (this.maxRows - 1 - pt.r) * this.colWidth + this.colWidth / 2;
+            const val = this.columns[pt.c][pt.r].val;
+
+            this.absorbingBlocks.push({
+              val: val,
+              x: startX,
+              y: startY,
+              targetX: targetX,
+              targetY: targetY,
+              progress: 0,
+              duration: 0.32
+            });
+
             this.columns[pt.c].splice(pt.r, 1);
           }
 
-          this.triggerMergeEffects(center.c, center.r, newVal);
+          // After sliding under, pop destination block with shockwave
+          setTimeout(() => {
+            targetBlock.val = newVal;
+            targetBlock.scale = 1.48;
+            targetBlock.highlight = 1.0;
+            this.triggerMergeEffects(center.c, center.r, newVal);
+          }, 320);
 
+          // Graceful slow delay for cascade progression
           setTimeout(() => {
             this.checkAndExecuteMultiMerges(center.c, center.r);
-          }, 450);
+          }, 540);
         } else {
           this.finalizeTurn();
         }
@@ -722,32 +799,27 @@
           p.vy += 1050 * dt;
           p.y += p.vy * dt;
 
-          const pal = TILE_PALETTE[p.val] || TILE_PALETTE[2];
-
-          for (let i = 0; i < 2; i++) {
-            this.lightPhotons.push({
-              x: p.x + (Math.random() - 0.5) * (this.tileSize * 0.45),
-              y: p.y - this.tileSize * 0.35 + (Math.random() - 0.5) * 4,
-              vy: -35 - Math.random() * 35,
-              size: 2.5 + Math.random() * 2.5,
-              color: '#FFFFFF',
-              glowColor: pal.glow,
-              alpha: 0.85,
-              life: 0.30
-            });
-          }
-
           if (p.y >= p.targetY) {
             p.y = p.targetY;
             this.resolveLanding();
           }
         }
 
-        for (let i = this.lightPhotons.length - 1; i >= 0; i--) {
-          const lp = this.lightPhotons[i];
-          lp.y += lp.vy * dt;
-          lp.alpha -= dt * 2.8;
-          if (lp.alpha <= 0) this.lightPhotons.splice(i, 1);
+        // Animate Absorbing Blocks sliding under destination block
+        for (let i = this.absorbingBlocks.length - 1; i >= 0; i--) {
+          const ab = this.absorbingBlocks[i];
+          ab.progress += dt / ab.duration;
+          const t = Math.min(1.0, ab.progress);
+          const ease = t * t * (3 - 2 * t); // smooth smoothstep
+
+          ab.currX = ab.x + (ab.targetX - ab.x) * ease;
+          ab.currY = ab.y + (ab.targetY - ab.y) * ease;
+          ab.scale = 1.0 - 0.70 * ease;
+          ab.alpha = 1.0 - 0.85 * ease;
+
+          if (ab.progress >= 1.0) {
+            this.absorbingBlocks.splice(i, 1);
+          }
         }
 
         for (let i = this.shockwaves.length - 1; i >= 0; i--) {
@@ -794,6 +866,7 @@
         requestAnimationFrame((t) => this.loop(t));
       }
 
+      // --- RENDERING PIPELINE ---
       render() {
         const ctx = this.ctx;
         ctx.save();
@@ -811,6 +884,7 @@
         this.renderOverlays(ctx);
 
         if (this.toast) this.renderToast(ctx);
+        if (this.state === 'MODE_SELECT') this.renderModeDialog(ctx);
         if (this.state === 'GAME_OVER') this.renderGameOverModal(ctx);
 
         ctx.restore();
@@ -834,7 +908,7 @@
         ctx.font = '800 10.5px Fredoka, sans-serif';
         ctx.fillStyle = THEME.textMuted;
         ctx.textAlign = 'center';
-        ctx.fillText('EASY MODE', modePillX + modePillW / 2, y + 14);
+        ctx.fillText(this.mode.label, modePillX + modePillW / 2, y + 14);
 
         ctx.font = '900 16px Fredoka, sans-serif';
         ctx.fillStyle = '#FFFFFF';
@@ -911,6 +985,7 @@
         ctx.restore();
       }
 
+      // DYNAMIC TOP GLOW MATCHING ACTIVE CENTER PIECE COLOR
       renderBoardContainer(ctx) {
         const bx = this.boardX;
         const by = this.boardY;
@@ -940,10 +1015,12 @@
           ctx.stroke();
         }
 
+        // Dynamic downward glow matching the active piece's color!
+        const activePal = TILE_PALETTE[this.currentVal] || TILE_PALETTE[2];
         const dangerH = this.colWidth * 1.5;
         const dangerGrad = ctx.createLinearGradient(0, by, 0, by + dangerH);
-        dangerGrad.addColorStop(0, THEME.dangerTop);
-        dangerGrad.addColorStop(1, THEME.dangerBottom);
+        dangerGrad.addColorStop(0, activePal.glow + '44');
+        dangerGrad.addColorStop(1, activePal.glow + '00');
         ctx.fillStyle = dangerGrad;
         ctx.beginPath();
         ctx.roundRect(bx + 2, by + 2, bw - 4, dangerH, [12, 12, 0, 0]);
@@ -952,43 +1029,32 @@
         ctx.restore();
       }
 
+      // PURE RADIANT LIGHT BEAM (Zero particle specks)
       renderRadiantLightBeam(ctx) {
         if (this.state === 'FALLING' && this.fallingPiece) {
           const p = this.fallingPiece;
           const pal = TILE_PALETTE[p.val] || TILE_PALETTE[2];
-          const beamLen = Math.min(130, p.y - this.boardY + 20);
+          const beamLen = Math.min(140, p.y - this.boardY + 20);
 
           ctx.save();
           const glowGrad = ctx.createLinearGradient(0, p.y, 0, p.y - beamLen);
-          glowGrad.addColorStop(0, pal.glow + '88');
-          glowGrad.addColorStop(0.5, pal.glow + '33');
+          glowGrad.addColorStop(0, pal.glow + '99');
+          glowGrad.addColorStop(0.5, pal.glow + '35');
           glowGrad.addColorStop(1, pal.glow + '00');
 
           ctx.fillStyle = glowGrad;
           ctx.fillRect(p.x - this.tileSize * 0.42, p.y - beamLen, this.tileSize * 0.84, beamLen);
 
-          const coreGrad = ctx.createLinearGradient(0, p.y, 0, p.y - beamLen * 0.7);
+          const coreGrad = ctx.createLinearGradient(0, p.y, 0, p.y - beamLen * 0.75);
           coreGrad.addColorStop(0, '#FFFFFF');
           coreGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
 
           ctx.strokeStyle = coreGrad;
-          ctx.lineWidth = 3.0;
+          ctx.lineWidth = 3.2;
           ctx.beginPath();
           ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x, p.y - beamLen * 0.7);
+          ctx.lineTo(p.x, p.y - beamLen * 0.75);
           ctx.stroke();
-          ctx.restore();
-        }
-
-        for (const lp of this.lightPhotons) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(lp.x, lp.y, lp.size, 0, Math.PI * 2);
-          ctx.fillStyle = lp.color;
-          ctx.globalAlpha = lp.alpha;
-          ctx.shadowColor = lp.glowColor;
-          ctx.shadowBlur = 8;
-          ctx.fill();
           ctx.restore();
         }
       }
@@ -999,7 +1065,16 @@
         const cs = this.colWidth;
         const ts = this.tileSize;
 
-        // 1. Settled Stacked Blocks
+        // 1. ABSORBING SOURCE BLOCKS (Rendered UNDER the destination block)
+        for (const ab of this.absorbingBlocks) {
+          const pal = TILE_PALETTE[ab.val] || TILE_PALETTE[2];
+          ctx.save();
+          ctx.globalAlpha = ab.alpha;
+          this.drawTile(ctx, ab.currX, ab.currY, ts, ab.val, pal, 0.0, ab.scale);
+          ctx.restore();
+        }
+
+        // 2. Settled Stacked Blocks
         for (let c = 0; c < this.cols; c++) {
           const col = this.columns[c];
           for (let r = 0; r < col.length; r++) {
@@ -1013,28 +1088,28 @@
           }
         }
 
-        // 2. Active Falling Block
+        // 3. Active Falling Block
         if (this.state === 'FALLING' && this.fallingPiece) {
           const p = this.fallingPiece;
           const pal = TILE_PALETTE[p.val] || TILE_PALETTE[2];
           this.drawTile(ctx, p.x, p.y, ts, p.val, pal, 0.4, 1.0);
         }
 
-        // 3. NEXT UPCOMING BLOCK (Positioned to the TOP-RIGHT side of the center active piece, clearly visible)
+        // 4. NEXT UPCOMING BLOCK (Positioned to TOP-RIGHT with spacious gap)
         const centerSpawnX = bx + 2 * cs + cs / 2;
         const centerSpawnY = this.spawnY + cs / 2;
         const nextPal = TILE_PALETTE[this.nextVal] || TILE_PALETTE[2];
 
-        // Placed clearly to the top-right side so it is NOT hidden by the active piece
-        const diagNextX = centerSpawnX + cs * 0.85;
-        const diagNextY = centerSpawnY - cs * 0.28;
+        // Spacious gap separating center block from diagonal preview
+        const diagNextX = centerSpawnX + cs * 1.08;
+        const diagNextY = centerSpawnY - cs * 0.32;
 
         ctx.save();
         ctx.globalAlpha = 0.95;
         this.drawTile(ctx, diagNextX, diagNextY, ts, this.nextVal, nextPal, 0.0, 0.78);
         ctx.restore();
 
-        // 4. CURRENT ACTIVE PIECE (Center Spawn Area)
+        // 5. CURRENT ACTIVE PIECE (Center Spawn Area)
         if (this.state === 'AIMING') {
           const cx = this.currentPieceX;
           const cy = centerSpawnY;
@@ -1157,6 +1232,70 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(t.text, tx + tw / 2, ty + 18);
+        ctx.restore();
+      }
+
+      renderModeDialog(ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 340;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        ctx.shadowBlur = 32;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.fillStyle = '#1A2936';
+        ctx.fill();
+        ctx.strokeStyle = '#2D4457';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.font = '900 18px Fredoka, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.fillText('SELECT GRID MODE', this.width / 2, cardY + 38);
+
+        ctx.font = '800 18px sans-serif';
+        ctx.fillStyle = '#94A3B8';
+        ctx.fillText('✕', cardX + cardW - 26, cardY + 38);
+
+        const optH = 70;
+        const startY = cardY + 70;
+
+        for (let i = 0; i < MODES.length; i++) {
+          const m = MODES[i];
+          const optY = startY + i * (optH + 12);
+          const isSelected = (this.modeId === m.id);
+
+          ctx.beginPath();
+          ctx.roundRect(cardX + 16, optY, cardW - 32, optH, 16);
+          ctx.fillStyle = isSelected ? '#121D27' : '#1F3140';
+          ctx.fill();
+          ctx.strokeStyle = isSelected ? '#38BDF8' : '#2D4457';
+          ctx.lineWidth = isSelected ? 2.0 : 1.2;
+          ctx.stroke();
+
+          ctx.font = '900 15px Fredoka, sans-serif';
+          ctx.fillStyle = isSelected ? '#38BDF8' : '#FFFFFF';
+          ctx.textAlign = 'left';
+          ctx.fillText(m.label, cardX + 32, optY + 26);
+
+          ctx.font = '600 12px Inter, sans-serif';
+          ctx.fillStyle = '#94A3B8';
+          ctx.fillText(m.subtitle, cardX + 32, optY + 48);
+
+          if (isSelected) {
+            ctx.font = '900 16px sans-serif';
+            ctx.fillStyle = '#38BDF8';
+            ctx.textAlign = 'right';
+            ctx.fillText('✓', cardX + cardW - 32, optY + optH / 2);
+          }
+        }
         ctx.restore();
       }
 
