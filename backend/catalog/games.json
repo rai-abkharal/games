@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "updatedAt": "2026-08-25T12:54:51.911Z",
   "games": [
     {
@@ -545,6 +545,28 @@
         "sound": true,
         "vibration": true,
         "undo": true
+      },
+      "status": "published"
+    },
+    {
+      "id": "word-travel",
+      "title": "Word Travel",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/word-travel/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/word-travel.webp",
+      "sizeBytes": 29800,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/word-travel/1.0.0/manifest.json",
+      "feedOrder": 25,
+      "category": "Word Puzzle",
+      "description": "Continuous travel-themed word search puzzle journey. Swipe through adjacent letters in 8 directions to discover themed words, earn wisdom, unlock countries, and collect rewards.",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hints": true,
+        "powerups": true
       },
       "status": "published"
     }
