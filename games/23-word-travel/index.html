@@ -376,11 +376,9 @@
       }
     };
 
-    // 5. WORD SEARCH GRID GENERATOR (8 DIRECTIONS)
+    // 5. INSTANT GUARANTEED WORD SEARCH GRID GENERATOR (<1ms)
     class GridGenerator {
       static generate(words, size) {
-        const grid = Array(size).fill(null).map(() => Array(size).fill(''));
-        const placements = [];
         const directions = [
           { dr: 0, dc: 1 },   // Right
           { dr: 0, dc: -1 },  // Left
@@ -392,60 +390,74 @@
           { dr: -1, dc: 1 }   // Up-Right
         ];
 
-        // Sort longest words first for best fit
         const sortedWords = [...words].sort((a, b) => b.length - a.length);
 
-        for (const word of sortedWords) {
-          let placed = false;
-          let attempts = 0;
+        for (let restart = 0; restart < 20; restart++) {
+          const grid = Array(size).fill(null).map(() => Array(size).fill(''));
+          const placements = [];
+          let allPlaced = true;
 
-          while (!placed && attempts < 250) {
-            attempts++;
-            const dir = directions[Math.floor(Math.random() * directions.length)];
-            const r = Math.floor(Math.random() * size);
-            const c = Math.floor(Math.random() * size);
+          for (const word of sortedWords) {
+            let placed = false;
 
-            const endR = r + dir.dr * (word.length - 1);
-            const endC = c + dir.dc * (word.length - 1);
+            // Generate all possible valid slot positions
+            const slots = [];
+            for (let r = 0; r < size; r++) {
+              for (let c = 0; c < size; c++) {
+                for (const dir of directions) {
+                  const endR = r + dir.dr * (word.length - 1);
+                  const endC = c + dir.dc * (word.length - 1);
+                  if (endR >= 0 && endR < size && endC >= 0 && endC < size) {
+                    let canFit = true;
+                    for (let i = 0; i < word.length; i++) {
+                      const checkR = r + dir.dr * i;
+                      const checkC = c + dir.dc * i;
+                      const existing = grid[checkR][checkC];
+                      if (existing !== '' && existing !== word[i]) {
+                        canFit = false;
+                        break;
+                      }
+                    }
+                    if (canFit) slots.push({ r, c, dir });
+                  }
+                }
+              }
+            }
 
-            if (endR >= 0 && endR < size && endC >= 0 && endC < size) {
-              let canPlace = true;
+            if (slots.length > 0) {
+              const choice = slots[Math.floor(Math.random() * slots.length)];
+              const coords = [];
               for (let i = 0; i < word.length; i++) {
-                const checkR = r + dir.dr * i;
-                const checkC = c + dir.dc * i;
-                const existing = grid[checkR][checkC];
-                if (existing !== '' && existing !== word[i]) {
-                  canPlace = false;
-                  break;
-                }
+                const placeR = choice.r + choice.dir.dr * i;
+                const placeC = choice.c + choice.dir.dc * i;
+                grid[placeR][placeC] = word[i];
+                coords.push({ r: placeR, c: placeC });
               }
+              placements.push({ word, coords });
+              placed = true;
+            } else {
+              allPlaced = false;
+              break;
+            }
+          }
 
-              if (canPlace) {
-                const coords = [];
-                for (let i = 0; i < word.length; i++) {
-                  const placeR = r + dir.dr * i;
-                  const placeC = c + dir.dc * i;
-                  grid[placeR][placeC] = word[i];
-                  coords.push({ r: placeR, c: placeC });
+          if (allPlaced) {
+            // Fill empty cells
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            for (let r = 0; r < size; r++) {
+              for (let c = 0; c < size; c++) {
+                if (grid[r][c] === '') {
+                  grid[r][c] = alphabet[Math.floor(Math.random() * alphabet.length)];
                 }
-                placements.push({ word, coords });
-                placed = true;
               }
             }
+            return { grid, placements };
           }
         }
 
-        // Fill empty cells with random letters
-        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        for (let r = 0; r < size; r++) {
-          for (let c = 0; c < size; c++) {
-            if (grid[r][c] === '') {
-              grid[r][c] = alphabet[Math.floor(Math.random() * alphabet.length)];
-            }
-          }
-        }
-
-        return { grid, placements };
+        // Fallback expand grid if needed
+        const newSize = size + 1;
+        return this.generate(words, newSize);
       }
     }
 
@@ -461,7 +473,7 @@
         this.wisdom = this.loadWisdom();
         this.hints = 2;
 
-        this.state = 'PLAYING'; // 'PLAYING', 'LEVEL_COMPLETE', 'COUNTRY_COMPLETE'
+        this.state = 'PLAYING';
         this.toast = null;
 
         this.activePath = [];
@@ -469,10 +481,12 @@
         this.startCell = null;
         this.currentDragPos = null;
 
-        this.foundWords = []; // array of { word, coords, colorIndex }
+        this.foundWords = [];
         this.hintHighlight = null;
         this.lightningFlash = 0;
         this.confetti = [];
+
+        this.modalBtnRect = null;
 
         this.initLayout();
         this.bindEvents();
@@ -542,7 +556,6 @@
           total += dest.levels.length;
         }
 
-        // Procedural loop beyond initial destinations
         const loopIdx = idx % DESTINATIONS.length;
         const dest = DESTINATIONS[loopIdx];
         const lvlIdx = idx % dest.levels.length;
@@ -595,15 +608,13 @@
 
         this.headerY = 16;
 
-        // Target Words Box (Orange Header + White Content)
-        this.themeBoxY = 64;
+        this.themeBoxY = 56;
         this.themeBoxW = Math.min(340, this.width - 24);
         this.themeBoxX = (this.width - this.themeBoxW) / 2;
         this.themeHeaderH = 26;
         this.themeContentH = 50;
         this.themeBoxH = this.themeHeaderH + this.themeContentH;
 
-        // Letter Grid Card
         const gridTop = this.themeBoxY + this.themeBoxH + 12;
         const availableGridW = this.width - 28;
         const availableGridH = this.height - gridTop - 80;
@@ -622,7 +633,6 @@
         this.gridX = this.cardX + this.cardPadding;
         this.gridY = this.cardY + this.cardPadding;
 
-        // Bottom Powerup Buttons (Lower Right)
         this.btnY = this.height - 58;
       }
 
@@ -644,12 +654,19 @@
           }
           const { px, py } = getPos(e);
 
-          // Modal Button Clicks
+          // Instant Responsive Modal Button Click (Next Level / Collect)
           if (this.state === 'LEVEL_COMPLETE' || this.state === 'COUNTRY_COMPLETE') {
-            const btnW = 200, btnH = 50;
-            const btnX = (this.width - btnW) / 2;
-            const btnY = this.height * 0.72;
-            if (px >= btnX && px <= btnX + btnW && py >= btnY && py <= btnY + btnH) {
+            let clickedButton = false;
+            if (this.modalBtnRect) {
+              const r = this.modalBtnRect;
+              if (px >= r.x - 20 && px <= r.x + r.w + 20 && py >= r.y - 15 && py <= r.y + r.h + 25) {
+                clickedButton = true;
+              }
+            } else {
+              clickedButton = true;
+            }
+
+            if (clickedButton) {
               this.synth.playTap();
               if (this.state === 'COUNTRY_COMPLETE') {
                 this.coins += 25;
@@ -662,21 +679,18 @@
 
           // Bottom Powerup Buttons Click
           if (py >= this.btnY - 26 && py <= this.btnY + 26) {
-            // Lightning (⚡ 200)
             const lightningX = this.width / 2 + 10;
             if (px >= lightningX - 22 && px <= lightningX + 22) {
               this.useLightningPowerup();
               return;
             }
 
-            // Lightbulb Hint (💡)
             const hintX = this.width / 2 + 62;
             if (px >= hintX - 22 && px <= hintX + 22) {
               this.useHint();
               return;
             }
 
-            // Shuffle/Refresh (🔄)
             const refreshX = this.width / 2 + 114;
             if (px >= refreshX - 22 && px <= refreshX + 22) {
               this.synth.playTap();
@@ -706,11 +720,9 @@
           const cell = this.getCellFromPos(px, py);
           if (!cell || !this.startCell) return;
 
-          // Check line constraint from startCell to current cell
           const dr = cell.r - this.startCell.r;
           const dc = cell.c - this.startCell.c;
 
-          // Determine strict 8-way step direction
           const absR = Math.abs(dr);
           const absC = Math.abs(dc);
 
@@ -721,21 +733,20 @@
 
           let stepR = 0, stepC = 0, length = 0;
 
-          if (absR === 0) { // Horizontal
+          if (absR === 0) {
             stepC = Math.sign(dc);
             length = absC;
-          } else if (absC === 0) { // Vertical
+          } else if (absC === 0) {
             stepR = Math.sign(dr);
             length = absR;
-          } else if (absR === absC) { // Diagonal
+          } else if (absR === absC) {
             stepR = Math.sign(dr);
             stepC = Math.sign(dc);
             length = absR;
           } else {
-            return; // Not on strict 8-way ray
+            return;
           }
 
-          // Build continuous path
           const newPath = [];
           for (let i = 0; i <= length; i++) {
             newPath.push({
@@ -808,7 +819,6 @@
 
           Host.post('onWordFound', { word: matchWord });
 
-          // Check level complete
           if (this.foundWords.length === this.targetWords.length) {
             this.handleLevelWin();
           }
@@ -817,7 +827,6 @@
 
       useHint() {
         if (this.state !== 'PLAYING') return;
-        // Find remaining unsolved word
         const unsolved = this.placements.find(p => !this.foundWords.some(fw => fw.word === p.word));
         if (!unsolved) return;
 
@@ -862,7 +871,6 @@
         this.wisdom += 15;
         this.saveWisdom();
 
-        // Spawn Confetti
         for (let i = 0; i < 40; i++) {
           this.confetti.push({
             x: this.width / 2,
@@ -907,12 +915,11 @@
           if (this.hintHighlight.t <= 0) this.hintHighlight = null;
         }
 
-        // Update Confetti
         for (let i = this.confetti.length - 1; i >= 0; i--) {
           const c = this.confetti[i];
           c.x += c.vx * dt;
           c.y += c.vy * dt;
-          c.vy += 320 * dt; // gravity
+          c.vy += 320 * dt;
           c.rot += c.vrot * dt;
           c.alpha -= dt * 0.45;
           if (c.alpha <= 0) this.confetti.splice(i, 1);
@@ -933,30 +940,18 @@
         ctx.save();
         ctx.scale(this.dpr, this.dpr);
 
-        // 1. Scenic Travel Atmosphere Background
         this.renderScenicBackground(ctx);
-
-        // 2. Top Header HUD
         this.renderHeader(ctx);
-
-        // 3. Theme & Target Words Strip
         this.renderThemeAndTargetWords(ctx);
-
-        // 4. White Letter Grid Card & Words
         this.renderGridCard(ctx);
-
-        // 5. Bottom Powerup Controls
         this.renderBottomControls(ctx);
 
-        // 6. Tutorial Overlay on Level 1
         if (this.levelIndex === 0 && this.foundWords.length === 0 && this.state === 'PLAYING') {
           this.renderTutorialOverlay(ctx);
         }
 
-        // 7. Confetti Particles
         this.renderConfetti(ctx);
 
-        // 8. Lightning Flash Overlay
         if (this.lightningFlash > 0) {
           ctx.fillStyle = 'rgba(255, 255, 255, ' + (this.lightningFlash * 0.7) + ')';
           ctx.fillRect(0, 0, this.width, this.height);
@@ -980,7 +975,6 @@
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // Subtle decorative island palm / mountain silhouettes in background
         ctx.save();
         ctx.fillStyle = 'rgba(255, 255, 255, 0.10)';
         ctx.beginPath();
@@ -1001,18 +995,14 @@
       renderHeader(ctx) {
         const y = this.headerY;
 
-        // Level Number & Solved Percentage (Center)
+        // Level Number (Clean Centered Header)
         ctx.save();
-        ctx.font = '900 18px Fredoka, sans-serif';
+        ctx.font = '900 20px Fredoka, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.shadowColor = 'rgba(0,0,0,0.35)';
         ctx.shadowBlur = 6;
-        ctx.fillText('Level ' + (this.levelIndex + 1), this.width / 2, y + 16);
-
-        ctx.font = '700 10px Inter, sans-serif';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-        ctx.fillText('Solved by 82.4% players', this.width / 2, y + 30);
+        ctx.fillText('Level ' + (this.levelIndex + 1), this.width / 2, y + 20);
         ctx.restore();
 
         // Coins Pill (Right)
@@ -1044,12 +1034,10 @@
         const hh = this.themeHeaderH;
         const ch = this.themeContentH;
 
-        // Outer Container Shadow
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
         ctx.shadowBlur = 12;
 
-        // Orange Theme Header
         ctx.beginPath();
         ctx.roundRect(bx, by, bw, hh, [10, 10, 0, 0]);
         ctx.fillStyle = this.destination.accentColor || '#F97316';
@@ -1061,14 +1049,12 @@
         ctx.textBaseline = 'middle';
         ctx.fillText(this.levelData.theme.toUpperCase(), bx + bw / 2, by + hh / 2 + 1);
 
-        // White Target Words Body
         ctx.beginPath();
         ctx.roundRect(bx, by + hh, bw, ch, [0, 0, 10, 10]);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
         ctx.restore();
 
-        // Render Target Words inside body
         ctx.save();
         const words = this.targetWords;
         const row1 = words.slice(0, Math.ceil(words.length / 2));
@@ -1091,7 +1077,6 @@
               ctx.fillStyle = pal.bg;
               ctx.fillText(word, wx, rowY);
 
-              // Strikethrough line
               ctx.strokeStyle = pal.bg;
               ctx.lineWidth = 2.0;
               ctx.beginPath();
@@ -1121,7 +1106,6 @@
         const cw = this.cardW;
         const ch = this.cardH;
 
-        // White Rounded Card Background
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.30)';
         ctx.shadowBlur = 18;
@@ -1136,7 +1120,7 @@
         const gy = this.gridY;
         const cs = this.cellSize;
 
-        // 1. Render Discovered Words Capsules Behind Letters
+        // 1. Found Words Highlight Capsules
         for (const fw of this.foundWords) {
           const pal = WORD_COLORS[fw.colorIndex] || WORD_COLORS[0];
           ctx.save();
@@ -1157,13 +1141,13 @@
           ctx.restore();
         }
 
-        // 2. Render Active Dragging Capsule
+        // 2. Active Dragging Highlight
         if (this.isDragging && this.activePath.length > 0) {
           ctx.save();
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
           ctx.lineWidth = cs * 0.74;
-          ctx.strokeStyle = 'rgba(249, 115, 22, 0.65)'; // Dynamic drag glow
+          ctx.strokeStyle = 'rgba(249, 115, 22, 0.65)';
 
           ctx.beginPath();
           for (let i = 0; i < this.activePath.length; i++) {
@@ -1192,7 +1176,7 @@
           ctx.restore();
         }
 
-        // 4. Render Letters
+        // 4. Letters
         for (let r = 0; r < this.gridSize; r++) {
           for (let c = 0; c < this.gridSize; c++) {
             const letter = this.grid[r][c];
@@ -1222,15 +1206,12 @@
       renderBottomControls(ctx) {
         const y = this.btnY;
 
-        // Lightning Button (⚡ 200)
         const lightningX = this.width / 2 + 10;
         this.renderCircleButton(ctx, lightningX, y, 22, '#F97316', '⚡', '200🪙');
 
-        // Hint Lightbulb Button (💡 2)
         const hintX = this.width / 2 + 62;
         this.renderCircleButton(ctx, hintX, y, 22, '#EA580C', '💡', null, this.hints);
 
-        // Refresh/Shuffle Button (🔄)
         const refreshX = this.width / 2 + 114;
         this.renderCircleButton(ctx, refreshX, y, 22, '#F97316', '🔄', null);
       }
@@ -1283,12 +1264,10 @@
         const ex = this.gridX + endPt.c * this.cellSize + this.cellSize / 2;
         const ey = this.gridY + endPt.r * this.cellSize + this.cellSize / 2;
 
-        // Animated Swipe Gesture Hand
         const t = (Date.now() % 1600) / 1600;
         const handX = sx + (ex - sx) * t;
         const handY = sy + (ey - sy) * t;
 
-        // Speech Bubble
         const bubbleW = 240, bubbleH = 36;
         const bubbleX = (this.width - bubbleW) / 2;
         const bubbleY = this.cardY - 44;
@@ -1310,7 +1289,6 @@
         ctx.textBaseline = 'middle';
         ctx.fillText('👉 Swipe to make "' + firstPlacement.word + '"!', bubbleX + bubbleW / 2, bubbleY + bubbleH / 2);
 
-        // Animated Hand Pointer
         ctx.font = '24px sans-serif';
         ctx.fillText('👆', handX, handY + 12);
         ctx.restore();
@@ -1346,7 +1324,6 @@
         ctx.fill();
         ctx.restore();
 
-        // Orange Praise Ribbon Banner
         const ribbonW = 200, ribbonH = 42;
         const ribbonX = (this.width - ribbonW) / 2;
         const ribbonY = cardY - 18;
@@ -1362,7 +1339,6 @@
         ctx.textBaseline = 'middle';
         ctx.fillText(this.praiseText, this.width / 2, ribbonY + ribbonH / 2 + 1);
 
-        // Circular Scenic / Wisdom Badge
         const badgeY = cardY + 80;
         ctx.beginPath();
         ctx.arc(this.width / 2, badgeY, 36, 0, Math.PI * 2);
@@ -1383,6 +1359,8 @@
         const btnW = 200, btnH = 50;
         const btnX = (this.width - btnW) / 2;
         const btnY = cardY + cardH - 68;
+
+        this.modalBtnRect = { x: btnX, y: btnY, w: btnW, h: btnH };
 
         ctx.beginPath();
         ctx.roundRect(btnX, btnY, btnW, btnH, 25);
@@ -1412,7 +1390,6 @@
         ctx.fill();
         ctx.restore();
 
-        // Celebration Header
         ctx.save();
         ctx.font = '900 22px Fredoka, sans-serif';
         ctx.fillStyle = '#EA580C';
@@ -1427,7 +1404,6 @@
         ctx.fillStyle = '#64748B';
         ctx.fillText(this.destination.tagline, this.width / 2, cardY + 92);
 
-        // Gift & Coin Burst
         const giftY = cardY + 160;
         ctx.beginPath();
         ctx.arc(this.width / 2, giftY, 44, 0, Math.PI * 2);
@@ -1444,10 +1420,11 @@
         ctx.fillStyle = '#D97706';
         ctx.fillText('+25 COINS', this.width / 2, giftY + 68);
 
-        // Green Collect Button
         const btnW = 200, btnH = 50;
         const btnX = (this.width - btnW) / 2;
         const btnY = cardY + cardH - 68;
+
+        this.modalBtnRect = { x: btnX, y: btnY, w: btnW, h: btnH };
 
         ctx.beginPath();
         ctx.roundRect(btnX, btnY, btnW, btnH, 25);

@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "updatedAt": "2026-08-25T12:54:51.911Z",
   "games": [
     {
@@ -558,7 +558,7 @@
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/word-travel/1.0.0/manifest.json",
-      "feedOrder": 25,
+      "feedOrder": 26,
       "category": "Word Puzzle",
       "description": "Continuous travel-themed word search puzzle journey. Swipe through adjacent letters in 8 directions to discover themed words, earn wisdom, unlock countries, and collect rewards.",
       "touchZones": [],
