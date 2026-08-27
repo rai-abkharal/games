@@ -1,7 +1,7 @@
 {
   "id": "word-travel",
   "title": "Word Travel",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Continuous travel-themed word search puzzle journey. Swipe through adjacent letters in 8 directions to discover themed words, earn wisdom, unlock countries, and collect rewards.",
   "orientation": "portrait",
   "engine": "canvas2d",

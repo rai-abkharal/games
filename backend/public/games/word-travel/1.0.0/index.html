@@ -53,16 +53,16 @@
 
     // 1. VIBRANT HIGHLIGHT PALETTE FOR FOUND WORDS
     const WORD_COLORS = [
-      { bg: '#38BDF8', text: '#FFFFFF', border: '#0284C7' },
-      { bg: '#F43F5E', text: '#FFFFFF', border: '#E11D48' },
-      { bg: '#10B981', text: '#FFFFFF', border: '#059669' },
-      { bg: '#A855F7', text: '#FFFFFF', border: '#9333EA' },
-      { bg: '#F59E0B', text: '#FFFFFF', border: '#D97706' },
-      { bg: '#EC4899', text: '#FFFFFF', border: '#DB2777' },
-      { bg: '#06B6D4', text: '#FFFFFF', border: '#0891B2' },
-      { bg: '#84CC16', text: '#FFFFFF', border: '#65A30D' },
-      { bg: '#6366F1', text: '#FFFFFF', border: '#4F46E5' },
-      { bg: '#14B8A6', text: '#FFFFFF', border: '#0D9488' }
+      { bg: '#38BDF8', topBg: '#7DD3FC', text: '#FFFFFF', border: '#0284C7', glow: '#38BDF8' },
+      { bg: '#F43F5E', topBg: '#FB7185', text: '#FFFFFF', border: '#E11D48', glow: '#F43F5E' },
+      { bg: '#10B981', topBg: '#34D399', text: '#FFFFFF', border: '#059669', glow: '#10B981' },
+      { bg: '#A855F7', topBg: '#C084FC', text: '#FFFFFF', border: '#9333EA', glow: '#A855F7' },
+      { bg: '#F59E0B', topBg: '#FBBF24', text: '#FFFFFF', border: '#D97706', glow: '#F59E0B' },
+      { bg: '#EC4899', topBg: '#F472B6', text: '#FFFFFF', border: '#DB2777', glow: '#EC4899' },
+      { bg: '#06B6D4', topBg: '#22D3EE', text: '#FFFFFF', border: '#0891B2', glow: '#06B6D4' },
+      { bg: '#84CC16', topBg: '#A3E635', text: '#FFFFFF', border: '#65A30D', glow: '#84CC16' },
+      { bg: '#6366F1', topBg: '#818CF8', text: '#FFFFFF', border: '#4F46E5', glow: '#6366F1' },
+      { bg: '#14B8A6', topBg: '#2DD4BF', text: '#FFFFFF', border: '#0D9488', glow: '#14B8A6' }
     ];
 
     const PRAISE_MESSAGES = [
@@ -76,11 +76,12 @@
         id: 'maldives',
         country: 'MALDIVES',
         tagline: 'Tropical Paradise & Turquoise Waters',
-        skyTop: '#0284C7',
-        skyBottom: '#38BDF8',
-        waterColor: '#06B6D4',
+        skyTop: '#0369A1',
+        skyMid: '#38BDF8',
+        waterColor: '#0EA5E9',
         sandColor: '#FEF3C7',
         accentColor: '#F97316',
+        icon: '🌴',
         levels: [
           {
             theme: 'FIRST WORDS',
@@ -114,10 +115,11 @@
         country: 'ITALY',
         tagline: 'Lake Como & Alpine Charm',
         skyTop: '#1E3A8A',
-        skyBottom: '#60A5FA',
+        skyMid: '#60A5FA',
         waterColor: '#3B82F6',
         sandColor: '#FDE68A',
         accentColor: '#EA580C',
+        icon: '🏛️',
         levels: [
           {
             theme: 'ITALIAN FOOD',
@@ -146,10 +148,11 @@
         country: 'GRAND CANYON',
         tagline: 'Sunset Canyons & Starry Camping',
         skyTop: '#7C2D12',
-        skyBottom: '#EA580C',
+        skyMid: '#EA580C',
         waterColor: '#C2410C',
         sandColor: '#FCD34D',
         accentColor: '#F59E0B',
+        icon: '🏜️',
         levels: [
           {
             theme: 'CAMPING',
@@ -173,10 +176,11 @@
         country: 'JAPAN',
         tagline: 'Kyoto Gardens & Cherry Blossoms',
         skyTop: '#4C1D95',
-        skyBottom: '#F472B6',
+        skyMid: '#F472B6',
         waterColor: '#EC4899',
         sandColor: '#FDF2F8',
         accentColor: '#E11D48',
+        icon: '⛩️',
         levels: [
           {
             theme: 'GARDENS',
@@ -200,10 +204,11 @@
         country: 'SWITZERLAND',
         tagline: 'Snowy Peaks & Alpine Chalets',
         skyTop: '#0F172A',
-        skyBottom: '#38BDF8',
+        skyMid: '#38BDF8',
         waterColor: '#0284C7',
         sandColor: '#E0F2FE',
         accentColor: '#2563EB',
+        icon: '🏔️',
         levels: [
           {
             theme: 'WINTER SPORTS',
@@ -376,18 +381,18 @@
       }
     };
 
-    // 5. INSTANT GUARANTEED WORD SEARCH GRID GENERATOR (<1ms)
+    // 5. INSTANT GUARANTEED WORD SEARCH GRID GENERATOR
     class GridGenerator {
       static generate(words, size) {
         const directions = [
-          { dr: 0, dc: 1 },   // Right
-          { dr: 0, dc: -1 },  // Left
-          { dr: 1, dc: 0 },   // Down
-          { dr: -1, dc: 0 },  // Up
-          { dr: 1, dc: 1 },   // Down-Right
-          { dr: -1, dc: -1 }, // Up-Left
-          { dr: 1, dc: -1 },  // Down-Left
-          { dr: -1, dc: 1 }   // Up-Right
+          { dr: 0, dc: 1 },
+          { dr: 0, dc: -1 },
+          { dr: 1, dc: 0 },
+          { dr: -1, dc: 0 },
+          { dr: 1, dc: 1 },
+          { dr: -1, dc: -1 },
+          { dr: 1, dc: -1 },
+          { dr: -1, dc: 1 }
         ];
 
         const sortedWords = [...words].sort((a, b) => b.length - a.length);
@@ -398,9 +403,6 @@
           let allPlaced = true;
 
           for (const word of sortedWords) {
-            let placed = false;
-
-            // Generate all possible valid slot positions
             const slots = [];
             for (let r = 0; r < size; r++) {
               for (let c = 0; c < size; c++) {
@@ -434,7 +436,6 @@
                 coords.push({ r: placeR, c: placeC });
               }
               placements.push({ word, coords });
-              placed = true;
             } else {
               allPlaced = false;
               break;
@@ -442,7 +443,6 @@
           }
 
           if (allPlaced) {
-            // Fill empty cells
             const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
             for (let r = 0; r < size; r++) {
               for (let c = 0; c < size; c++) {
@@ -455,9 +455,7 @@
           }
         }
 
-        // Fallback expand grid if needed
-        const newSize = size + 1;
-        return this.generate(words, newSize);
+        return this.generate(words, size + 1);
       }
     }
 
@@ -487,6 +485,7 @@
         this.confetti = [];
 
         this.modalBtnRect = null;
+        this.modalAnimProgress = 0;
 
         this.initLayout();
         this.bindEvents();
@@ -591,6 +590,7 @@
         this.lightningFlash = 0;
         this.confetti = [];
         this.state = 'PLAYING';
+        this.modalAnimProgress = 0;
 
         this.praiseText = PRAISE_MESSAGES[Math.floor(Math.random() * PRAISE_MESSAGES.length)];
         this.initLayout();
@@ -612,7 +612,7 @@
         this.themeBoxW = Math.min(340, this.width - 24);
         this.themeBoxX = (this.width - this.themeBoxW) / 2;
         this.themeHeaderH = 26;
-        this.themeContentH = 50;
+        this.themeContentH = 52;
         this.themeBoxH = this.themeHeaderH + this.themeContentH;
 
         const gridTop = this.themeBoxY + this.themeBoxH + 12;
@@ -654,7 +654,7 @@
           }
           const { px, py } = getPos(e);
 
-          // Instant Responsive Modal Button Click (Next Level / Collect)
+          // Responsive Modal Button Click (Next Level / Collect)
           if (this.state === 'LEVEL_COMPLETE' || this.state === 'COUNTRY_COMPLETE') {
             let clickedButton = false;
             if (this.modalBtnRect) {
@@ -870,6 +870,7 @@
       handleLevelWin() {
         this.wisdom += 15;
         this.saveWisdom();
+        this.modalAnimProgress = 0;
 
         for (let i = 0; i < 40; i++) {
           this.confetti.push({
@@ -906,6 +907,12 @@
         const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
         this.lastTime = timestamp;
 
+        if (this.state === 'LEVEL_COMPLETE' || this.state === 'COUNTRY_COMPLETE') {
+          if (this.modalAnimProgress < 1.0) {
+            this.modalAnimProgress = Math.min(1.0, this.modalAnimProgress + dt * 2.8);
+          }
+        }
+
         if (this.lightningFlash > 0) {
           this.lightningFlash = Math.max(0, this.lightningFlash - dt * 3.0);
         }
@@ -940,10 +947,10 @@
         ctx.save();
         ctx.scale(this.dpr, this.dpr);
 
-        this.renderScenicBackground(ctx);
+        this.renderRichScenicBackground(ctx);
         this.renderHeader(ctx);
         this.renderThemeAndTargetWords(ctx);
-        this.renderGridCard(ctx);
+        this.renderFramedGridCard(ctx);
         this.renderBottomControls(ctx);
 
         if (this.levelIndex === 0 && this.foundWords.length === 0 && this.state === 'PLAYING') {
@@ -958,37 +965,81 @@
         }
 
         if (this.toast) this.renderToast(ctx);
-        if (this.state === 'LEVEL_COMPLETE') this.renderLevelCompleteModal(ctx);
-        if (this.state === 'COUNTRY_COMPLETE') this.renderCountryCompleteModal(ctx);
+        if (this.state === 'LEVEL_COMPLETE') this.renderAnimatedLevelCompleteModal(ctx);
+        if (this.state === 'COUNTRY_COMPLETE') this.renderAnimatedCountryCompleteModal(ctx);
 
         ctx.restore();
       }
 
-      renderScenicBackground(ctx) {
+      // RICH SCENIC ILLUSTRATED BACKGROUND
+      renderRichScenicBackground(ctx) {
         const dest = this.destination;
-        const grad = ctx.createLinearGradient(0, 0, 0, this.height);
-        grad.addColorStop(0, dest.skyTop);
-        grad.addColorStop(0.55, dest.skyBottom);
-        grad.addColorStop(0.85, dest.waterColor);
-        grad.addColorStop(1, dest.sandColor);
+        const w = this.width;
+        const h = this.height;
 
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, this.width, this.height);
+        // Multi-stop Sky Gradient
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.75);
+        skyGrad.addColorStop(0, dest.skyTop);
+        skyGrad.addColorStop(0.55, dest.skyMid);
+        skyGrad.addColorStop(1, dest.sandColor);
+
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, w, h);
 
         ctx.save();
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.10)';
+
+        // 1. Radiant Glowing Sun & Rays
+        const sunX = w * 0.82;
+        const sunY = h * 0.16;
+
+        const sunHalo = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 70);
+        sunHalo.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
+        sunHalo.addColorStop(0.5, 'rgba(254, 240, 138, 0.22)');
+        sunHalo.addColorStop(1, 'rgba(254, 240, 138, 0)');
+        ctx.fillStyle = sunHalo;
         ctx.beginPath();
-        ctx.arc(this.width * 0.82, this.height * 0.18, 48, 0, Math.PI * 2);
+        ctx.arc(sunX, sunY, 70, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
-        ctx.moveTo(0, this.height * 0.45);
-        ctx.quadraticCurveTo(this.width * 0.3, this.height * 0.40, this.width * 0.6, this.height * 0.48);
-        ctx.quadraticCurveTo(this.width * 0.85, this.height * 0.54, this.width, this.height * 0.46);
-        ctx.lineTo(this.width, this.height);
-        ctx.lineTo(0, this.height);
+        ctx.arc(sunX, sunY, 22, 0, Math.PI * 2);
         ctx.fill();
+
+        // 2. Soft Scenic Mountain Silhouettes
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.08)';
+        ctx.beginPath();
+        ctx.moveTo(0, h * 0.44);
+        ctx.lineTo(w * 0.25, h * 0.36);
+        ctx.lineTo(w * 0.55, h * 0.46);
+        ctx.lineTo(w * 0.85, h * 0.38);
+        ctx.lineTo(w, h * 0.43);
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.fill();
+
+        // 3. Turquoise Ocean & Waves
+        const seaY = h * 0.70;
+        const seaGrad = ctx.createLinearGradient(0, seaY, 0, h);
+        seaGrad.addColorStop(0, dest.waterColor);
+        seaGrad.addColorStop(1, dest.sandColor);
+
+        ctx.fillStyle = seaGrad;
+        ctx.beginPath();
+        ctx.moveTo(0, seaY);
+        ctx.bezierCurveTo(w * 0.3, seaY - 14, w * 0.7, seaY + 14, w, seaY);
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.fill();
+
+        // 4. Palm Silhouettes / Atmosphere Trimmings
+        ctx.strokeStyle = 'rgba(2, 44, 34, 0.18)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(w * 0.08, h);
+        ctx.quadraticCurveTo(w * 0.04, h * 0.65, w * 0.12, h * 0.50);
+        ctx.stroke();
+
         ctx.restore();
       }
 
@@ -997,36 +1048,39 @@
 
         // Level Number (Clean Centered Header)
         ctx.save();
-        ctx.font = '900 20px Fredoka, sans-serif';
+        ctx.font = '900 21px Fredoka, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
-        ctx.shadowColor = 'rgba(0,0,0,0.35)';
-        ctx.shadowBlur = 6;
-        ctx.fillText('Level ' + (this.levelIndex + 1), this.width / 2, y + 20);
+        ctx.shadowColor = 'rgba(0,0,0,0.4)';
+        ctx.shadowBlur = 8;
+        ctx.fillText('Level ' + (this.levelIndex + 1), this.width / 2, y + 21);
         ctx.restore();
 
         // Coins Pill (Right)
-        const coinPillW = 86;
+        const coinPillW = 88;
         const coinPillX = this.width - coinPillW - 12;
         ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+        ctx.shadowBlur = 8;
         ctx.beginPath();
         ctx.roundRect(coinPillX, y + 4, coinPillW, 30, 15);
         ctx.fillStyle = '#111827';
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-        ctx.lineWidth = 1.0;
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 1.2;
         ctx.stroke();
 
-        ctx.font = '900 13px Fredoka, sans-serif';
+        ctx.font = '900 13.5px Fredoka, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'left';
         ctx.fillText(this.coins.toLocaleString(), coinPillX + 14, y + 23);
 
-        ctx.font = '13px sans-serif';
+        ctx.font = '13.5px sans-serif';
         ctx.fillText('🪙', coinPillX + coinPillW - 24, y + 23);
         ctx.restore();
       }
 
+      // CATEGORY STRIP WITH ROUNDED WORD CHIPS
       renderThemeAndTargetWords(ctx) {
         const bx = this.themeBoxX;
         const by = this.themeBoxY;
@@ -1035,13 +1089,22 @@
         const ch = this.themeContentH;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
-        ctx.shadowBlur = 12;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
+        ctx.shadowBlur = 14;
+        ctx.shadowOffsetY = 4;
+
+        // Orange Gradient Header
+        const headGrad = ctx.createLinearGradient(bx, by, bx + bw, by + hh);
+        headGrad.addColorStop(0, this.destination.accentColor || '#F97316');
+        headGrad.addColorStop(1, '#EA580C');
 
         ctx.beginPath();
-        ctx.roundRect(bx, by, bw, hh, [10, 10, 0, 0]);
-        ctx.fillStyle = this.destination.accentColor || '#F97316';
+        ctx.roundRect(bx, by, bw, hh, [12, 12, 0, 0]);
+        ctx.fillStyle = headGrad;
         ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.lineWidth = 1.0;
+        ctx.stroke();
 
         ctx.font = '900 12.5px Fredoka, sans-serif';
         ctx.fillStyle = '#FFFFFF';
@@ -1049,23 +1112,25 @@
         ctx.textBaseline = 'middle';
         ctx.fillText(this.levelData.theme.toUpperCase(), bx + bw / 2, by + hh / 2 + 1);
 
+        // White Target Words Body with Double Border
         ctx.beginPath();
-        ctx.roundRect(bx, by + hh, bw, ch, [0, 0, 10, 10]);
+        ctx.roundRect(bx, by + hh, bw, ch, [0, 0, 12, 12]);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
         ctx.restore();
 
+        // Render Words as Rounded Chip Capsules
         ctx.save();
         const words = this.targetWords;
         const row1 = words.slice(0, Math.ceil(words.length / 2));
         const row2 = words.slice(Math.ceil(words.length / 2));
 
-        const renderWordRow = (wList, rowY) => {
-          const totalSpacing = bw - 20;
+        const renderChipRow = (wList, rowY) => {
+          const totalSpacing = bw - 16;
           const step = totalSpacing / (wList.length + 1);
 
           wList.forEach((word, idx) => {
-            const wx = bx + 10 + step * (idx + 1);
+            const wx = bx + 8 + step * (idx + 1);
             const foundObj = this.foundWords.find(fw => fw.word === word);
 
             ctx.font = '900 13px Fredoka, sans-serif';
@@ -1074,46 +1139,53 @@
 
             if (foundObj) {
               const pal = WORD_COLORS[foundObj.colorIndex] || WORD_COLORS[0];
-              ctx.fillStyle = pal.bg;
-              ctx.fillText(word, wx, rowY);
-
-              ctx.strokeStyle = pal.bg;
-              ctx.lineWidth = 2.0;
-              ctx.beginPath();
               const metrics = ctx.measureText(word);
-              ctx.moveTo(wx - metrics.width / 2 - 2, rowY);
-              ctx.lineTo(wx + metrics.width / 2 + 2, rowY);
-              ctx.stroke();
+              const chipW = metrics.width + 16;
+              const chipH = 20;
+
+              ctx.beginPath();
+              ctx.roundRect(wx - chipW / 2, rowY - chipH / 2, chipW, chipH, 10);
+              ctx.fillStyle = pal.bg;
+              ctx.fill();
+
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillText(word, wx, rowY + 1);
             } else {
-              ctx.fillStyle = '#111827';
-              ctx.fillText(word, wx, rowY);
+              ctx.fillStyle = '#1E293B';
+              ctx.fillText(word, wx, rowY + 1);
             }
           });
         };
 
         if (row2.length === 0) {
-          renderWordRow(row1, by + hh + ch / 2);
+          renderChipRow(row1, by + hh + ch / 2);
         } else {
-          renderWordRow(row1, by + hh + ch * 0.32);
-          renderWordRow(row2, by + hh + ch * 0.72);
+          renderChipRow(row1, by + hh + ch * 0.32);
+          renderChipRow(row2, by + hh + ch * 0.72);
         }
         ctx.restore();
       }
 
-      renderGridCard(ctx) {
+      // FRAMED GLASS LETTER GRID CARD WITH DYNAMIC NEXT-COLOR DRAG
+      renderFramedGridCard(ctx) {
         const cx = this.cardX;
         const cy = this.cardY;
         const cw = this.cardW;
         const ch = this.cardH;
 
+        // Outer Shadow & Polished Double-Border Card
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.30)';
-        ctx.shadowBlur = 18;
-        ctx.shadowOffsetY = 6;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.32)';
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetY = 8;
         ctx.beginPath();
-        ctx.roundRect(cx, cy, cw, ch, 18);
+        ctx.roundRect(cx, cy, cw, ch, 20);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
+
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 2.0;
+        ctx.stroke();
         ctx.restore();
 
         const gx = this.gridX;
@@ -1126,7 +1198,7 @@
           ctx.save();
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
-          ctx.lineWidth = cs * 0.74;
+          ctx.lineWidth = cs * 0.76;
           ctx.strokeStyle = pal.bg;
 
           ctx.beginPath();
@@ -1141,13 +1213,18 @@
           ctx.restore();
         }
 
-        // 2. Active Dragging Highlight
+        // 2. ACTIVE DRAG LINE (DYNAMICALLY USES THE EXACT NEXT PALETTE COLOR!)
         if (this.isDragging && this.activePath.length > 0) {
+          const nextColorIndex = this.foundWords.length % WORD_COLORS.length;
+          const activePal = WORD_COLORS[nextColorIndex];
+
           ctx.save();
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
-          ctx.lineWidth = cs * 0.74;
-          ctx.strokeStyle = 'rgba(249, 115, 22, 0.65)';
+          ctx.lineWidth = cs * 0.76;
+          ctx.strokeStyle = activePal.bg;
+          ctx.shadowColor = activePal.glow || activePal.bg;
+          ctx.shadowBlur = 12;
 
           ctx.beginPath();
           for (let i = 0; i < this.activePath.length; i++) {
@@ -1176,7 +1253,7 @@
           ctx.restore();
         }
 
-        // 4. Letters
+        // 4. Letters (Styled with Crisp Depth)
         for (let r = 0; r < this.gridSize; r++) {
           for (let c = 0; c < this.gridSize; c++) {
             const letter = this.grid[r][c];
@@ -1187,14 +1264,16 @@
             const isPartOfActive = this.activePath.some(pt => pt.r === r && pt.c === c);
 
             ctx.save();
-            ctx.font = '900 ' + Math.floor(cs * 0.48) + 'px Fredoka, sans-serif';
+            ctx.font = '900 ' + Math.floor(cs * 0.50) + 'px Fredoka, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
             if (isPartOfActive || isPartOfFound) {
               ctx.fillStyle = '#FFFFFF';
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+              ctx.shadowBlur = 4;
             } else {
-              ctx.fillStyle = '#111827';
+              ctx.fillStyle = '#0F172A';
             }
 
             ctx.fillText(letter, lx, ly + 1);
@@ -1225,7 +1304,7 @@
         ctx.fillStyle = bg;
         ctx.fill();
         ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1.8;
         ctx.stroke();
 
         ctx.font = '900 16px sans-serif';
@@ -1306,121 +1385,207 @@
         }
       }
 
-      renderLevelCompleteModal(ctx) {
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+      // ANIMATED LEVEL COMPLETE MODAL WITH SCENIC DESTINATION ARTWORK
+      renderAnimatedLevelCompleteModal(ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const cardW = Math.min(320, this.width - 36);
-        const cardH = 330;
+        const t = Math.min(1.0, this.modalAnimProgress);
+        const scale = 0.65 + 0.35 * Math.sin(t * Math.PI / 2);
+
+        const cardW = Math.min(324, this.width - 36);
+        const cardH = 346;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-        ctx.shadowBlur = 28;
-        ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fill();
-        ctx.restore();
+        ctx.translate(this.width / 2, this.height / 2);
+        ctx.scale(scale, scale);
+        ctx.translate(-this.width / 2, -this.height / 2);
 
-        const ribbonW = 200, ribbonH = 42;
+        // Framed Card with Subtle Gradient
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+        ctx.shadowBlur = 32;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 26);
+        const cardGrad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
+        cardGrad.addColorStop(0, '#FFFFFF');
+        cardGrad.addColorStop(1, '#F8FAFC');
+        ctx.fillStyle = cardGrad;
+        ctx.fill();
+
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 2.0;
+        ctx.stroke();
+
+        // 3D Metallic Orange Praise Ribbon Banner
+        const ribbonW = 210, ribbonH = 44;
         const ribbonX = (this.width - ribbonW) / 2;
-        const ribbonY = cardY - 18;
+        const ribbonY = cardY - 20;
 
         ctx.save();
+        ctx.shadowColor = 'rgba(234, 88, 12, 0.45)';
+        ctx.shadowBlur = 14;
         ctx.beginPath();
-        ctx.roundRect(ribbonX, ribbonY, ribbonW, ribbonH, 10);
-        ctx.fillStyle = '#F97316';
+        ctx.roundRect(ribbonX, ribbonY, ribbonW, ribbonH, 12);
+        const ribGrad = ctx.createLinearGradient(ribbonX, ribbonY, ribbonX, ribbonY + ribbonH);
+        ribGrad.addColorStop(0, '#F97316');
+        ribGrad.addColorStop(1, '#C2410C');
+        ctx.fillStyle = ribGrad;
         ctx.fill();
+
+        ctx.strokeStyle = '#FDE68A';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
         ctx.font = '900 20px Fredoka, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(this.praiseText, this.width / 2, ribbonY + ribbonH / 2 + 1);
+        ctx.fillText('⭐ ' + this.praiseText + ' ⭐', this.width / 2, ribbonY + ribbonH / 2 + 1);
+        ctx.restore();
 
-        const badgeY = cardY + 80;
+        // Circular Scenic Destination Badge Frame
+        const badgeY = cardY + 84;
+        ctx.save();
+        ctx.shadowColor = 'rgba(2, 132, 199, 0.35)';
+        ctx.shadowBlur = 16;
         ctx.beginPath();
-        ctx.arc(this.width / 2, badgeY, 36, 0, Math.PI * 2);
-        ctx.fillStyle = '#E0F2FE';
+        ctx.arc(this.width / 2, badgeY, 38, 0, Math.PI * 2);
+        const badgeGrad = ctx.createLinearGradient(0, badgeY - 38, 0, badgeY + 38);
+        badgeGrad.addColorStop(0, '#0284C7');
+        badgeGrad.addColorStop(1, '#38BDF8');
+        ctx.fillStyle = badgeGrad;
         ctx.fill();
-        ctx.font = '32px sans-serif';
-        ctx.fillText('🌴', this.width / 2, badgeY + 4);
 
-        ctx.font = '800 13px Inter, sans-serif';
+        ctx.strokeStyle = '#FACC15';
+        ctx.lineWidth = 2.8;
+        ctx.stroke();
+
+        ctx.font = '36px sans-serif';
+        ctx.fillText(this.destination.icon || '🌴', this.width / 2, badgeY + 5);
+        ctx.restore();
+
+        // Wisdom Score & Progress Bar
+        ctx.font = '800 12.5px Inter, sans-serif';
         ctx.fillStyle = '#64748B';
-        ctx.fillText('WISDOM PROGRESS', this.width / 2, badgeY + 54);
+        ctx.textAlign = 'center';
+        ctx.fillText('WISDOM PROGRESS', this.width / 2, badgeY + 56);
 
         ctx.font = '900 26px Fredoka, sans-serif';
         ctx.fillStyle = '#0284C7';
-        ctx.fillText('✨ ' + this.wisdom, this.width / 2, badgeY + 84);
+        ctx.fillText('✨ ' + this.wisdom, this.width / 2, badgeY + 86);
 
-        // Green Next Level Button
-        const btnW = 200, btnH = 50;
+        // Progress Bar
+        const barW = 200, barH = 10;
+        const barX = (this.width - barW) / 2;
+        const barY = badgeY + 100;
+
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, barW, barH, 5);
+        ctx.fillStyle = '#E2E8F0';
+        ctx.fill();
+
+        const fillW = (barW * ((this.levelIndex % 5) + 1)) / 5;
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, fillW, barH, 5);
+        const fillGrad = ctx.createLinearGradient(barX, 0, barX + fillW, 0);
+        fillGrad.addColorStop(0, '#10B981');
+        fillGrad.addColorStop(1, '#34D399');
+        ctx.fillStyle = fillGrad;
+        ctx.fill();
+
+        // 3D Juicy Green Next Level Button
+        const btnW = 208, btnH = 50;
         const btnX = (this.width - btnW) / 2;
         const btnY = cardY + cardH - 68;
 
         this.modalBtnRect = { x: btnX, y: btnY, w: btnW, h: btnH };
 
+        ctx.save();
+        ctx.shadowColor = 'rgba(16, 185, 129, 0.45)';
+        ctx.shadowBlur = 14;
         ctx.beginPath();
         ctx.roundRect(btnX, btnY, btnW, btnH, 25);
-        ctx.fillStyle = '#10B981';
+        const btnGrad = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
+        btnGrad.addColorStop(0, '#10B981');
+        btnGrad.addColorStop(1, '#059669');
+        ctx.fillStyle = btnGrad;
         ctx.fill();
+
+        ctx.strokeStyle = '#A7F3D0';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
         ctx.font = '900 17px Fredoka, sans-serif';
         ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
         ctx.fillText('NEXT LEVEL ➔', this.width / 2, btnY + btnH / 2 + 1);
+        ctx.restore();
+
         ctx.restore();
       }
 
-      renderCountryCompleteModal(ctx) {
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      // ANIMATED COUNTRY COMPLETE MODAL
+      renderAnimatedCountryCompleteModal(ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
         ctx.fillRect(0, 0, this.width, this.height);
 
+        const t = Math.min(1.0, this.modalAnimProgress);
+        const scale = 0.65 + 0.35 * Math.sin(t * Math.PI / 2);
+
         const cardW = Math.min(330, this.width - 32);
-        const cardH = 370;
+        const cardH = 376;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-        ctx.shadowBlur = 32;
+        ctx.translate(this.width / 2, this.height / 2);
+        ctx.scale(scale, scale);
+        ctx.translate(-this.width / 2, -this.height / 2);
+
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        ctx.shadowBlur = 36;
         ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.roundRect(cardX, cardY, cardW, cardH, 26);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
-        ctx.restore();
+        ctx.strokeStyle = '#FBBF24';
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
 
-        ctx.save();
         ctx.font = '900 22px Fredoka, sans-serif';
         ctx.fillStyle = '#EA580C';
         ctx.textAlign = 'center';
         ctx.fillText('🎉 Country Complete! 🎉', this.width / 2, cardY + 38);
 
-        ctx.font = '900 26px Fredoka, sans-serif';
+        ctx.font = '900 28px Fredoka, sans-serif';
         ctx.fillStyle = '#0F172A';
-        ctx.fillText(this.destination.country, this.width / 2, cardY + 72);
+        ctx.fillText(this.destination.country, this.width / 2, cardY + 74);
 
         ctx.font = '600 12px Inter, sans-serif';
         ctx.fillStyle = '#64748B';
-        ctx.fillText(this.destination.tagline, this.width / 2, cardY + 92);
+        ctx.fillText(this.destination.tagline, this.width / 2, cardY + 95);
 
-        const giftY = cardY + 160;
+        // Gift & Coin Burst
+        const giftY = cardY + 164;
         ctx.beginPath();
-        ctx.arc(this.width / 2, giftY, 44, 0, Math.PI * 2);
+        ctx.arc(this.width / 2, giftY, 46, 0, Math.PI * 2);
         ctx.fillStyle = '#FEF3C7';
         ctx.fill();
         ctx.strokeStyle = '#F59E0B';
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2.8;
         ctx.stroke();
 
-        ctx.font = '40px sans-serif';
-        ctx.fillText('🎁', this.width / 2, giftY + 4);
+        ctx.font = '44px sans-serif';
+        ctx.fillText('🎁', this.width / 2, giftY + 5);
 
         ctx.font = '900 24px Fredoka, sans-serif';
         ctx.fillStyle = '#D97706';
-        ctx.fillText('+25 COINS', this.width / 2, giftY + 68);
+        ctx.fillText('+25 COINS', this.width / 2, giftY + 70);
 
-        const btnW = 200, btnH = 50;
+        const btnW = 210, btnH = 50;
         const btnX = (this.width - btnW) / 2;
         const btnY = cardY + cardH - 68;
 
@@ -1430,6 +1595,10 @@
         ctx.roundRect(btnX, btnY, btnW, btnH, 25);
         ctx.fillStyle = '#10B981';
         ctx.fill();
+        ctx.strokeStyle = '#A7F3D0';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
         ctx.font = '900 17px Fredoka, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.fillText('COLLECT & TRAVEL ➔', this.width / 2, btnY + btnH / 2 + 1);
