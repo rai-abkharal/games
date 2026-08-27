@@ -1,8 +1,8 @@
 {
   "id": "word-travel",
   "title": "Word Travel",
-  "version": "2.0.0",
-  "description": "Continuous travel-themed word search puzzle journey. Features living atmospheric environments (Sakura petals, snow, sunbeams), 3D tactile tile board with jelly bounce physics, travel passport seals, acoustic kalimba chime music, and combo speed bonuses.",
+  "version": "2.1.0",
+  "description": "Continuous travel-themed word search puzzle journey. Features pure crystal-clear white letter board, living atmospheric environments, vibrant colorful swipe capsules, and passport milestones.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Word Puzzle",
