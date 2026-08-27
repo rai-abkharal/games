@@ -242,13 +242,15 @@
 
         this.columns = [[], [], [], [], []];
 
-        this.currentCol = 2; // Selected target column
-        this.dragX = 0;      // Smooth horizontal finger position
         this.currentVal = 2;
         this.nextVal = 4;
 
+        this.currentPieceX = 0; // Live X position of piece above board (starts in center)
+        this.targetCol = 2;      // Target column (0..4)
+        this.targetColX = 0;     // Target X corresponding to targetCol
+
         this.fallingPiece = null;
-        this.smokeParticles = [];  // Rocket exhaust smoke trail
+        this.lightPhotons = [];    // Radiant light beam sparks
         this.shockwaves = [];      // Expanding circular merge shockwaves
         this.sparkles = [];        // Merge burst sparks
         this.floatingScores = [];  // Floating '+64' scores
@@ -258,7 +260,7 @@
         this.undoCharges = 1;
         this.history = [];
 
-        this.state = 'AIMING'; // 'AIMING', 'FALLING', 'MERGING', 'GAME_OVER'
+        this.state = 'AIMING'; // 'AIMING', 'GLIDING', 'FALLING', 'MERGING', 'GAME_OVER'
         this.toast = null;
         this.isPointerDown = false;
 
@@ -290,20 +292,27 @@
         this.undoCharges = 1;
         this.history = [];
         this.fallingPiece = null;
-        this.smokeParticles = [];
+        this.lightPhotons = [];
         this.shockwaves = [];
         this.sparkles = [];
         this.floatingScores = [];
         this.state = 'AIMING';
-        this.currentCol = 2;
 
         this.currentVal = this.generateWeightedValue();
         this.nextVal = this.generateWeightedValue();
 
-        this.dragX = this.boardX + this.currentCol * this.colWidth + this.colWidth / 2;
+        // Always spawn the new piece in the exact horizontal center
+        this.resetPieceToCenter();
 
         this.saveHistoryState();
         Host.post('onGameStarted', { mode: 'easy' });
+      }
+
+      resetPieceToCenter() {
+        const centerX = this.boardX + 2 * this.colWidth + this.colWidth / 2;
+        this.currentPieceX = centerX;
+        this.targetCol = 2;
+        this.targetColX = centerX;
       }
 
       getHighestTileOnBoard() {
@@ -369,6 +378,7 @@
           this.currentVal = prev.currentVal;
           this.nextVal = prev.nextVal;
           this.undoCharges--;
+          this.resetPieceToCenter();
           this.synth.playUndo();
           this.toast = { text: '↺ Move Undone!', t: 1.2 };
         }
@@ -403,7 +413,7 @@
       bindEvents() {
         window.addEventListener('resize', () => {
           this.initLayout();
-          this.dragX = this.boardX + this.currentCol * this.colWidth + this.colWidth / 2;
+          this.resetPieceToCenter();
         });
 
         const getPos = (e) => {
@@ -454,9 +464,9 @@
             return;
           }
 
-          // Aiming: track finger position
+          // Aiming: update selected column
           if (this.state === 'AIMING') {
-            this.updateDragPosition(px);
+            this.updateTargetColumn(px);
           }
         };
 
@@ -464,7 +474,7 @@
           if (!this.isPointerDown || this.state !== 'AIMING') return;
           e.preventDefault();
           const { px } = getPos(e);
-          this.updateDragPosition(px);
+          this.updateTargetColumn(px);
         };
 
         const handleUp = (e) => {
@@ -472,7 +482,7 @@
           this.isPointerDown = false;
 
           if (this.state === 'AIMING') {
-            this.dropCurrentPiece();
+            this.initiateDropSequence();
           }
         };
 
@@ -482,23 +492,37 @@
         window.addEventListener('pointercancel', handleUp);
       }
 
-      updateDragPosition(px) {
+      updateTargetColumn(px) {
         let col = Math.floor((px - this.boardX) / this.colWidth);
         col = Math.max(0, Math.min(this.cols - 1, col));
-        this.currentCol = col;
-        this.targetDragX = this.boardX + col * this.colWidth + this.colWidth / 2;
+        this.targetCol = col;
+        this.targetColX = this.boardX + col * this.colWidth + this.colWidth / 2;
       }
 
-      dropCurrentPiece() {
+      // CENTER-TO-COLUMN GLIDE BEFORE DROP
+      initiateDropSequence() {
         if (this.state !== 'AIMING') return;
 
-        const col = this.currentCol;
+        const col = this.targetCol;
         if (this.columns[col].length >= this.maxRows) {
           this.toast = { text: 'Column Full!', t: 1.0 };
           return;
         }
 
         this.saveHistoryState();
+
+        // Check if piece already reached target column top
+        if (Math.abs(this.currentPieceX - this.targetColX) < 4) {
+          this.currentPieceX = this.targetColX;
+          this.startVerticalFall();
+        } else {
+          // Glide horizontally to target column top first
+          this.state = 'GLIDING';
+        }
+      }
+
+      startVerticalFall() {
+        const col = this.targetCol;
         this.state = 'FALLING';
         this.synth.playDrop();
         this.haptic(10);
@@ -516,7 +540,7 @@
           y: startY,
           targetY: targetY,
           targetRow: targetRow,
-          vy: 700 // acceleration
+          vy: 750
         };
       }
 
@@ -531,80 +555,103 @@
         this.synth.playLand();
         this.haptic(15);
 
-        // Add block to column
+        // Add block to column stack
         this.columns[col].push({
           val: val,
           highlight: 1.0,
           scale: 1.0
         });
 
+        const landedRow = this.columns[col].length - 1;
         this.state = 'MERGING';
-        this.checkAndExecuteMerges();
+        this.checkAndExecuteMultiMerges(col, landedRow);
       }
 
-      // SMOOTH JUICY MERGE PIPELINE WITH EXPANDING SHOCKWAVES & PARTICLES
-      checkAndExecuteMerges() {
-        let mergeAction = null;
+      // COMPREHENSIVE MULTI-DIRECTIONAL CONNECTED MERGES (Left, Right, Bottom, Top)
+      checkAndExecuteMultiMerges(priorityCol = null, priorityRow = null) {
+        let bestGroup = null;
 
-        // 1. Check Vertical Merge (Top of column matches block below it)
-        for (let c = 0; c < this.cols; c++) {
-          const col = this.columns[c];
-          if (col.length >= 2) {
-            const topIdx = col.length - 1;
-            if (col[topIdx].val === col[topIdx - 1].val) {
-              mergeAction = { type: 'vertical', col: c, targetIdx: topIdx - 1, sourceIdx: topIdx };
-              break;
+        // Helper to find all orthogonal connected matching blocks using BFS
+        const findConnected = (startC, startR) => {
+          const targetVal = this.columns[startC][startR].val;
+          const visited = new Set();
+          const queue = [{ c: startC, r: startR }];
+          visited.add(startC + ',' + startR);
+          const group = [{ c: startC, r: startR }];
+
+          while (queue.length > 0) {
+            const { c, r } = queue.shift();
+            const neighbors = [
+              { c: c, r: r - 1 }, // Down
+              { c: c - 1, r: r }, // Left
+              { c: c + 1, r: r }, // Right
+              { c: c, r: r + 1 }  // Up
+            ];
+
+            for (const n of neighbors) {
+              if (n.c >= 0 && n.c < this.cols && n.r >= 0 && n.r < this.columns[n.c].length) {
+                const key = n.c + ',' + n.r;
+                if (!visited.has(key) && this.columns[n.c][n.r].val === targetVal) {
+                  visited.add(key);
+                  group.push(n);
+                  queue.push(n);
+                }
+              }
             }
+          }
+          return group;
+        };
+
+        // First check priority landing cell if provided
+        if (priorityCol !== null && priorityRow !== null && priorityRow < this.columns[priorityCol].length) {
+          const g = findConnected(priorityCol, priorityRow);
+          if (g.length >= 2) {
+            bestGroup = { center: { c: priorityCol, r: priorityRow }, group: g };
           }
         }
 
-        // 2. Check Horizontal Merge if no vertical match
-        if (!mergeAction) {
-          for (let c = 0; c < this.cols - 1; c++) {
-            const colA = this.columns[c];
-            const colB = this.columns[c + 1];
-            const minLen = Math.min(colA.length, colB.length);
-
-            for (let r = 0; r < minLen; r++) {
-              if (colA[r] && colB[r] && colA[r].val === colB[r].val) {
-                mergeAction = { type: 'horizontal', targetCol: c, targetRow: r, sourceCol: c + 1 };
+        // If no group at priority node, scan all board blocks
+        if (!bestGroup) {
+          for (let c = 0; c < this.cols; c++) {
+            for (let r = 0; r < this.columns[c].length; r++) {
+              const g = findConnected(c, r);
+              if (g.length >= 2) {
+                bestGroup = { center: { c, r }, group: g };
                 break;
               }
             }
-            if (mergeAction) break;
+            if (bestGroup) break;
           }
         }
 
-        if (mergeAction) {
-          if (mergeAction.type === 'vertical') {
-            const c = mergeAction.col;
-            const target = this.columns[c][mergeAction.targetIdx];
-            const newVal = target.val * 2;
+        if (bestGroup) {
+          const center = bestGroup.center;
+          const group = bestGroup.group;
+          const startVal = this.columns[center.c][center.r].val;
+          const count = group.length;
 
-            // Execute merge
-            target.val = newVal;
-            target.scale = 1.35; // juicy pop
-            target.highlight = 1.0;
-            this.columns[c].pop(); // remove top source
+          // Value doubles per merged pair (e.g. 2 blocks -> 2x, 3 blocks -> 4x, 4 blocks -> 8x)
+          const newVal = startVal * Math.pow(2, count - 1);
 
-            this.triggerMergeEffects(c, mergeAction.targetIdx, newVal);
-          } else {
-            const c = mergeAction.targetCol;
-            const r = mergeAction.targetRow;
-            const target = this.columns[c][r];
-            const newVal = target.val * 2;
+          // Update target block
+          const targetBlock = this.columns[center.c][center.r];
+          targetBlock.val = newVal;
+          targetBlock.scale = 1.38; // juicy pop
+          targetBlock.highlight = 1.0;
 
-            target.val = newVal;
-            target.scale = 1.35; // juicy pop
-            target.highlight = 1.0;
-            this.columns[mergeAction.sourceCol].splice(r, 1); // remove source block
+          // Remove other participating blocks (sorted descending by row to avoid index shifting)
+          const toRemove = group.filter(pt => !(pt.c === center.c && pt.r === center.r));
+          toRemove.sort((a, b) => b.r - a.r);
 
-            this.triggerMergeEffects(c, r, newVal);
+          for (const pt of toRemove) {
+            this.columns[pt.c].splice(pt.r, 1);
           }
 
-          // Delay next cascade step so the merge shockwave is beautifully visible
+          this.triggerMergeEffects(center.c, center.r, newVal);
+
+          // Cascade: repeat check after merge animation
           setTimeout(() => {
-            this.checkAndExecuteMerges();
+            this.checkAndExecuteMultiMerges(center.c, center.r);
           }, 240);
         } else {
           this.finalizeTurn();
@@ -625,36 +672,36 @@
         const cy = this.boardY + (this.maxRows - 1 - row) * this.colWidth + this.colWidth / 2;
         const pal = TILE_PALETTE[newVal] || TILE_PALETTE[2];
 
-        // 1. Shockwave Ring
+        // Shockwave Ring
         this.shockwaves.push({
           x: cx,
           y: cy,
           radius: this.tileSize * 0.3,
-          maxRadius: this.tileSize * 1.25,
+          maxRadius: this.tileSize * 1.30,
           color: pal.bg,
           alpha: 1.0
         });
 
-        // 2. Burst Sparkles
-        for (let i = 0; i < 8; i++) {
-          const angle = (Math.PI * 2 * i) / 8 + Math.random() * 0.4;
-          const speed = 40 + Math.random() * 60;
+        // Burst Sparkles
+        for (let i = 0; i < 9; i++) {
+          const angle = (Math.PI * 2 * i) / 9 + Math.random() * 0.3;
+          const speed = 45 + Math.random() * 65;
           this.sparkles.push({
             x: cx,
             y: cy,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed,
             color: pal.topBg || pal.bg,
-            size: 4 + Math.random() * 3,
+            size: 3.5 + Math.random() * 3,
             alpha: 1.0,
             life: 0.35
           });
         }
 
-        // 3. Floating Score Text
+        // Floating Score
         this.floatingScores.push({
           x: cx,
-          y: cy - 12,
+          y: cy - 14,
           text: '+' + newVal.toLocaleString(),
           alpha: 1.0
         });
@@ -665,9 +712,10 @@
       finalizeTurn() {
         this.currentVal = this.nextVal;
         this.nextVal = this.generateWeightedValue();
+        this.resetPieceToCenter();
         this.state = 'AIMING';
 
-        // Check if all columns are filled
+        // Check if all columns are full
         let isFull = true;
         for (let c = 0; c < this.cols; c++) {
           if (this.columns[c].length < this.maxRows) {
@@ -693,31 +741,36 @@
         const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
         this.lastTime = timestamp;
 
-        // Smooth horizontal centering/tracking for aiming block
-        if (this.targetDragX !== undefined) {
-          this.dragX += (this.targetDragX - this.dragX) * 20 * dt;
+        // Smooth horizontal glide for piece aiming / gliding
+        if (this.state === 'AIMING' && this.isPointerDown) {
+          this.currentPieceX += (this.targetColX - this.currentPieceX) * 22 * dt;
+        } else if (this.state === 'GLIDING') {
+          this.currentPieceX += (this.targetColX - this.currentPieceX) * 26 * dt;
+          if (Math.abs(this.currentPieceX - this.targetColX) < 3.5) {
+            this.currentPieceX = this.targetColX;
+            this.startVerticalFall();
+          }
         }
 
-        // Falling Block Physics & Rocket Smoke Emission
+        // Falling Block Physics & Radiant Light Trail
         if (this.state === 'FALLING' && this.fallingPiece) {
           const p = this.fallingPiece;
-          p.vy += 2400 * dt;
+          p.vy += 2600 * dt;
           p.y += p.vy * dt;
 
           const pal = TILE_PALETTE[p.val] || TILE_PALETTE[2];
 
-          // Emit smoke exhaust particles trailing behind the falling block
+          // Emit radiant light photons trailing inside the energy beam
           for (let i = 0; i < 2; i++) {
-            this.smokeParticles.push({
-              x: p.x + (Math.random() - 0.5) * (this.tileSize * 0.6),
-              y: p.y - this.tileSize * 0.4 + (Math.random() - 0.5) * 6,
-              vx: (Math.random() - 0.5) * 15,
-              vy: -40 - Math.random() * 40,
-              size: 6 + Math.random() * 8,
-              maxSize: 14 + Math.random() * 8,
-              color: pal.topBg || pal.bg,
-              alpha: 0.70,
-              life: 0.28
+            this.lightPhotons.push({
+              x: p.x + (Math.random() - 0.5) * (this.tileSize * 0.45),
+              y: p.y - this.tileSize * 0.35 + (Math.random() - 0.5) * 4,
+              vy: -50 - Math.random() * 50,
+              size: 2.5 + Math.random() * 2.5,
+              color: '#FFFFFF',
+              glowColor: pal.glow,
+              alpha: 0.85,
+              life: 0.22
             });
           }
 
@@ -727,25 +780,23 @@
           }
         }
 
-        // Update Smoke Particles
-        for (let i = this.smokeParticles.length - 1; i >= 0; i--) {
-          const sp = this.smokeParticles[i];
-          sp.x += sp.vx * dt;
-          sp.y += sp.vy * dt;
-          sp.size += (sp.maxSize - sp.size) * 8 * dt;
-          sp.alpha -= dt * 2.8;
-          if (sp.alpha <= 0) this.smokeParticles.splice(i, 1);
+        // Update Light Photons
+        for (let i = this.lightPhotons.length - 1; i >= 0; i--) {
+          const lp = this.lightPhotons[i];
+          lp.y += lp.vy * dt;
+          lp.alpha -= dt * 3.8;
+          if (lp.alpha <= 0) this.lightPhotons.splice(i, 1);
         }
 
         // Update Shockwaves
         for (let i = this.shockwaves.length - 1; i >= 0; i--) {
           const sw = this.shockwaves[i];
-          sw.radius += (sw.maxRadius - sw.radius) * 10 * dt;
+          sw.radius += (sw.maxRadius - sw.radius) * 11 * dt;
           sw.alpha -= dt * 3.5;
           if (sw.alpha <= 0) this.shockwaves.splice(i, 1);
         }
 
-        // Update Burst Sparkles
+        // Update Sparkles
         for (let i = this.sparkles.length - 1; i >= 0; i--) {
           const spk = this.sparkles[i];
           spk.x += spk.vx * dt;
@@ -754,7 +805,7 @@
           if (spk.alpha <= 0) this.sparkles.splice(i, 1);
         }
 
-        // Settle Block Scales & Fade Highlights
+        // Settle Block Scales & Highlights
         for (let c = 0; c < this.cols; c++) {
           for (let r = 0; r < this.columns[c].length; r++) {
             const b = this.columns[c][r];
@@ -802,10 +853,10 @@
         // 3. Play Container
         this.renderBoardContainer(ctx);
 
-        // 4. Smoke Exhaust Behind Falling Block
-        this.renderSmokeParticles(ctx);
+        // 4. Radiant Light Beam & Photons Behind Falling Block
+        this.renderRadiantLightBeam(ctx);
 
-        // 5. Stacked Blocks & Active Falling Piece
+        // 5. Stacked Blocks & Active Piece
         this.renderBlocks(ctx);
 
         // 6. Merge Shockwaves & Sparkles
@@ -823,7 +874,7 @@
       renderHeader(ctx) {
         const y = this.headerY;
 
-        // Back Chevron Button (<)
+        // Back Button (<)
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
         ctx.shadowBlur = 8;
@@ -1000,22 +1051,54 @@
         ctx.restore();
       }
 
-      // ROCKET EXHAUST SMOKE PARTICLES
-      renderSmokeParticles(ctx) {
-        for (const sp of this.smokeParticles) {
+      // RADIANT LIGHT BEAM & PHOTONS (Replacing smoke)
+      renderRadiantLightBeam(ctx) {
+        if (this.state === 'FALLING' && this.fallingPiece) {
+          const p = this.fallingPiece;
+          const pal = TILE_PALETTE[p.val] || TILE_PALETTE[2];
+          const beamLen = Math.min(120, p.y - this.boardY + 20);
+
+          ctx.save();
+
+          // 1. Soft Luminous Background Light Streak
+          const glowGrad = ctx.createLinearGradient(0, p.y, 0, p.y - beamLen);
+          glowGrad.addColorStop(0, pal.glow + '88');
+          glowGrad.addColorStop(0.5, pal.glow + '33');
+          glowGrad.addColorStop(1, pal.glow + '00');
+
+          ctx.fillStyle = glowGrad;
+          ctx.fillRect(p.x - this.tileSize * 0.42, p.y - beamLen, this.tileSize * 0.84, beamLen);
+
+          // 2. Core Bright Energy Line
+          const coreGrad = ctx.createLinearGradient(0, p.y, 0, p.y - beamLen * 0.7);
+          coreGrad.addColorStop(0, '#FFFFFF');
+          coreGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+          ctx.strokeStyle = coreGrad;
+          ctx.lineWidth = 3.0;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x, p.y - beamLen * 0.7);
+          ctx.stroke();
+
+          ctx.restore();
+        }
+
+        // Render Floating Light Photons
+        for (const lp of this.lightPhotons) {
           ctx.save();
           ctx.beginPath();
-          ctx.arc(sp.x, sp.y, sp.size, 0, Math.PI * 2);
-          ctx.fillStyle = sp.color;
-          ctx.globalAlpha = sp.alpha * 0.65;
-          ctx.shadowColor = sp.color;
-          ctx.shadowBlur = 10;
+          ctx.arc(lp.x, lp.y, lp.size, 0, Math.PI * 2);
+          ctx.fillStyle = lp.color;
+          ctx.globalAlpha = lp.alpha;
+          ctx.shadowColor = lp.glowColor;
+          ctx.shadowBlur = 8;
           ctx.fill();
           ctx.restore();
         }
       }
 
-      // BLOCKS RENDERING WITH JUICY SPECULAR HIGHLIGHTS
+      // BLOCKS RENDERING
       renderBlocks(ctx) {
         const bx = this.boardX;
         const by = this.boardY;
@@ -1036,26 +1119,16 @@
           }
         }
 
-        // 2. Active Falling Block with exhaust plume
+        // 2. Active Falling Block
         if (this.state === 'FALLING' && this.fallingPiece) {
           const p = this.fallingPiece;
           const pal = TILE_PALETTE[p.val] || TILE_PALETTE[2];
-
-          // Upward Exhaust Glow Plume behind block
-          ctx.save();
-          const plumeGrad = ctx.createLinearGradient(0, p.y, 0, p.y - 75);
-          plumeGrad.addColorStop(0, pal.bg + '66');
-          plumeGrad.addColorStop(1, pal.bg + '00');
-          ctx.fillStyle = plumeGrad;
-          ctx.fillRect(p.x - ts / 2, p.y - 75, ts, 75);
-          ctx.restore();
-
           this.drawTile(ctx, p.x, p.y, ts, p.val, pal, 0.4, 1.0);
         }
 
-        // 3. Current Piece in AIMING state (Smoothly tracks finger/center above board)
-        if (this.state === 'AIMING') {
-          const cx = this.dragX || (bx + this.currentCol * cs + cs / 2);
+        // 3. Piece Above Container (AIMING or GLIDING)
+        if (this.state === 'AIMING' || this.state === 'GLIDING') {
+          const cx = this.currentPieceX;
           const cy = this.spawnY + cs / 2;
           const pal = TILE_PALETTE[this.currentVal] || TILE_PALETTE[2];
           this.drawTile(ctx, cx, cy, ts, this.currentVal, pal, 0.0, 1.0);
@@ -1088,7 +1161,7 @@
         // Top Gloss Curve
         ctx.beginPath();
         ctx.roundRect(x0 + 2, y0 + 2, ts - 4, ts * 0.40, [6, 6, 2, 2]);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.20)';
         ctx.fill();
 
         // Bottom Edge Bevel
@@ -1120,9 +1193,8 @@
         ctx.restore();
       }
 
-      // MERGE SHOCKWAVES & BURST SPARKLES
+      // MERGE SHOCKWAVES & SPARKLES
       renderMergeEffects(ctx) {
-        // Shockwave Rings
         for (const sw of this.shockwaves) {
           ctx.save();
           ctx.beginPath();
@@ -1136,7 +1208,6 @@
           ctx.restore();
         }
 
-        // Burst Sparkles
         for (const spk of this.sparkles) {
           ctx.save();
           ctx.beginPath();
