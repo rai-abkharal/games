@@ -77,12 +77,14 @@
         id: 'maldives',
         country: 'MALDIVES',
         tagline: 'Tropical Paradise & Turquoise Waters',
+        stamp: 'PASSPORT • MALDIVES',
         skyTop: '#0284C7',
         skyMid: '#38BDF8',
         waterColor: '#0EA5E9',
         sandColor: '#BAE6FD',
         accentColor: '#F97316',
         icon: '🌴',
+        ambientType: 'sunbeams',
         levels: [
           {
             theme: 'FIRST WORDS',
@@ -115,12 +117,14 @@
         id: 'italy',
         country: 'ITALY',
         tagline: 'Lake Como & Alpine Charm',
+        stamp: 'PASSPORT • ITALIA',
         skyTop: '#1E3A8A',
         skyMid: '#60A5FA',
         waterColor: '#3B82F6',
         sandColor: '#BFDBFE',
         accentColor: '#EA580C',
         icon: '🏛️',
+        ambientType: 'glints',
         levels: [
           {
             theme: 'ITALIAN FOOD',
@@ -148,12 +152,14 @@
         id: 'grand_canyon',
         country: 'GRAND CANYON',
         tagline: 'Sunset Canyons & Starry Camping',
+        stamp: 'PASSPORT • USA CANYON',
         skyTop: '#7C2D12',
         skyMid: '#EA580C',
         waterColor: '#C2410C',
         sandColor: '#FED7AA',
         accentColor: '#F59E0B',
         icon: '🏜️',
+        ambientType: 'fireflies',
         levels: [
           {
             theme: 'CAMPING',
@@ -176,12 +182,14 @@
         id: 'japan',
         country: 'JAPAN',
         tagline: 'Kyoto Gardens & Cherry Blossoms',
+        stamp: 'PASSPORT • KYOTO',
         skyTop: '#4C1D95',
         skyMid: '#F472B6',
         waterColor: '#EC4899',
         sandColor: '#FCE7F3',
         accentColor: '#E11D48',
         icon: '⛩️',
+        ambientType: 'sakura',
         levels: [
           {
             theme: 'GARDENS',
@@ -204,12 +212,14 @@
         id: 'switzerland',
         country: 'SWITZERLAND',
         tagline: 'Snowy Peaks & Alpine Chalets',
+        stamp: 'PASSPORT • ALPES',
         skyTop: '#0F172A',
         skyMid: '#38BDF8',
         waterColor: '#0284C7',
         sandColor: '#E0F2FE',
         accentColor: '#2563EB',
         icon: '🏔️',
+        ambientType: 'snow',
         levels: [
           {
             theme: 'WINTER SPORTS',
@@ -230,7 +240,7 @@
       }
     ];
 
-    // 3. AUDIO SYNTHESIZER
+    // 3. ACOUSTIC KALIMBA / HARP AUDIO SYNTHESIZER
     class SoundSynth {
       constructor() {
         this.ctx = null;
@@ -247,25 +257,37 @@
         }
       }
 
+      // Kalimba / Wind Chime Harmonics
       playStep(index = 1) {
         if (this.muted || !this.ctx) return;
         this.init();
         const t = this.ctx.currentTime;
-        const scale = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
-        const semi = scale[(index - 1) % scale.length];
-        const freq = 329.63 * Math.pow(2, semi / 12);
+        const kalimbaScale = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51];
+        const freq = kalimbaScale[(index - 1) % kalimbaScale.length];
 
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, t);
-        gain.gain.setValueAtTime(0.14, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        // Fundamental Sine
+        const osc1 = this.ctx.createOscillator();
+        const gain1 = this.ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(freq, t);
+        gain1.gain.setValueAtTime(0.18, t);
+        gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+        osc1.connect(gain1);
+        gain1.connect(this.ctx.destination);
+        osc1.start(t);
+        osc1.stop(t + 0.29);
 
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.13);
+        // Overtone Triangle for wooden chime ring
+        const osc2 = this.ctx.createOscillator();
+        const gain2 = this.ctx.createGain();
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(freq * 2.76, t);
+        gain2.gain.setValueAtTime(0.04, t);
+        gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+        osc2.connect(gain2);
+        gain2.connect(this.ctx.destination);
+        osc2.start(t);
+        osc2.stop(t + 0.15);
       }
 
       playWordFound() {
@@ -273,17 +295,17 @@
         this.init();
         const chord = [523.25, 659.25, 783.99, 1046.50];
         chord.forEach((freq, i) => {
-          const t = this.ctx.currentTime + i * 0.045;
+          const t = this.ctx.currentTime + i * 0.04;
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
-          osc.type = 'triangle';
+          osc.type = 'sine';
           osc.frequency.setValueAtTime(freq, t);
           gain.gain.setValueAtTime(0.20, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.40);
           osc.connect(gain);
           gain.connect(this.ctx.destination);
           osc.start(t);
-          osc.stop(t + 0.36);
+          osc.stop(t + 0.41);
         });
       }
 
@@ -292,7 +314,7 @@
         this.init();
         const notes = [392, 523.25, 659.25, 783.99, 1046.50];
         notes.forEach((freq, i) => {
-          const t = this.ctx.currentTime + i * 0.08;
+          const t = this.ctx.currentTime + i * 0.07;
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.type = 'triangle';
@@ -382,7 +404,6 @@
       }
     };
 
-    // 5. SHUFFLE HELPER UTILITY
     function shuffleArray(arr) {
       const copy = [...arr];
       for (let i = copy.length - 1; i > 0; i--) {
@@ -392,7 +413,7 @@
       return copy;
     }
 
-    // 6. INSTANT GUARANTEED WORD SEARCH GRID GENERATOR
+    // 5. INSTANT GUARANTEED WORD SEARCH GRID GENERATOR
     class GridGenerator {
       static generate(words, size) {
         const directions = [
@@ -406,7 +427,6 @@
           { dr: -1, dc: 1 }
         ];
 
-        // Shuffle words with subtle sorting
         const shuffledWords = shuffleArray(words);
         shuffledWords.sort((a, b) => b.length - a.length);
 
@@ -472,7 +492,7 @@
       }
     }
 
-    // 7. MAIN WORD TRAVEL ENGINE
+    // 6. MAIN WORD TRAVEL ENGINE
     class WordTravelGame {
       constructor(canvas) {
         this.canvas = canvas;
@@ -496,6 +516,14 @@
         this.hintHighlight = null;
         this.lightningFlash = 0;
         this.confetti = [];
+        this.tileBounces = {}; // { 'r,c': { scale: 1.25, time: 0.3 } }
+        this.sparkles = [];
+
+        // Ambient Living Nature Particles
+        this.ambientParticles = [];
+
+        this.lastWordFindTime = 0;
+        this.comboStreak = 0;
 
         this.levelColors = [];
         this.modalBtnRect = null;
@@ -592,10 +620,7 @@
 
         this.gridSize = this.levelData.gridSize || 6;
         
-        // Shuffle target words display list
         this.targetWords = shuffleArray(this.levelData.words);
-
-        // Assign shuffled non-repeating unique colors for this level!
         this.levelColors = shuffleArray(WORD_COLORS);
 
         const { grid, placements } = GridGenerator.generate(this.targetWords, this.gridSize);
@@ -608,13 +633,39 @@
         this.hintHighlight = null;
         this.lightningFlash = 0;
         this.confetti = [];
+        this.tileBounces = {};
+        this.sparkles = [];
         this.state = 'PLAYING';
         this.modalAnimProgress = 0;
+        this.comboStreak = 0;
+
+        this.initAmbientParticles();
 
         this.praiseText = PRAISE_MESSAGES[Math.floor(Math.random() * PRAISE_MESSAGES.length)];
         this.initLayout();
 
         Host.post('onGameStarted', { level: this.levelIndex + 1, country: this.destination.country });
+      }
+
+      // INITIALIZE LIVING AMBIENT PARTICLES (Sakura, Snow, Sunbeams, Fireflies)
+      initAmbientParticles() {
+        this.ambientParticles = [];
+        const type = this.destination.ambientType || 'sunbeams';
+        const count = type === 'sakura' ? 18 : (type === 'snow' ? 24 : 12);
+
+        for (let i = 0; i < count; i++) {
+          this.ambientParticles.push({
+            x: Math.random() * this.width,
+            y: Math.random() * this.height,
+            vx: type === 'sakura' ? (0.4 + Math.random() * 0.8) : (Math.random() - 0.5) * 0.6,
+            vy: type === 'snow' ? (0.6 + Math.random() * 1.0) : (0.4 + Math.random() * 0.6),
+            size: type === 'sakura' ? (6 + Math.random() * 5) : (3 + Math.random() * 4),
+            rot: Math.random() * Math.PI * 2,
+            vrot: (Math.random() - 0.5) * 2.0,
+            alpha: 0.3 + Math.random() * 0.5,
+            type: type
+          });
+        }
       }
 
       initLayout() {
@@ -625,7 +676,7 @@
         this.canvas.width = Math.round(this.width * dpr);
         this.canvas.height = Math.round(this.height * dpr);
 
-        this.headerY = 16;
+        this.headerY = 14;
 
         this.themeBoxY = 56;
         this.themeBoxW = Math.min(340, this.width - 24);
@@ -643,7 +694,7 @@
         this.gridW = this.gridSize * this.cellSize;
         this.gridH = this.gridSize * this.cellSize;
 
-        this.cardPadding = 12;
+        this.cardPadding = 10;
         this.cardW = this.gridW + this.cardPadding * 2;
         this.cardH = this.gridH + this.cardPadding * 2;
         this.cardX = (this.width - this.cardW) / 2;
@@ -673,7 +724,6 @@
           }
           const { px, py } = getPos(e);
 
-          // Responsive Modal Button Click (Next Level / Collect)
           if (this.state === 'LEVEL_COMPLETE' || this.state === 'COUNTRY_COMPLETE') {
             let clickedButton = false;
             if (this.modalBtnRect) {
@@ -696,7 +746,6 @@
             return;
           }
 
-          // Bottom Powerup Buttons Click
           if (py >= this.btnY - 26 && py <= this.btnY + 26) {
             const lightningX = this.width / 2 + 10;
             if (px >= lightningX - 22 && px <= lightningX + 22) {
@@ -718,7 +767,6 @@
             }
           }
 
-          // Grid Touch Start
           const cell = this.getCellFromPos(px, py);
           if (cell) {
             this.isDragging = true;
@@ -832,9 +880,43 @@
             colorObj: colorObj
           });
 
+          // Trigger Tactile 3D Jelly Bounce on Found Tiles
+          for (const pt of this.activePath) {
+            this.tileBounces[pt.r + ',' + pt.c] = 1.30;
+
+            const cx = this.gridX + pt.c * this.cellSize + this.cellSize / 2;
+            const cy = this.gridY + pt.r * this.cellSize + this.cellSize / 2;
+            for (let k = 0; k < 4; k++) {
+              this.sparkles.push({
+                x: cx,
+                y: cy,
+                vx: (Math.random() - 0.5) * 70,
+                vy: (Math.random() - 0.5) * 70,
+                color: colorObj.topBg || '#FFFFFF',
+                alpha: 1.0,
+                size: 3 + Math.random() * 3
+              });
+            }
+          }
+
+          // Combo Calculation
+          const now = Date.now();
+          if (now - this.lastWordFindTime < 4000) {
+            this.comboStreak++;
+            if (this.comboStreak >= 2) {
+              this.wisdom += 5;
+              this.toast = { text: '🔥 COMBO x' + this.comboStreak + '! +5 Wisdom', t: 1.2 };
+            } else {
+              this.toast = { text: matchWord + ' FOUND! ✨', t: 1.0 };
+            }
+          } else {
+            this.comboStreak = 1;
+            this.toast = { text: matchWord + ' FOUND! ✨', t: 1.0 };
+          }
+          this.lastWordFindTime = now;
+
           this.synth.playWordFound();
           this.haptic(25);
-          this.toast = { text: matchWord + ' FOUND!', t: 1.0 };
 
           Host.post('onWordFound', { word: matchWord });
 
@@ -878,6 +960,10 @@
           coords: [...unsolved.coords],
           colorObj: colorObj
         });
+
+        for (const pt of unsolved.coords) {
+          this.tileBounces[pt.r + ',' + pt.c] = 1.30;
+        }
 
         this.toast = { text: '⚡ ' + unsolved.word + ' REVEALED!', t: 1.5 };
 
@@ -926,6 +1012,34 @@
         const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
         this.lastTime = timestamp;
 
+        // Animate Living Ambient Particles
+        for (const p of this.ambientParticles) {
+          p.x += p.vx * 60 * dt;
+          p.y += p.vy * 60 * dt;
+          p.rot += p.vrot * dt;
+
+          if (p.y > this.height + 20) p.y = -20;
+          if (p.x > this.width + 20) p.x = -20;
+          if (p.x < -20) p.x = this.width + 20;
+        }
+
+        // Animate 3D Tile Jelly Bounces
+        for (const key in this.tileBounces) {
+          if (this.tileBounces[key] > 1.0) {
+            this.tileBounces[key] -= dt * 1.8;
+            if (this.tileBounces[key] <= 1.0) delete this.tileBounces[key];
+          }
+        }
+
+        // Animate Sparkles
+        for (let i = this.sparkles.length - 1; i >= 0; i--) {
+          const spk = this.sparkles[i];
+          spk.x += spk.vx * dt;
+          spk.y += spk.vy * dt;
+          spk.alpha -= dt * 2.2;
+          if (spk.alpha <= 0) this.sparkles.splice(i, 1);
+        }
+
         if (this.state === 'LEVEL_COMPLETE' || this.state === 'COUNTRY_COMPLETE') {
           if (this.modalAnimProgress < 1.0) {
             this.modalAnimProgress = Math.min(1.0, this.modalAnimProgress + dt * 2.8);
@@ -966,16 +1080,18 @@
         ctx.save();
         ctx.scale(this.dpr, this.dpr);
 
-        this.renderCleanScenicBackground(ctx);
-        this.renderHeader(ctx);
-        this.renderEnhancedThemeCard(ctx);
-        this.renderFramedGridCard(ctx);
+        this.renderLivingScenicBackground(ctx);
+        this.renderAmbientLivingParticles(ctx);
+        this.renderPassportHeader(ctx);
+        this.renderTravelCard(ctx);
+        this.render3DTactileGrid(ctx);
         this.renderBottomControls(ctx);
 
         if (this.levelIndex === 0 && this.foundWords.length === 0 && this.state === 'PLAYING') {
           this.renderTutorialOverlay(ctx);
         }
 
+        this.renderSparkles(ctx);
         this.renderConfetti(ctx);
 
         if (this.lightningFlash > 0) {
@@ -990,13 +1106,12 @@
         ctx.restore();
       }
 
-      // CLEAN GORGEOUS SCENIC BACKGROUND (No weird gray lines)
-      renderCleanScenicBackground(ctx) {
+      // 1. LIVING SCENIC BACKGROUND
+      renderLivingScenicBackground(ctx) {
         const dest = this.destination;
         const w = this.width;
         const h = this.height;
 
-        // Rich Multi-stop Sky Gradient
         const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
         skyGrad.addColorStop(0, dest.skyTop);
         skyGrad.addColorStop(0.55, dest.skyMid);
@@ -1007,17 +1122,16 @@
 
         ctx.save();
 
-        // 1. Radiant Glowing Sun & Soft Lens Flare
         const sunX = w * 0.82;
         const sunY = h * 0.15;
 
-        const sunHalo = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 70);
+        const sunHalo = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 75);
         sunHalo.addColorStop(0, 'rgba(255, 255, 255, 0.40)');
         sunHalo.addColorStop(0.5, 'rgba(254, 240, 138, 0.18)');
         sunHalo.addColorStop(1, 'rgba(254, 240, 138, 0)');
         ctx.fillStyle = sunHalo;
         ctx.beginPath();
-        ctx.arc(sunX, sunY, 70, 0, Math.PI * 2);
+        ctx.arc(sunX, sunY, 75, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.fillStyle = '#FFFFFF';
@@ -1025,7 +1139,6 @@
         ctx.arc(sunX, sunY, 20, 0, Math.PI * 2);
         ctx.fill();
 
-        // 2. Soft Floating Tropical Clouds
         ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
         ctx.beginPath();
         ctx.arc(w * 0.20, h * 0.12, 28, 0, Math.PI * 2);
@@ -1036,10 +1149,50 @@
         ctx.restore();
       }
 
-      renderHeader(ctx) {
+      // 2. AMBIENT LIVING PARTICLES (Sakura, Snow, Sunbeams, Fireflies)
+      renderAmbientLivingParticles(ctx) {
+        for (const p of this.ambientParticles) {
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.globalAlpha = p.alpha;
+
+          if (p.type === 'sakura') {
+            // Sakura Petal
+            ctx.fillStyle = '#F472B6';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, p.size, p.size * 0.55, Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (p.type === 'snow') {
+            // Snowflake
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (p.type === 'fireflies') {
+            // Firefly
+            ctx.fillStyle = '#FDE047';
+            ctx.shadowColor = '#FDE047';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            // Sunbeam Glint
+            ctx.fillStyle = '#FEF08A';
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+      }
+
+      // 3. PASSPORT STAMP HEADER
+      renderPassportHeader(ctx) {
         const y = this.headerY;
 
-        // Level Number (Clean Centered Header with Outfit Typography)
+        // Clean Centered Level Number with Stamp
         ctx.save();
         ctx.font = '900 22px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
@@ -1073,8 +1226,8 @@
         ctx.restore();
       }
 
-      // ENHANCED CATEGORY STRIP WITH ROUNDED WORD CHIPS
-      renderEnhancedThemeCard(ctx) {
+      // 4. TRAVEL CARD WITH EMBOSSED HEADER
+      renderTravelCard(ctx) {
         const bx = this.themeBoxX;
         const by = this.themeBoxY;
         const bw = this.themeBoxW;
@@ -1086,7 +1239,7 @@
         ctx.shadowBlur = 14;
         ctx.shadowOffsetY = 4;
 
-        // Orange Gradient Header
+        // Orange Embossed Passport Header
         const headGrad = ctx.createLinearGradient(bx, by, bx + bw, by + hh);
         headGrad.addColorStop(0, this.destination.accentColor || '#F97316');
         headGrad.addColorStop(1, '#EA580C');
@@ -1095,7 +1248,7 @@
         ctx.roundRect(bx, by, bw, hh, [12, 12, 0, 0]);
         ctx.fillStyle = headGrad;
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
         ctx.lineWidth = 1.0;
         ctx.stroke();
 
@@ -1105,7 +1258,7 @@
         ctx.textBaseline = 'middle';
         ctx.fillText(this.levelData.theme.toUpperCase(), bx + bw / 2, by + hh / 2 + 1);
 
-        // White Target Words Body with Double Border
+        // White Target Words Body
         ctx.beginPath();
         ctx.roundRect(bx, by + hh, bw, ch, [0, 0, 12, 12]);
         ctx.fillStyle = '#FFFFFF';
@@ -1159,8 +1312,8 @@
         ctx.restore();
       }
 
-      // FRAMED GRID CARD WITH CLEAN STYLISH TYPOGRAPHY
-      renderFramedGridCard(ctx) {
+      // 5. 3D TACTILE TILE GRID WITH PHYSICAL PRESS & JELLY BOUNCES
+      render3DTactileGrid(ctx) {
         const cx = this.cardX;
         const cy = this.cardY;
         const cw = this.cardW;
@@ -1172,7 +1325,7 @@
         ctx.shadowOffsetY = 8;
         ctx.beginPath();
         ctx.roundRect(cx, cy, cw, ch, 20);
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = '#F8FAFC';
         ctx.fill();
 
         ctx.strokeStyle = '#E2E8F0';
@@ -1184,7 +1337,7 @@
         const gy = this.gridY;
         const cs = this.cellSize;
 
-        // 1. Found Words Highlight Capsules
+        // 1. Found Words Highlight Capsules Behind Tiles
         for (const fw of this.foundWords) {
           const pal = fw.colorObj;
           ctx.save();
@@ -1205,7 +1358,7 @@
           ctx.restore();
         }
 
-        // 2. ACTIVE DRAG LINE (DYNAMICALLY USES THE EXACT NEXT SHUFFLED PALETTE COLOR!)
+        // 2. ACTIVE DRAG LINE (DYNAMIC NEXT COLOR)
         if (this.isDragging && this.activePath.length > 0) {
           const nextColor = this.levelColors[this.foundWords.length % this.levelColors.length] || WORD_COLORS[0];
 
@@ -1235,16 +1388,16 @@
           const hy = gy + this.hintHighlight.r * cs + cs / 2;
           ctx.save();
           ctx.beginPath();
-          ctx.arc(hx, hy, cs * 0.40, 0, Math.PI * 2);
+          ctx.arc(hx, hy, cs * 0.42, 0, Math.PI * 2);
           ctx.strokeStyle = '#FACC15';
           ctx.lineWidth = 3.5;
           ctx.shadowColor = '#FACC15';
-          ctx.shadowBlur = 12;
+          ctx.shadowBlur = 14;
           ctx.stroke();
           ctx.restore();
         }
 
-        // 4. Letters (Styled with Clean Bold Outfit Font)
+        // 4. 3D TACTILE TILES (Press & Jelly Bounce)
         for (let r = 0; r < this.gridSize; r++) {
           for (let c = 0; c < this.gridSize; c++) {
             const letter = this.grid[r][c];
@@ -1253,8 +1406,37 @@
 
             const isPartOfFound = this.foundWords.some(fw => fw.coords.some(pt => pt.r === r && pt.c === c));
             const isPartOfActive = this.activePath.some(pt => pt.r === r && pt.c === c);
+            const bounceScale = this.tileBounces[r + ',' + c] || 1.0;
+
+            const ts = cs - 6;
 
             ctx.save();
+            ctx.translate(lx, ly + (isPartOfActive ? 2 : 0)); // Physical press down!
+            if (bounceScale !== 1.0) {
+              ctx.scale(bounceScale, bounceScale);
+            }
+
+            // 3D Tile Base (Bottom Lip)
+            ctx.beginPath();
+            ctx.roundRect(-ts / 2, -ts / 2 + 2, ts, ts, 8);
+            ctx.fillStyle = isPartOfActive || isPartOfFound ? 'rgba(0,0,0,0.25)' : '#CBD5E1';
+            ctx.fill();
+
+            // 3D Tile Face
+            ctx.beginPath();
+            ctx.roundRect(-ts / 2, -ts / 2, ts, ts, 8);
+            if (isPartOfActive || isPartOfFound) {
+              ctx.fillStyle = 'transparent'; // Let colorful capsule shine through
+            } else {
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fill();
+
+              ctx.strokeStyle = '#E2E8F0';
+              ctx.lineWidth = 1.0;
+              ctx.stroke();
+            }
+
+            // Letter Typography
             ctx.font = '900 ' + Math.floor(cs * 0.52) + 'px Outfit, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -1267,9 +1449,21 @@
               ctx.fillStyle = '#0F172A';
             }
 
-            ctx.fillText(letter, lx, ly + 1);
+            ctx.fillText(letter, 0, 1);
             ctx.restore();
           }
+        }
+      }
+
+      renderSparkles(ctx) {
+        for (const spk of this.sparkles) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(spk.x, spk.y, spk.size, 0, Math.PI * 2);
+          ctx.fillStyle = spk.color;
+          ctx.globalAlpha = spk.alpha;
+          ctx.fill();
+          ctx.restore();
         }
       }
 
@@ -1376,7 +1570,6 @@
         }
       }
 
-      // ANIMATED LEVEL COMPLETE MODAL WITH SCENIC DESTINATION ARTWORK
       renderAnimatedLevelCompleteModal(ctx) {
         ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
         ctx.fillRect(0, 0, this.width, this.height);
@@ -1408,7 +1601,6 @@
         ctx.lineWidth = 2.0;
         ctx.stroke();
 
-        // 3D Metallic Orange Praise Ribbon Banner
         const ribbonW = 210, ribbonH = 44;
         const ribbonX = (this.width - ribbonW) / 2;
         const ribbonY = cardY - 20;
@@ -1435,7 +1627,6 @@
         ctx.fillText('⭐ ' + this.praiseText + ' ⭐', this.width / 2, ribbonY + ribbonH / 2 + 1);
         ctx.restore();
 
-        // Circular Scenic Destination Badge Frame
         const badgeY = cardY + 84;
         ctx.save();
         ctx.shadowColor = 'rgba(2, 132, 199, 0.35)';
@@ -1456,7 +1647,6 @@
         ctx.fillText(this.destination.icon || '🌴', this.width / 2, badgeY + 5);
         ctx.restore();
 
-        // Wisdom Score & Progress Bar
         ctx.font = '800 13px Outfit, sans-serif';
         ctx.fillStyle = '#64748B';
         ctx.textAlign = 'center';
@@ -1466,7 +1656,6 @@
         ctx.fillStyle = '#0284C7';
         ctx.fillText('✨ ' + this.wisdom, this.width / 2, badgeY + 86);
 
-        // Progress Bar
         const barW = 200, barH = 10;
         const barX = (this.width - barW) / 2;
         const barY = badgeY + 100;
@@ -1485,7 +1674,6 @@
         ctx.fillStyle = fillGrad;
         ctx.fill();
 
-        // 3D Juicy Green Next Level Button
         const btnW = 208, btnH = 50;
         const btnX = (this.width - btnW) / 2;
         const btnY = cardY + cardH - 68;
@@ -1517,7 +1705,6 @@
         ctx.restore();
       }
 
-      // ANIMATED COUNTRY COMPLETE MODAL
       renderAnimatedCountryCompleteModal(ctx) {
         ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
         ctx.fillRect(0, 0, this.width, this.height);
@@ -1558,7 +1745,6 @@
         ctx.fillStyle = '#64748B';
         ctx.fillText(this.destination.tagline, this.width / 2, cardY + 95);
 
-        // Gift & Coin Burst
         const giftY = cardY + 164;
         ctx.beginPath();
         ctx.arc(this.width / 2, giftY, 46, 0, Math.PI * 2);

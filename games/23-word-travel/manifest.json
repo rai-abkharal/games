@@ -1,8 +1,8 @@
 {
   "id": "word-travel",
   "title": "Word Travel",
-  "version": "1.3.0",
-  "description": "Continuous travel-themed word search puzzle journey. Swipe through adjacent letters in 8 directions to discover themed words, earn wisdom, unlock countries, and collect rewards.",
+  "version": "2.0.0",
+  "description": "Continuous travel-themed word search puzzle journey. Features living atmospheric environments (Sakura petals, snow, sunbeams), 3D tactile tile board with jelly bounce physics, travel passport seals, acoustic kalimba chime music, and combo speed bonuses.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Word Puzzle",
@@ -13,6 +13,7 @@
     "sound": true,
     "vibration": true,
     "hints": true,
-    "powerups": true
+    "powerups": true,
+    "particles": true
   }
 }
