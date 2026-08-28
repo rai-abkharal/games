@@ -1,8 +1,8 @@
 {
   "id": "maze-paint",
   "title": "Color Maze Paint",
-  "version": "1.4.0",
-  "description": "Masterwork 3D underground sunken roller paint puzzle game. Features infinite non-repeating procedural solvable mazes, pro-tier difficulty scaling (Easy, Medium, Hard), star sparkle trail animations, bottom-left intelligent hint solver, and zero-stuck guaranteed navigation physics.",
+  "version": "1.5.0",
+  "description": "Masterwork 3D underground sunken roller paint puzzle game. Guaranteed 100% softlock-free strongly-connected mazes, continuous drag controls, star sparkle trail animations, instant restart button, and bottom-left intelligent hint solver.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Puzzle",

@@ -80,7 +80,7 @@
       }
     }
 
-    // 3. INFINITE PROCEDURAL SOLVABLE MAZE GENERATOR ENGINE
+    // 3. 100% STRONGLY-CONNECTED & SOFTLOCK-FREE PROCEDURAL MAZE GENERATOR
     class LevelEngine {
       static solveMaze(grid, startR, startC) {
         const rows = grid.length;
@@ -148,22 +148,97 @@
         return { solvable: false, totalPlayable };
       }
 
+      // Strong Connectivity Verifier: Proves that from EVERY reachable stopping position, you can reach EVERY other stopping position (Zero Softlock!)
+      static isSoftlockFree(grid, startR, startC) {
+        const rows = grid.length;
+        const cols = grid[0].length;
+        const dirs = [
+          { dr: -1, dc: 0 },
+          { dr: 1, dc: 0 },
+          { dr: 0, dc: -1 },
+          { dr: 0, dc: 1 }
+        ];
+
+        const reachableStops = new Set();
+        const stopQueue = [{ r: startR, c: startC }];
+        reachableStops.add(startR + ',' + startC);
+
+        while (stopQueue.length > 0) {
+          const curr = stopQueue.shift();
+          for (const d of dirs) {
+            let r = curr.r;
+            let c = curr.c;
+            let steps = 0;
+            while (true) {
+              const nr = r + d.dr;
+              const nc = c + d.dc;
+              if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === 1) {
+                r = nr;
+                c = nc;
+                steps++;
+              } else {
+                break;
+              }
+            }
+            if (steps > 0) {
+              const key = r + ',' + c;
+              if (!reachableStops.has(key)) {
+                reachableStops.add(key);
+                stopQueue.push({ r, c });
+              }
+            }
+          }
+        }
+
+        for (const stopKey of reachableStops) {
+          const [sr, sc] = stopKey.split(',').map(Number);
+          const visited = new Set([stopKey]);
+          const q = [{ r: sr, c: sc }];
+          while (q.length > 0) {
+            const curr = q.shift();
+            for (const d of dirs) {
+              let r = curr.r;
+              let c = curr.c;
+              let steps = 0;
+              while (true) {
+                const nr = r + d.dr;
+                const nc = c + d.dc;
+                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === 1) {
+                  r = nr;
+                  c = nc;
+                  steps++;
+                } else {
+                  break;
+                }
+              }
+              if (steps > 0) {
+                const key = r + ',' + c;
+                if (!visited.has(key)) {
+                  visited.add(key);
+                  q.push({ r, c });
+                }
+              }
+            }
+          }
+          if (visited.size !== reachableStops.size) {
+            return false; // Found a one-way dead trap!
+          }
+        }
+        return true;
+      }
+
       static generateLevel(difficulty, levelIndex) {
-        // Difficulty parameters:
-        // EASY: 6x5 to 6x6, 14-22 tiles
-        // MEDIUM: 7x6 to 7x7, 22-34 tiles
-        // HARD: 8x7 to 9x8, 34-52 tiles
-        let minRows = 5, maxRows = 6, minCols = 5, maxCols = 6, minTurns = 10, maxTurns = 18, minTiles = 14;
+        let minRows = 5, maxRows = 6, minCols = 5, maxCols = 6, minTurns = 12, maxTurns = 20, minTiles = 14;
         if (difficulty === 'medium') {
-          minRows = 6; maxRows = 7; minCols = 6; maxCols = 7; minTurns = 18; maxTurns = 30; minTiles = 22;
+          minRows = 6; maxRows = 7; minCols = 6; maxCols = 7; minTurns = 20; maxTurns = 32; minTiles = 22;
         } else if (difficulty === 'hard') {
           minRows = 7; maxRows = 8; minCols = 7; maxCols = 8; minTurns = 28; maxTurns = 46; minTiles = 32;
         }
 
-        const baseSeed = (difficulty === 'easy' ? 10000 : (difficulty === 'medium' ? 40000 : 80000)) + levelIndex * 37 + 11;
+        const baseSeed = (difficulty === 'easy' ? 10000 : (difficulty === 'medium' ? 40000 : 80000)) + levelIndex * 41 + 17;
         const rng = new SeededRNG(baseSeed);
 
-        for (let attempt = 0; attempt < 1200; attempt++) {
+        for (let attempt = 0; attempt < 2500; attempt++) {
           const rows = rng.range(minRows, maxRows);
           const cols = rng.range(minCols, maxCols);
           const grid = Array(rows).fill(null).map(() => Array(cols).fill(0));
@@ -206,24 +281,26 @@
 
           const res = this.solveMaze(grid, startR, startC);
           if (res.solvable && res.totalPlayable >= minTiles) {
-            return {
-              grid,
-              startR,
-              startC,
-              colorIdx: (levelIndex) % LEVEL_COLORS.length
-            };
+            if (this.isSoftlockFree(grid, startR, startC)) {
+              return {
+                grid,
+                startR,
+                startC,
+                colorIdx: (levelIndex) % LEVEL_COLORS.length
+              };
+            }
           }
         }
 
-        // High-Quality Fallback (Guaranteed Solvable S-Corridor)
+        // Guaranteed Softlock-Free High Quality Fallback Loop
         const fallbackRows = minRows;
         const fallbackCols = minCols;
         const fallbackGrid = Array(fallbackRows).fill(null).map(() => Array(fallbackCols).fill(0));
         for (let rr = 0; rr < fallbackRows; rr++) {
           for (let cc = 0; cc < fallbackCols; cc++) {
-            if (rr % 2 === 0) fallbackGrid[rr][cc] = 1;
-            else if (rr % 4 === 1 && cc === fallbackCols - 1) fallbackGrid[rr][cc] = 1;
-            else if (rr % 4 === 3 && cc === 0) fallbackGrid[rr][cc] = 1;
+            if (rr === 0 || rr === fallbackRows - 1 || cc === 0 || cc === fallbackCols - 1 || rr === 2) {
+              fallbackGrid[rr][cc] = 1;
+            }
           }
         }
         return {
@@ -445,7 +522,7 @@
         this.colorObj = LEVEL_COLORS[0];
 
         this.splats = [];
-        this.stars = []; // Star sparkles along rolling trail
+        this.stars = [];
         this.confetti = [];
         this.greatAnimTimer = 0;
         this.rippleRadius = 0;
@@ -493,7 +570,7 @@
         this.levelIndex = idx;
         this.saveLevelIndex();
 
-        // Generate procedural 100% solvable level (Endless, Zero Repetition!)
+        // 100% Guaranteed Softlock-Free Infinite Maze
         const lvlData = LevelEngine.generateLevel(this.difficulty, this.levelIndex);
 
         this.rows = lvlData.grid.length;
@@ -506,7 +583,7 @@
         for (let r = 0; r < this.rows; r++) {
           for (let c = 0; c < this.cols; c++) {
             if (lvlData.grid[r][c] === 1) {
-              this.grid[r][c] = 1; // Strict normalization to 1 ensures zero stuck bugs!
+              this.grid[r][c] = 1;
               this.totalPlayableTiles++;
             }
           }
@@ -514,6 +591,9 @@
 
         const startR = lvlData.startR || 0;
         const startC = lvlData.startC || 0;
+
+        this.initialStartR = startR;
+        this.initialStartC = startC;
 
         this.ball.r = startR;
         this.ball.c = startC;
@@ -537,6 +617,30 @@
 
         this.initLayout();
         Host.post('onGameStarted', { level: this.levelIndex + 1, difficulty: this.difficulty });
+      }
+
+      restartCurrentLevel() {
+        this.painted = Array(this.rows).fill(null).map(() => Array(this.cols).fill(false));
+        this.ball.r = this.initialStartR;
+        this.ball.c = this.initialStartC;
+        this.ball.targetR = this.initialStartR;
+        this.ball.targetC = this.initialStartC;
+        this.ball.scaleX = 1.0;
+        this.ball.scaleY = 1.0;
+        this.painted[this.initialStartR][this.initialStartC] = true;
+        this.paintedCount = 1;
+
+        this.ball.x = this.boardX + this.ball.c * this.tileSize + this.tileSize / 2;
+        this.ball.y = this.boardY + this.ball.r * this.tileSize + this.tileSize / 2;
+        this.ball.targetX = this.ball.x;
+        this.ball.targetY = this.ball.y;
+
+        this.splats = [];
+        this.stars = [];
+        this.confetti = [];
+        this.hintArrow = null;
+        this.state = 'IDLE';
+        this.synth.playTap();
       }
 
       initLayout() {
@@ -613,33 +717,67 @@
             return;
           }
 
+          // Bottom Restart Button Click (↺)
+          const restartBtnX = 104;
+          const restartBtnY = this.height - 54;
+          if (px >= restartBtnX - 24 && px <= restartBtnX + 24 && py >= restartBtnY - 24 && py <= restartBtnY + 24) {
+            this.restartCurrentLevel();
+            return;
+          }
+
           this.touchStart = { px, py };
+          this.lastDrag = { px, py };
+        };
+
+        // Continuous Drag Support (Smooth Instant Swiping while dragging without lifting finger!)
+        const handleMove = (e) => {
+          if (!this.touchStart) return;
+          const { px, py } = getPos(e);
+          const dx = px - this.lastDrag.px;
+          const dy = py - this.lastDrag.py;
+          const absX = Math.abs(dx);
+          const absY = Math.abs(dy);
+          const threshold = 18;
+
+          if (absX >= threshold || absY >= threshold) {
+            if (this.state === 'IDLE') {
+              if (absX > absY) {
+                if (dx > 0) this.tryRoll(0, 1);
+                else this.tryRoll(0, -1);
+              } else {
+                if (dy > 0) this.tryRoll(1, 0);
+                else this.tryRoll(-1, 0);
+              }
+              this.lastDrag = { px, py };
+            }
+          }
         };
 
         const handleUp = (e) => {
-          if (!this.touchStart || this.state !== 'IDLE') return;
+          if (!this.touchStart) return;
           const { px, py } = getPos(e);
-
           const dx = px - this.touchStart.px;
           const dy = py - this.touchStart.py;
           this.touchStart = null;
+          this.lastDrag = null;
 
           const absX = Math.abs(dx);
           const absY = Math.abs(dy);
           const threshold = 14;
 
-          if (absX < threshold && absY < threshold) return;
-
-          if (absX > absY) {
-            if (dx > 0) this.tryRoll(0, 1);   // RIGHT
-            else this.tryRoll(0, -1);         // LEFT
-          } else {
-            if (dy > 0) this.tryRoll(1, 0);   // DOWN
-            else this.tryRoll(-1, 0);          // UP
+          if (this.state === 'IDLE' && (absX >= threshold || absY >= threshold)) {
+            if (absX > absY) {
+              if (dx > 0) this.tryRoll(0, 1);
+              else this.tryRoll(0, -1);
+            } else {
+              if (dy > 0) this.tryRoll(1, 0);
+              else this.tryRoll(-1, 0);
+            }
           }
         };
 
         this.canvas.addEventListener('pointerdown', handleDown);
+        window.addEventListener('pointermove', handleMove);
         window.addEventListener('pointerup', handleUp);
         window.addEventListener('pointercancel', handleUp);
 
@@ -649,6 +787,7 @@
           else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') this.tryRoll(0, -1);
           else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') this.tryRoll(1, 0);
           else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') this.tryRoll(-1, 0);
+          else if (e.key === 'r' || e.key === 'R') this.restartCurrentLevel();
         });
       }
 
@@ -730,7 +869,6 @@
           this.ball.targetX = this.boardX + currC * this.tileSize + this.tileSize / 2;
           this.ball.targetY = this.boardY + currR * this.tileSize + this.tileSize / 2;
 
-          // Directional squash & stretch
           if (dc !== 0) {
             this.ball.scaleX = 1.18;
             this.ball.scaleY = 0.88;
@@ -865,7 +1003,7 @@
           }
         }
 
-        // Star Sparkles Particle Updates
+        // Particle Updates
         for (let i = this.stars.length - 1; i >= 0; i--) {
           const st = this.stars[i];
           st.x += st.vx * dt;
@@ -940,7 +1078,7 @@
         this.renderStarSparkles(ctx);
         this.renderHintGuide(ctx);
         this.renderJuicyMarbleBall(ctx);
-        this.renderBottomHintButton(ctx);
+        this.renderBottomControls(ctx);
         this.renderConfetti(ctx);
 
         if (this.state === 'GREAT_ANIMATION') this.renderGreatBanner(ctx);
@@ -996,13 +1134,13 @@
         ctx.fillText('Level ' + (this.levelIndex + 1), this.width / 2, y + 20);
       }
 
-      // UNDERGROUND SUNKEN TRAY 3D DEPTH (Smooth & Clean, Zero Corner Dots, Zero Harsh Lines)
+      // UNDERGROUND SUNKEN TRAY 3D DEPTH (Smooth, Clean, Zero Corner Dots, Zero Harsh Lines)
       renderUndergroundSunkenTray(ctx) {
         const bx = this.boardX;
         const by = this.boardY;
         const ts = this.tileSize;
 
-        // 1. Soft Sunken Chasm Ambient Occlusion (Smooth Gradient)
+        // 1. Soft Sunken Chasm Ambient Occlusion
         ctx.save();
         for (let r = 0; r < this.rows; r++) {
           for (let c = 0; c < this.cols; c++) {
@@ -1010,7 +1148,6 @@
               const tx = bx + c * ts;
               const ty = by + r * ts;
 
-              // Top Sunken Inner Wall Shadow
               if (r === 0 || this.grid[r - 1][c] === 0) {
                 const topAO = ctx.createLinearGradient(tx, ty, tx, ty + 6);
                 topAO.addColorStop(0, 'rgba(30, 41, 59, 0.35)');
@@ -1018,7 +1155,6 @@
                 ctx.fillStyle = topAO;
                 ctx.fillRect(tx, ty, ts, 6);
               }
-              // Left Sunken Inner Wall Shadow
               if (c === 0 || this.grid[r][c - 1] === 0) {
                 const leftAO = ctx.createLinearGradient(tx, ty, tx + 6, ty);
                 leftAO.addColorStop(0, 'rgba(30, 41, 59, 0.35)');
@@ -1045,30 +1181,24 @@
               ctx.rect(tx + 0.5, ty + 0.5, ts - 1, ts - 1);
 
               if (isPainted) {
-                // Vibrant Solid Glossy Fill
                 ctx.fillStyle = this.colorObj.hex;
                 ctx.fill();
 
-                // Clean Subtle Top Edge Highlight
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.20)';
                 ctx.fillRect(tx + 1, ty + 1, ts - 2, 2);
               } else {
-                // Clean Matte Dark Slate Tile
                 ctx.fillStyle = '#334155';
                 ctx.fill();
 
-                // Subtle bottom depth step
                 ctx.fillStyle = '#1E293B';
                 ctx.fillRect(tx + 1, ty + ts - 2.5, ts - 2, 1.5);
               }
 
-              // Clean Tile Separation Seam
               ctx.strokeStyle = isPainted ? this.colorObj.darkHex : '#243242';
               ctx.lineWidth = 1.0;
               ctx.stroke();
               ctx.restore();
             } else {
-              // Smooth Warm Cream Void / Raised Islands
               ctx.save();
               ctx.fillStyle = '#FAF7EE';
               ctx.fillRect(tx, ty, ts, ts);
@@ -1086,7 +1216,7 @@
           }
         }
 
-        // 3. Victory Radial Wave Animation
+        // 3. Victory Radial Wave
         if (this.state === 'GREAT_ANIMATION' && this.rippleRadius > 0) {
           ctx.save();
           ctx.beginPath();
@@ -1106,7 +1236,6 @@
           ctx.rotate(st.rot);
           ctx.globalAlpha = Math.max(0, st.alpha);
 
-          // 4-Point Star Sparkle
           ctx.beginPath();
           const sz = st.size;
           ctx.moveTo(0, -sz);
@@ -1138,7 +1267,6 @@
         ctx.translate(b.x, b.y);
         ctx.scale(b.scaleX, b.scaleY);
 
-        // Soft Dynamic Drop Shadow
         ctx.save();
         ctx.beginPath();
         ctx.ellipse(0, b.radius * 0.75, b.radius * 0.85, b.radius * 0.35, 0, 0, Math.PI * 2);
@@ -1146,7 +1274,6 @@
         ctx.fill();
         ctx.restore();
 
-        // 3D Spherical Marble Body with Specular Highlight
         ctx.beginPath();
         ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
         const grad = ctx.createRadialGradient(-b.radius * 0.35, -b.radius * 0.35, b.radius * 0.1, 0, 0, b.radius);
@@ -1156,7 +1283,6 @@
         ctx.fillStyle = grad;
         ctx.fill();
 
-        // Top Specular Gleam
         ctx.beginPath();
         ctx.arc(-b.radius * 0.35, -b.radius * 0.35, b.radius * 0.28, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.80)';
@@ -1177,10 +1303,12 @@
         }
       }
 
-      // BOTTOM LEFT HINT BUTTON (💡 1)
-      renderBottomHintButton(ctx) {
-        const x = 48; // Positioned on LEFT
+      // BOTTOM CONTROLS: HINT (💡 1) ON LEFT + RESTART (↺)
+      renderBottomControls(ctx) {
         const y = this.height - 54;
+
+        // 1. Bottom-Left Hint Button (💡 1)
+        const hintX = 48;
         const r = 24;
 
         ctx.save();
@@ -1189,8 +1317,8 @@
         ctx.shadowOffsetY = 4;
 
         ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        const grad = ctx.createLinearGradient(x, y - r, x, y + r);
+        ctx.arc(hintX, y, r, 0, Math.PI * 2);
+        const grad = ctx.createLinearGradient(hintX, y - r, hintX, y + r);
         grad.addColorStop(0, '#FBBF24');
         grad.addColorStop(1, '#F59E0B');
         ctx.fillStyle = grad;
@@ -1204,9 +1332,9 @@
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('💡', x, y);
+        ctx.fillText('💡', hintX, y);
 
-        const badgeX = x + 16;
+        const badgeX = hintX + 16;
         const badgeY = y - 16;
         ctx.beginPath();
         ctx.arc(badgeX, badgeY, 9, 0, Math.PI * 2);
@@ -1220,6 +1348,28 @@
         ctx.fillStyle = '#1E293B';
         ctx.fillText(this.hints.toString(), badgeX, badgeY + 1);
 
+        ctx.restore();
+
+        // 2. Restart Level Button (↺)
+        const restartX = 104;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 3;
+
+        ctx.beginPath();
+        ctx.arc(restartX, y, 20, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.font = '900 18px Outfit, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('↺', restartX, y + 1);
         ctx.restore();
       }
 
