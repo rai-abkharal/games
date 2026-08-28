@@ -65,254 +65,3217 @@
       { id: 'teal', hex: '#14B8A6', darkHex: '#0F766E', name: 'Ocean Teal' }
     ];
 
-    // 2. PSEUDO-RANDOM NUMBER GENERATOR (Deterministic Seed for Endless Unique Levels)
-    class SeededRNG {
-      constructor(seed) {
-        this.s = seed % 2147483647;
-        if (this.s <= 0) this.s += 2147483646;
-      }
-      next() {
-        this.s = (this.s * 16807) % 2147483647;
-        return (this.s - 1) / 2147483646;
-      }
-      range(min, max) {
-        return min + Math.floor(this.next() * (max - min + 1));
-      }
+    // 2. 60 PRE-BAKED INSTANT-LOADING SOFTLOCK-FREE LEVEL SUITES (0ms Load Time)
+    const LEVEL_PACKS = {
+  "easy": [
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 3,
+      "startC": 1,
+      "colorIdx": 0
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0
+        ]
+      ],
+      "startR": 2,
+      "startC": 3,
+      "colorIdx": 1
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "startR": 3,
+      "startC": 3,
+      "colorIdx": 2
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "startR": 1,
+      "startC": 1,
+      "colorIdx": 3
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 2,
+      "startC": 1,
+      "colorIdx": 4
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1
+        ]
+      ],
+      "startR": 1,
+      "startC": 2,
+      "colorIdx": 5
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 1,
+      "startC": 1,
+      "colorIdx": 6
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 1,
+      "startC": 1,
+      "colorIdx": 7
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "startR": 1,
+      "startC": 2,
+      "colorIdx": 8
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 1,
+      "startC": 3,
+      "colorIdx": 9
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 2,
+      "startC": 3,
+      "colorIdx": 0
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1
+        ]
+      ],
+      "startR": 1,
+      "startC": 3,
+      "colorIdx": 1
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 2,
+      "startC": 3,
+      "colorIdx": 2
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 2,
+      "startC": 1,
+      "colorIdx": 3
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 3,
+      "startC": 2,
+      "colorIdx": 4
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          0
+        ]
+      ],
+      "startR": 3,
+      "startC": 1,
+      "colorIdx": 5
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 1,
+      "startC": 1,
+      "colorIdx": 6
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 1,
+      "startC": 3,
+      "colorIdx": 7
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 3,
+      "startC": 3,
+      "colorIdx": 8
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          0
+        ]
+      ],
+      "startR": 3,
+      "startC": 1,
+      "colorIdx": 9
     }
-
-    // 3. 100% STRONGLY-CONNECTED & SOFTLOCK-FREE PROCEDURAL MAZE GENERATOR
-    class LevelEngine {
-      static solveMaze(grid, startR, startC) {
-        const rows = grid.length;
-        const cols = grid[0].length;
-        let totalPlayable = 0;
-        const tileIndices = {};
-        let idx = 0;
-        for (let r = 0; r < rows; r++) {
-          for (let c = 0; c < cols; c++) {
-            if (grid[r][c] === 1) {
-              totalPlayable++;
-              tileIndices[r + ',' + c] = idx++;
-            }
-          }
-        }
-        if (totalPlayable === 0) return { solvable: false, totalPlayable: 0 };
-
-        const initialMask = 1n << BigInt(tileIndices[startR + ',' + startC]);
-        const startState = { r: startR, c: startC, mask: initialMask };
-        const visited = new Set();
-        visited.add(startR + ',' + startC + ':' + initialMask.toString());
-
-        const queue = [startState];
-        const targetMask = (1n << BigInt(totalPlayable)) - 1n;
-        const dirs = [
-          { dr: -1, dc: 0 },
-          { dr: 1, dc: 0 },
-          { dr: 0, dc: -1 },
-          { dr: 0, dc: 1 }
-        ];
-
-        while (queue.length > 0) {
-          const { r, c, mask } = queue.shift();
-          if (mask === targetMask) return { solvable: true, totalPlayable };
-
-          for (const dir of dirs) {
-            let currR = r;
-            let currC = c;
-            let nextMask = mask;
-            let steps = 0;
-
-            while (true) {
-              const nr = currR + dir.dr;
-              const nc = currC + dir.dc;
-              if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === 1) {
-                currR = nr;
-                currC = nc;
-                steps++;
-                const bitIdx = tileIndices[currR + ',' + currC];
-                nextMask |= (1n << BigInt(bitIdx));
-              } else {
-                break;
-              }
-            }
-
-            if (steps > 0) {
-              const stateKey = currR + ',' + currC + ':' + nextMask.toString();
-              if (!visited.has(stateKey)) {
-                visited.add(stateKey);
-                queue.push({ r: currR, c: currC, mask: nextMask });
-              }
-            }
-          }
-        }
-        return { solvable: false, totalPlayable };
-      }
-
-      // Strong Connectivity Verifier: Proves that from EVERY reachable stopping position, you can reach EVERY other stopping position (Zero Softlock!)
-      static isSoftlockFree(grid, startR, startC) {
-        const rows = grid.length;
-        const cols = grid[0].length;
-        const dirs = [
-          { dr: -1, dc: 0 },
-          { dr: 1, dc: 0 },
-          { dr: 0, dc: -1 },
-          { dr: 0, dc: 1 }
-        ];
-
-        const reachableStops = new Set();
-        const stopQueue = [{ r: startR, c: startC }];
-        reachableStops.add(startR + ',' + startC);
-
-        while (stopQueue.length > 0) {
-          const curr = stopQueue.shift();
-          for (const d of dirs) {
-            let r = curr.r;
-            let c = curr.c;
-            let steps = 0;
-            while (true) {
-              const nr = r + d.dr;
-              const nc = c + d.dc;
-              if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === 1) {
-                r = nr;
-                c = nc;
-                steps++;
-              } else {
-                break;
-              }
-            }
-            if (steps > 0) {
-              const key = r + ',' + c;
-              if (!reachableStops.has(key)) {
-                reachableStops.add(key);
-                stopQueue.push({ r, c });
-              }
-            }
-          }
-        }
-
-        for (const stopKey of reachableStops) {
-          const [sr, sc] = stopKey.split(',').map(Number);
-          const visited = new Set([stopKey]);
-          const q = [{ r: sr, c: sc }];
-          while (q.length > 0) {
-            const curr = q.shift();
-            for (const d of dirs) {
-              let r = curr.r;
-              let c = curr.c;
-              let steps = 0;
-              while (true) {
-                const nr = r + d.dr;
-                const nc = c + d.dc;
-                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === 1) {
-                  r = nr;
-                  c = nc;
-                  steps++;
-                } else {
-                  break;
-                }
-              }
-              if (steps > 0) {
-                const key = r + ',' + c;
-                if (!visited.has(key)) {
-                  visited.add(key);
-                  q.push({ r, c });
-                }
-              }
-            }
-          }
-          if (visited.size !== reachableStops.size) {
-            return false; // Found a one-way dead trap!
-          }
-        }
-        return true;
-      }
-
-      static generateLevel(difficulty, levelIndex) {
-        let minRows = 5, maxRows = 6, minCols = 5, maxCols = 6, minTurns = 12, maxTurns = 20, minTiles = 14;
-        if (difficulty === 'medium') {
-          minRows = 6; maxRows = 7; minCols = 6; maxCols = 7; minTurns = 20; maxTurns = 32; minTiles = 22;
-        } else if (difficulty === 'hard') {
-          minRows = 7; maxRows = 8; minCols = 7; maxCols = 8; minTurns = 28; maxTurns = 46; minTiles = 32;
-        }
-
-        const baseSeed = (difficulty === 'easy' ? 10000 : (difficulty === 'medium' ? 40000 : 80000)) + levelIndex * 41 + 17;
-        const rng = new SeededRNG(baseSeed);
-
-        for (let attempt = 0; attempt < 2500; attempt++) {
-          const rows = rng.range(minRows, maxRows);
-          const cols = rng.range(minCols, maxCols);
-          const grid = Array(rows).fill(null).map(() => Array(cols).fill(0));
-
-          let r = rng.range(1, rows - 2);
-          let c = rng.range(1, cols - 2);
-          const startR = r;
-          const startC = c;
-          grid[r][c] = 1;
-
-          let prevDir = null;
-          const turns = rng.range(minTurns, maxTurns);
-          const dirs = [
-            { dr: -1, dc: 0 },
-            { dr: 1, dc: 0 },
-            { dr: 0, dc: -1 },
-            { dr: 0, dc: 1 }
-          ];
-
-          for (let t = 0; t < turns; t++) {
-            const validDirs = dirs.filter(d => {
-              if (!prevDir) return true;
-              return d.dr !== prevDir.dr && d.dc !== prevDir.dc && (d.dr !== -prevDir.dr || d.dc !== -prevDir.dc);
-            });
-            const dir = validDirs[Math.floor(rng.next() * validDirs.length)];
-            const maxDist = (dir.dr !== 0)
-              ? (dir.dr > 0 ? rows - 1 - r : r)
-              : (dir.dc > 0 ? cols - 1 - c : c);
-
-            if (maxDist < 1) continue;
-            const dist = 1 + Math.floor(rng.next() * Math.min(maxDist, 4));
-
-            for (let s = 1; s <= dist; s++) {
-              r += dir.dr;
-              c += dir.dc;
-              grid[r][c] = 1;
-            }
-            prevDir = dir;
-          }
-
-          const res = this.solveMaze(grid, startR, startC);
-          if (res.solvable && res.totalPlayable >= minTiles) {
-            if (this.isSoftlockFree(grid, startR, startC)) {
-              return {
-                grid,
-                startR,
-                startC,
-                colorIdx: (levelIndex) % LEVEL_COLORS.length
-              };
-            }
-          }
-        }
-
-        // Guaranteed Softlock-Free High Quality Fallback Loop
-        const fallbackRows = minRows;
-        const fallbackCols = minCols;
-        const fallbackGrid = Array(fallbackRows).fill(null).map(() => Array(fallbackCols).fill(0));
-        for (let rr = 0; rr < fallbackRows; rr++) {
-          for (let cc = 0; cc < fallbackCols; cc++) {
-            if (rr === 0 || rr === fallbackRows - 1 || cc === 0 || cc === fallbackCols - 1 || rr === 2) {
-              fallbackGrid[rr][cc] = 1;
-            }
-          }
-        }
-        return {
-          grid: fallbackGrid,
-          startR: 0,
-          startC: 0,
-          colorIdx: (levelIndex) % LEVEL_COLORS.length
-        };
-      }
+  ],
+  "medium": [
+    {
+      "grid": [
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          0
+        ]
+      ],
+      "startR": 1,
+      "startC": 3,
+      "colorIdx": 0
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 1,
+      "startC": 2,
+      "colorIdx": 1
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 3,
+      "startC": 2,
+      "colorIdx": 2
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 4,
+      "startC": 3,
+      "colorIdx": 3
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "startR": 4,
+      "startC": 3,
+      "colorIdx": 4
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "startR": 2,
+      "startC": 4,
+      "colorIdx": 5
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 4,
+      "startC": 2,
+      "colorIdx": 6
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ]
+      ],
+      "startR": 3,
+      "startC": 2,
+      "colorIdx": 7
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 3,
+      "startC": 1,
+      "colorIdx": 8
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ]
+      ],
+      "startR": 4,
+      "startC": 4,
+      "colorIdx": 9
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 3,
+      "startC": 4,
+      "colorIdx": 0
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 1,
+      "startC": 2,
+      "colorIdx": 1
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 3,
+      "startC": 2,
+      "colorIdx": 2
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "startR": 2,
+      "startC": 1,
+      "colorIdx": 3
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "startR": 4,
+      "startC": 4,
+      "colorIdx": 4
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 4,
+      "startC": 1,
+      "colorIdx": 5
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          1,
+          1
+        ]
+      ],
+      "startR": 4,
+      "startC": 3,
+      "colorIdx": 6
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 2,
+      "startC": 3,
+      "colorIdx": 7
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 1,
+      "startC": 3,
+      "colorIdx": 8
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "startR": 3,
+      "startC": 1,
+      "colorIdx": 9
     }
+  ],
+  "hard": [
+    {
+      "grid": [
+        [
+          1,
+          1,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 2,
+      "startC": 3,
+      "colorIdx": 0
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 3,
+      "startC": 1,
+      "colorIdx": 1
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          0
+        ]
+      ],
+      "startR": 4,
+      "startC": 3,
+      "colorIdx": 2
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 5,
+      "startC": 2,
+      "colorIdx": 3
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "startR": 2,
+      "startC": 1,
+      "colorIdx": 4
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 1,
+      "startC": 1,
+      "colorIdx": 5
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ]
+      ],
+      "startR": 2,
+      "startC": 1,
+      "colorIdx": 6
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          0
+        ]
+      ],
+      "startR": 5,
+      "startC": 2,
+      "colorIdx": 7
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 1,
+      "startC": 3,
+      "colorIdx": 8
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 3,
+      "startC": 1,
+      "colorIdx": 9
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ]
+      ],
+      "startR": 2,
+      "startC": 4,
+      "colorIdx": 0
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1,
+          1
+        ]
+      ],
+      "startR": 3,
+      "startC": 3,
+      "colorIdx": 1
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "startR": 5,
+      "startC": 1,
+      "colorIdx": 2
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "startR": 3,
+      "startC": 2,
+      "colorIdx": 3
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 4,
+      "startC": 2,
+      "colorIdx": 4
+    },
+    {
+      "grid": [
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          0
+        ]
+      ],
+      "startR": 1,
+      "startC": 4,
+      "colorIdx": 5
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          1
+        ]
+      ],
+      "startR": 5,
+      "startC": 2,
+      "colorIdx": 6
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "startR": 2,
+      "startC": 1,
+      "colorIdx": 7
+    },
+    {
+      "grid": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "startR": 4,
+      "startC": 1,
+      "colorIdx": 8
+    },
+    {
+      "grid": [
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ]
+      ],
+      "startR": 2,
+      "startC": 2,
+      "colorIdx": 9
+    }
+  ]
+};
 
-    // 4. AUDIO SYNTHESIZER
+    // 3. AUDIO SYNTHESIZER
     class SoundSynth {
       constructor() {
         this.ctx = null;
@@ -415,7 +3378,7 @@
       }
     }
 
-    // 5. HOST PLATFORM BRIDGE
+    // 4. HOST PLATFORM BRIDGE
     const Host = {
       post(action, payload) {
         const body = payload || {};
@@ -438,7 +3401,7 @@
       }
     };
 
-    // 6. INTELLIGENT SOLVER / HINT SYSTEM (BFS Solver)
+    // 5. INTELLIGENT SOLVER / HINT SYSTEM (BFS Solver)
     class MazeSolver {
       static solveNextStep(grid, startR, startC, paintedMatrix) {
         const rows = grid.length;
@@ -485,7 +3448,7 @@
       }
     }
 
-    // 7. MAIN COLOR MAZE PAINT GAME ENGINE
+    // 6. MAIN COLOR MAZE PAINT GAME ENGINE
     class ColorMazeGame {
       constructor(canvas) {
         this.canvas = canvas;
@@ -570,8 +3533,8 @@
         this.levelIndex = idx;
         this.saveLevelIndex();
 
-        // 100% Guaranteed Softlock-Free Infinite Maze
-        const lvlData = LevelEngine.generateLevel(this.difficulty, this.levelIndex);
+        const pack = LEVEL_PACKS[this.difficulty] || LEVEL_PACKS.easy;
+        const lvlData = pack[this.levelIndex % pack.length];
 
         this.rows = lvlData.grid.length;
         this.cols = lvlData.grid[0].length;
@@ -589,8 +3552,8 @@
           }
         }
 
-        const startR = lvlData.startR || 0;
-        const startC = lvlData.startC || 0;
+        const startR = lvlData.startR !== undefined ? lvlData.startR : 0;
+        const startC = lvlData.startC !== undefined ? lvlData.startC : 0;
 
         this.initialStartR = startR;
         this.initialStartC = startC;
@@ -605,7 +3568,7 @@
         this.painted[startR][startC] = true;
         this.paintedCount = 1;
 
-        this.colorObj = LEVEL_COLORS[(lvlData.colorIdx) % LEVEL_COLORS.length];
+        this.colorObj = LEVEL_COLORS[(lvlData.colorIdx + this.levelIndex) % LEVEL_COLORS.length];
 
         this.splats = [];
         this.stars = [];
@@ -1003,7 +3966,6 @@
           }
         }
 
-        // Particle Updates
         for (let i = this.stars.length - 1; i >= 0; i--) {
           const st = this.stars[i];
           st.x += st.vx * dt;
