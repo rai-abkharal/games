@@ -1,0 +1,5420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Neon Breaker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none !important;
+    }
+    html, body {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #06080F;
+      font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+      touch-action: none !important;
+      -webkit-overflow-scrolling: auto;
+    }
+    #game-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      touch-action: none !important;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <script>
+    'use strict';
+
+    // 1. HAND-AUTHORED STAGES DATA (Stages 1 to 30)
+    const STAGES = [
+  {
+    "stage": 1,
+    "startBalls": 40,
+    "targetScore": 400,
+    "starThresholds": [
+      120,
+      260,
+      400
+    ],
+    "blocks": [
+      {
+        "r": 2,
+        "c": 2,
+        "hp": 40,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 3,
+        "hp": 40,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 4,
+        "hp": 40,
+        "shape": "square"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 4,
+        "c": 2
+      },
+      {
+        "r": 4,
+        "c": 4
+      }
+    ]
+  },
+  {
+    "stage": 2,
+    "startBalls": 45,
+    "targetScore": 800,
+    "starThresholds": [
+      250,
+      500,
+      800
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 1,
+        "hp": 30,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 3,
+        "hp": 30,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 30,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 20,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 20,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 3,
+        "hp": 35,
+        "shape": "square"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 2,
+        "c": 2
+      },
+      {
+        "r": 2,
+        "c": 4
+      },
+      {
+        "r": 5,
+        "c": 3
+      }
+    ]
+  },
+  {
+    "stage": 3,
+    "startBalls": 50,
+    "targetScore": 1200,
+    "starThresholds": [
+      400,
+      800,
+      1200
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 3,
+        "hp": 30,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 2,
+        "hp": 20,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 4,
+        "hp": 20,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 15,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 25,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 35,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 25,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 15,
+        "shape": "tri-tr"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 1
+      },
+      {
+        "r": 1,
+        "c": 5
+      },
+      {
+        "r": 4,
+        "c": 3
+      }
+    ]
+  },
+  {
+    "stage": 4,
+    "startBalls": 52,
+    "targetScore": 1600,
+    "starThresholds": [
+      500,
+      1000,
+      1600
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 1,
+        "hp": 25,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 1,
+        "hp": 20,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 15,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 25,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 5,
+        "hp": 20,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 15,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 3,
+        "hp": 40,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 4,
+        "c": 2,
+        "hp": 30,
+        "shape": "tri-bl"
+      },
+      {
+        "r": 4,
+        "c": 4,
+        "hp": 30,
+        "shape": "tri-br"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 3
+      },
+      {
+        "r": 3,
+        "c": 3
+      },
+      {
+        "r": 5,
+        "c": 1
+      },
+      {
+        "r": 5,
+        "c": 5
+      }
+    ]
+  },
+  {
+    "stage": 5,
+    "startBalls": 55,
+    "targetScore": 2200,
+    "starThresholds": [
+      700,
+      1400,
+      2200
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 3,
+        "hp": 35,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 1,
+        "c": 4,
+        "hp": 35,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 2,
+        "hp": 30,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 2,
+        "c": 3,
+        "hp": 50,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 4,
+        "hp": 50,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 5,
+        "hp": 30,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 25,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 40,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 40,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 25,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 4,
+        "c": 2,
+        "hp": 30,
+        "shape": "tri-bl"
+      },
+      {
+        "r": 4,
+        "c": 3,
+        "hp": 45,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 4,
+        "hp": 45,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 5,
+        "hp": 30,
+        "shape": "tri-br"
+      },
+      {
+        "r": 5,
+        "c": 3,
+        "hp": 35,
+        "shape": "tri-bl"
+      },
+      {
+        "r": 5,
+        "c": 4,
+        "hp": 35,
+        "shape": "tri-br"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 3,
+        "c": 3
+      },
+      {
+        "r": 1,
+        "c": 1
+      },
+      {
+        "r": 1,
+        "c": 6
+      },
+      {
+        "r": 5,
+        "c": 1
+      },
+      {
+        "r": 5,
+        "c": 6
+      }
+    ]
+  },
+  {
+    "stage": 6,
+    "startBalls": 53,
+    "targetScore": 3000,
+    "starThresholds": [
+      900,
+      1920,
+      3000
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 2,
+        "hp": 38,
+        "shape": "tri-br"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 52,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 1,
+        "hp": 32,
+        "shape": "tri-br"
+      },
+      {
+        "r": 2,
+        "c": 4,
+        "hp": 46,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 0,
+        "hp": 55,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 41,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 41,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 41,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 6,
+        "hp": 55,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 4,
+        "c": 2,
+        "hp": 35,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 4,
+        "c": 5,
+        "hp": 49,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 5,
+        "c": 1,
+        "hp": 29,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 5,
+        "c": 4,
+        "hp": 43,
+        "shape": "tri-tl"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 0
+      },
+      {
+        "r": 2,
+        "c": 6
+      },
+      {
+        "r": 4,
+        "c": 4
+      },
+      {
+        "r": 5,
+        "c": 3
+      }
+    ]
+  },
+  {
+    "stage": 7,
+    "startBalls": 53,
+    "targetScore": 3500,
+    "starThresholds": [
+      1050,
+      2240,
+      3500
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 1,
+        "hp": 54,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 1,
+        "c": 4,
+        "hp": 40,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 2,
+        "c": 0,
+        "hp": 48,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 3,
+        "hp": 34,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 2,
+        "c": 6,
+        "hp": 48,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 57,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 43,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 1,
+        "hp": 51,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 4,
+        "c": 4,
+        "hp": 37,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 0,
+        "hp": 45,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 5,
+        "c": 3,
+        "hp": 31,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 6,
+        "hp": 45,
+        "shape": "tri-br"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 6
+      },
+      {
+        "r": 2,
+        "c": 5
+      },
+      {
+        "r": 3,
+        "c": 4
+      },
+      {
+        "r": 4,
+        "c": 3
+      },
+      {
+        "r": 5,
+        "c": 2
+      }
+    ]
+  },
+  {
+    "stage": 8,
+    "startBalls": 54,
+    "targetScore": 4000,
+    "starThresholds": [
+      1200,
+      2560,
+      4000
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 0,
+        "hp": 41,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 1,
+        "c": 3,
+        "hp": 57,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 6,
+        "hp": 41,
+        "shape": "tri-br"
+      },
+      {
+        "r": 2,
+        "c": 2,
+        "hp": 51,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 5,
+        "hp": 35,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 44,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 44,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 60,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 44,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 0,
+        "hp": 38,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 3,
+        "hp": 54,
+        "shape": "tri-br"
+      },
+      {
+        "r": 4,
+        "c": 6,
+        "hp": 38,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 5,
+        "c": 2,
+        "hp": 48,
+        "shape": "tri-br"
+      },
+      {
+        "r": 5,
+        "c": 5,
+        "hp": 32,
+        "shape": "tri-tr"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 5
+      },
+      {
+        "r": 2,
+        "c": 4
+      },
+      {
+        "r": 4,
+        "c": 2
+      },
+      {
+        "r": 5,
+        "c": 1
+      }
+    ]
+  },
+  {
+    "stage": 9,
+    "startBalls": 54,
+    "targetScore": 4500,
+    "starThresholds": [
+      1350,
+      2880,
+      4500
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 2,
+        "hp": 43,
+        "shape": "tri-br"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 59,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 1,
+        "hp": 37,
+        "shape": "tri-br"
+      },
+      {
+        "r": 2,
+        "c": 4,
+        "hp": 53,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 0,
+        "hp": 62,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 46,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 46,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 46,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 6,
+        "hp": 62,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 4,
+        "c": 2,
+        "hp": 40,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 4,
+        "c": 5,
+        "hp": 56,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 5,
+        "c": 1,
+        "hp": 34,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 5,
+        "c": 4,
+        "hp": 50,
+        "shape": "tri-tl"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 4
+      },
+      {
+        "r": 2,
+        "c": 3
+      },
+      {
+        "r": 3,
+        "c": 2
+      },
+      {
+        "r": 4,
+        "c": 1
+      },
+      {
+        "r": 5,
+        "c": 0
+      }
+    ]
+  },
+  {
+    "stage": 10,
+    "startBalls": 55,
+    "targetScore": 5000,
+    "starThresholds": [
+      1500,
+      3200,
+      5000
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 1,
+        "hp": 62,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 1,
+        "c": 4,
+        "hp": 45,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 2,
+        "c": 0,
+        "hp": 55,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 3,
+        "hp": 38,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 2,
+        "c": 6,
+        "hp": 55,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 48,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 65,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 48,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 48,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 1,
+        "hp": 58,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 4,
+        "c": 4,
+        "hp": 42,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 0,
+        "hp": 52,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 5,
+        "c": 3,
+        "hp": 35,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 6,
+        "hp": 52,
+        "shape": "tri-br"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 3
+      },
+      {
+        "r": 2,
+        "c": 2
+      },
+      {
+        "r": 4,
+        "c": 0
+      }
+    ]
+  },
+  {
+    "stage": 11,
+    "startBalls": 55,
+    "targetScore": 5500,
+    "starThresholds": [
+      1650,
+      3520,
+      5500
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 0,
+        "hp": 47,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 1,
+        "c": 3,
+        "hp": 64,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 6,
+        "hp": 47,
+        "shape": "tri-br"
+      },
+      {
+        "r": 2,
+        "c": 2,
+        "hp": 57,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 5,
+        "hp": 40,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 50,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 50,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 68,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 50,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 0,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 3,
+        "hp": 61,
+        "shape": "tri-br"
+      },
+      {
+        "r": 4,
+        "c": 6,
+        "hp": 43,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 5,
+        "c": 2,
+        "hp": 54,
+        "shape": "tri-br"
+      },
+      {
+        "r": 5,
+        "c": 5,
+        "hp": 36,
+        "shape": "tri-tr"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 2
+      },
+      {
+        "r": 2,
+        "c": 1
+      },
+      {
+        "r": 3,
+        "c": 0
+      }
+    ]
+  },
+  {
+    "stage": 12,
+    "startBalls": 56,
+    "targetScore": 6000,
+    "starThresholds": [
+      1800,
+      3840,
+      6000
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 2,
+        "hp": 49,
+        "shape": "tri-br"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 67,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 1,
+        "hp": 41,
+        "shape": "tri-br"
+      },
+      {
+        "r": 2,
+        "c": 4,
+        "hp": 59,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 0,
+        "hp": 70,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 52,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 52,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 52,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 6,
+        "hp": 70,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 4,
+        "c": 2,
+        "hp": 45,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 4,
+        "c": 5,
+        "hp": 63,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 5,
+        "c": 1,
+        "hp": 38,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 5,
+        "c": 4,
+        "hp": 56,
+        "shape": "tri-tl"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 1
+      },
+      {
+        "r": 2,
+        "c": 0
+      }
+    ]
+  },
+  {
+    "stage": 13,
+    "startBalls": 56,
+    "targetScore": 6500,
+    "starThresholds": [
+      1950,
+      4160,
+      6500
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 1,
+        "hp": 69,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 1,
+        "c": 4,
+        "hp": 50,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 2,
+        "c": 0,
+        "hp": 62,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 3,
+        "hp": 43,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 2,
+        "c": 6,
+        "hp": 62,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 54,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 73,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 54,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 54,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 1,
+        "hp": 65,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 4,
+        "c": 4,
+        "hp": 47,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 0,
+        "hp": 58,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 5,
+        "c": 3,
+        "hp": 39,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 6,
+        "hp": 58,
+        "shape": "tri-br"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 0
+      },
+      {
+        "r": 2,
+        "c": 3
+      },
+      {
+        "r": 4,
+        "c": 3
+      }
+    ]
+  },
+  {
+    "stage": 14,
+    "startBalls": 57,
+    "targetScore": 7000,
+    "starThresholds": [
+      2100,
+      4480,
+      7000
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 0,
+        "hp": 52,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 1,
+        "c": 3,
+        "hp": 72,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 6,
+        "hp": 52,
+        "shape": "tri-br"
+      },
+      {
+        "r": 2,
+        "c": 2,
+        "hp": 64,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 5,
+        "hp": 44,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 56,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 56,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 75,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 56,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 0,
+        "hp": 48,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 3,
+        "hp": 68,
+        "shape": "tri-br"
+      },
+      {
+        "r": 4,
+        "c": 6,
+        "hp": 48,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 5,
+        "c": 2,
+        "hp": 60,
+        "shape": "tri-br"
+      },
+      {
+        "r": 5,
+        "c": 5,
+        "hp": 41,
+        "shape": "tri-tr"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 2,
+        "c": 3
+      },
+      {
+        "r": 4,
+        "c": 3
+      }
+    ]
+  },
+  {
+    "stage": 15,
+    "startBalls": 57,
+    "targetScore": 7500,
+    "starThresholds": [
+      2250,
+      4800,
+      7500
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 2,
+        "hp": 54,
+        "shape": "tri-br"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 74,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 1,
+        "hp": 46,
+        "shape": "tri-br"
+      },
+      {
+        "r": 2,
+        "c": 4,
+        "hp": 66,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 0,
+        "hp": 78,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 58,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 58,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 58,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 6,
+        "hp": 78,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 4,
+        "c": 2,
+        "hp": 50,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 4,
+        "c": 5,
+        "hp": 70,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 5,
+        "c": 1,
+        "hp": 42,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 5,
+        "c": 4,
+        "hp": 62,
+        "shape": "tri-tl"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 2,
+        "c": 3
+      },
+      {
+        "r": 4,
+        "c": 3
+      }
+    ]
+  },
+  {
+    "stage": 16,
+    "startBalls": 58,
+    "targetScore": 8000,
+    "starThresholds": [
+      2400,
+      5120,
+      8000
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 1,
+        "hp": 76,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 1,
+        "c": 4,
+        "hp": 56,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 2,
+        "c": 0,
+        "hp": 68,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 3,
+        "hp": 48,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 2,
+        "c": 6,
+        "hp": 68,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 60,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 81,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 60,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 60,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 1,
+        "hp": 72,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 4,
+        "c": 4,
+        "hp": 52,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 0,
+        "hp": 64,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 5,
+        "c": 3,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 6,
+        "hp": 64,
+        "shape": "tri-br"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 2,
+        "c": 3
+      },
+      {
+        "r": 4,
+        "c": 3
+      }
+    ]
+  },
+  {
+    "stage": 17,
+    "startBalls": 58,
+    "targetScore": 8500,
+    "starThresholds": [
+      2550,
+      5440,
+      8500
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 0,
+        "hp": 58,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 1,
+        "c": 3,
+        "hp": 79,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 6,
+        "hp": 58,
+        "shape": "tri-br"
+      },
+      {
+        "r": 2,
+        "c": 2,
+        "hp": 70,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 5,
+        "hp": 49,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 62,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 62,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 83,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 62,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 0,
+        "hp": 53,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 3,
+        "hp": 75,
+        "shape": "tri-br"
+      },
+      {
+        "r": 4,
+        "c": 6,
+        "hp": 53,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 5,
+        "c": 2,
+        "hp": 66,
+        "shape": "tri-br"
+      },
+      {
+        "r": 5,
+        "c": 5,
+        "hp": 45,
+        "shape": "tri-tr"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 5,
+        "c": 6
+      },
+      {
+        "r": 2,
+        "c": 3
+      },
+      {
+        "r": 4,
+        "c": 3
+      }
+    ]
+  },
+  {
+    "stage": 18,
+    "startBalls": 59,
+    "targetScore": 9000,
+    "starThresholds": [
+      2700,
+      5760,
+      9000
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 2,
+        "hp": 59,
+        "shape": "tri-br"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 81,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 1,
+        "hp": 51,
+        "shape": "tri-br"
+      },
+      {
+        "r": 2,
+        "c": 4,
+        "hp": 73,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 0,
+        "hp": 86,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 64,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 64,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 64,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 6,
+        "hp": 86,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 4,
+        "c": 2,
+        "hp": 55,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 4,
+        "c": 5,
+        "hp": 77,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 5,
+        "c": 1,
+        "hp": 46,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 5,
+        "c": 4,
+        "hp": 68,
+        "shape": "tri-tl"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 4,
+        "c": 6
+      },
+      {
+        "r": 5,
+        "c": 5
+      }
+    ]
+  },
+  {
+    "stage": 19,
+    "startBalls": 59,
+    "targetScore": 9500,
+    "starThresholds": [
+      2850,
+      6080,
+      9500
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 1,
+        "hp": 84,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 1,
+        "c": 4,
+        "hp": 61,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 2,
+        "c": 0,
+        "hp": 75,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 3,
+        "hp": 52,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 2,
+        "c": 6,
+        "hp": 75,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 66,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 88,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 66,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 66,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 1,
+        "hp": 79,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 4,
+        "c": 4,
+        "hp": 57,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 0,
+        "hp": 70,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 5,
+        "c": 3,
+        "hp": 48,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 6,
+        "hp": 70,
+        "shape": "tri-br"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 3,
+        "c": 6
+      },
+      {
+        "r": 4,
+        "c": 5
+      },
+      {
+        "r": 5,
+        "c": 4
+      }
+    ]
+  },
+  {
+    "stage": 20,
+    "startBalls": 60,
+    "targetScore": 10000,
+    "starThresholds": [
+      3000,
+      6400,
+      10000
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 0,
+        "hp": 63,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 1,
+        "c": 3,
+        "hp": 86,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 6,
+        "hp": 63,
+        "shape": "tri-br"
+      },
+      {
+        "r": 2,
+        "c": 2,
+        "hp": 77,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 5,
+        "hp": 54,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 68,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 68,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 91,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 68,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 0,
+        "hp": 58,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 3,
+        "hp": 82,
+        "shape": "tri-br"
+      },
+      {
+        "r": 4,
+        "c": 6,
+        "hp": 58,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 5,
+        "c": 2,
+        "hp": 72,
+        "shape": "tri-br"
+      },
+      {
+        "r": 5,
+        "c": 5,
+        "hp": 49,
+        "shape": "tri-tr"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 2,
+        "c": 6
+      },
+      {
+        "r": 4,
+        "c": 4
+      },
+      {
+        "r": 5,
+        "c": 3
+      }
+    ]
+  },
+  {
+    "stage": 21,
+    "startBalls": 60,
+    "targetScore": 10500,
+    "starThresholds": [
+      3150,
+      6720,
+      10500
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 2,
+        "hp": 65,
+        "shape": "tri-br"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 89,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 1,
+        "hp": 55,
+        "shape": "tri-br"
+      },
+      {
+        "r": 2,
+        "c": 4,
+        "hp": 79,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 0,
+        "hp": 94,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 70,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 70,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 70,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 6,
+        "hp": 94,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 4,
+        "c": 2,
+        "hp": 60,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 4,
+        "c": 5,
+        "hp": 84,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 5,
+        "c": 1,
+        "hp": 50,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 5,
+        "c": 4,
+        "hp": 74,
+        "shape": "tri-tl"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 6
+      },
+      {
+        "r": 2,
+        "c": 5
+      },
+      {
+        "r": 3,
+        "c": 4
+      },
+      {
+        "r": 4,
+        "c": 3
+      },
+      {
+        "r": 5,
+        "c": 2
+      }
+    ]
+  },
+  {
+    "stage": 22,
+    "startBalls": 61,
+    "targetScore": 11000,
+    "starThresholds": [
+      3300,
+      7040,
+      11000
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 1,
+        "hp": 91,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 1,
+        "c": 4,
+        "hp": 67,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 2,
+        "c": 0,
+        "hp": 81,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 3,
+        "hp": 57,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 2,
+        "c": 6,
+        "hp": 81,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 72,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 96,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 72,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 72,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 1,
+        "hp": 86,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 4,
+        "c": 4,
+        "hp": 62,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 0,
+        "hp": 76,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 5,
+        "c": 3,
+        "hp": 52,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 6,
+        "hp": 76,
+        "shape": "tri-br"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 5
+      },
+      {
+        "r": 2,
+        "c": 4
+      },
+      {
+        "r": 4,
+        "c": 2
+      },
+      {
+        "r": 5,
+        "c": 1
+      }
+    ]
+  },
+  {
+    "stage": 23,
+    "startBalls": 61,
+    "targetScore": 11500,
+    "starThresholds": [
+      3450,
+      7360,
+      11500
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 0,
+        "hp": 68,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 1,
+        "c": 3,
+        "hp": 94,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 6,
+        "hp": 68,
+        "shape": "tri-br"
+      },
+      {
+        "r": 2,
+        "c": 2,
+        "hp": 84,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 5,
+        "hp": 58,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 73,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 73,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 99,
+        "shape": "tri-br"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 73,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 0,
+        "hp": 63,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 3,
+        "hp": 89,
+        "shape": "tri-br"
+      },
+      {
+        "r": 4,
+        "c": 6,
+        "hp": 63,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 5,
+        "c": 2,
+        "hp": 79,
+        "shape": "tri-br"
+      },
+      {
+        "r": 5,
+        "c": 5,
+        "hp": 53,
+        "shape": "tri-tr"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 4
+      },
+      {
+        "r": 2,
+        "c": 3
+      },
+      {
+        "r": 3,
+        "c": 2
+      },
+      {
+        "r": 4,
+        "c": 1
+      },
+      {
+        "r": 5,
+        "c": 0
+      }
+    ]
+  },
+  {
+    "stage": 24,
+    "startBalls": 57,
+    "targetScore": 6800,
+    "starThresholds": [
+      2200,
+      4500,
+      6800
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 1,
+        "hp": 44,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 2,
+        "hp": 88,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 3,
+        "hp": 88,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 4,
+        "hp": 88,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 44,
+        "shape": "laser-vert"
+      },
+      {
+        "r": 2,
+        "c": 1,
+        "hp": 86,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 2,
+        "hp": 86,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 3,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 4,
+        "hp": 86,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 5,
+        "hp": 86,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 0,
+        "hp": 86,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 43,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 86,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 86,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 86,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 86,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 6,
+        "hp": 86,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 0,
+        "hp": 41,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 1,
+        "hp": 82,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 2,
+        "hp": 82,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 3,
+        "hp": 82,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 4,
+        "hp": 82,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 5,
+        "hp": 82,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 6,
+        "hp": 41,
+        "shape": "laser-horiz"
+      },
+      {
+        "r": 4,
+        "c": 7,
+        "hp": 41,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 2,
+        "hp": 42,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 3,
+        "hp": 42,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 4,
+        "hp": 42,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 7,
+        "hp": 42,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 0,
+        "hp": 37,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 1,
+        "hp": 37,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 2,
+        "hp": 37,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 3,
+        "hp": 37,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 4,
+        "hp": 37,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 5,
+        "hp": 37,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 6,
+        "hp": 37,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 7,
+        "hp": 37,
+        "shape": "laser-horiz"
+      },
+      {
+        "r": 6,
+        "c": 8,
+        "hp": 37,
+        "shape": "square"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 6
+      },
+      {
+        "r": 2,
+        "c": 6
+      },
+      {
+        "r": 4,
+        "c": 3.5
+      },
+      {
+        "r": 5,
+        "c": 1
+      }
+    ]
+  },
+  {
+    "stage": 25,
+    "startBalls": 58,
+    "targetScore": 7200,
+    "starThresholds": [
+      2400,
+      4800,
+      7200
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 2,
+        "hp": 45,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 1,
+        "c": 3,
+        "hp": 90,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 4,
+        "hp": 90,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 45,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 1,
+        "hp": 50,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 3,
+        "hp": 85,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 2,
+        "c": 4,
+        "hp": 85,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 6,
+        "hp": 50,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 80,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 40,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 40,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 80,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 2,
+        "hp": 45,
+        "shape": "tri-bl"
+      },
+      {
+        "r": 4,
+        "c": 3,
+        "hp": 75,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 4,
+        "hp": 75,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 5,
+        "hp": 45,
+        "shape": "tri-br"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 1
+      },
+      {
+        "r": 1,
+        "c": 6
+      },
+      {
+        "r": 3,
+        "c": 1
+      },
+      {
+        "r": 3,
+        "c": 6
+      },
+      {
+        "r": 5,
+        "c": 3
+      }
+    ]
+  },
+  {
+    "stage": 26,
+    "startBalls": 60,
+    "targetScore": 7800,
+    "starThresholds": [
+      2600,
+      5200,
+      7800
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 2,
+        "hp": 46,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 0,
+        "hp": 45,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 1,
+        "hp": 45,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 2,
+        "c": 2,
+        "hp": 45,
+        "shape": "tri-bl"
+      },
+      {
+        "r": 2,
+        "c": 4,
+        "hp": 45,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 2,
+        "c": 5,
+        "hp": 45,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 6,
+        "hp": 45,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 44,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 44,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 44,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 44,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 6,
+        "hp": 44,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 1,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 2,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 4,
+        "hp": 43,
+        "shape": "tri-br"
+      },
+      {
+        "r": 4,
+        "c": 5,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 6,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 2,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 3,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 4,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 6,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 0,
+        "hp": 42,
+        "shape": "tri-bl"
+      },
+      {
+        "r": 6,
+        "c": 1,
+        "hp": 42,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 2,
+        "hp": 42,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 4,
+        "hp": 42,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 6,
+        "hp": 42,
+        "shape": "tri-br"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 1
+      },
+      {
+        "r": 2,
+        "c": 1.5
+      },
+      {
+        "r": 3,
+        "c": 5
+      },
+      {
+        "r": 4,
+        "c": 3
+      },
+      {
+        "r": 6,
+        "c": 3
+      },
+      {
+        "r": 5,
+        "c": 7
+      }
+    ]
+  },
+  {
+    "stage": 27,
+    "startBalls": 57,
+    "targetScore": 8400,
+    "starThresholds": [
+      2800,
+      5600,
+      8400
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 0,
+        "hp": 46,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 1,
+        "c": 3,
+        "hp": 92,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 4,
+        "hp": 92,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 92,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 7,
+        "hp": 45,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 2,
+        "c": 1,
+        "hp": 90,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 2,
+        "hp": 45,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 3,
+        "hp": 45,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 5,
+        "hp": 45,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 6,
+        "hp": 45,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 45,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 88,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 88,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 88,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 88,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 6,
+        "hp": 88,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 0,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 2,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 4,
+        "hp": 43,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 4,
+        "c": 5,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 6,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 7,
+        "hp": 43,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 5,
+        "c": 0,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 1,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 3,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 0,
+        "hp": 42,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 2,
+        "hp": 42,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 3,
+        "hp": 42,
+        "shape": "tri-bl"
+      },
+      {
+        "r": 6,
+        "c": 5,
+        "hp": 42,
+        "shape": "square"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 2
+      },
+      {
+        "r": 2,
+        "c": 7
+      },
+      {
+        "r": 3,
+        "c": 3.5
+      },
+      {
+        "r": 4,
+        "c": 1.5
+      },
+      {
+        "r": 5,
+        "c": 5
+      },
+      {
+        "r": 6,
+        "c": 2.5
+      }
+    ]
+  },
+  {
+    "stage": 28,
+    "startBalls": 57,
+    "targetScore": 9000,
+    "starThresholds": [
+      3000,
+      6000,
+      9000
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 0,
+        "hp": 45,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 1,
+        "hp": 45,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 1,
+        "c": 2,
+        "hp": 45,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 1,
+        "c": 3,
+        "hp": 45,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 45,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 0,
+        "hp": 44,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 1.5,
+        "hp": 44,
+        "shape": "tri-bl"
+      },
+      {
+        "r": 2,
+        "c": 4.5,
+        "hp": 44,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 2,
+        "c": 5,
+        "hp": 44,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 6,
+        "hp": 44,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 0,
+        "hp": 41,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 41,
+        "shape": "tri-bl"
+      },
+      {
+        "r": 3,
+        "c": 3.5,
+        "hp": 41,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 4.5,
+        "hp": 41,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 5.5,
+        "hp": 41,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 6.5,
+        "hp": 41,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 7.5,
+        "hp": 41,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 2,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 4.5,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 5.5,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 1,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 2,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 3,
+        "hp": 43,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 5,
+        "c": 5.5,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 6.5,
+        "hp": 43,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 1,
+        "hp": 42,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 2,
+        "hp": 42,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 3,
+        "hp": 42,
+        "shape": "tri-br"
+      },
+      {
+        "r": 6,
+        "c": 4.5,
+        "hp": 42,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 5.5,
+        "hp": 42,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 7.5,
+        "hp": 42,
+        "shape": "square"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 4
+      },
+      {
+        "r": 2,
+        "c": 7
+      },
+      {
+        "r": 4,
+        "c": 3.5
+      },
+      {
+        "r": 5,
+        "c": 4.5
+      },
+      {
+        "r": 6,
+        "c": 6.5
+      }
+    ]
+  },
+  {
+    "stage": 29,
+    "startBalls": 62,
+    "targetScore": 9800,
+    "starThresholds": [
+      3200,
+      6500,
+      9800
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 1,
+        "hp": 95,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 2,
+        "hp": 95,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 1,
+        "c": 4,
+        "hp": 95,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 95,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 0,
+        "hp": 50,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 2,
+        "c": 3,
+        "hp": 100,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 6,
+        "hp": 50,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 90,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 90,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 90,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "hp": 90,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 0,
+        "hp": 45,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 3,
+        "hp": 90,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 4,
+        "c": 6,
+        "hp": 45,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 1,
+        "hp": 85,
+        "shape": "tri-bl"
+      },
+      {
+        "r": 5,
+        "c": 2,
+        "hp": 85,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 4,
+        "hp": 85,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 5,
+        "hp": 85,
+        "shape": "tri-br"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 3
+      },
+      {
+        "r": 2,
+        "c": 1
+      },
+      {
+        "r": 2,
+        "c": 5
+      },
+      {
+        "r": 4,
+        "c": 1
+      },
+      {
+        "r": 4,
+        "c": 5
+      },
+      {
+        "r": 6,
+        "c": 3
+      }
+    ]
+  },
+  {
+    "stage": 30,
+    "startBalls": 65,
+    "targetScore": 12000,
+    "starThresholds": [
+      4000,
+      8000,
+      12000
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 0,
+        "hp": 55,
+        "shape": "tri-tl"
+      },
+      {
+        "r": 1,
+        "c": 1,
+        "hp": 110,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 2,
+        "hp": 110,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 1,
+        "c": 3,
+        "hp": 110,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 4,
+        "hp": 110,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 110,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 6,
+        "hp": 55,
+        "shape": "tri-tr"
+      },
+      {
+        "r": 2,
+        "c": 1,
+        "hp": 100,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 2,
+        "hp": 100,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 4,
+        "hp": 100,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 5,
+        "hp": 100,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 0,
+        "hp": 95,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 105,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 3,
+        "c": 3,
+        "hp": 120,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 105,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 3,
+        "c": 6,
+        "hp": 95,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 1,
+        "hp": 90,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 2,
+        "hp": 90,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 4,
+        "hp": 90,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 5,
+        "hp": 90,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 0,
+        "hp": 50,
+        "shape": "tri-bl"
+      },
+      {
+        "r": 5,
+        "c": 1,
+        "hp": 85,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 3,
+        "hp": 85,
+        "shape": "laser-cross"
+      },
+      {
+        "r": 5,
+        "c": 5,
+        "hp": 85,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 6,
+        "hp": 50,
+        "shape": "tri-br"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 2,
+        "c": 3
+      },
+      {
+        "r": 3,
+        "c": 1
+      },
+      {
+        "r": 3,
+        "c": 5
+      },
+      {
+        "r": 4,
+        "c": 3
+      },
+      {
+        "r": 6,
+        "c": 1
+      },
+      {
+        "r": 6,
+        "c": 5
+      }
+    ]
+  }
+];
+
+    // 2. AUDIO SYNTHESIZER (Multi-Tone Pentatonic Combo Hits, Lasers, Chimes, Fanfares)
+    class SoundSynth {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+        this.combo = 0;
+        this.lastHitTime = 0;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      playBlockHit() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const now = performance.now();
+        if (now - this.lastHitTime > 600) this.combo = 0;
+        this.combo = Math.min(24, this.combo + 1);
+        this.lastHitTime = now;
+
+        const t = this.ctx.currentTime;
+        // Pentatonic Scale Note Progression
+        const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
+        const baseFreq = scale[this.combo % scale.length];
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(baseFreq, t);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.8, t + 0.06);
+
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.07);
+      }
+
+      playLaserBlast() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(880, t);
+        osc.frequency.exponentialRampToValueAtTime(120, t + 0.22);
+
+        gain.gain.setValueAtTime(0.20, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.23);
+      }
+
+      playBlockDestroy() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(180, t);
+        osc.frequency.exponentialRampToValueAtTime(40, t + 0.12);
+
+        gain.gain.setValueAtTime(0.24, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.13);
+      }
+
+      playPickup() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(659.25, t);
+        osc.frequency.exponentialRampToValueAtTime(1318.51, t + 0.14);
+
+        gain.gain.setValueAtTime(0.18, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.15);
+      }
+
+      playLaunch() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.exponentialRampToValueAtTime(880, t + 0.05);
+
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.06);
+      }
+
+      playWinFanfare() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const chord = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
+        chord.forEach((freq, i) => {
+          const t = this.ctx.currentTime + i * 0.07;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = (i % 2 === 0) ? 'triangle' : 'sine';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.22, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.56);
+        });
+      }
+
+      playTap() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(560, t);
+        gain.gain.setValueAtTime(0.10, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.05);
+      }
+    }
+
+    // 3. HOST PLATFORM BRIDGE
+    const Host = {
+      post(action, payload) {
+        const body = payload || {};
+        const msg = JSON.stringify({ action: action, payload: body });
+        try {
+          if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+            window.flutter_inappwebview.callHandler('GameBridgeChannel', msg);
+          }
+        } catch (e) {}
+        try {
+          if (window.FlutterGameBridge && window.FlutterGameBridge.postMessage) {
+            window.FlutterGameBridge.postMessage(msg);
+          }
+        } catch (e) {}
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ source: 'GameBridge', action: action, payload: body }, '*');
+          }
+        } catch (e) {}
+      }
+    };
+
+    // 4. OBJECT-POOLED BALL ENTITY
+    class Ball {
+      constructor() {
+        this.active = false;
+        this.x = 0;
+        this.y = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.radius = 5.5;
+        this.returning = false;
+        this.trail = [];
+      }
+
+      spawn(x, y, vx, vy) {
+        this.active = true;
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.returning = false;
+        this.trail = [];
+      }
+    }
+
+    // 5. MAIN NEON BREAKER CONTROLLER
+    class NeonBreakerGame {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.synth = new SoundSynth();
+
+        this.stageIndex = this.loadStageIndex();
+        this.diamonds = this.loadDiamonds();
+
+        // Game States: 'AIMING', 'SHOOTING', 'BALLS_ACTIVE', 'PAUSED', 'STAGE_CLEAR', 'GAME_OVER'
+        this.state = 'AIMING';
+
+        this.score = 0;
+        this.lineCount = 0;
+        this.totalBalls = 40;
+        this.unlockedBalls = 40;
+        this.nextBonusBalls = 0;
+
+        this.launchX = 0;
+        this.launchY = 0;
+        this.firstReturnX = null;
+        this.returnedBallsCount = 0;
+
+        // Salvo Spawner Queue
+        this.ballsToLaunch = 0;
+        this.launchInterval = 0.024; // 24ms delay between balls
+        this.launchTimer = 0;
+        this.launchDirX = 0;
+        this.launchDirY = -1;
+        this.ballSpeed = 820;
+        this.speedMultiplier = 1.0;
+
+        // Object Pool for 600 Balls
+        this.ballPool = Array.from({ length: 600 }, () => new Ball());
+
+        // Blocks & Pickups
+        this.blocks = [];
+        this.pickups = [];
+        this.particles = [];
+        this.floatingTexts = [];
+        this.lasers = [];
+
+        // Touch Aiming State
+        this.aiming = false;
+        this.aimAngle = -Math.PI / 2;
+        this.aimValid = false;
+
+        // Modals Animation
+        this.modalAnimT = 0;
+        this.starsGained = 0;
+
+        this.initLayout();
+        this.bindEvents();
+        this.loadStage(this.stageIndex);
+
+        this.lastTime = performance.now();
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      loadStageIndex() {
+        try {
+          const v = localStorage.getItem('nb_stage_idx');
+          return v !== null ? (parseInt(v) || 0) : 0;
+        } catch (e) {
+          return 0;
+        }
+      }
+
+      saveStageIndex() {
+        try {
+          localStorage.setItem('nb_stage_idx', this.stageIndex.toString());
+        } catch (e) {}
+      }
+
+      loadDiamonds() {
+        try {
+          const v = localStorage.getItem('nb_diamonds');
+          return v !== null ? (parseInt(v) || 300) : 300;
+        } catch (e) {
+          return 300;
+        }
+      }
+
+      saveDiamonds() {
+        try {
+          localStorage.setItem('nb_diamonds', this.diamonds.toString());
+        } catch (e) {}
+      }
+
+      loadStage(idx) {
+        this.stageIndex = idx % STAGES.length;
+        this.saveStageIndex();
+        const stageData = STAGES[this.stageIndex];
+
+        this.score = 0;
+        this.lineCount = 0;
+        this.totalBalls = stageData.startBalls + this.nextBonusBalls;
+        this.nextBonusBalls = 0;
+        this.unlockedBalls = this.totalBalls;
+        this.speedMultiplier = 1.0;
+
+        this.firstReturnX = null;
+        this.returnedBallsCount = 0;
+
+        // Clear active balls
+        for (const b of this.ballPool) {
+          b.active = false;
+          b.returning = false;
+        }
+
+        // Layout Grid Dimensions
+        this.cols = 8;
+        this.rows = 9;
+
+        // Build Blocks from Stage Data
+        this.blocks = [];
+        for (const blk of stageData.blocks) {
+          this.blocks.push({
+            r: blk.r,
+            c: blk.c,
+            hp: blk.hp,
+            maxHp: blk.hp,
+            shape: blk.shape || 'square',
+            hitFlash: 0
+          });
+        }
+
+        // Build Pickups
+        this.pickups = [];
+        for (const p of stageData.pickups) {
+          this.pickups.push({
+            r: p.r,
+            c: p.c,
+            collected: false,
+            pulseT: Math.random() * Math.PI
+          });
+        }
+
+        this.particles = [];
+        this.floatingTexts = [];
+        this.lasers = [];
+        this.state = 'AIMING';
+
+        this.initLayout();
+        Host.post('onGameStarted', { stage: this.stageIndex + 1, balls: this.totalBalls });
+      }
+
+      initLayout() {
+        const dpr = window.devicePixelRatio || 1;
+        this.dpr = dpr;
+        this.width = window.innerWidth || 360;
+        this.height = window.innerHeight || 640;
+        this.canvas.width = Math.round(this.width * dpr);
+        this.canvas.height = Math.round(this.height * dpr);
+
+        // Header Dimensions
+        this.headerTopY = 24;
+        this.hudHeight = 84;
+
+        // Main Board Box Dimensions
+        this.boardMarginX = 12;
+        this.boardX = this.boardMarginX;
+        this.boardY = 104;
+        this.boardW = this.width - this.boardMarginX * 2;
+        this.boardH = this.height - this.boardY - 114;
+
+        // Grid Cell Tile Size
+        this.cellW = this.boardW / (this.cols || 8);
+        this.cellH = Math.min(this.cellW * 0.96, (this.boardH * 0.70) / (this.rows || 9));
+
+        // Floor / Launcher Y Anchor
+        this.floorY = this.boardY + this.boardH - 22;
+        if (this.launchX === 0 || this.launchX < this.boardX + 16 || this.launchX > this.boardX + this.boardW - 16) {
+          this.launchX = this.boardX + this.boardW / 2;
+        }
+        this.launchY = this.floorY;
+
+        // Bottom Controls Hitboxes
+        this.bottomControlY = this.height - 76;
+      }
+
+      bindEvents() {
+        window.addEventListener('resize', () => this.initLayout());
+
+        let lastPointerDownTime = 0;
+
+        const getPos = (e) => {
+          const rect = this.canvas.getBoundingClientRect();
+          let clientX = e.clientX;
+          let clientY = e.clientY;
+
+          if (clientX === undefined && e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+          } else if (clientX === undefined && e.changedTouches && e.changedTouches.length > 0) {
+            clientX = e.changedTouches[0].clientX;
+            clientY = e.changedTouches[0].clientY;
+          }
+
+          if (clientX === undefined) {
+            clientX = 0;
+            clientY = 0;
+          }
+
+          return { px: clientX - rect.left, py: clientY - rect.top };
+        };
+
+        const handleDown = (e) => {
+          if (e.preventDefault) e.preventDefault();
+          if (e.stopPropagation) e.stopPropagation();
+
+          const now = performance.now();
+          if (now - lastPointerDownTime < 160) return;
+          lastPointerDownTime = now;
+
+          this.synth.init();
+          const { px, py } = getPos(e);
+
+          // 1. Modals Interaction
+          if (this.state === 'STAGE_CLEAR') {
+            this.handleStageClearClick(px, py);
+            return;
+          }
+          if (this.state === 'GAME_OVER') {
+            this.handleGameOverClick(px, py);
+            return;
+          }
+          if (this.state === 'PAUSED') {
+            this.handlePauseModalClick(px, py);
+            return;
+          }
+
+          // 2. Pause Button (Top-Right: px: width-64 to width, py: 0 to 76)
+          if (px >= this.width - 64 && py <= 76) {
+            this.synth.playTap();
+            this.state = 'PAUSED';
+            return;
+          }
+
+          // 3. Fast-Forward / Recall Button (During Shooting / Active State: Center bottom [ ⬇ ])
+          if ((this.state === 'SHOOTING' || this.state === 'BALLS_ACTIVE') && py >= this.height - 95) {
+            // Check Recall capsule
+            const capW = 120;
+            const capX = (this.width - capW) / 2;
+            if (px >= capX && px <= capX + capW) {
+              this.synth.playTap();
+              this.speedMultiplier = 3.8;
+              this.recallAllBalls();
+              return;
+            }
+          }
+
+          // 4. Undo / Retry Button (↶ 💎100) (Bottom Right)
+          if (px >= this.width - 78 && py >= this.height - 88) {
+            this.handleUndoRetryClick();
+            return;
+          }
+
+          // 5. Watch Ad +50 Balls Button (Bottom-Right: During AIMING)
+          if (this.state === 'AIMING' && px >= this.width - 80 && py >= this.height - 88) {
+            this.handleBonusAdClick();
+            return;
+          }
+
+          // 6. Aiming Touch on Playfield
+          if (this.state === 'AIMING' && py >= this.boardY - 20 && py <= this.boardY + this.boardH + 40) {
+            this.aiming = true;
+            this.updateAim(px, py);
+          }
+        };
+
+        const handleMove = (e) => {
+          if (e.preventDefault) e.preventDefault();
+          if (e.stopPropagation) e.stopPropagation();
+          if (!this.aiming || this.state !== 'AIMING') return;
+          const { px, py } = getPos(e);
+          this.updateAim(px, py);
+        };
+
+        const handleUp = (e) => {
+          if (e.preventDefault) e.preventDefault();
+          if (e.stopPropagation) e.stopPropagation();
+          if (this.aiming && this.state === 'AIMING') {
+            this.aiming = false;
+            if (this.aimValid) {
+              this.startSalvo();
+            }
+          }
+        };
+
+        if (window.PointerEvent) {
+          this.canvas.addEventListener('pointerdown', handleDown, { passive: false });
+          window.addEventListener('pointermove', handleMove, { passive: false });
+          window.addEventListener('pointerup', handleUp, { passive: false });
+          window.addEventListener('pointercancel', handleUp, { passive: false });
+        } else {
+          this.canvas.addEventListener('touchstart', handleDown, { passive: false });
+          window.addEventListener('touchmove', handleMove, { passive: false });
+          window.addEventListener('touchend', handleUp, { passive: false });
+          window.addEventListener('touchcancel', handleUp, { passive: false });
+        }
+
+        window.addEventListener('keydown', (e) => {
+          if (this.state === 'STAGE_CLEAR' && (e.key === ' ' || e.key === 'Enter')) {
+            this.loadStage(this.stageIndex + 1);
+            return;
+          }
+          if (this.state === 'AIMING' && (e.key === ' ' || e.key === 'Enter')) {
+            this.aimAngle = -Math.PI / 2 + (Math.random() - 0.5) * 0.4;
+            this.aimValid = true;
+            this.startSalvo();
+          }
+        });
+      }
+
+      updateAim(px, py) {
+        const dx = px - this.launchX;
+        const dy = py - this.launchY;
+        const dist = Math.hypot(dx, dy);
+
+        // Constrain so shooting cannot be downwards or overly shallow horizontal
+        if (dist > 15 && dy < -10) {
+          let angle = Math.atan2(dy, dx);
+          // Clamp angle between -170 deg and -10 deg
+          const minAngle = -Math.PI + 0.16; // -170 deg
+          const maxAngle = -0.16;           // -10 deg
+          angle = Math.max(minAngle, Math.min(maxAngle, angle));
+
+          this.aimAngle = angle;
+          this.aimValid = true;
+          this.launchDirX = Math.cos(angle);
+          this.launchDirY = Math.sin(angle);
+        } else {
+          this.aimValid = false;
+        }
+      }
+
+      startSalvo() {
+        this.state = 'SHOOTING';
+        this.ballsToLaunch = this.unlockedBalls;
+        this.launchTimer = 0;
+        this.returnedBallsCount = 0;
+        this.firstReturnX = null;
+        this.speedMultiplier = 1.0;
+        this.synth.playLaunch();
+        this.haptic(20);
+      }
+
+      recallAllBalls() {
+        for (const b of this.ballPool) {
+          if (b.active && !b.returning) {
+            b.returning = true;
+            // Guide towards floor
+            b.vy = Math.abs(b.vy) * 2.2 + 400;
+          }
+        }
+      }
+
+      handleBonusAdClick() {
+        this.synth.playTap();
+        this.nextBonusBalls += 50;
+        this.unlockedBalls += 50;
+        this.spawnFloatingText(this.width / 2, this.height / 2, '+50 BALLS GRANTED!', '#EC4899');
+        this.haptic(30);
+      }
+
+      handleUndoRetryClick() {
+        if (this.diamonds >= 100) {
+          this.diamonds -= 100;
+          this.saveDiamonds();
+          this.synth.playTap();
+          this.loadStage(this.stageIndex);
+          this.spawnFloatingText(this.width / 2, this.height / 2, 'STAGE RESTARTED! -100 💎', '#67E8F9');
+        } else {
+          this.spawnFloatingText(this.width / 2, this.height / 2, 'NOT ENOUGH DIAMONDS!', '#EF4444');
+        }
+      }
+
+      handleStageClearClick(px, py) {
+        this.synth.playTap();
+        this.loadStage(this.stageIndex + 1);
+      }
+
+      handleGameOverClick(px, py) {
+        this.synth.playTap();
+        this.loadStage(this.stageIndex);
+      }
+
+      handlePauseModalClick(px, py) {
+        this.synth.playTap();
+        this.state = 'AIMING';
+      }
+
+      haptic(ms) {
+        try {
+          if (navigator.vibrate) navigator.vibrate(ms);
+        } catch (e) {}
+      }
+
+      spawnFloatingText(x, y, text, color) {
+        this.floatingTexts.push({
+          x,
+          y,
+          text,
+          color: color || '#FFFFFF',
+          alpha: 1.0,
+          vy: -35
+        });
+      }
+
+      spawnExplosion(x, y, color) {
+        for (let i = 0; i < 14; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const spd = 60 + Math.random() * 140;
+          this.particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd,
+            color: color || '#A855F7',
+            size: 3 + Math.random() * 3.5,
+            alpha: 1.0,
+            decay: 1.8 + Math.random() * 1.2
+          });
+        }
+      }
+
+      triggerLaser(r, c, type) {
+        this.synth.playLaserBlast();
+        this.haptic(35);
+
+        const bx = this.boardX;
+        const by = this.boardY;
+        const cx = bx + (c + 0.5) * this.cellW;
+        const cy = by + (r + 0.5) * this.cellH;
+
+        if (type === 'laser-horiz' || type === 'laser-cross') {
+          this.lasers.push({
+            x1: bx + 4,
+            y1: cy,
+            x2: bx + this.boardW - 4,
+            y2: cy,
+            alpha: 1.0,
+            color: '#38BDF8'
+          });
+
+          // Damage all blocks in row
+          for (let i = this.blocks.length - 1; i >= 0; i--) {
+            const b = this.blocks[i];
+            if (b.r === r) {
+              b.hp -= 20;
+              this.score += 20;
+              b.hitFlash = 1.0;
+              if (b.hp <= 0) {
+                this.spawnExplosion(bx + (b.c + 0.5) * this.cellW, by + (b.r + 0.5) * this.cellH, '#38BDF8');
+                this.blocks.splice(i, 1);
+              }
+            }
+          }
+        }
+
+        if (type === 'laser-vert' || type === 'laser-cross') {
+          this.lasers.push({
+            x1: cx,
+            y1: by + 4,
+            x2: cx,
+            y2: this.floorY,
+            alpha: 1.0,
+            color: '#A855F7'
+          });
+
+          // Damage all blocks in col
+          for (let i = this.blocks.length - 1; i >= 0; i--) {
+            const b = this.blocks[i];
+            if (b.c === c) {
+              b.hp -= 20;
+              this.score += 20;
+              b.hitFlash = 1.0;
+              if (b.hp <= 0) {
+                this.spawnExplosion(bx + (b.c + 0.5) * this.cellW, by + (b.r + 0.5) * this.cellH, '#A855F7');
+                this.blocks.splice(i, 1);
+              }
+            }
+          }
+        }
+      }
+
+      // --- MAIN GAME PHYSICS & SIMULATION LOOP ---
+      loop(timestamp) {
+        const dt = Math.min(0.06, (timestamp - (this.lastTime || timestamp)) / 1000);
+        this.lastTime = timestamp;
+
+        this.update(dt);
+        this.render();
+
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      update(dt) {
+        if (this.state === 'PAUSED' || this.state === 'STAGE_CLEAR' || this.state === 'GAME_OVER') return;
+
+        // 1. Spawning Sequential Balls
+        if (this.state === 'SHOOTING') {
+          this.launchTimer += dt;
+          while (this.launchTimer >= this.launchInterval && this.ballsToLaunch > 0) {
+            this.launchTimer -= this.launchInterval;
+            this.ballsToLaunch--;
+
+            // Find inactive ball from pool
+            const ball = this.ballPool.find(b => !b.active);
+            if (ball) {
+              const speed = this.ballSpeed * this.speedMultiplier;
+              ball.spawn(this.launchX, this.launchY, this.launchDirX * speed, this.launchDirY * speed);
+            }
+          }
+
+          if (this.ballsToLaunch <= 0) {
+            this.state = 'BALLS_ACTIVE';
+          }
+        }
+
+        // 2. Physics & Continuous Collision for Active Balls
+        let activeCount = 0;
+        const subSteps = 3;
+        const subDt = (dt * this.speedMultiplier) / subSteps;
+
+        for (let step = 0; step < subSteps; step++) {
+          for (const b of this.ballPool) {
+            if (!b.active) continue;
+            activeCount++;
+
+            b.x += b.vx * subDt;
+            b.y += b.vy * subDt;
+
+            // Maintain minimum vertical speed to prevent infinite horizontal bouncing
+            if (Math.abs(b.vy) < 90) {
+              b.vy = (b.vy >= 0 ? 1 : -1) * 110;
+            }
+
+            // Left Wall Collision
+            const minX = this.boardX + b.radius + 2;
+            if (b.x <= minX) {
+              b.x = minX;
+              b.vx = Math.abs(b.vx);
+            }
+
+            // Right Wall Collision
+            const maxX = this.boardX + this.boardW - b.radius - 2;
+            if (b.x >= maxX) {
+              b.x = maxX;
+              b.vx = -Math.abs(b.vx);
+            }
+
+            // Top Wall Collision
+            const minY = this.boardY + b.radius + 2;
+            if (b.y <= minY) {
+              b.y = minY;
+              b.vy = Math.abs(b.vy);
+            }
+
+            // Bottom Floor Collision (Return Zone)
+            if (b.y >= this.floorY) {
+              b.y = this.floorY;
+              b.active = false;
+              b.returning = false;
+
+              if (this.firstReturnX === null) {
+                this.firstReturnX = Math.max(this.boardX + 18, Math.min(this.boardX + this.boardW - 18, b.x));
+              }
+              this.returnedBallsCount++;
+              continue;
+            }
+
+            // Block Collisions (Polygon + Square)
+            this.checkBallBlockCollision(b);
+
+            // Pickup Collisions
+            this.checkBallPickupCollision(b);
+          }
+        }
+
+        // 3. Turn Resolution when All Balls Return
+        if (this.state === 'BALLS_ACTIVE' && activeCount === 0) {
+          this.state = 'AIMING';
+          this.speedMultiplier = 1.0;
+          if (this.firstReturnX !== null) {
+            this.launchX = this.firstReturnX;
+          }
+          this.firstReturnX = null;
+
+          // Check if all blocks cleared
+          if (this.blocks.length === 0) {
+            this.handleStageWon();
+          }
+        }
+
+        // 4. Update Particle Systems
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.alpha -= p.decay * dt;
+          if (p.alpha <= 0) this.particles.splice(i, 1);
+        }
+
+        for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+          const ft = this.floatingTexts[i];
+          ft.y += ft.vy * dt;
+          ft.alpha -= dt * 1.4;
+          if (ft.alpha <= 0) this.floatingTexts.splice(i, 1);
+        }
+
+        for (let i = this.lasers.length - 1; i >= 0; i--) {
+          const l = this.lasers[i];
+          l.alpha -= dt * 3.5;
+          if (l.alpha <= 0) this.lasers.splice(i, 1);
+        }
+
+        for (const blk of this.blocks) {
+          if (blk.hitFlash > 0) blk.hitFlash -= dt * 4;
+        }
+
+        for (const pk of this.pickups) {
+          pk.pulseT += dt * 3;
+        }
+      }
+
+      checkBallBlockCollision(ball) {
+        const bx = this.boardX;
+        const by = this.boardY;
+        const cw = this.cellW;
+        const ch = this.cellH;
+
+        for (let i = this.blocks.length - 1; i >= 0; i--) {
+          const b = this.blocks[i];
+          const tx = bx + b.c * cw;
+          const ty = by + b.r * ch;
+          const tw = cw - 4;
+          const th = ch - 4;
+
+          // Broadphase AABB Check
+          if (ball.x + ball.radius < tx || ball.x - ball.radius > tx + tw ||
+              ball.y + ball.radius < ty || ball.y - ball.radius > ty + th) {
+            continue;
+          }
+
+          // True Polygon Collision for Triangle Shapes
+          if (b.shape.startsWith('tri-')) {
+            let nX = 0, nY = 0, hit = false;
+
+            // Check diagonal hypotenuse normal based on orientation
+            if (b.shape === 'tri-tl') { // Triangle in top-left, hypotenuse from (tx+tw, ty) to (tx, ty+th)
+              const d = (ball.x - tx) + (ball.y - ty) - Math.min(tw, th);
+              if (d <= ball.radius && ball.x >= tx && ball.y >= ty) {
+                nX = 0.7071; nY = 0.7071; hit = true;
+              }
+            } else if (b.shape === 'tri-tr') { // Triangle in top-right
+              const d = (tx + tw - ball.x) + (ball.y - ty) - Math.min(tw, th);
+              if (d <= ball.radius && ball.x <= tx + tw && ball.y >= ty) {
+                nX = -0.7071; nY = 0.7071; hit = true;
+              }
+            } else if (b.shape === 'tri-bl') { // Triangle in bottom-left
+              const d = (ball.x - tx) + (ty + th - ball.y) - Math.min(tw, th);
+              if (d <= ball.radius && ball.x >= tx && ball.y <= ty + th) {
+                nX = 0.7071; nY = -0.7071; hit = true;
+              }
+            } else if (b.shape === 'tri-br') { // Triangle in bottom-right
+              const d = (tx + tw - ball.x) + (ty + th - ball.y) - Math.min(tw, th);
+              if (d <= ball.radius && ball.x <= tx + tw && ball.y <= ty + th) {
+                nX = -0.7071; nY = -0.7071; hit = true;
+              }
+            }
+
+            if (hit) {
+              // Surface normal reflection: v' = v - 2(v.n)n
+              const dot = ball.vx * nX + ball.vy * nY;
+              ball.vx = ball.vx - 2 * dot * nX;
+              ball.vy = ball.vy - 2 * dot * nY;
+              this.applyBlockDamage(b, i, tx + tw / 2, ty + th / 2);
+              return;
+            }
+          }
+
+          // Standard Rectangular Block Reflection
+          const overlapL = (ball.x + ball.radius) - tx;
+          const overlapR = (tx + tw) - (ball.x - ball.radius);
+          const overlapT = (ball.y + ball.radius) - ty;
+          const overlapB = (ty + th) - (ball.y - ball.radius);
+
+          const minOverlap = Math.min(overlapL, overlapR, overlapT, overlapB);
+
+          if (minOverlap === overlapL) {
+            ball.x = tx - ball.radius;
+            ball.vx = -Math.abs(ball.vx);
+          } else if (minOverlap === overlapR) {
+            ball.x = tx + tw + ball.radius;
+            ball.vx = Math.abs(ball.vx);
+          } else if (minOverlap === overlapT) {
+            ball.y = ty - ball.radius;
+            ball.vy = -Math.abs(ball.vy);
+          } else {
+            ball.y = ty + th + ball.radius;
+            ball.vy = Math.abs(ball.vy);
+          }
+
+          this.applyBlockDamage(b, i, tx + tw / 2, ty + th / 2);
+          return;
+        }
+      }
+
+      applyBlockDamage(block, index, cx, cy) {
+        block.hp -= 1;
+        this.score += 1;
+        block.hitFlash = 0.8;
+        this.synth.playBlockHit();
+        this.haptic(10);
+
+        if (block.hp <= 0) {
+          this.synth.playBlockDestroy();
+          this.spawnExplosion(cx, cy, this.getBlockColor(block.maxHp).hex);
+
+          // Trigger special laser abilities
+          if (block.shape.startsWith('laser-')) {
+            this.triggerLaser(block.r, block.c, block.shape);
+          }
+
+          this.blocks.splice(index, 1);
+        }
+      }
+
+      checkBallPickupCollision(ball) {
+        const bx = this.boardX;
+        const by = this.boardY;
+        const cw = this.cellW;
+        const ch = this.cellH;
+
+        for (let i = this.pickups.length - 1; i >= 0; i--) {
+          const pk = this.pickups[i];
+          if (pk.collected) continue;
+
+          const px = bx + (pk.c + 0.5) * cw;
+          const py = by + (pk.r + 0.5) * ch;
+          const dist = Math.hypot(ball.x - px, ball.y - py);
+
+          if (dist <= ball.radius + 12) {
+            pk.collected = true;
+            this.unlockedBalls += 1;
+            this.synth.playPickup();
+            this.haptic(15);
+            this.spawnFloatingText(px, py - 10, '+1 BALL', '#C084FC');
+            this.spawnExplosion(px, py, '#C084FC');
+            this.pickups.splice(i, 1);
+          }
+        }
+      }
+
+      handleStageWon() {
+        this.state = 'STAGE_CLEAR';
+        this.modalAnimT = 0;
+        this.synth.playWinFanfare();
+        this.haptic(50);
+
+        const stageData = STAGES[this.stageIndex];
+        this.starsGained = 3;
+        if (this.score < stageData.starThresholds[1]) this.starsGained = 1;
+        else if (this.score < stageData.starThresholds[2]) this.starsGained = 2;
+
+        this.diamonds += 30;
+        this.saveDiamonds();
+
+        Host.post('onLevelCompleted', { stage: this.stageIndex + 1, score: this.score, stars: this.starsGained });
+      }
+
+      // --- RENDERING PIPELINE ---
+      render() {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.scale(this.dpr, this.dpr);
+
+        // 1. Deep Obsidian Background
+        ctx.fillStyle = '#06080F';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        // 2. Top HUD (Stage, 3-Star Bar, Line, Score, Pause Button)
+        this.renderTopHUD(ctx);
+
+        // 3. Main Game Box Board
+        this.renderGameBoard(ctx);
+
+        // 4. Blocks & Polygon Triangles
+        this.renderBlocks(ctx);
+
+        // 5. Ball Pickups
+        this.renderPickups(ctx);
+
+        // 6. Laser Beams & Particles
+        this.renderLasers(ctx);
+        this.renderParticles(ctx);
+
+        // 7. Aim Trajectory Dotted Line
+        if (this.state === 'AIMING' && this.aiming && this.aimValid) {
+          this.renderAimTrajectory(ctx);
+        }
+
+        // 8. Active Balls in Motion
+        this.renderBalls(ctx);
+
+        // 9. Bottom Launcher & Ball Counter
+        this.renderLauncherAndControls(ctx);
+
+        // 10. Floating Score Text Popups
+        this.renderFloatingTexts(ctx);
+
+        // 11. Modals (Stage Clear, Game Over, Pause)
+        if (this.state === 'STAGE_CLEAR') this.renderStageClearModal(ctx);
+        if (this.state === 'PAUSED') this.renderPauseModal(ctx);
+
+        ctx.restore();
+      }
+
+      // TOP HUD WITH STAGE & 3-STAR PROGRESS BAR
+      renderTopHUD(ctx) {
+        const y = this.headerTopY;
+        const stageData = STAGES[this.stageIndex] || STAGES[0];
+
+        // 1. Top-Left Glowing Ball Indicator (◉)
+        ctx.save();
+        const indX = 36;
+        const indY = y + 16;
+        ctx.beginPath();
+        ctx.arc(indX, indY, 18, 0, Math.PI * 2);
+        ctx.fillStyle = '#0F172A';
+        ctx.fill();
+        ctx.strokeStyle = '#38BDF8';
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#0284C7';
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(indX, indY, 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.restore();
+
+        // 2. Top-Center STAGE - X Title
+        ctx.save();
+        ctx.font = '900 15px Outfit, sans-serif';
+        ctx.fillStyle = '#94A3B8';
+        ctx.textAlign = 'center';
+        ctx.fillText('STAGE - ' + (this.stageIndex + 1), this.width / 2, y + 8);
+
+        // 3. 3-Star Glowing Blue Progress Bar
+        const barW = 160;
+        const barH = 5;
+        const barX = (this.width - barW) / 2;
+        const barY = y + 18;
+
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, barW, barH, 3);
+        ctx.fillStyle = '#1E293B';
+        ctx.fill();
+
+        const pct = Math.min(1.0, this.score / (stageData.targetScore || 1000));
+        if (pct > 0) {
+          ctx.beginPath();
+          ctx.roundRect(barX, barY, barW * pct, barH, 3);
+          ctx.fillStyle = '#38BDF8';
+          ctx.shadowColor = '#0284C7';
+          ctx.shadowBlur = 8;
+          ctx.fill();
+        }
+
+        // Star Markers on Bar
+        const starMarks = [0.25, 0.65, 0.96];
+        for (let i = 0; i < 3; i++) {
+          const sx = barX + barW * starMarks[i];
+          const hasStar = pct >= starMarks[i];
+          ctx.font = '12px sans-serif';
+          ctx.fillStyle = hasStar ? '#FBBF24' : '#475569';
+          ctx.textAlign = 'center';
+          ctx.fillText('★', sx, barY - 4);
+        }
+
+        // 4. Line Counter & Score Row
+        ctx.font = '800 13px Outfit, sans-serif';
+        ctx.fillStyle = '#CBD5E1';
+        ctx.textAlign = 'left';
+        ctx.fillText('Line ' + this.lineCount, barX - 10, barY + 22);
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#F8FAFC';
+        ctx.fillText(this.score.toString(), barX + barW + 10, barY + 22);
+        ctx.restore();
+
+        // 5. Top-Right Circular Pause Button (⏸)
+        ctx.save();
+        const pauseX = this.width - 36;
+        const pauseY = y + 16;
+        ctx.beginPath();
+        ctx.arc(pauseX, pauseY, 18, 0, Math.PI * 2);
+        ctx.fillStyle = '#0F172A';
+        ctx.fill();
+        ctx.strokeStyle = '#38BDF8';
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#0284C7';
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+
+        ctx.font = '900 14px sans-serif';
+        ctx.fillStyle = '#38BDF8';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⏸', pauseX, pauseY);
+        ctx.restore();
+      }
+
+      // MAIN GAMEPLAY BOX BOARD
+      renderGameBoard(ctx) {
+        const bx = this.boardX;
+        const by = this.boardY;
+        const bw = this.boardW;
+        const bh = this.boardH;
+
+        ctx.save();
+        // Atmospheric Top Cyan Neon Glow
+        const topGlow = ctx.createLinearGradient(bx, by, bx, by + 120);
+        topGlow.addColorStop(0, 'rgba(6, 182, 212, 0.15)');
+        topGlow.addColorStop(1, 'rgba(6, 182, 212, 0)');
+        ctx.fillStyle = topGlow;
+        ctx.fillRect(bx, by, bw, bh);
+
+        // Thin Purple Neon Outer Border
+        ctx.beginPath();
+        ctx.roundRect(bx, by, bw, bh, 14);
+        ctx.strokeStyle = 'rgba(168, 85, 247, 0.85)';
+        ctx.lineWidth = 2.0;
+        ctx.shadowColor = '#A855F7';
+        ctx.shadowBlur = 14;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      getBlockColor(hp) {
+        if (hp <= 10) return { hex: '#06B6D4', dark: '#0891B2', bg: 'rgba(6, 182, 212, 0.15)' };
+        if (hp <= 25) return { hex: '#10B981', dark: '#047857', bg: 'rgba(16, 185, 129, 0.15)' };
+        if (hp <= 40) return { hex: '#F59E0B', dark: '#B45309', bg: 'rgba(245, 158, 11, 0.15)' };
+        if (hp <= 60) return { hex: '#8B5CF6', dark: '#6D28D9', bg: 'rgba(139, 92, 246, 0.15)' };
+        return { hex: '#EF4444', dark: '#B91C1C', bg: 'rgba(239, 68, 68, 0.15)' };
+      }
+
+      // RENDER ALL BLOCKS AND POLYGONS
+      renderBlocks(ctx) {
+        const bx = this.boardX;
+        const by = this.boardY;
+        const cw = this.cellW;
+        const ch = this.cellH;
+
+        for (const b of this.blocks) {
+          const tx = bx + b.c * cw + 2;
+          const ty = by + b.r * ch + 2;
+          const tw = cw - 4;
+          const th = ch - 4;
+          const col = this.getBlockColor(b.hp);
+
+          ctx.save();
+          ctx.shadowColor = col.hex;
+          ctx.shadowBlur = b.hitFlash > 0 ? 20 : 10;
+
+          if (b.shape.startsWith('tri-')) {
+            // Triangle Polygon
+            ctx.beginPath();
+            if (b.shape === 'tri-tl') {
+              ctx.moveTo(tx, ty);
+              ctx.lineTo(tx + tw, ty);
+              ctx.lineTo(tx, ty + th);
+            } else if (b.shape === 'tri-tr') {
+              ctx.moveTo(tx, ty);
+              ctx.lineTo(tx + tw, ty);
+              ctx.lineTo(tx + tw, ty + th);
+            } else if (b.shape === 'tri-bl') {
+              ctx.moveTo(tx, ty);
+              ctx.lineTo(tx, ty + th);
+              ctx.lineTo(tx + tw, ty + th);
+            } else if (b.shape === 'tri-br') {
+              ctx.moveTo(tx + tw, ty);
+              ctx.lineTo(tx + tw, ty + th);
+              ctx.lineTo(tx, ty + th);
+            }
+            ctx.closePath();
+
+            ctx.fillStyle = b.hitFlash > 0 ? '#FFFFFF' : col.bg;
+            ctx.fill();
+
+            ctx.strokeStyle = col.hex;
+            ctx.lineWidth = 1.8;
+            ctx.stroke();
+
+            // Render Number in Center of Triangle
+            ctx.font = '900 12px Outfit, sans-serif';
+            ctx.fillStyle = '#FFFFFF';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const offset = (b.shape === 'tri-tl' || b.shape === 'tri-bl') ? -3 : 3;
+            ctx.fillText(b.hp.toString(), tx + tw / 2 + offset, ty + th / 2);
+
+          } else {
+            // Standard Rounded Rectangle Block
+            ctx.beginPath();
+            ctx.roundRect(tx, ty, tw, th, 8);
+            ctx.fillStyle = b.hitFlash > 0 ? '#FFFFFF' : col.bg;
+            ctx.fill();
+
+            ctx.strokeStyle = col.hex;
+            ctx.lineWidth = 1.8;
+            ctx.stroke();
+
+            // Special Block Icons (Laser indicators)
+            if (b.shape === 'laser-cross') {
+              ctx.font = '900 14px Outfit, sans-serif';
+              ctx.fillStyle = '#38BDF8';
+              ctx.textAlign = 'center';
+              ctx.fillText('✚', tx + tw / 2, ty + 12);
+            } else if (b.shape === 'laser-vert') {
+              ctx.font = '900 11px Outfit, sans-serif';
+              ctx.fillStyle = '#F59E0B';
+              ctx.textAlign = 'center';
+              ctx.fillText('▲▼', tx + tw / 2, ty + 11);
+            } else if (b.shape === 'laser-horiz') {
+              ctx.font = '900 11px Outfit, sans-serif';
+              ctx.fillStyle = '#F59E0B';
+              ctx.textAlign = 'center';
+              ctx.fillText('◄►', tx + tw / 2, ty + 11);
+            }
+
+            // Block HP Value
+            ctx.font = '900 14px Outfit, sans-serif';
+            ctx.fillStyle = '#FFFFFF';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(b.hp.toString(), tx + tw / 2, ty + th / 2 + (b.shape.startsWith('laser-') ? 4 : 0));
+          }
+          ctx.restore();
+        }
+      }
+
+      // RENDER BALL PICKUPS (CONCENTRIC NEON RINGS)
+      renderPickups(ctx) {
+        const bx = this.boardX;
+        const by = this.boardY;
+        const cw = this.cellW;
+        const ch = this.cellH;
+
+        for (const pk of this.pickups) {
+          if (pk.collected) continue;
+          const px = bx + (pk.c + 0.5) * cw;
+          const py = by + (pk.r + 0.5) * ch;
+
+          ctx.save();
+          ctx.translate(px, py);
+
+          // Outer Broken Rotating Ring
+          ctx.beginPath();
+          ctx.arc(0, 0, 11 + Math.sin(pk.pulseT) * 1.5, 0, Math.PI * 2);
+          ctx.strokeStyle = '#C084FC';
+          ctx.lineWidth = 2.0;
+          ctx.shadowColor = '#A855F7';
+          ctx.shadowBlur = 10;
+          ctx.stroke();
+
+          // Inner White Core
+          ctx.beginPath();
+          ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      // AIM TRAJECTORY WITH REFLECTION DOTS
+      renderAimTrajectory(ctx) {
+        ctx.save();
+        let currX = this.launchX;
+        let currY = this.launchY;
+        let dirX = this.launchDirX;
+        let dirY = this.launchDirY;
+
+        const maxDots = 28;
+        const dotSpacing = 16;
+        let dotsDrawn = 0;
+
+        for (let bounce = 0; bounce < 3 && dotsDrawn < maxDots; bounce++) {
+          for (let step = 0; step < 24 && dotsDrawn < maxDots; step++) {
+            currX += dirX * dotSpacing;
+            currY += dirY * dotSpacing;
+
+            // Check Left/Right/Top Wall Reflection
+            if (currX <= this.boardX + 8) {
+              currX = this.boardX + 8;
+              dirX = Math.abs(dirX);
+              break;
+            }
+            if (currX >= this.boardX + this.boardW - 8) {
+              currX = this.boardX + this.boardW - 8;
+              dirX = -Math.abs(dirX);
+              break;
+            }
+            if (currY <= this.boardY + 8) {
+              currY = this.boardY + 8;
+              dirY = Math.abs(dirY);
+              break;
+            }
+
+            // Draw Glowing Purple Dotted Line Marker
+            ctx.beginPath();
+            ctx.arc(currX, currY, 3.0, 0, Math.PI * 2);
+            ctx.fillStyle = '#E879F9';
+            ctx.shadowColor = '#C084FC';
+            ctx.shadowBlur = 8;
+            ctx.fill();
+            dotsDrawn++;
+          }
+        }
+        ctx.restore();
+      }
+
+      // RENDER ALL ACTIVE BALLS (WHITE CORE + PURPLE NEON GLOW)
+      renderBalls(ctx) {
+        for (const b of this.ballPool) {
+          if (!b.active) continue;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.shadowColor = '#C084FC';
+          ctx.shadowBlur = 12;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.radius * 0.55, 0, Math.PI * 2);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      // BOTTOM LAUNCHER & CONTROLS
+      renderLauncherAndControls(ctx) {
+        const lx = this.launchX;
+        const ly = this.launchY;
+
+        // 1. Launcher Glowing Ball & Count
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(lx, ly, 8, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.shadowColor = '#E879F9';
+        ctx.shadowBlur = 16;
+        ctx.fill();
+
+        // Remaining Ball Count Indicator (e.g. x57)
+        const remaining = (this.state === 'SHOOTING' || this.state === 'BALLS_ACTIVE')
+          ? Math.max(0, this.unlockedBalls - this.returnedBallsCount)
+          : this.unlockedBalls;
+
+        ctx.font = '800 13px Outfit, sans-serif';
+        ctx.fillStyle = '#F8FAFC';
+        ctx.textAlign = 'center';
+        ctx.fillText('x' + remaining, lx + 22, ly - 14);
+        ctx.restore();
+
+        // 2. Bottom Dynamic Control Bar
+        const botY = this.bottomControlY;
+
+        if (this.state === 'SHOOTING' || this.state === 'BALLS_ACTIVE') {
+          // A. Center Fast-Forward / Recall Button [ ⬇ ]
+          const capW = 110;
+          const capH = 46;
+          const capX = (this.width - capW) / 2;
+
+          ctx.save();
+          ctx.shadowColor = '#EF4444';
+          ctx.shadowBlur = 16;
+          ctx.beginPath();
+          ctx.roundRect(capX, botY, capW, capH, 14);
+          ctx.fillStyle = '#1E1B4B';
+          ctx.fill();
+          ctx.strokeStyle = '#EF4444';
+          ctx.lineWidth = 2.0;
+          ctx.stroke();
+
+          ctx.font = '900 20px sans-serif';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('⬇', this.width / 2, botY + capH / 2);
+          ctx.restore();
+
+          // B. Bottom-Right Undo/Retry Button [ ↶ 💎100 ]
+          const uX = this.width - 44;
+          const uY = botY + 23;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(uX, uY, 22, 0, Math.PI * 2);
+          ctx.fillStyle = '#0F172A';
+          ctx.fill();
+          ctx.strokeStyle = '#F43F5E';
+          ctx.lineWidth = 2.0;
+          ctx.stroke();
+
+          ctx.font = '900 13px Outfit, sans-serif';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.textAlign = 'center';
+          ctx.fillText('↶ 100', uX, uY + 4);
+          ctx.restore();
+
+        } else {
+          // Idle / Aiming State: Capsule slider + +50 Bonus Balls
+          const capW = 160;
+          const capH = 14;
+          const capX = (this.width - capW) / 2;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.roundRect(capX, botY + 12, capW, capH, 7);
+          ctx.fillStyle = '#1E1B4B';
+          ctx.fill();
+          ctx.strokeStyle = '#C084FC';
+          ctx.lineWidth = 1.5;
+          ctx.shadowColor = '#A855F7';
+          ctx.shadowBlur = 10;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(this.width / 2, botY + 19, 8, 0, Math.PI * 2);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fill();
+          ctx.restore();
+
+          // +50 Bonus Balls Button
+          const adX = this.width - 44;
+          const adY = botY + 19;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(adX, adY, 22, 0, Math.PI * 2);
+          ctx.fillStyle = '#0F172A';
+          ctx.fill();
+          ctx.strokeStyle = '#EC4899';
+          ctx.lineWidth = 2.2;
+          ctx.shadowColor = '#EC4899';
+          ctx.shadowBlur = 12;
+          ctx.stroke();
+
+          ctx.font = '900 13px Outfit, sans-serif';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.textAlign = 'center';
+          ctx.fillText('+50', adX, adY + 4);
+          ctx.restore();
+        }
+      }
+
+      renderLasers(ctx) {
+        for (const l of this.lasers) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(l.x1, l.y1);
+          ctx.lineTo(l.x2, l.y2);
+          ctx.strokeStyle = l.color;
+          ctx.globalAlpha = Math.max(0, l.alpha);
+          ctx.lineWidth = 5.0;
+          ctx.shadowColor = l.color;
+          ctx.shadowBlur = 16;
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      renderParticles(ctx) {
+        for (const p of this.particles) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = Math.max(0, p.alpha);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      renderFloatingTexts(ctx) {
+        for (const ft of this.floatingTexts) {
+          ctx.save();
+          ctx.font = '900 14px Outfit, sans-serif';
+          ctx.fillStyle = ft.color;
+          ctx.globalAlpha = Math.max(0, ft.alpha);
+          ctx.textAlign = 'center';
+          ctx.shadowColor = ft.color;
+          ctx.shadowBlur = 10;
+          ctx.fillText(ft.text, ft.x, ft.y);
+          ctx.restore();
+        }
+      }
+
+      // AAA 3-STAR STAGE CLEAR CELEBRATION MODAL
+      renderStageClearModal(ctx) {
+        ctx.fillStyle = 'rgba(6, 8, 15, 0.85)';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 340;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        ctx.save();
+        ctx.shadowColor = '#A855F7';
+        ctx.shadowBlur = 32;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.fillStyle = '#0F172A';
+        ctx.fill();
+        ctx.strokeStyle = '#A855F7';
+        ctx.lineWidth = 2.0;
+        ctx.stroke();
+
+        // 3 Glowing Golden Stars
+        const starY = cardY + 54;
+        for (let i = 0; i < 3; i++) {
+          const sx = this.width / 2 + (i - 1) * 44;
+          const hasStar = (i < this.starsGained);
+          ctx.font = (i === 1 ? '36px' : '28px') + ' sans-serif';
+          ctx.fillStyle = hasStar ? '#FBBF24' : '#334155';
+          ctx.textAlign = 'center';
+          ctx.shadowColor = hasStar ? '#F59E0B' : 'transparent';
+          ctx.shadowBlur = 14;
+          ctx.fillText('★', sx, starY + (i === 1 ? -4 : 0));
+        }
+
+        // Title
+        ctx.font = '900 24px Outfit, sans-serif';
+        ctx.fillStyle = '#38BDF8';
+        ctx.textAlign = 'center';
+        ctx.fillText('CLEAR!', this.width / 2, cardY + 114);
+
+        ctx.font = '800 15px Outfit, sans-serif';
+        ctx.fillStyle = '#94A3B8';
+        ctx.fillText('STAGE - ' + (this.stageIndex + 1), this.width / 2, cardY + 140);
+
+        // Diamonds Reward
+        ctx.font = '900 16px Outfit, sans-serif';
+        ctx.fillStyle = '#67E8F9';
+        ctx.fillText('💎  +30 REWARD', this.width / 2, cardY + 172);
+
+        // [ »» NEXT ] Button
+        const btnW = cardW - 40;
+        const btnH = 50;
+        const btnX = cardX + 20;
+        const btnY = cardY + cardH - 80;
+
+        ctx.beginPath();
+        ctx.roundRect(btnX, btnY, btnW, btnH, 16);
+        ctx.fillStyle = '#A855F7';
+        ctx.shadowColor = '#9333EA';
+        ctx.shadowBlur = 16;
+        ctx.fill();
+
+        ctx.font = '900 17px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('»»   NEXT', btnX + btnW / 2, btnY + btnH / 2 + 6);
+        ctx.restore();
+      }
+
+      // PAUSE MODAL
+      renderPauseModal(ctx) {
+        ctx.fillStyle = 'rgba(6, 8, 15, 0.85)';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        const cardW = Math.min(300, this.width - 40);
+        const cardH = 260;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        ctx.save();
+        ctx.shadowColor = '#38BDF8';
+        ctx.shadowBlur = 24;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 20);
+        ctx.fillStyle = '#0F172A';
+        ctx.fill();
+        ctx.strokeStyle = '#38BDF8';
+        ctx.lineWidth = 2.0;
+        ctx.stroke();
+
+        ctx.font = '900 20px Outfit, sans-serif';
+        ctx.fillStyle = '#38BDF8';
+        ctx.textAlign = 'center';
+        ctx.fillText('GAME PAUSED', this.width / 2, cardY + 44);
+
+        const btnW = cardW - 40;
+        const btnH = 46;
+        const btnX = cardX + 20;
+
+        // Resume Button
+        const rY = cardY + 80;
+        ctx.beginPath();
+        ctx.roundRect(btnX, rY, btnW, btnH, 14);
+        ctx.fillStyle = '#38BDF8';
+        ctx.fill();
+
+        ctx.font = '900 16px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('▶   CONTINUE', btnX + btnW / 2, rY + btnH / 2 + 5);
+
+        // Restart Button
+        const retY = cardY + 140;
+        ctx.beginPath();
+        ctx.roundRect(btnX, retY, btnW, btnH, 14);
+        ctx.fillStyle = '#1E293B';
+        ctx.fill();
+        ctx.strokeStyle = '#475569';
+        ctx.stroke();
+
+        ctx.fillStyle = '#F8FAFC';
+        ctx.fillText('↻   RETRY STAGE', btnX + btnW / 2, retY + btnH / 2 + 5);
+        ctx.restore();
+      }
+    }
+
+    function initGame() {
+      const canvas = document.getElementById('gameCanvas');
+      if (canvas && !window.game) {
+        window.game = new NeonBreakerGame(canvas);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initGame);
+    } else {
+      initGame();
+    }
+  </script>
+</body>
+</html>

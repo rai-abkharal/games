@@ -1,6 +1,6 @@
 {
-  "version": 27,
-  "updatedAt": "2026-08-25T12:54:51.911Z",
+  "version": 28,
+  "updatedAt": "2026-08-28T12:09:43.869Z",
   "games": [
     {
       "id": "color-connect",
@@ -589,6 +589,28 @@
         "vibration": true,
         "modes": true,
         "particles": true
+      },
+      "status": "published"
+    },
+    {
+      "id": "neon-breaker",
+      "title": "Neon Breaker",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/neon-breaker/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/neon-breaker.webp",
+      "sizeBytes": 34500,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/neon-breaker/1.0.0/manifest.json",
+      "feedOrder": 28,
+      "category": "Arcade",
+      "description": "Futuristic dark neon arcade ball-breaker game! Aim with precision, launch streams of glowing energy balls, destroy multi-HP glass neon blocks and polygon triangles, collect ball pickups, and activate lightning and multi-ball powerups.",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "powerups": true,
+        "stages": true
       },
       "status": "published"
     }
