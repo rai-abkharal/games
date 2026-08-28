@@ -25,7 +25,7 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #06080F;
+      background: #04060C;
       font-family: 'Outfit', system-ui, -apple-system, sans-serif;
       touch-action: none !important;
       -webkit-overflow-scrolling: auto;
@@ -58,7 +58,7 @@
   <script>
     'use strict';
 
-    // 1. HAND-AUTHORED STAGES DATA (Stages 1 to 30)
+    // 1. HAND-AUTHORED STAGES DATA
     const STAGES = [
   {
     "stage": 1,
@@ -3765,10 +3765,245 @@
         "c": 5
       }
     ]
+  },
+  {
+    "stage": 42,
+    "startBalls": 57,
+    "targetScore": 14000,
+    "starThresholds": [
+      4500,
+      9000,
+      14000
+    ],
+    "blocks": [
+      {
+        "r": 1,
+        "c": 0,
+        "hp": 52,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 1,
+        "hp": 52,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 1,
+        "hp": 51,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 2,
+        "hp": 51,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 0,
+        "hp": 50,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 1,
+        "hp": 50,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 2,
+        "hp": 50,
+        "shape": "tri-br"
+      },
+      {
+        "r": 1,
+        "c": 4,
+        "hp": 52,
+        "shape": "square"
+      },
+      {
+        "r": 1,
+        "c": 5,
+        "hp": 52,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 4,
+        "hp": 51,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 5,
+        "hp": 51,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 6,
+        "hp": 51,
+        "shape": "square"
+      },
+      {
+        "r": 2,
+        "c": 7,
+        "hp": 51,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 4,
+        "hp": 50,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 6,
+        "hp": 50,
+        "shape": "square"
+      },
+      {
+        "r": 3,
+        "c": 7,
+        "hp": 50,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 0,
+        "hp": 49,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 1,
+        "hp": 98,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 3,
+        "hp": 98,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 4,
+        "hp": 49,
+        "shape": "square"
+      },
+      {
+        "r": 4,
+        "c": 5,
+        "hp": 49,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 4,
+        "hp": 48,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 5,
+        "hp": 48,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 6,
+        "hp": 48,
+        "shape": "square"
+      },
+      {
+        "r": 5,
+        "c": 8,
+        "hp": 48,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 0,
+        "hp": 47,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 2,
+        "hp": 94,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 3,
+        "hp": 47,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 4,
+        "hp": 47,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 5,
+        "hp": 47,
+        "shape": "square"
+      },
+      {
+        "r": 6,
+        "c": 8,
+        "hp": 47,
+        "shape": "square"
+      }
+    ],
+    "pickups": [
+      {
+        "r": 1,
+        "c": 8,
+        "type": "ball"
+      },
+      {
+        "r": 2,
+        "c": 8,
+        "type": "ball"
+      },
+      {
+        "r": 3,
+        "c": 5,
+        "type": "ball"
+      },
+      {
+        "r": 4,
+        "c": 7,
+        "type": "ball"
+      },
+      {
+        "r": 5,
+        "c": 2,
+        "type": "diamond"
+      },
+      {
+        "r": 5,
+        "c": 3,
+        "type": "ball"
+      },
+      {
+        "r": 6,
+        "c": 6,
+        "type": "ball"
+      }
+    ]
   }
 ];
 
-    // 2. AUDIO SYNTHESIZER (Multi-Tone Pentatonic Combo Hits, Lasers, Chimes, Fanfares)
+    // 2. AUDIO SYNTHESIZER (Musical Combo Pitch Scaling)
     class SoundSynth {
       constructor() {
         this.ctx = null;
@@ -3796,7 +4031,6 @@
         this.lastHitTime = now;
 
         const t = this.ctx.currentTime;
-        // Pentatonic Scale Note Progression
         const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
         const baseFreq = scale[this.combo % scale.length];
 
@@ -3804,15 +4038,15 @@
         const gain = this.ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(baseFreq, t);
-        osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.8, t + 0.06);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.82, t + 0.05);
 
-        gain.gain.setValueAtTime(0.12, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+        gain.gain.setValueAtTime(0.10, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
 
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(t);
-        osc.stop(t + 0.07);
+        osc.stop(t + 0.06);
       }
 
       playLaserBlast() {
@@ -3823,15 +4057,15 @@
         const gain = this.ctx.createGain();
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(880, t);
-        osc.frequency.exponentialRampToValueAtTime(120, t + 0.22);
+        osc.frequency.exponentialRampToValueAtTime(120, t + 0.20);
 
-        gain.gain.setValueAtTime(0.20, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+        gain.gain.setValueAtTime(0.18, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.20);
 
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(t);
-        osc.stop(t + 0.23);
+        osc.stop(t + 0.21);
       }
 
       playBlockDestroy() {
@@ -3842,15 +4076,15 @@
         const gain = this.ctx.createGain();
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(180, t);
-        osc.frequency.exponentialRampToValueAtTime(40, t + 0.12);
+        osc.frequency.exponentialRampToValueAtTime(40, t + 0.10);
 
-        gain.gain.setValueAtTime(0.24, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        gain.gain.setValueAtTime(0.22, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.10);
 
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(t);
-        osc.stop(t + 0.13);
+        osc.stop(t + 0.11);
       }
 
       playPickup() {
@@ -3863,7 +4097,7 @@
         osc.frequency.setValueAtTime(659.25, t);
         osc.frequency.exponentialRampToValueAtTime(1318.51, t + 0.14);
 
-        gain.gain.setValueAtTime(0.18, t);
+        gain.gain.setValueAtTime(0.16, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
 
         osc.connect(gain);
@@ -3902,11 +4136,11 @@
           osc.type = (i % 2 === 0) ? 'triangle' : 'sine';
           osc.frequency.setValueAtTime(freq, t);
           gain.gain.setValueAtTime(0.22, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.50);
           osc.connect(gain);
           gain.connect(this.ctx.destination);
           osc.start(t);
-          osc.stop(t + 0.56);
+          osc.stop(t + 0.52);
         });
       }
 
@@ -3917,7 +4151,7 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(560, t);
+        osc.frequency.setValueAtTime(540, t);
         gain.gain.setValueAtTime(0.10, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
         osc.connect(gain);
@@ -3958,9 +4192,8 @@
         this.y = 0;
         this.vx = 0;
         this.vy = 0;
-        this.radius = 5.5;
+        this.radius = 5.0;
         this.returning = false;
-        this.trail = [];
       }
 
       spawn(x, y, vx, vy) {
@@ -3970,11 +4203,10 @@
         this.vx = vx;
         this.vy = vy;
         this.returning = false;
-        this.trail = [];
       }
     }
 
-    // 5. MAIN NEON BREAKER CONTROLLER
+    // 5. MAIN NEON BREAKER GAME CONTROLLER
     class NeonBreakerGame {
       constructor(canvas) {
         this.canvas = canvas;
@@ -3984,13 +4216,12 @@
         this.stageIndex = this.loadStageIndex();
         this.diamonds = this.loadDiamonds();
 
-        // Game States: 'AIMING', 'SHOOTING', 'BALLS_ACTIVE', 'PAUSED', 'STAGE_CLEAR', 'GAME_OVER'
-        this.state = 'AIMING';
+        this.state = 'AIMING'; // 'AIMING', 'SHOOTING', 'BALLS_ACTIVE', 'PAUSED', 'STAGE_CLEAR', 'GAME_OVER'
 
         this.score = 0;
-        this.lineCount = 0;
-        this.totalBalls = 40;
-        this.unlockedBalls = 40;
+        this.lineCount = 6;
+        this.totalBalls = 57;
+        this.unlockedBalls = 57;
         this.nextBonusBalls = 0;
 
         this.launchX = 0;
@@ -3998,33 +4229,31 @@
         this.firstReturnX = null;
         this.returnedBallsCount = 0;
 
-        // Salvo Spawner Queue
         this.ballsToLaunch = 0;
-        this.launchInterval = 0.024; // 24ms delay between balls
+        this.launchInterval = 0.022; // 22ms stream delay
         this.launchTimer = 0;
         this.launchDirX = 0;
         this.launchDirY = -1;
-        this.ballSpeed = 820;
+        this.ballSpeed = 860;
         this.speedMultiplier = 1.0;
 
-        // Object Pool for 600 Balls
         this.ballPool = Array.from({ length: 600 }, () => new Ball());
 
-        // Blocks & Pickups
         this.blocks = [];
         this.pickups = [];
         this.particles = [];
         this.floatingTexts = [];
         this.lasers = [];
 
-        // Touch Aiming State
         this.aiming = false;
         this.aimAngle = -Math.PI / 2;
         this.aimValid = false;
 
-        // Modals Animation
         this.modalAnimT = 0;
         this.starsGained = 0;
+
+        this.cols = 9; // Exactly 9 columns as in the reference screenshots!
+        this.rows = 9;
 
         this.initLayout();
         this.bindEvents();
@@ -4070,7 +4299,7 @@
         const stageData = STAGES[this.stageIndex];
 
         this.score = 0;
-        this.lineCount = 0;
+        this.lineCount = stageData.stage >= 40 ? 6 : (stageData.stage >= 24 ? 3 : 0);
         this.totalBalls = stageData.startBalls + this.nextBonusBalls;
         this.nextBonusBalls = 0;
         this.unlockedBalls = this.totalBalls;
@@ -4079,17 +4308,11 @@
         this.firstReturnX = null;
         this.returnedBallsCount = 0;
 
-        // Clear active balls
         for (const b of this.ballPool) {
           b.active = false;
           b.returning = false;
         }
 
-        // Layout Grid Dimensions
-        this.cols = 8;
-        this.rows = 9;
-
-        // Build Blocks from Stage Data
         this.blocks = [];
         for (const blk of stageData.blocks) {
           this.blocks.push({
@@ -4102,12 +4325,12 @@
           });
         }
 
-        // Build Pickups
         this.pickups = [];
         for (const p of stageData.pickups) {
           this.pickups.push({
             r: p.r,
             c: p.c,
+            type: p.type || 'ball',
             collected: false,
             pulseT: Math.random() * Math.PI
           });
@@ -4119,7 +4342,7 @@
         this.state = 'AIMING';
 
         this.initLayout();
-        Host.post('onGameStarted', { stage: this.stageIndex + 1, balls: this.totalBalls });
+        Host.post('onGameStarted', { stage: stageData.stage, balls: this.totalBalls });
       }
 
       initLayout() {
@@ -4130,29 +4353,27 @@
         this.canvas.width = Math.round(this.width * dpr);
         this.canvas.height = Math.round(this.height * dpr);
 
-        // Header Dimensions
-        this.headerTopY = 24;
-        this.hudHeight = 84;
+        this.headerTopY = 22;
 
-        // Main Board Box Dimensions
-        this.boardMarginX = 12;
+        // Main Board Box Dimensions (Matching Screenshot)
+        this.boardMarginX = 8;
         this.boardX = this.boardMarginX;
-        this.boardY = 104;
+        this.boardY = 98;
         this.boardW = this.width - this.boardMarginX * 2;
-        this.boardH = this.height - this.boardY - 114;
+        this.boardH = this.height - this.boardY - 110;
 
-        // Grid Cell Tile Size
-        this.cellW = this.boardW / (this.cols || 8);
-        this.cellH = Math.min(this.cellW * 0.96, (this.boardH * 0.70) / (this.rows || 9));
+        // Grid Cell Proportions: 9 columns, vertical rectangular aspect ratio
+        this.cols = 9;
+        this.cellW = this.boardW / this.cols;
+        this.cellH = Math.min(this.cellW * 1.20, (this.boardH * 0.72) / (this.rows || 9));
 
         // Floor / Launcher Y Anchor
-        this.floorY = this.boardY + this.boardH - 22;
+        this.floorY = this.boardY + this.boardH - 24;
         if (this.launchX === 0 || this.launchX < this.boardX + 16 || this.launchX > this.boardX + this.boardW - 16) {
           this.launchX = this.boardX + this.boardW / 2;
         }
         this.launchY = this.floorY;
 
-        // Bottom Controls Hitboxes
         this.bottomControlY = this.height - 76;
       }
 
@@ -4193,7 +4414,6 @@
           this.synth.init();
           const { px, py } = getPos(e);
 
-          // 1. Modals Interaction
           if (this.state === 'STAGE_CLEAR') {
             this.handleStageClearClick(px, py);
             return;
@@ -4207,16 +4427,15 @@
             return;
           }
 
-          // 2. Pause Button (Top-Right: px: width-64 to width, py: 0 to 76)
+          // Top-Right Pause Button
           if (px >= this.width - 64 && py <= 76) {
             this.synth.playTap();
             this.state = 'PAUSED';
             return;
           }
 
-          // 3. Fast-Forward / Recall Button (During Shooting / Active State: Center bottom [ ⬇ ])
+          // Fast-Forward / Recall Button
           if ((this.state === 'SHOOTING' || this.state === 'BALLS_ACTIVE') && py >= this.height - 95) {
-            // Check Recall capsule
             const capW = 120;
             const capX = (this.width - capW) / 2;
             if (px >= capX && px <= capX + capW) {
@@ -4227,19 +4446,19 @@
             }
           }
 
-          // 4. Undo / Retry Button (↶ 💎100) (Bottom Right)
+          // Undo / Retry Button (↶ 💎100)
           if (px >= this.width - 78 && py >= this.height - 88) {
             this.handleUndoRetryClick();
             return;
           }
 
-          // 5. Watch Ad +50 Balls Button (Bottom-Right: During AIMING)
+          // Watch Ad +50 Balls Button
           if (this.state === 'AIMING' && px >= this.width - 80 && py >= this.height - 88) {
             this.handleBonusAdClick();
             return;
           }
 
-          // 6. Aiming Touch on Playfield
+          // Aiming Touch
           if (this.state === 'AIMING' && py >= this.boardY - 20 && py <= this.boardY + this.boardH + 40) {
             this.aiming = true;
             this.updateAim(px, py);
@@ -4295,12 +4514,10 @@
         const dy = py - this.launchY;
         const dist = Math.hypot(dx, dy);
 
-        // Constrain so shooting cannot be downwards or overly shallow horizontal
         if (dist > 15 && dy < -10) {
           let angle = Math.atan2(dy, dx);
-          // Clamp angle between -170 deg and -10 deg
-          const minAngle = -Math.PI + 0.16; // -170 deg
-          const maxAngle = -0.16;           // -10 deg
+          const minAngle = -Math.PI + 0.14;
+          const maxAngle = -0.14;
           angle = Math.max(minAngle, Math.min(maxAngle, angle));
 
           this.aimAngle = angle;
@@ -4327,8 +4544,7 @@
         for (const b of this.ballPool) {
           if (b.active && !b.returning) {
             b.returning = true;
-            // Guide towards floor
-            b.vy = Math.abs(b.vy) * 2.2 + 400;
+            b.vy = Math.abs(b.vy) * 2.4 + 400;
           }
         }
       }
@@ -4421,7 +4637,6 @@
             color: '#38BDF8'
           });
 
-          // Damage all blocks in row
           for (let i = this.blocks.length - 1; i >= 0; i--) {
             const b = this.blocks[i];
             if (b.r === r) {
@@ -4446,7 +4661,6 @@
             color: '#A855F7'
           });
 
-          // Damage all blocks in col
           for (let i = this.blocks.length - 1; i >= 0; i--) {
             const b = this.blocks[i];
             if (b.c === c) {
@@ -4462,7 +4676,6 @@
         }
       }
 
-      // --- MAIN GAME PHYSICS & SIMULATION LOOP ---
       loop(timestamp) {
         const dt = Math.min(0.06, (timestamp - (this.lastTime || timestamp)) / 1000);
         this.lastTime = timestamp;
@@ -4476,14 +4689,12 @@
       update(dt) {
         if (this.state === 'PAUSED' || this.state === 'STAGE_CLEAR' || this.state === 'GAME_OVER') return;
 
-        // 1. Spawning Sequential Balls
         if (this.state === 'SHOOTING') {
           this.launchTimer += dt;
           while (this.launchTimer >= this.launchInterval && this.ballsToLaunch > 0) {
             this.launchTimer -= this.launchInterval;
             this.ballsToLaunch--;
 
-            // Find inactive ball from pool
             const ball = this.ballPool.find(b => !b.active);
             if (ball) {
               const speed = this.ballSpeed * this.speedMultiplier;
@@ -4496,7 +4707,6 @@
           }
         }
 
-        // 2. Physics & Continuous Collision for Active Balls
         let activeCount = 0;
         const subSteps = 3;
         const subDt = (dt * this.speedMultiplier) / subSteps;
@@ -4509,33 +4719,28 @@
             b.x += b.vx * subDt;
             b.y += b.vy * subDt;
 
-            // Maintain minimum vertical speed to prevent infinite horizontal bouncing
             if (Math.abs(b.vy) < 90) {
               b.vy = (b.vy >= 0 ? 1 : -1) * 110;
             }
 
-            // Left Wall Collision
             const minX = this.boardX + b.radius + 2;
             if (b.x <= minX) {
               b.x = minX;
               b.vx = Math.abs(b.vx);
             }
 
-            // Right Wall Collision
             const maxX = this.boardX + this.boardW - b.radius - 2;
             if (b.x >= maxX) {
               b.x = maxX;
               b.vx = -Math.abs(b.vx);
             }
 
-            // Top Wall Collision
             const minY = this.boardY + b.radius + 2;
             if (b.y <= minY) {
               b.y = minY;
               b.vy = Math.abs(b.vy);
             }
 
-            // Bottom Floor Collision (Return Zone)
             if (b.y >= this.floorY) {
               b.y = this.floorY;
               b.active = false;
@@ -4548,15 +4753,11 @@
               continue;
             }
 
-            // Block Collisions (Polygon + Square)
             this.checkBallBlockCollision(b);
-
-            // Pickup Collisions
             this.checkBallPickupCollision(b);
           }
         }
 
-        // 3. Turn Resolution when All Balls Return
         if (this.state === 'BALLS_ACTIVE' && activeCount === 0) {
           this.state = 'AIMING';
           this.speedMultiplier = 1.0;
@@ -4565,13 +4766,11 @@
           }
           this.firstReturnX = null;
 
-          // Check if all blocks cleared
           if (this.blocks.length === 0) {
             this.handleStageWon();
           }
         }
 
-        // 4. Update Particle Systems
         for (let i = this.particles.length - 1; i >= 0; i--) {
           const p = this.particles[i];
           p.x += p.vx * dt;
@@ -4610,38 +4809,35 @@
 
         for (let i = this.blocks.length - 1; i >= 0; i--) {
           const b = this.blocks[i];
-          const tx = bx + b.c * cw;
-          const ty = by + b.r * ch;
+          const tx = bx + b.c * cw + 2;
+          const ty = by + b.r * ch + 2;
           const tw = cw - 4;
           const th = ch - 4;
 
-          // Broadphase AABB Check
           if (ball.x + ball.radius < tx || ball.x - ball.radius > tx + tw ||
               ball.y + ball.radius < ty || ball.y - ball.radius > ty + th) {
             continue;
           }
 
-          // True Polygon Collision for Triangle Shapes
           if (b.shape.startsWith('tri-')) {
             let nX = 0, nY = 0, hit = false;
 
-            // Check diagonal hypotenuse normal based on orientation
-            if (b.shape === 'tri-tl') { // Triangle in top-left, hypotenuse from (tx+tw, ty) to (tx, ty+th)
+            if (b.shape === 'tri-tl') {
               const d = (ball.x - tx) + (ball.y - ty) - Math.min(tw, th);
               if (d <= ball.radius && ball.x >= tx && ball.y >= ty) {
                 nX = 0.7071; nY = 0.7071; hit = true;
               }
-            } else if (b.shape === 'tri-tr') { // Triangle in top-right
+            } else if (b.shape === 'tri-tr') {
               const d = (tx + tw - ball.x) + (ball.y - ty) - Math.min(tw, th);
               if (d <= ball.radius && ball.x <= tx + tw && ball.y >= ty) {
                 nX = -0.7071; nY = 0.7071; hit = true;
               }
-            } else if (b.shape === 'tri-bl') { // Triangle in bottom-left
+            } else if (b.shape === 'tri-bl') {
               const d = (ball.x - tx) + (ty + th - ball.y) - Math.min(tw, th);
               if (d <= ball.radius && ball.x >= tx && ball.y <= ty + th) {
                 nX = 0.7071; nY = -0.7071; hit = true;
               }
-            } else if (b.shape === 'tri-br') { // Triangle in bottom-right
+            } else if (b.shape === 'tri-br') {
               const d = (tx + tw - ball.x) + (ty + th - ball.y) - Math.min(tw, th);
               if (d <= ball.radius && ball.x <= tx + tw && ball.y <= ty + th) {
                 nX = -0.7071; nY = -0.7071; hit = true;
@@ -4649,7 +4845,6 @@
             }
 
             if (hit) {
-              // Surface normal reflection: v' = v - 2(v.n)n
               const dot = ball.vx * nX + ball.vy * nY;
               ball.vx = ball.vx - 2 * dot * nX;
               ball.vy = ball.vy - 2 * dot * nY;
@@ -4658,7 +4853,6 @@
             }
           }
 
-          // Standard Rectangular Block Reflection
           const overlapL = (ball.x + ball.radius) - tx;
           const overlapR = (tx + tw) - (ball.x - ball.radius);
           const overlapT = (ball.y + ball.radius) - ty;
@@ -4690,13 +4884,12 @@
         this.score += 1;
         block.hitFlash = 0.8;
         this.synth.playBlockHit();
-        this.haptic(10);
+        this.haptic(8);
 
         if (block.hp <= 0) {
           this.synth.playBlockDestroy();
-          this.spawnExplosion(cx, cy, this.getBlockColor(block.maxHp).hex);
+          this.spawnExplosion(cx, cy, this.getBlockColor(block.maxHp).stroke);
 
-          // Trigger special laser abilities
           if (block.shape.startsWith('laser-')) {
             this.triggerLaser(block.r, block.c, block.shape);
           }
@@ -4721,11 +4914,19 @@
 
           if (dist <= ball.radius + 12) {
             pk.collected = true;
-            this.unlockedBalls += 1;
             this.synth.playPickup();
             this.haptic(15);
-            this.spawnFloatingText(px, py - 10, '+1 BALL', '#C084FC');
-            this.spawnExplosion(px, py, '#C084FC');
+
+            if (pk.type === 'diamond') {
+              this.diamonds += 5;
+              this.saveDiamonds();
+              this.spawnFloatingText(px, py - 10, '+5 💎', '#38BDF8');
+            } else {
+              this.unlockedBalls += 1;
+              this.spawnFloatingText(px, py - 10, '+1 BALL', '#C084FC');
+            }
+
+            this.spawnExplosion(px, py, pk.type === 'diamond' ? '#38BDF8' : '#C084FC');
             this.pickups.splice(i, 1);
           }
         }
@@ -4745,7 +4946,7 @@
         this.diamonds += 30;
         this.saveDiamonds();
 
-        Host.post('onLevelCompleted', { stage: this.stageIndex + 1, score: this.score, stars: this.starsGained });
+        Host.post('onLevelCompleted', { stage: stageData.stage, score: this.score, stars: this.starsGained });
       }
 
       // --- RENDERING PIPELINE ---
@@ -4755,19 +4956,19 @@
         ctx.scale(this.dpr, this.dpr);
 
         // 1. Deep Obsidian Background
-        ctx.fillStyle = '#06080F';
+        ctx.fillStyle = '#04060C';
         ctx.fillRect(0, 0, this.width, this.height);
 
         // 2. Top HUD (Stage, 3-Star Bar, Line, Score, Pause Button)
         this.renderTopHUD(ctx);
 
-        // 3. Main Game Box Board
+        // 3. Main Game Box Board (Fading Cyan-to-Purple Neon Frame)
         this.renderGameBoard(ctx);
 
-        // 4. Blocks & Polygon Triangles
+        // 4. Clean Vertically Rectangular Blocks & Numbers
         this.renderBlocks(ctx);
 
-        // 5. Ball Pickups
+        // 5. Ball Pickups & Diamond Icons
         this.renderPickups(ctx);
 
         // 6. Laser Beams & Particles
@@ -4788,22 +4989,23 @@
         // 10. Floating Score Text Popups
         this.renderFloatingTexts(ctx);
 
-        // 11. Modals (Stage Clear, Game Over, Pause)
+        // 11. Modals
         if (this.state === 'STAGE_CLEAR') this.renderStageClearModal(ctx);
         if (this.state === 'PAUSED') this.renderPauseModal(ctx);
 
         ctx.restore();
       }
 
-      // TOP HUD WITH STAGE & 3-STAR PROGRESS BAR
+      // TOP HUD
       renderTopHUD(ctx) {
         const y = this.headerTopY;
         const stageData = STAGES[this.stageIndex] || STAGES[0];
 
-        // 1. Top-Left Glowing Ball Indicator (◉)
+        // 1. Top-Left Glowing Ball Indicator (Double Blue Rings ◉)
         ctx.save();
         const indX = 36;
         const indY = y + 16;
+
         ctx.beginPath();
         ctx.arc(indX, indY, 18, 0, Math.PI * 2);
         ctx.fillStyle = '#0F172A';
@@ -4815,40 +5017,45 @@
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.arc(indX, indY, 6, 0, Math.PI * 2);
+        ctx.arc(indX, indY, 13, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(indX, indY, 5.5, 0, Math.PI * 2);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
         ctx.restore();
 
         // 2. Top-Center STAGE - X Title
         ctx.save();
-        ctx.font = '900 15px Outfit, sans-serif';
+        ctx.font = '800 14px Outfit, sans-serif';
         ctx.fillStyle = '#94A3B8';
         ctx.textAlign = 'center';
-        ctx.fillText('STAGE - ' + (this.stageIndex + 1), this.width / 2, y + 8);
+        ctx.fillText('STAGE- ' + stageData.stage, this.width / 2, y + 8);
 
         // 3. 3-Star Glowing Blue Progress Bar
         const barW = 160;
-        const barH = 5;
+        const barH = 4.5;
         const barX = (this.width - barW) / 2;
         const barY = y + 18;
 
         ctx.beginPath();
-        ctx.roundRect(barX, barY, barW, barH, 3);
+        ctx.roundRect(barX, barY, barW, barH, 2.5);
         ctx.fillStyle = '#1E293B';
         ctx.fill();
 
         const pct = Math.min(1.0, this.score / (stageData.targetScore || 1000));
         if (pct > 0) {
           ctx.beginPath();
-          ctx.roundRect(barX, barY, barW * pct, barH, 3);
+          ctx.roundRect(barX, barY, barW * pct, barH, 2.5);
           ctx.fillStyle = '#38BDF8';
           ctx.shadowColor = '#0284C7';
           ctx.shadowBlur = 8;
           ctx.fill();
         }
 
-        // Star Markers on Bar
         const starMarks = [0.25, 0.65, 0.96];
         for (let i = 0; i < 3; i++) {
           const sx = barX + barW * starMarks[i];
@@ -4860,10 +5067,10 @@
         }
 
         // 4. Line Counter & Score Row
-        ctx.font = '800 13px Outfit, sans-serif';
+        ctx.font = '700 13px Outfit, sans-serif';
         ctx.fillStyle = '#CBD5E1';
         ctx.textAlign = 'left';
-        ctx.fillText('Line ' + this.lineCount, barX - 10, barY + 22);
+        ctx.fillText('Line  ' + this.lineCount, barX - 10, barY + 22);
 
         ctx.textAlign = 'right';
         ctx.fillStyle = '#F8FAFC';
@@ -4884,6 +5091,12 @@
         ctx.shadowBlur = 12;
         ctx.stroke();
 
+        ctx.beginPath();
+        ctx.arc(pauseX, pauseY, 13, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
         ctx.font = '900 14px sans-serif';
         ctx.fillStyle = '#38BDF8';
         ctx.textAlign = 'center';
@@ -4900,33 +5113,56 @@
         const bh = this.boardH;
 
         ctx.save();
-        // Atmospheric Top Cyan Neon Glow
+        // Top Atmospheric Cyan Glow
         const topGlow = ctx.createLinearGradient(bx, by, bx, by + 120);
-        topGlow.addColorStop(0, 'rgba(6, 182, 212, 0.15)');
+        topGlow.addColorStop(0, 'rgba(6, 182, 212, 0.16)');
         topGlow.addColorStop(1, 'rgba(6, 182, 212, 0)');
         ctx.fillStyle = topGlow;
         ctx.fillRect(bx, by, bw, bh);
 
-        // Thin Purple Neon Outer Border
+        // Fading Cyan-to-Purple Neon Outer Border
+        const borderGrad = ctx.createLinearGradient(bx, by, bx, by + bh);
+        borderGrad.addColorStop(0, '#38BDF8');
+        borderGrad.addColorStop(0.5, '#A855F7');
+        borderGrad.addColorStop(1, '#C026D3');
+
         ctx.beginPath();
-        ctx.roundRect(bx, by, bw, bh, 14);
-        ctx.strokeStyle = 'rgba(168, 85, 247, 0.85)';
+        ctx.roundRect(bx, by, bw, bh, 12);
+        ctx.strokeStyle = borderGrad;
         ctx.lineWidth = 2.0;
-        ctx.shadowColor = '#A855F7';
-        ctx.shadowBlur = 14;
+        ctx.shadowColor = '#818CF8';
+        ctx.shadowBlur = 12;
         ctx.stroke();
         ctx.restore();
       }
 
+      // EXACT COLOR PALETTE MATCHING SCREENSHOT
       getBlockColor(hp) {
-        if (hp <= 10) return { hex: '#06B6D4', dark: '#0891B2', bg: 'rgba(6, 182, 212, 0.15)' };
-        if (hp <= 25) return { hex: '#10B981', dark: '#047857', bg: 'rgba(16, 185, 129, 0.15)' };
-        if (hp <= 40) return { hex: '#F59E0B', dark: '#B45309', bg: 'rgba(245, 158, 11, 0.15)' };
-        if (hp <= 60) return { hex: '#8B5CF6', dark: '#6D28D9', bg: 'rgba(139, 92, 246, 0.15)' };
-        return { hex: '#EF4444', dark: '#B91C1C', bg: 'rgba(239, 68, 68, 0.15)' };
+        if (hp >= 90) {
+          // Purple/Violet (98s) or Deep Red (94s)
+          if (hp >= 96) {
+            return { stroke: '#A855F7', fill: 'rgba(88, 28, 135, 0.45)', glow: 'rgba(168, 85, 247, 0.65)' };
+          } else {
+            return { stroke: '#F43F5E', fill: 'rgba(136, 19, 55, 0.45)', glow: 'rgba(244, 63, 94, 0.65)' };
+          }
+        }
+        if (hp >= 50) {
+          // Orange / Amber (52, 51, 50s)
+          return { stroke: '#FB923C', fill: 'rgba(124, 45, 18, 0.45)', glow: 'rgba(249, 115, 22, 0.65)' };
+        }
+        if (hp >= 40) {
+          // Vibrant Green (49, 48, 47s)
+          return { stroke: '#22C55E', fill: 'rgba(20, 83, 45, 0.45)', glow: 'rgba(34, 197, 94, 0.65)' };
+        }
+        if (hp >= 20) {
+          // Gold / Yellow
+          return { stroke: '#FACC15', fill: 'rgba(113, 63, 18, 0.45)', glow: 'rgba(250, 204, 21, 0.65)' };
+        }
+        // Cyan / Blue
+        return { stroke: '#06B6D4', fill: 'rgba(8, 51, 68, 0.45)', glow: 'rgba(6, 182, 212, 0.65)' };
       }
 
-      // RENDER ALL BLOCKS AND POLYGONS
+      // CLEAN VERTICALLY RECTANGULAR BLOCKS & SHARP NUMBERS
       renderBlocks(ctx) {
         const bx = this.boardX;
         const by = this.boardY;
@@ -4941,11 +5177,11 @@
           const col = this.getBlockColor(b.hp);
 
           ctx.save();
-          ctx.shadowColor = col.hex;
-          ctx.shadowBlur = b.hitFlash > 0 ? 20 : 10;
+          ctx.shadowColor = col.stroke;
+          ctx.shadowBlur = b.hitFlash > 0 ? 18 : 8;
 
           if (b.shape.startsWith('tri-')) {
-            // Triangle Polygon
+            // Triangle Cut Polygon
             ctx.beginPath();
             if (b.shape === 'tri-tl') {
               ctx.moveTo(tx, ty);
@@ -4966,62 +5202,58 @@
             }
             ctx.closePath();
 
-            ctx.fillStyle = b.hitFlash > 0 ? '#FFFFFF' : col.bg;
+            ctx.fillStyle = b.hitFlash > 0 ? '#FFFFFF' : col.fill;
             ctx.fill();
 
-            ctx.strokeStyle = col.hex;
+            ctx.strokeStyle = col.stroke;
             ctx.lineWidth = 1.8;
             ctx.stroke();
 
-            // Render Number in Center of Triangle
-            ctx.font = '900 12px Outfit, sans-serif';
+            // Crisp Clean Number
+            ctx.font = '700 12px Outfit, system-ui, sans-serif';
             ctx.fillStyle = '#FFFFFF';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            const offset = (b.shape === 'tri-tl' || b.shape === 'tri-bl') ? -3 : 3;
-            ctx.fillText(b.hp.toString(), tx + tw / 2 + offset, ty + th / 2);
+            const offsetX = (b.shape === 'tri-tl' || b.shape === 'tri-bl') ? -3 : 3;
+            const offsetY = (b.shape === 'tri-tl' || b.shape === 'tri-tr') ? -3 : 3;
+            ctx.fillText(b.hp.toString(), tx + tw / 2 + offsetX, ty + th / 2 + offsetY);
 
           } else {
-            // Standard Rounded Rectangle Block
+            // Clean Vertically Rectangular Block (Rounded Rect)
             ctx.beginPath();
-            ctx.roundRect(tx, ty, tw, th, 8);
-            ctx.fillStyle = b.hitFlash > 0 ? '#FFFFFF' : col.bg;
+            ctx.roundRect(tx, ty, tw, th, 6);
+            ctx.fillStyle = b.hitFlash > 0 ? '#FFFFFF' : col.fill;
             ctx.fill();
 
-            ctx.strokeStyle = col.hex;
+            ctx.strokeStyle = col.stroke;
             ctx.lineWidth = 1.8;
             ctx.stroke();
 
-            // Special Block Icons (Laser indicators)
-            if (b.shape === 'laser-cross') {
-              ctx.font = '900 14px Outfit, sans-serif';
-              ctx.fillStyle = '#38BDF8';
+            // Special Directional Arrow Markers (if orange/gold block)
+            if (b.shape === 'laser-vert') {
+              ctx.font = '900 10px Outfit, sans-serif';
+              ctx.fillStyle = col.stroke;
               ctx.textAlign = 'center';
-              ctx.fillText('✚', tx + tw / 2, ty + 12);
-            } else if (b.shape === 'laser-vert') {
-              ctx.font = '900 11px Outfit, sans-serif';
-              ctx.fillStyle = '#F59E0B';
-              ctx.textAlign = 'center';
-              ctx.fillText('▲▼', tx + tw / 2, ty + 11);
+              ctx.fillText('▲▼', tx + tw / 2, ty + 10);
             } else if (b.shape === 'laser-horiz') {
-              ctx.font = '900 11px Outfit, sans-serif';
-              ctx.fillStyle = '#F59E0B';
+              ctx.font = '900 10px Outfit, sans-serif';
+              ctx.fillStyle = col.stroke;
               ctx.textAlign = 'center';
-              ctx.fillText('◄►', tx + tw / 2, ty + 11);
+              ctx.fillText('◄►', tx + tw / 2, ty + 10);
             }
 
-            // Block HP Value
-            ctx.font = '900 14px Outfit, sans-serif';
+            // Crisp Clean Centered Number
+            ctx.font = '700 12.5px Outfit, system-ui, sans-serif';
             ctx.fillStyle = '#FFFFFF';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(b.hp.toString(), tx + tw / 2, ty + th / 2 + (b.shape.startsWith('laser-') ? 4 : 0));
+            ctx.fillText(b.hp.toString(), tx + tw / 2, ty + th / 2);
           }
           ctx.restore();
         }
       }
 
-      // RENDER BALL PICKUPS (CONCENTRIC NEON RINGS)
+      // RENDER BALL PICKUPS & DIAMONDS
       renderPickups(ctx) {
         const bx = this.boardX;
         const by = this.boardY;
@@ -5036,25 +5268,43 @@
           ctx.save();
           ctx.translate(px, py);
 
-          // Outer Broken Rotating Ring
-          ctx.beginPath();
-          ctx.arc(0, 0, 11 + Math.sin(pk.pulseT) * 1.5, 0, Math.PI * 2);
-          ctx.strokeStyle = '#C084FC';
-          ctx.lineWidth = 2.0;
-          ctx.shadowColor = '#A855F7';
-          ctx.shadowBlur = 10;
-          ctx.stroke();
+          if (pk.type === 'diamond') {
+            // Diamond Icon in Glowing Cyan Circle
+            ctx.beginPath();
+            ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            ctx.fillStyle = '#0F172A';
+            ctx.fill();
+            ctx.strokeStyle = '#38BDF8';
+            ctx.lineWidth = 2.0;
+            ctx.shadowColor = '#38BDF8';
+            ctx.shadowBlur = 10;
+            ctx.stroke();
 
-          // Inner White Core
-          ctx.beginPath();
-          ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fill();
+            ctx.font = '12px sans-serif';
+            ctx.fillStyle = '#FFFFFF';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('◆', 0, 0.5);
+
+          } else {
+            // Ball Pickup (Concentric Purple Rings ◉)
+            ctx.beginPath();
+            ctx.arc(0, 0, 11 + Math.sin(pk.pulseT) * 1.5, 0, Math.PI * 2);
+            ctx.strokeStyle = '#C084FC';
+            ctx.lineWidth = 2.0;
+            ctx.shadowColor = '#A855F7';
+            ctx.shadowBlur = 10;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(0, 0, 4.0, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fill();
+          }
           ctx.restore();
         }
       }
 
-      // AIM TRAJECTORY WITH REFLECTION DOTS
       renderAimTrajectory(ctx) {
         ctx.save();
         let currX = this.launchX;
@@ -5071,7 +5321,6 @@
             currX += dirX * dotSpacing;
             currY += dirY * dotSpacing;
 
-            // Check Left/Right/Top Wall Reflection
             if (currX <= this.boardX + 8) {
               currX = this.boardX + 8;
               dirX = Math.abs(dirX);
@@ -5088,9 +5337,8 @@
               break;
             }
 
-            // Draw Glowing Purple Dotted Line Marker
             ctx.beginPath();
-            ctx.arc(currX, currY, 3.0, 0, Math.PI * 2);
+            ctx.arc(currX, currY, 2.8, 0, Math.PI * 2);
             ctx.fillStyle = '#E879F9';
             ctx.shadowColor = '#C084FC';
             ctx.shadowBlur = 8;
@@ -5101,7 +5349,6 @@
         ctx.restore();
       }
 
-      // RENDER ALL ACTIVE BALLS (WHITE CORE + PURPLE NEON GLOW)
       renderBalls(ctx) {
         for (const b of this.ballPool) {
           if (!b.active) continue;
@@ -5113,16 +5360,10 @@
           ctx.shadowColor = '#C084FC';
           ctx.shadowBlur = 12;
           ctx.fill();
-
-          ctx.beginPath();
-          ctx.arc(b.x, b.y, b.radius * 0.55, 0, Math.PI * 2);
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fill();
           ctx.restore();
         }
       }
 
-      // BOTTOM LAUNCHER & CONTROLS
       renderLauncherAndControls(ctx) {
         const lx = this.launchX;
         const ly = this.launchY;
@@ -5136,22 +5377,21 @@
         ctx.shadowBlur = 16;
         ctx.fill();
 
-        // Remaining Ball Count Indicator (e.g. x57)
         const remaining = (this.state === 'SHOOTING' || this.state === 'BALLS_ACTIVE')
           ? Math.max(0, this.unlockedBalls - this.returnedBallsCount)
           : this.unlockedBalls;
 
-        ctx.font = '800 13px Outfit, sans-serif';
+        ctx.font = '700 13px Outfit, sans-serif';
         ctx.fillStyle = '#F8FAFC';
         ctx.textAlign = 'center';
-        ctx.fillText('x' + remaining, lx + 22, ly - 14);
+        ctx.fillText('x ' + remaining, lx + 22, ly - 14);
         ctx.restore();
 
         // 2. Bottom Dynamic Control Bar
         const botY = this.bottomControlY;
 
         if (this.state === 'SHOOTING' || this.state === 'BALLS_ACTIVE') {
-          // A. Center Fast-Forward / Recall Button [ ⬇ ]
+          // Fast-Forward / Recall Button [ ⬇ ]
           const capW = 110;
           const capH = 46;
           const capX = (this.width - capW) / 2;
@@ -5174,7 +5414,7 @@
           ctx.fillText('⬇', this.width / 2, botY + capH / 2);
           ctx.restore();
 
-          // B. Bottom-Right Undo/Retry Button [ ↶ 💎100 ]
+          // Undo/Retry Button [ ↶ 💎100 ]
           const uX = this.width - 44;
           const uY = botY + 23;
           ctx.save();
@@ -5215,7 +5455,7 @@
           ctx.fill();
           ctx.restore();
 
-          // +50 Bonus Balls Button
+          // Double Ring +50 Bonus Balls Button
           const adX = this.width - 44;
           const adY = botY + 19;
           ctx.save();
@@ -5229,10 +5469,16 @@
           ctx.shadowBlur = 12;
           ctx.stroke();
 
-          ctx.font = '900 13px Outfit, sans-serif';
+          ctx.beginPath();
+          ctx.arc(adX, adY, 17, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(236, 72, 153, 0.4)';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          ctx.font = '800 13px Outfit, sans-serif';
           ctx.fillStyle = '#FFFFFF';
           ctx.textAlign = 'center';
-          ctx.fillText('+50', adX, adY + 4);
+          ctx.fillText('+50', adX, adY + 4.5);
           ctx.restore();
         }
       }
@@ -5279,9 +5525,8 @@
         }
       }
 
-      // AAA 3-STAR STAGE CLEAR CELEBRATION MODAL
       renderStageClearModal(ctx) {
-        ctx.fillStyle = 'rgba(6, 8, 15, 0.85)';
+        ctx.fillStyle = 'rgba(4, 6, 12, 0.85)';
         ctx.fillRect(0, 0, this.width, this.height);
 
         const cardW = Math.min(320, this.width - 36);
@@ -5300,7 +5545,6 @@
         ctx.lineWidth = 2.0;
         ctx.stroke();
 
-        // 3 Glowing Golden Stars
         const starY = cardY + 54;
         for (let i = 0; i < 3; i++) {
           const sx = this.width / 2 + (i - 1) * 44;
@@ -5313,7 +5557,6 @@
           ctx.fillText('★', sx, starY + (i === 1 ? -4 : 0));
         }
 
-        // Title
         ctx.font = '900 24px Outfit, sans-serif';
         ctx.fillStyle = '#38BDF8';
         ctx.textAlign = 'center';
@@ -5323,12 +5566,10 @@
         ctx.fillStyle = '#94A3B8';
         ctx.fillText('STAGE - ' + (this.stageIndex + 1), this.width / 2, cardY + 140);
 
-        // Diamonds Reward
         ctx.font = '900 16px Outfit, sans-serif';
         ctx.fillStyle = '#67E8F9';
         ctx.fillText('💎  +30 REWARD', this.width / 2, cardY + 172);
 
-        // [ »» NEXT ] Button
         const btnW = cardW - 40;
         const btnH = 50;
         const btnX = cardX + 20;
@@ -5347,9 +5588,8 @@
         ctx.restore();
       }
 
-      // PAUSE MODAL
       renderPauseModal(ctx) {
-        ctx.fillStyle = 'rgba(6, 8, 15, 0.85)';
+        ctx.fillStyle = 'rgba(4, 6, 12, 0.85)';
         ctx.fillRect(0, 0, this.width, this.height);
 
         const cardW = Math.min(300, this.width - 40);
@@ -5377,7 +5617,6 @@
         const btnH = 46;
         const btnX = cardX + 20;
 
-        // Resume Button
         const rY = cardY + 80;
         ctx.beginPath();
         ctx.roundRect(btnX, rY, btnW, btnH, 14);
@@ -5388,7 +5627,6 @@
         ctx.fillStyle = '#FFFFFF';
         ctx.fillText('▶   CONTINUE', btnX + btnW / 2, rY + btnH / 2 + 5);
 
-        // Restart Button
         const retY = cardY + 140;
         ctx.beginPath();
         ctx.roundRect(btnX, retY, btnW, btnH, 14);
