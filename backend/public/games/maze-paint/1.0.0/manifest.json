@@ -1,8 +1,8 @@
 {
   "id": "maze-paint",
   "title": "Color Maze Paint",
-  "version": "1.9.0",
-  "description": "Masterwork 3D underground sunken roller paint puzzle game. Features equal-sized tactile hint and restart controls, clean simplified difficulty selector, ultra-responsive multi-touch input engine, executive top header, and AAA victory cards.",
+  "version": "1.10.0",
+  "description": "Masterwork 3D underground sunken roller paint puzzle game. Features rock-solid zero-scroll touch-action: none gesture engine, generous thumb hitboxes, Sudoku Pro-style difficulty modal, equal-sized bottom controls, and AAA victory celebration.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Puzzle",
