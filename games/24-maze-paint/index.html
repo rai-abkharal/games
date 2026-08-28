@@ -3973,12 +3973,10 @@
           { dr: 0, dc: 1, name: 'RIGHT' }
         ];
 
-        // BFS queue: state = { r, c, firstDir }
         const queue = [];
         const visited = new Set();
         visited.add(startR + ',' + startC);
 
-        // Enqueue 1st level moves
         for (const dir of dirs) {
           let currR = startR;
           let currC = startC;
@@ -4002,7 +4000,7 @@
 
           if (steps > 0) {
             if (foundUnpainted) {
-              return dir; // Found immediate unpainted tile!
+              return dir;
             }
             const key = currR + ',' + currC;
             if (!visited.has(key)) {
@@ -4012,7 +4010,6 @@
           }
         }
 
-        // Multi-step BFS if nearest unpainted tile is multiple turns away
         while (queue.length > 0) {
           const { r, c, firstDir } = queue.shift();
 
@@ -4039,7 +4036,7 @@
 
             if (steps > 0) {
               if (foundUnpainted) {
-                return firstDir; // This firstDir leads to the unpainted tile!
+                return firstDir;
               }
               const key = currR + ',' + currC;
               if (!visited.has(key)) {
@@ -4061,8 +4058,8 @@
         this.ctx = canvas.getContext('2d');
         this.synth = new SoundSynth();
 
-        this.difficulty = this.loadDifficulty(); // 'easy', 'medium', 'hard'
-        this.levelIndex = this.loadLevelIndex(this.difficulty); // starts at 0 (Level 1)
+        this.difficulty = this.loadDifficulty();
+        this.levelIndex = this.loadLevelIndex(this.difficulty);
         this.hints = 1;
 
         this.state = 'IDLE'; // 'IDLE', 'MOVING', 'VICTORY_MODAL', 'MODE_SELECT'
@@ -4084,7 +4081,7 @@
           targetR: 0,
           targetC: 0,
           radius: 18,
-          speed: 880, // px/s
+          speed: 880,
           scaleX: 1.0,
           scaleY: 1.0
         };
@@ -4229,7 +4226,7 @@
         this.canvas.width = Math.round(this.width * dpr);
         this.canvas.height = Math.round(this.height * dpr);
 
-        this.headerY = 40;
+        this.headerY = 48;
 
         const availW = Math.min(330, this.width - 48);
         const availH = Math.min(360, this.height - 230);
@@ -4239,7 +4236,7 @@
         this.boardH = this.rows * this.tileSize;
 
         this.boardX = Math.round((this.width - this.boardW) / 2);
-        this.boardY = Math.round((this.height - this.boardH) / 2 - 10);
+        this.boardY = Math.round((this.height - this.boardH) / 2 - 6);
 
         this.ball.radius = Math.floor(this.tileSize * 0.40);
         this.ball.x = this.boardX + this.ball.c * this.tileSize + this.tileSize / 2;
@@ -4253,17 +4250,27 @@
 
         const getPos = (e) => {
           const rect = this.canvas.getBoundingClientRect();
-          const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-          const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+          let clientX = e.clientX;
+          let clientY = e.clientY;
+
+          if (clientX === undefined && e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+          } else if (clientX === undefined && e.changedTouches && e.changedTouches.length > 0) {
+            clientX = e.changedTouches[0].clientX;
+            clientY = e.changedTouches[0].clientY;
+          }
+
+          if (clientX === undefined) {
+            clientX = 0;
+            clientY = 0;
+          }
+
           return { px: clientX - rect.left, py: clientY - rect.top };
         };
 
         const handleDown = (e) => {
-          e.preventDefault();
           this.synth.init();
-          if (e.pointerId !== undefined) {
-            try { this.canvas.setPointerCapture(e.pointerId); } catch (_) {}
-          }
           const { px, py } = getPos(e);
 
           if (this.state === 'MODE_SELECT') {
@@ -4276,10 +4283,10 @@
             return;
           }
 
-          // Top Center Difficulty Pill Click
-          const diffPillW = 96;
-          const diffPillX = (this.width - diffPillW) / 2;
-          if (px >= diffPillX && px <= diffPillX + diffPillW && py >= this.headerY - 18 && py <= this.headerY + 8) {
+          // Top Difficulty Pill Click
+          const diffPillW = 100;
+          const diffPillX = 24;
+          if (px >= diffPillX && px <= diffPillX + diffPillW && py >= this.headerY - 20 && py <= this.headerY + 20) {
             this.synth.playTap();
             this.state = 'MODE_SELECT';
             return;
@@ -4288,15 +4295,15 @@
           // Bottom LEFT Hint Button Click (💡 1)
           const hintBtnX = 48;
           const hintBtnY = this.height - 54;
-          if (px >= hintBtnX - 26 && px <= hintBtnX + 26 && py >= hintBtnY - 26 && py <= hintBtnY + 26) {
+          if (px >= hintBtnX - 28 && px <= hintBtnX + 28 && py >= hintBtnY - 28 && py <= hintBtnY + 28) {
             this.useHint();
             return;
           }
 
-          // Bottom Restart Button Click (↺)
-          const restartBtnX = 104;
+          // Bottom Restart Button Click (↺) - EQUAL SIZE TOUCH TARGET
+          const restartBtnX = 112;
           const restartBtnY = this.height - 54;
-          if (px >= restartBtnX - 24 && px <= restartBtnX + 24 && py >= restartBtnY - 24 && py <= restartBtnY + 24) {
+          if (px >= restartBtnX - 28 && px <= restartBtnX + 28 && py >= restartBtnY - 28 && py <= restartBtnY + 28) {
             this.restartCurrentLevel();
             return;
           }
@@ -4305,7 +4312,6 @@
           this.lastDrag = { px, py };
         };
 
-        // Continuous Drag Support (Smooth Instant Swiping while dragging without lifting finger!)
         const handleMove = (e) => {
           if (!this.touchStart) return;
           const { px, py } = getPos(e);
@@ -4313,7 +4319,7 @@
           const dy = py - this.lastDrag.py;
           const absX = Math.abs(dx);
           const absY = Math.abs(dy);
-          const threshold = 18;
+          const threshold = 16;
 
           if (absX >= threshold || absY >= threshold) {
             if (this.state === 'IDLE') {
@@ -4339,7 +4345,7 @@
 
           const absX = Math.abs(dx);
           const absY = Math.abs(dy);
-          const threshold = 14;
+          const threshold = 12;
 
           if (this.state === 'IDLE' && (absX >= threshold || absY >= threshold)) {
             if (absX > absY) {
@@ -4352,10 +4358,16 @@
           }
         };
 
-        this.canvas.addEventListener('pointerdown', handleDown);
-        window.addEventListener('pointermove', handleMove);
-        window.addEventListener('pointerup', handleUp);
-        window.addEventListener('pointercancel', handleUp);
+        // Pointer + Touch Listeners for 100% Guaranteed Non-Sticking Input
+        this.canvas.addEventListener('pointerdown', handleDown, { passive: false });
+        window.addEventListener('pointermove', handleMove, { passive: false });
+        window.addEventListener('pointerup', handleUp, { passive: false });
+        window.addEventListener('pointercancel', handleUp, { passive: false });
+
+        this.canvas.addEventListener('touchstart', handleDown, { passive: false });
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('touchend', handleUp, { passive: false });
+        window.addEventListener('touchcancel', handleUp, { passive: false });
 
         window.addEventListener('keydown', (e) => {
           if (this.state === 'VICTORY_MODAL' && (e.key === ' ' || e.key === 'Enter')) {
@@ -4371,32 +4383,32 @@
         });
       }
 
-      // SUDOKU PRO STYLE DIFFICULTY MODAL CLICK HANDLER
+      // SIMPLIFIED, CLEAN DIFFICULTY MODAL CLICK HANDLER
       handleModeModalClick(px, py) {
         const cardW = Math.min(320, this.width - 36);
-        const cardH = 340;
+        const cardH = 320;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
-        // Close X button
-        if (px >= cardX + cardW - 44 && px <= cardX + cardW - 8 && py >= cardY + 8 && py <= cardY + 44) {
+        // Close '✕' Button
+        if (px >= cardX + cardW - 46 && px <= cardX + cardW - 6 && py >= cardY + 6 && py <= cardY + 46) {
           this.synth.playTap();
           this.state = 'IDLE';
           return;
         }
 
         const modes = [
-          { id: 'easy', label: 'EASY', desc: '10-14 Swipes • Relaxed tracks', color: '#10B981' },
-          { id: 'medium', label: 'MEDIUM', desc: '14-16 Swipes • Tricky corridors', color: '#F59E0B' },
-          { id: 'hard', label: 'HARD', desc: '18-21+ Swipes • Hardcore master', color: '#EF4444' }
+          { id: 'easy', label: 'EASY', desc: 'Casual & Relaxing', color: '#10B981' },
+          { id: 'medium', label: 'MEDIUM', desc: 'Standard Challenge', color: '#F59E0B' },
+          { id: 'hard', label: 'HARD', desc: 'Master Labyrinth', color: '#EF4444' }
         ];
 
-        const optH = 72;
-        const startY = cardY + 70;
+        const optH = 68;
+        const startY = cardY + 66;
 
         for (let i = 0; i < modes.length; i++) {
           const m = modes[i];
-          const optY = startY + i * (optH + 12);
+          const optY = startY + i * (optH + 10);
           if (px >= cardX + 16 && px <= cardX + cardW - 16 && py >= optY && py <= optY + optH) {
             this.synth.playTap();
             this.saveDifficulty(m.id);
@@ -4414,7 +4426,7 @@
       // AAA VICTORY MODAL CLICK HANDLER
       handleVictoryModalClick(px, py) {
         const cardW = Math.min(310, this.width - 40);
-        const cardH = 310;
+        const cardH = 300;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
@@ -4426,7 +4438,12 @@
         if (px >= btnX && px <= btnX + btnW && py >= btnY && py <= btnY + btnH) {
           this.synth.playTap();
           this.loadLevel(this.levelIndex + 1);
+          return;
         }
+
+        // Tap anywhere on card/overlay to continue
+        this.synth.playTap();
+        this.loadLevel(this.levelIndex + 1);
       }
 
       useHint() {
@@ -4686,44 +4703,91 @@
         ctx.restore();
       }
 
+      // EXECUTIVE MODERN TOP HEADER (Clean, Balanced, Luxurious)
       renderTopUI(ctx) {
         const y = this.headerY;
 
-        // Top Center Difficulty Pill (Tappable with subtle chevron)
-        const pillW = 96;
-        const pillH = 22;
-        const pillX = (this.width - pillW) / 2;
-        const pillY = y - 16;
+        // 1. Left Difficulty Pill
+        const pillW = 92;
+        const pillH = 28;
+        const pillX = 20;
+        const pillY = y - 14;
 
         let diffColor = '#10B981';
         if (this.difficulty === 'medium') diffColor = '#F59E0B';
         if (this.difficulty === 'hard') diffColor = '#EF4444';
 
         ctx.save();
+        ctx.shadowColor = diffColor + '33';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 2;
+
         ctx.beginPath();
-        ctx.roundRect(pillX, pillY, pillW, pillH, 11);
+        ctx.roundRect(pillX, pillY, pillW, pillH, 14);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+
+        ctx.strokeStyle = diffColor;
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(pillX + 14, pillY + pillH / 2, 4.5, 0, Math.PI * 2);
         ctx.fillStyle = diffColor;
         ctx.fill();
 
-        ctx.font = '900 11px Outfit, sans-serif';
+        ctx.font = '900 12px Outfit, sans-serif';
+        ctx.fillStyle = '#1E293B';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.difficulty.toUpperCase() + ' ▾', pillX + 24, pillY + pillH / 2 + 0.5);
+        ctx.restore();
+
+        // 2. Center Level Badge Capsule
+        const lvlBadgeW = 100;
+        const lvlBadgeH = 32;
+        const lvlBadgeX = (this.width - lvlBadgeW) / 2;
+        const lvlBadgeY = y - 16;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(112, 26, 117, 0.12)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 3;
+
+        ctx.beginPath();
+        ctx.roundRect(lvlBadgeX, lvlBadgeY, lvlBadgeW, lvlBadgeH, 16);
+        ctx.fillStyle = '#701A75';
+        ctx.fill();
+
+        ctx.font = '900 15px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(this.difficulty.toUpperCase() + ' ▾', this.width / 2, pillY + pillH / 2 + 1);
+        ctx.fillText('LEVEL ' + (this.levelIndex + 1), this.width / 2, lvlBadgeY + lvlBadgeH / 2 + 1);
         ctx.restore();
 
-        // Level Title in Deep Berry Purple
-        ctx.font = '900 24px Outfit, sans-serif';
-        ctx.fillStyle = '#701A75';
+        // 3. Right Paint Progress Badge
+        const pct = Math.min(100, Math.round((this.paintedCount / this.totalPlayableTiles) * 100));
+        const progW = 76;
+        const progH = 28;
+        const progX = this.width - progW - 20;
+        const progY = y - 14;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(progX, progY, progW, progH, 14);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.font = '900 12px Outfit, sans-serif';
+        ctx.fillStyle = this.colorObj.hex;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('Level ' + (this.levelIndex + 1), this.width / 2, y + 20);
-
-        // Paint Coverage Percentage Meter
-        const pct = Math.min(100, Math.round((this.paintedCount / this.totalPlayableTiles) * 100));
-        ctx.font = '800 12px Outfit, sans-serif';
-        ctx.fillStyle = '#64748B';
-        ctx.fillText(pct + '% COATED', this.width / 2, y + 38);
+        ctx.fillText(pct + '%', progX + progW / 2, progY + progH / 2 + 0.5);
+        ctx.restore();
       }
 
       // UNDERGROUND SUNKEN TRAY 3D DEPTH
@@ -4895,14 +4959,13 @@
         }
       }
 
-      // BOTTOM CONTROLS: HINT (💡 1) ON LEFT + RESTART (↺)
+      // EQUAL SIZED TACTILE BOTTOM CONTROLS: HINT (💡 1) & RESTART (↺)
       renderBottomControls(ctx) {
         const y = this.height - 54;
+        const r = 24; // Equal 48px tactile circle radius
 
         // 1. Bottom-Left Hint Button (💡 1)
         const hintX = 48;
-        const r = 24;
-
         ctx.save();
         ctx.shadowColor = 'rgba(245, 158, 11, 0.35)';
         ctx.shadowBlur = 12;
@@ -4939,26 +5002,29 @@
         ctx.font = '900 11px Outfit, sans-serif';
         ctx.fillStyle = '#1E293B';
         ctx.fillText(this.hints.toString(), badgeX, badgeY + 1);
-
         ctx.restore();
 
-        // 2. Restart Level Button (↺)
-        const restartX = 104;
+        // 2. Restart Level Button (↺) - MATCHING EQUAL SIZE & POLISH
+        const restartX = 112;
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetY = 3;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.10)';
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetY = 4;
 
         ctx.beginPath();
-        ctx.arc(restartX, y, 20, 0, Math.PI * 2);
-        ctx.fillStyle = '#FFFFFF';
+        ctx.arc(restartX, y, r, 0, Math.PI * 2);
+        const rGrad = ctx.createLinearGradient(restartX, y - r, restartX, y + r);
+        rGrad.addColorStop(0, '#FFFFFF');
+        rGrad.addColorStop(1, '#F1F5F9');
+        ctx.fillStyle = rGrad;
         ctx.fill();
+
         ctx.strokeStyle = '#E2E8F0';
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2.0;
         ctx.stroke();
 
-        ctx.font = '900 18px Outfit, sans-serif';
-        ctx.fillStyle = '#64748B';
+        ctx.font = '900 22px Outfit, sans-serif';
+        ctx.fillStyle = '#475569';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('↺', restartX, y + 1);
@@ -4990,13 +5056,13 @@
         ctx.restore();
       }
 
-      // AAA CUSTOM LEVEL COMPLETE MODAL (Clean, Elegant, Zero Emojis, Pure Tactile Design)
+      // AAA CUSTOM LEVEL COMPLETE MODAL
       renderVictoryModal(ctx) {
         ctx.fillStyle = 'rgba(15, 23, 42, 0.70)';
         ctx.fillRect(0, 0, this.width, this.height);
 
         const cardW = Math.min(310, this.width - 40);
-        const cardH = 310;
+        const cardH = 300;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
@@ -5010,24 +5076,24 @@
         ctx.fill();
         ctx.restore();
 
-        // Top Header
+        // Header Title
         ctx.font = '900 20px Outfit, sans-serif';
         ctx.fillStyle = '#701A75';
         ctx.textAlign = 'center';
         ctx.fillText('LEVEL COMPLETED', this.width / 2, cardY + 38);
 
         // Centerpiece Ring Badge
-        const ringY = cardY + 104;
+        const ringY = cardY + 102;
         ctx.save();
         ctx.beginPath();
-        ctx.arc(this.width / 2, ringY, 36, 0, Math.PI * 2);
+        ctx.arc(this.width / 2, ringY, 34, 0, Math.PI * 2);
         ctx.fillStyle = '#FAF7EE';
         ctx.fill();
         ctx.strokeStyle = this.colorObj.hex;
         ctx.lineWidth = 4;
         ctx.stroke();
 
-        ctx.font = '900 20px Outfit, sans-serif';
+        ctx.font = '900 19px Outfit, sans-serif';
         ctx.fillStyle = this.colorObj.hex;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -5035,11 +5101,11 @@
 
         ctx.font = '800 10px Outfit, sans-serif';
         ctx.fillStyle = '#64748B';
-        ctx.fillText('COATED', this.width / 2, ringY + 16);
+        ctx.fillText('COATED', this.width / 2, ringY + 15);
         ctx.restore();
 
-        // Level Stats Row (Swipes & Time)
-        const statsY = cardY + 176;
+        // Level Stats Row
+        const statsY = cardY + 168;
         ctx.font = '800 13px Outfit, sans-serif';
         ctx.fillStyle = '#1E293B';
         ctx.textAlign = 'center';
@@ -5049,7 +5115,7 @@
         ctx.fillStyle = '#94A3B8';
         ctx.fillText('Difficulty: ' + this.difficulty.toUpperCase(), this.width / 2, statsY + 18);
 
-        // Big Juicy Bouncy [ NEXT LEVEL ▶ ] Button
+        // [ NEXT LEVEL ▶ ] Button
         const btnW = cardW - 40;
         const btnH = 50;
         const btnX = cardX + 20;
@@ -5080,13 +5146,13 @@
         ctx.fillText('NEXT LEVEL ▶', btnX + btnW / 2, btnY + btnH / 2);
       }
 
-      // SUDOKU PRO STYLE DIFFICULTY MODAL (Theme-Matched with Outfit font & color cards)
+      // CLEAN, SIMPLIFIED DIFFICULTY MODAL
       renderSudokuStyleDifficultyModal(ctx) {
         ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
         ctx.fillRect(0, 0, this.width, this.height);
 
         const cardW = Math.min(320, this.width - 36);
-        const cardH = 340;
+        const cardH = 320;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
@@ -5112,17 +5178,17 @@
         ctx.fillText('✕', cardX + cardW - 26, cardY + 36);
 
         const modes = [
-          { id: 'easy', label: 'EASY', desc: '10-14 Swipes • Relaxed tracks', color: '#10B981' },
-          { id: 'medium', label: 'MEDIUM', desc: '14-16 Swipes • Tricky corridors', color: '#F59E0B' },
-          { id: 'hard', label: 'HARD', desc: '18-21+ Swipes • Hardcore master', color: '#EF4444' }
+          { id: 'easy', label: 'EASY', desc: 'Casual & Relaxing', color: '#10B981' },
+          { id: 'medium', label: 'MEDIUM', desc: 'Standard Challenge', color: '#F59E0B' },
+          { id: 'hard', label: 'HARD', desc: 'Master Labyrinth', color: '#EF4444' }
         ];
 
-        const optH = 72;
+        const optH = 68;
         const startY = cardY + 66;
 
         for (let i = 0; i < modes.length; i++) {
           const m = modes[i];
-          const optY = startY + i * (optH + 12);
+          const optY = startY + i * (optH + 10);
           const isSelected = (this.difficulty === m.id);
 
           ctx.save();
@@ -5141,7 +5207,7 @@
           ctx.stroke();
           ctx.restore();
 
-          // Left Color Pill Indicator
+          // Left Color Indicator
           ctx.beginPath();
           ctx.roundRect(cardX + 28, optY + 16, 6, optH - 32, 3);
           ctx.fillStyle = m.color;
@@ -5154,7 +5220,7 @@
 
           ctx.font = '600 12px Outfit, sans-serif';
           ctx.fillStyle = '#64748B';
-          ctx.fillText(m.desc, cardX + 44, optY + 50);
+          ctx.fillText(m.desc, cardX + 44, optY + 48);
 
           if (isSelected) {
             ctx.font = '900 18px sans-serif';
