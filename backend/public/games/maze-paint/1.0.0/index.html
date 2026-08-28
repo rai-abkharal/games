@@ -51,12 +51,12 @@
   <script>
     'use strict';
 
-    // 1. VIBRANT LEVEL COLOR PALETTES (Matches reference video & screenshots)
+    // 1. VIBRANT LEVEL COLOR PALETTES
     const LEVEL_COLORS = [
       { id: 'cyan', hex: '#22D3EE', darkHex: '#0891B2', name: 'Cyan Glow' },
-      { id: 'magenta', hex: '#EC4899', darkHex: '#BE185D', name: 'Berry Magenta' },
       { id: 'rose', hex: '#F43F5E', darkHex: '#BE123C', name: 'Rose Red' },
       { id: 'blue', hex: '#3B82F6', darkHex: '#1D4ED8', name: 'Royal Blue' },
+      { id: 'magenta', hex: '#EC4899', darkHex: '#BE185D', name: 'Berry Magenta' },
       { id: 'emerald', hex: '#10B981', darkHex: '#047857', name: 'Vibrant Emerald' },
       { id: 'purple', hex: '#8B5CF6', darkHex: '#6D28D9', name: 'Deep Violet' },
       { id: 'amber', hex: '#F59E0B', darkHex: '#B45309', name: 'Amber Gold' },
@@ -65,12 +65,10 @@
       { id: 'teal', hex: '#14B8A6', darkHex: '#0F766E', name: 'Ocean Teal' }
     ];
 
-    // 2. CURATED HANDCRAFTED LEVEL PACKS (EASY, MEDIUM, HARD)
-    // 0 = Void (Cream background), 1 = Playable Tile (Dark Slate), 3 = Start Position
+    // 2. CURATED HANDCRAFTED LEVEL SUITES
     const LEVEL_PACKS = {
       easy: [
         {
-          id: 'easy_1',
           grid: [
             [1, 1, 1, 1],
             [1, 1, 1, 1],
@@ -80,7 +78,6 @@
           colorIdx: 0
         },
         {
-          id: 'easy_2',
           grid: [
             [1, 1, 1, 1, 1],
             [1, 0, 0, 0, 1],
@@ -90,7 +87,6 @@
           colorIdx: 1
         },
         {
-          id: 'easy_3',
           grid: [
             [1, 1, 1, 1],
             [1, 0, 0, 1],
@@ -100,7 +96,6 @@
           colorIdx: 2
         },
         {
-          id: 'easy_4',
           grid: [
             [1, 1, 1, 1, 1],
             [1, 1, 0, 1, 1],
@@ -110,7 +105,6 @@
           colorIdx: 3
         },
         {
-          id: 'easy_5',
           grid: [
             [1, 1, 1, 1, 1],
             [1, 0, 1, 0, 1],
@@ -120,7 +114,6 @@
           colorIdx: 4
         },
         {
-          id: 'easy_6',
           grid: [
             [1, 1, 1, 1],
             [1, 1, 1, 1],
@@ -130,7 +123,6 @@
           colorIdx: 5
         },
         {
-          id: 'easy_7',
           grid: [
             [1, 1, 1, 1, 1],
             [1, 0, 0, 1, 1],
@@ -140,7 +132,6 @@
           colorIdx: 6
         },
         {
-          id: 'easy_8',
           grid: [
             [0, 1, 1, 1, 0],
             [1, 1, 1, 1, 1],
@@ -150,7 +141,6 @@
           colorIdx: 7
         },
         {
-          id: 'easy_9',
           grid: [
             [1, 1, 1, 1, 1],
             [1, 0, 1, 1, 1],
@@ -160,7 +150,6 @@
           colorIdx: 8
         },
         {
-          id: 'easy_10',
           grid: [
             [1, 1, 1, 1, 1],
             [1, 1, 0, 0, 1],
@@ -172,7 +161,6 @@
       ],
       medium: [
         {
-          id: 'med_1',
           grid: [
             [1, 1, 1, 1, 1, 1],
             [1, 0, 1, 1, 0, 1],
@@ -183,7 +171,6 @@
           colorIdx: 0
         },
         {
-          id: 'med_2',
           grid: [
             [1, 1, 1, 1, 1, 1],
             [1, 0, 0, 0, 0, 1],
@@ -194,7 +181,6 @@
           colorIdx: 1
         },
         {
-          id: 'med_3',
           grid: [
             [0, 1, 1, 1, 1, 0],
             [1, 1, 0, 0, 1, 1],
@@ -205,7 +191,6 @@
           colorIdx: 2
         },
         {
-          id: 'med_4',
           grid: [
             [1, 1, 1, 1, 1, 1],
             [1, 0, 1, 0, 1, 1],
@@ -216,7 +201,6 @@
           colorIdx: 3
         },
         {
-          id: 'med_5',
           grid: [
             [1, 1, 1, 1, 1, 1],
             [1, 1, 0, 0, 1, 1],
@@ -227,7 +211,6 @@
           colorIdx: 4
         },
         {
-          id: 'med_6',
           grid: [
             [1, 1, 1, 1, 1, 1],
             [0, 1, 1, 1, 1, 0],
@@ -238,7 +221,6 @@
           colorIdx: 5
         },
         {
-          id: 'med_7',
           grid: [
             [1, 1, 1, 1, 1, 1],
             [1, 0, 0, 1, 0, 1],
@@ -249,7 +231,6 @@
           colorIdx: 6
         },
         {
-          id: 'med_8',
           grid: [
             [1, 1, 1, 1, 1, 1],
             [1, 1, 0, 1, 1, 1],
@@ -260,7 +241,6 @@
           colorIdx: 7
         },
         {
-          id: 'med_9',
           grid: [
             [0, 1, 1, 1, 1, 1],
             [1, 1, 0, 0, 1, 1],
@@ -271,7 +251,6 @@
           colorIdx: 8
         },
         {
-          id: 'med_10',
           grid: [
             [1, 1, 1, 1, 1, 1],
             [1, 0, 1, 1, 0, 1],
@@ -284,7 +263,6 @@
       ],
       hard: [
         {
-          id: 'hard_1',
           grid: [
             [1, 1, 1, 1, 1, 1, 1],
             [1, 0, 1, 0, 1, 0, 1],
@@ -296,7 +274,6 @@
           colorIdx: 0
         },
         {
-          id: 'hard_2',
           grid: [
             [1, 1, 1, 1, 1, 1, 1],
             [1, 0, 0, 1, 0, 0, 1],
@@ -308,7 +285,6 @@
           colorIdx: 1
         },
         {
-          id: 'hard_3',
           grid: [
             [0, 1, 1, 1, 1, 1, 0],
             [1, 1, 0, 1, 0, 1, 1],
@@ -320,7 +296,6 @@
           colorIdx: 2
         },
         {
-          id: 'hard_4',
           grid: [
             [1, 1, 1, 1, 1, 1, 1],
             [1, 0, 0, 0, 0, 0, 1],
@@ -332,7 +307,6 @@
           colorIdx: 3
         },
         {
-          id: 'hard_5',
           grid: [
             [1, 1, 1, 1, 1, 1, 1],
             [0, 1, 0, 1, 0, 1, 0],
@@ -344,7 +318,6 @@
           colorIdx: 4
         },
         {
-          id: 'hard_6',
           grid: [
             [1, 1, 1, 1, 1, 1, 1],
             [1, 1, 0, 0, 0, 1, 1],
@@ -356,7 +329,6 @@
           colorIdx: 5
         },
         {
-          id: 'hard_7',
           grid: [
             [0, 1, 1, 1, 1, 1, 1],
             [1, 1, 0, 1, 0, 0, 1],
@@ -368,7 +340,6 @@
           colorIdx: 6
         },
         {
-          id: 'hard_8',
           grid: [
             [1, 1, 1, 1, 1, 1, 1],
             [1, 0, 1, 1, 1, 0, 1],
@@ -380,7 +351,6 @@
           colorIdx: 7
         },
         {
-          id: 'hard_9',
           grid: [
             [1, 1, 1, 1, 1, 1, 0],
             [0, 1, 0, 0, 1, 1, 1],
@@ -392,7 +362,6 @@
           colorIdx: 8
         },
         {
-          id: 'hard_10',
           grid: [
             [1, 1, 1, 1, 1, 1, 1],
             [1, 0, 0, 1, 1, 0, 1],
@@ -404,7 +373,6 @@
           colorIdx: 9
         },
         {
-          id: 'hard_11',
           grid: [
             [1, 1, 1, 1, 1, 1, 1],
             [1, 0, 1, 0, 0, 1, 1],
@@ -416,7 +384,6 @@
           colorIdx: 0
         },
         {
-          id: 'hard_12',
           grid: [
             [1, 1, 1, 1, 1, 1, 1],
             [0, 0, 1, 0, 0, 1, 1],
@@ -427,9 +394,7 @@
           ],
           colorIdx: 1
         },
-        // EXACT HARD LEVEL 13 FROM USER'S REFERENCE SCREENSHOT!
         {
-          id: 'hard_13',
           grid: [
             [1, 1, 1, 0, 0, 0, 0],
             [0, 1, 1, 0, 0, 0, 0],
@@ -438,7 +403,7 @@
             [0, 1, 1, 1, 1, 1, 1],
             [3, 1, 1, 0, 0, 1, 1]
           ],
-          colorIdx: 0 // Cyan
+          colorIdx: 2
         }
       ]
     };
@@ -581,7 +546,6 @@
           { dr: 0, dc: 1, name: 'RIGHT' }
         ];
 
-        // 1. Look for a direction that paints unpainted tiles
         for (const dir of dirs) {
           let r = startR;
           let c = startC;
@@ -605,7 +569,6 @@
           }
         }
 
-        // 2. If no immediate new tiles, find path to nearest unpainted tile
         for (const dir of dirs) {
           const nextR = startR + dir.dr;
           const nextC = startC + dir.dc;
@@ -625,14 +588,13 @@
         this.ctx = canvas.getContext('2d');
         this.synth = new SoundSynth();
 
-        this.difficulty = this.loadDifficulty();
-        this.levelIndex = this.loadLevelIndex(this.difficulty);
+        this.difficulty = this.loadDifficulty(); // default 'medium'
+        this.levelIndex = this.loadLevelIndex(this.difficulty); // default 0 (Level 1)
         this.hints = 1;
 
         this.state = 'IDLE'; // 'IDLE', 'MOVING', 'GREAT_ANIMATION', 'MODE_SELECT'
         this.toast = null;
 
-        // Ball State
         this.ball = {
           r: 0,
           c: 0,
@@ -643,7 +605,7 @@
           targetR: 0,
           targetC: 0,
           radius: 18,
-          speed: 850 // pixels/sec
+          speed: 850
         };
 
         this.grid = [];
@@ -667,9 +629,9 @@
       loadDifficulty() {
         try {
           const d = localStorage.getItem('cmp_difficulty');
-          return d || 'hard';
+          return d || 'medium';
         } catch (e) {
-          return 'hard';
+          return 'medium';
         }
       }
 
@@ -683,10 +645,9 @@
       loadLevelIndex(diff) {
         try {
           const v = localStorage.getItem('cmp_lvl_' + diff);
-          if (v !== null) return parseInt(v) || 0;
-          return diff === 'hard' ? 12 : 0;
+          return v !== null ? (parseInt(v) || 0) : 0;
         } catch (e) {
-          return diff === 'hard' ? 12 : 0;
+          return 0;
         }
       }
 
@@ -700,7 +661,7 @@
         this.levelIndex = idx;
         this.saveLevelIndex();
 
-        const pack = LEVEL_PACKS[this.difficulty] || LEVEL_PACKS.hard;
+        const pack = LEVEL_PACKS[this.difficulty] || LEVEL_PACKS.medium;
         const lvlData = pack[this.levelIndex % pack.length];
 
         this.rows = lvlData.grid.length;
@@ -734,7 +695,7 @@
         this.painted[startR][startC] = true;
         this.paintedCount = 1;
 
-        this.colorObj = LEVEL_COLORS[lvlData.colorIdx % LEVEL_COLORS.length];
+        this.colorObj = LEVEL_COLORS[(lvlData.colorIdx + this.levelIndex) % LEVEL_COLORS.length];
 
         this.sparkles = [];
         this.confetti = [];
