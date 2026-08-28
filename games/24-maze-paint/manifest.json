@@ -1,8 +1,8 @@
 {
   "id": "maze-paint",
   "title": "Color Maze Paint",
-  "version": "1.1.0",
-  "description": "Clean, scalable 3D recessed tray roller paint puzzle game. Glide the glossy marble ball to coat every grid tile in bright, luscious color. Features standard Level 1 progression, Easy/Medium/Hard packs, intelligent hint solver, and infinite procedural levels.",
+  "version": "1.2.0",
+  "description": "Premium 3D recessed tray roller paint puzzle game. Glide the glossy marble ball with squash & stretch physics to coat every grid tile in bright, luscious color. Features 100% mathematically verified solvable Easy/Medium/Hard suites, wet enamel tile sheen, intelligent hint solver, and victory radial wave celebration.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Puzzle",

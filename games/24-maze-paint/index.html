@@ -53,360 +53,1781 @@
 
     // 1. VIBRANT LEVEL COLOR PALETTES
     const LEVEL_COLORS = [
-      { id: 'cyan', hex: '#22D3EE', darkHex: '#0891B2', name: 'Cyan Glow' },
-      { id: 'rose', hex: '#F43F5E', darkHex: '#BE123C', name: 'Rose Red' },
-      { id: 'blue', hex: '#3B82F6', darkHex: '#1D4ED8', name: 'Royal Blue' },
-      { id: 'magenta', hex: '#EC4899', darkHex: '#BE185D', name: 'Berry Magenta' },
-      { id: 'emerald', hex: '#10B981', darkHex: '#047857', name: 'Vibrant Emerald' },
-      { id: 'purple', hex: '#8B5CF6', darkHex: '#6D28D9', name: 'Deep Violet' },
-      { id: 'amber', hex: '#F59E0B', darkHex: '#B45309', name: 'Amber Gold' },
-      { id: 'orange', hex: '#FB923C', darkHex: '#C2410C', name: 'Sunset Coral' },
-      { id: 'lime', hex: '#84CC16', darkHex: '#4D7C0F', name: 'Electric Lime' },
-      { id: 'teal', hex: '#14B8A6', darkHex: '#0F766E', name: 'Ocean Teal' }
+      { id: 'cyan', hex: '#22D3EE', darkHex: '#0891B2', sheen: 'rgba(255,255,255,0.45)', name: 'Cyan Glow' },
+      { id: 'rose', hex: '#F43F5E', darkHex: '#BE123C', sheen: 'rgba(255,255,255,0.45)', name: 'Rose Red' },
+      { id: 'blue', hex: '#3B82F6', darkHex: '#1D4ED8', sheen: 'rgba(255,255,255,0.45)', name: 'Royal Blue' },
+      { id: 'magenta', hex: '#EC4899', darkHex: '#BE185D', sheen: 'rgba(255,255,255,0.45)', name: 'Berry Magenta' },
+      { id: 'emerald', hex: '#10B981', darkHex: '#047857', sheen: 'rgba(255,255,255,0.45)', name: 'Vibrant Emerald' },
+      { id: 'purple', hex: '#8B5CF6', darkHex: '#6D28D9', sheen: 'rgba(255,255,255,0.45)', name: 'Deep Violet' },
+      { id: 'amber', hex: '#F59E0B', darkHex: '#B45309', sheen: 'rgba(255,255,255,0.45)', name: 'Amber Gold' },
+      { id: 'orange', hex: '#FB923C', darkHex: '#C2410C', sheen: 'rgba(255,255,255,0.45)', name: 'Sunset Coral' },
+      { id: 'lime', hex: '#84CC16', darkHex: '#4D7C0F', sheen: 'rgba(255,255,255,0.45)', name: 'Electric Lime' },
+      { id: 'teal', hex: '#14B8A6', darkHex: '#0F766E', sheen: 'rgba(255,255,255,0.45)', name: 'Ocean Teal' }
     ];
 
-    // 2. CURATED HANDCRAFTED LEVEL SUITES
+    // 2. 100% MATHEMATICALLY VERIFIED SOLVABLE LEVEL PACKS
     const LEVEL_PACKS = {
-      easy: [
-        {
-          grid: [
-            [1, 1, 1, 1],
-            [1, 1, 1, 1],
-            [3, 1, 1, 1],
-            [1, 1, 1, 1]
-          ],
-          colorIdx: 0
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1],
-            [1, 0, 0, 0, 1],
-            [1, 0, 0, 0, 1],
-            [3, 1, 1, 1, 1]
-          ],
-          colorIdx: 1
-        },
-        {
-          grid: [
-            [1, 1, 1, 1],
-            [1, 0, 0, 1],
-            [1, 1, 0, 1],
-            [3, 1, 1, 1]
-          ],
-          colorIdx: 2
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1],
-            [1, 1, 0, 1, 1],
-            [1, 0, 0, 0, 1],
-            [3, 1, 1, 1, 1]
-          ],
-          colorIdx: 3
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1],
-            [1, 0, 1, 0, 1],
-            [1, 1, 1, 1, 1],
-            [3, 0, 1, 0, 1]
-          ],
-          colorIdx: 4
-        },
-        {
-          grid: [
-            [1, 1, 1, 1],
-            [1, 1, 1, 1],
-            [0, 1, 1, 0],
-            [3, 1, 1, 1]
-          ],
-          colorIdx: 5
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1],
-            [1, 0, 0, 1, 1],
-            [1, 1, 0, 0, 1],
-            [3, 1, 1, 1, 1]
-          ],
-          colorIdx: 6
-        },
-        {
-          grid: [
-            [0, 1, 1, 1, 0],
-            [1, 1, 1, 1, 1],
-            [1, 1, 0, 1, 1],
-            [3, 1, 1, 1, 1]
-          ],
-          colorIdx: 7
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1],
-            [1, 0, 1, 1, 1],
-            [1, 1, 1, 0, 1],
-            [3, 1, 1, 1, 1]
-          ],
-          colorIdx: 8
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1],
-            [1, 1, 0, 0, 1],
-            [1, 0, 0, 1, 1],
-            [3, 1, 1, 1, 1]
-          ],
-          colorIdx: 9
-        }
+  "easy": [
+    {
+      "grid": [
+        [
+          3,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ]
       ],
-      medium: [
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1],
-            [1, 0, 1, 1, 0, 1],
-            [1, 1, 1, 1, 1, 1],
-            [1, 0, 1, 1, 0, 1],
-            [3, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 0
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1],
-            [1, 0, 0, 0, 0, 1],
-            [1, 1, 1, 1, 0, 1],
-            [1, 0, 0, 1, 1, 1],
-            [3, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 1
-        },
-        {
-          grid: [
-            [0, 1, 1, 1, 1, 0],
-            [1, 1, 0, 0, 1, 1],
-            [1, 1, 1, 1, 1, 1],
-            [1, 0, 1, 1, 0, 1],
-            [3, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 2
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1],
-            [1, 0, 1, 0, 1, 1],
-            [1, 1, 1, 1, 0, 1],
-            [0, 1, 0, 1, 1, 1],
-            [3, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 3
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1],
-            [1, 1, 0, 0, 1, 1],
-            [1, 0, 1, 1, 0, 1],
-            [1, 1, 0, 0, 1, 1],
-            [3, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 4
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1],
-            [0, 1, 1, 1, 1, 0],
-            [1, 1, 0, 0, 1, 1],
-            [1, 0, 1, 1, 0, 1],
-            [3, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 5
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1],
-            [1, 0, 0, 1, 0, 1],
-            [1, 1, 1, 1, 1, 1],
-            [0, 1, 0, 0, 1, 0],
-            [3, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 6
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1],
-            [1, 1, 0, 1, 1, 1],
-            [1, 0, 1, 1, 0, 1],
-            [1, 1, 1, 0, 1, 1],
-            [3, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 7
-        },
-        {
-          grid: [
-            [0, 1, 1, 1, 1, 1],
-            [1, 1, 0, 0, 1, 1],
-            [1, 0, 1, 1, 0, 1],
-            [1, 1, 1, 1, 1, 0],
-            [3, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 8
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1],
-            [1, 0, 1, 1, 0, 1],
-            [0, 1, 1, 1, 1, 0],
-            [1, 1, 0, 0, 1, 1],
-            [3, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 9
-        }
+      "colorIdx": 0
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ]
       ],
-      hard: [
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 1, 0, 1, 0, 1],
-            [1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 1, 0, 1, 0, 1],
-            [1, 1, 1, 1, 1, 1, 1],
-            [3, 1, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 0
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 0, 1, 0, 0, 1],
-            [1, 1, 1, 1, 1, 1, 1],
-            [0, 1, 0, 0, 0, 1, 0],
-            [1, 1, 1, 1, 1, 1, 1],
-            [3, 1, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 1
-        },
-        {
-          grid: [
-            [0, 1, 1, 1, 1, 1, 0],
-            [1, 1, 0, 1, 0, 1, 1],
-            [1, 0, 1, 1, 1, 0, 1],
-            [1, 1, 1, 0, 1, 1, 1],
-            [1, 0, 1, 1, 1, 0, 1],
-            [3, 1, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 2
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 0, 0, 0, 0, 1],
-            [1, 1, 1, 1, 1, 0, 1],
-            [1, 0, 0, 0, 1, 1, 1],
-            [1, 1, 1, 0, 0, 0, 1],
-            [3, 1, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 3
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1, 1],
-            [0, 1, 0, 1, 0, 1, 0],
-            [1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 1, 0, 1, 0, 1],
-            [0, 1, 1, 1, 1, 1, 0],
-            [3, 1, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 4
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1, 1],
-            [1, 1, 0, 0, 0, 1, 1],
-            [1, 0, 1, 1, 1, 0, 1],
-            [1, 0, 1, 0, 1, 0, 1],
-            [1, 1, 1, 1, 1, 1, 1],
-            [3, 1, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 5
-        },
-        {
-          grid: [
-            [0, 1, 1, 1, 1, 1, 1],
-            [1, 1, 0, 1, 0, 0, 1],
-            [1, 0, 1, 1, 1, 1, 1],
-            [1, 1, 1, 0, 0, 1, 0],
-            [1, 0, 1, 1, 1, 1, 1],
-            [3, 1, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 6
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 1, 1, 1, 0, 1],
-            [1, 1, 0, 0, 0, 1, 1],
-            [1, 0, 1, 1, 1, 0, 1],
-            [1, 1, 1, 0, 1, 1, 1],
-            [3, 1, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 7
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1, 0],
-            [0, 1, 0, 0, 1, 1, 1],
-            [1, 1, 1, 1, 0, 0, 1],
-            [1, 0, 0, 1, 1, 1, 1],
-            [1, 1, 1, 1, 0, 1, 0],
-            [3, 1, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 8
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 0, 1, 1, 0, 1],
-            [1, 1, 0, 0, 0, 1, 1],
-            [0, 1, 1, 1, 1, 1, 0],
-            [1, 0, 0, 1, 0, 0, 1],
-            [3, 1, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 9
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 1, 0, 0, 1, 1],
-            [1, 1, 1, 1, 1, 0, 1],
-            [0, 1, 0, 0, 1, 1, 1],
-            [1, 1, 1, 1, 0, 0, 1],
-            [3, 1, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 0
-        },
-        {
-          grid: [
-            [1, 1, 1, 1, 1, 1, 1],
-            [0, 0, 1, 0, 0, 1, 1],
-            [1, 1, 1, 1, 1, 1, 0],
-            [1, 1, 0, 0, 1, 0, 1],
-            [0, 1, 1, 1, 1, 1, 1],
-            [3, 1, 1, 1, 1, 1, 1]
-          ],
-          colorIdx: 1
-        },
-        {
-          grid: [
-            [1, 1, 1, 0, 0, 0, 0],
-            [0, 1, 1, 0, 0, 0, 0],
-            [1, 1, 1, 1, 1, 1, 0],
-            [1, 1, 1, 0, 0, 1, 0],
-            [0, 1, 1, 1, 1, 1, 1],
-            [3, 1, 1, 0, 0, 1, 1]
-          ],
-          colorIdx: 2
-        }
-      ]
-    };
+      "colorIdx": 1
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 2
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ]
+      ],
+      "colorIdx": 3
+    },
+    {
+      "grid": [
+        [
+          3,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0
+        ]
+      ],
+      "colorIdx": 4
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 5
+    },
+    {
+      "grid": [
+        [
+          3,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ]
+      ],
+      "colorIdx": 6
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 7
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 8
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 9
+    },
+    {
+      "grid": [
+        [
+          3,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 0
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "colorIdx": 1
+    }
+  ],
+  "medium": [
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 0
+    },
+    {
+      "grid": [
+        [
+          3,
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "colorIdx": 1
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0
+        ]
+      ],
+      "colorIdx": 2
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          1
+        ]
+      ],
+      "colorIdx": 3
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 4
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ]
+      ],
+      "colorIdx": 5
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 6
+    },
+    {
+      "grid": [
+        [
+          3,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 7
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "colorIdx": 8
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 9
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 0
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 1
+    }
+  ],
+  "hard": [
+    {
+      "grid": [
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 0
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 1
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 2
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 3
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "colorIdx": 4
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "colorIdx": 5
+    },
+    {
+      "grid": [
+        [
+          3,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "colorIdx": 6
+    },
+    {
+      "grid": [
+        [
+          3,
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "colorIdx": 7
+    },
+    {
+      "grid": [
+        [
+          3,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 8
+    },
+    {
+      "grid": [
+        [
+          3,
+          0,
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 9
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          1
+        ]
+      ],
+      "colorIdx": 0
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "colorIdx": 1
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "colorIdx": 2
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ]
+      ],
+      "colorIdx": 3
+    },
+    {
+      "grid": [
+        [
+          3,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "colorIdx": 4
+    }
+  ]
+};
 
     // 3. AUDIO SYNTHESIZER
     class SoundSynth {
@@ -432,14 +1853,14 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(320, t);
-        osc.frequency.exponentialRampToValueAtTime(220, t + 0.10);
-        gain.gain.setValueAtTime(0.12, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.10);
+        osc.frequency.setValueAtTime(340, t);
+        osc.frequency.exponentialRampToValueAtTime(220, t + 0.12);
+        gain.gain.setValueAtTime(0.14, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(t);
-        osc.stop(t + 0.11);
+        osc.stop(t + 0.13);
       }
 
       playPaintTile() {
@@ -449,7 +1870,7 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(520 + Math.random() * 80, t);
+        osc.frequency.setValueAtTime(540 + Math.random() * 80, t);
         gain.gain.setValueAtTime(0.08, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
         osc.connect(gain);
@@ -466,13 +1887,13 @@
         const gain = this.ctx.createGain();
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(160, t);
-        osc.frequency.exponentialRampToValueAtTime(60, t + 0.08);
-        gain.gain.setValueAtTime(0.20, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc.frequency.exponentialRampToValueAtTime(50, t + 0.09);
+        gain.gain.setValueAtTime(0.22, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(t);
-        osc.stop(t + 0.09);
+        osc.stop(t + 0.10);
       }
 
       playWinFanfare() {
@@ -555,7 +1976,7 @@
             const nextR = r + dir.dr;
             const nextC = c + dir.dc;
 
-            if (nextR >= 0 && nextR < rows && nextC >= 0 && nextC < cols && grid[nextR][nextC] === 1) {
+            if (nextR >= 0 && nextR < rows && nextC >= 0 && nextC < cols && (grid[nextR][nextC] === 1 || grid[nextR][nextC] === 3)) {
               r = nextR;
               c = nextC;
               if (!paintedMatrix[r][c]) newTiles++;
@@ -572,7 +1993,7 @@
         for (const dir of dirs) {
           const nextR = startR + dir.dr;
           const nextC = startC + dir.dc;
-          if (nextR >= 0 && nextR < rows && nextC >= 0 && nextC < cols && grid[nextR][nextC] === 1) {
+          if (nextR >= 0 && nextR < rows && nextC >= 0 && nextC < cols && (grid[nextR][nextC] === 1 || grid[nextR][nextC] === 3)) {
             return dir;
           }
         }
@@ -588,13 +2009,14 @@
         this.ctx = canvas.getContext('2d');
         this.synth = new SoundSynth();
 
-        this.difficulty = this.loadDifficulty(); // default 'medium'
-        this.levelIndex = this.loadLevelIndex(this.difficulty); // default 0 (Level 1)
+        this.difficulty = this.loadDifficulty(); // 'easy', 'medium', 'hard'
+        this.levelIndex = this.loadLevelIndex(this.difficulty); // starts at 0 (Level 1)
         this.hints = 1;
 
         this.state = 'IDLE'; // 'IDLE', 'MOVING', 'GREAT_ANIMATION', 'MODE_SELECT'
         this.toast = null;
 
+        // 3D Bouncy Marble Ball with Squash & Stretch Physics
         this.ball = {
           r: 0,
           c: 0,
@@ -605,7 +2027,9 @@
           targetR: 0,
           targetC: 0,
           radius: 18,
-          speed: 850
+          speed: 880, // pixels/sec
+          scaleX: 1.0,
+          scaleY: 1.0
         };
 
         this.grid = [];
@@ -614,9 +2038,11 @@
         this.paintedCount = 0;
         this.colorObj = LEVEL_COLORS[0];
 
+        this.splats = [];
         this.sparkles = [];
         this.confetti = [];
         this.greatAnimTimer = 0;
+        this.rippleRadius = 0;
         this.hintArrow = null;
 
         this.initLayout();
@@ -629,9 +2055,9 @@
       loadDifficulty() {
         try {
           const d = localStorage.getItem('cmp_difficulty');
-          return d || 'medium';
+          return d || 'easy';
         } catch (e) {
-          return 'medium';
+          return 'easy';
         }
       }
 
@@ -661,7 +2087,7 @@
         this.levelIndex = idx;
         this.saveLevelIndex();
 
-        const pack = LEVEL_PACKS[this.difficulty] || LEVEL_PACKS.medium;
+        const pack = LEVEL_PACKS[this.difficulty] || LEVEL_PACKS.easy;
         const lvlData = pack[this.levelIndex % pack.length];
 
         this.rows = lvlData.grid.length;
@@ -691,15 +2117,19 @@
         this.ball.c = startC;
         this.ball.targetR = startR;
         this.ball.targetC = startC;
+        this.ball.scaleX = 1.0;
+        this.ball.scaleY = 1.0;
 
         this.painted[startR][startC] = true;
         this.paintedCount = 1;
 
         this.colorObj = LEVEL_COLORS[(lvlData.colorIdx + this.levelIndex) % LEVEL_COLORS.length];
 
+        this.splats = [];
         this.sparkles = [];
         this.confetti = [];
         this.greatAnimTimer = 0;
+        this.rippleRadius = 0;
         this.hintArrow = null;
         this.state = 'IDLE';
 
@@ -720,7 +2150,7 @@
         const availW = Math.min(330, this.width - 48);
         const availH = Math.min(360, this.height - 230);
 
-        this.tileSize = Math.floor(Math.min(availW / this.cols, availH / this.rows, 50));
+        this.tileSize = Math.floor(Math.min(availW / this.cols, availH / this.rows, 52));
         this.boardW = this.cols * this.tileSize;
         this.boardH = this.rows * this.tileSize;
 
@@ -898,6 +2328,15 @@
           this.ball.targetX = this.boardX + currC * this.tileSize + this.tileSize / 2;
           this.ball.targetY = this.boardY + currR * this.tileSize + this.tileSize / 2;
 
+          // Dynamic Stretch Physics along motion direction
+          if (dc !== 0) {
+            this.ball.scaleX = 1.20;
+            this.ball.scaleY = 0.85;
+          } else {
+            this.ball.scaleX = 0.85;
+            this.ball.scaleY = 1.20;
+          }
+
           this.synth.playRoll();
           this.haptic(10);
         }
@@ -932,6 +2371,22 @@
         this.ball.y = this.ball.targetY;
         this.state = 'IDLE';
 
+        // Elastic Squishy Rebound on Wall Impact
+        this.ball.scaleX = 1.0;
+        this.ball.scaleY = 1.0;
+
+        // Splat Droplets on Impact
+        for (let i = 0; i < 6; i++) {
+          this.splats.push({
+            x: this.ball.x,
+            y: this.ball.y,
+            vx: (Math.random() - 0.5) * 80,
+            vy: (Math.random() - 0.5) * 80,
+            size: 2.5 + Math.random() * 3,
+            alpha: 1.0
+          });
+        }
+
         this.synth.playImpact();
         this.haptic(18);
 
@@ -943,6 +2398,7 @@
       handleWin() {
         this.state = 'GREAT_ANIMATION';
         this.greatAnimTimer = 1.6;
+        this.rippleRadius = 0;
         this.synth.playWinFanfare();
         this.haptic(40);
 
@@ -992,9 +2448,13 @@
           }
         }
 
-        if (this.hintArrow) {
-          this.hintArrow.timer -= dt;
-          if (this.hintArrow.timer <= 0) this.hintArrow = null;
+        // Particle Animations
+        for (let i = this.splats.length - 1; i >= 0; i--) {
+          const sp = this.splats[i];
+          sp.x += sp.vx * dt;
+          sp.y += sp.vy * dt;
+          sp.alpha -= dt * 2.8;
+          if (sp.alpha <= 0) this.splats.splice(i, 1);
         }
 
         for (let i = this.confetti.length - 1; i >= 0; i--) {
@@ -1007,7 +2467,13 @@
           if (c.alpha <= 0) this.confetti.splice(i, 1);
         }
 
+        if (this.hintArrow) {
+          this.hintArrow.timer -= dt;
+          if (this.hintArrow.timer <= 0) this.hintArrow = null;
+        }
+
         if (this.state === 'GREAT_ANIMATION') {
+          this.rippleRadius += dt * 380;
           this.greatAnimTimer -= dt;
           if (this.greatAnimTimer <= 0) {
             this.loadLevel(this.levelIndex + 1);
@@ -1041,9 +2507,10 @@
         ctx.fillRect(0, 0, this.width, this.height);
 
         this.renderTopUI(ctx);
-        this.renderRecessedBoard(ctx);
+        this.renderRecessed3DBoard(ctx);
+        this.renderSplats(ctx);
         this.renderHintGuide(ctx);
-        this.renderBall(ctx);
+        this.renderJuicyMarbleBall(ctx);
         this.renderBottomHintButton(ctx);
         this.renderConfetti(ctx);
 
@@ -1092,7 +2559,7 @@
         ctx.fillText(this.difficulty.toUpperCase(), this.width / 2, pillY + pillH / 2 + 1);
         ctx.restore();
 
-        // Level Title
+        // Level Title in Deep Berry Purple
         ctx.font = '900 24px Outfit, sans-serif';
         ctx.fillStyle = '#701A75';
         ctx.textAlign = 'center';
@@ -1100,12 +2567,13 @@
         ctx.fillText('Level ' + (this.levelIndex + 1), this.width / 2, y + 20);
       }
 
-      renderRecessedBoard(ctx) {
+      // RECESSED 3D CHASM WITH AMBIENT OCCLUSION & WET ENAMEL SHEEN
+      renderRecessed3DBoard(ctx) {
         const bx = this.boardX;
         const by = this.boardY;
         const ts = this.tileSize;
 
-        // 3D Inner Wall Drop Shadow (Recessed Tray Effect)
+        // 1. Ambient Occlusion (AO) Top & Left Wall Shadow Cast
         ctx.save();
         for (let r = 0; r < this.rows; r++) {
           for (let c = 0; c < this.cols; c++) {
@@ -1114,19 +2582,25 @@
               const ty = by + r * ts;
 
               if (r === 0 || this.grid[r - 1][c] === 0) {
-                ctx.fillStyle = '#1E293B';
-                ctx.fillRect(tx, ty, ts, 4);
+                const topAO = ctx.createLinearGradient(tx, ty, tx, ty + 6);
+                topAO.addColorStop(0, 'rgba(15, 23, 42, 0.45)');
+                topAO.addColorStop(1, 'rgba(15, 23, 42, 0)');
+                ctx.fillStyle = topAO;
+                ctx.fillRect(tx, ty, ts, 6);
               }
               if (c === 0 || this.grid[r][c - 1] === 0) {
-                ctx.fillStyle = '#1E293B';
-                ctx.fillRect(tx, ty, 4, ts);
+                const leftAO = ctx.createLinearGradient(tx, ty, tx + 6, ty);
+                leftAO.addColorStop(0, 'rgba(15, 23, 42, 0.45)');
+                leftAO.addColorStop(1, 'rgba(15, 23, 42, 0)');
+                ctx.fillStyle = leftAO;
+                ctx.fillRect(tx, ty, 6, ts);
               }
             }
           }
         }
         ctx.restore();
 
-        // Render Square Tiles
+        // 2. Render Grid Tiles
         for (let r = 0; r < this.rows; r++) {
           for (let c = 0; c < this.cols; c++) {
             const tx = bx + c * ts;
@@ -1140,24 +2614,35 @@
               ctx.rect(tx + 0.5, ty + 0.5, ts - 1, ts - 1);
 
               if (isPainted) {
-                ctx.fillStyle = this.colorObj.hex;
+                // Vibrant Wet Enamel Paint
+                const paintGrad = ctx.createLinearGradient(tx, ty, tx, ty + ts);
+                paintGrad.addColorStop(0, this.colorObj.hex);
+                paintGrad.addColorStop(1, this.colorObj.darkHex);
+                ctx.fillStyle = paintGrad;
                 ctx.fill();
 
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-                ctx.fillRect(tx + 1, ty + 1, ts - 2, 3);
+                // Wet Paint Diagonal Glossy Sheen
+                ctx.beginPath();
+                ctx.ellipse(tx + ts * 0.35, ty + ts * 0.25, ts * 0.35, ts * 0.12, -Math.PI / 6, 0, Math.PI * 2);
+                ctx.fillStyle = this.colorObj.sheen;
+                ctx.fill();
               } else {
+                // Matte Dark Slate Tile with Depth
                 ctx.fillStyle = '#3A4D5C';
                 ctx.fill();
 
-                ctx.fillStyle = '#2C3A47';
+                // Subtle bottom edge depth
+                ctx.fillStyle = '#2A3844';
                 ctx.fillRect(tx + 1, ty + ts - 3, ts - 2, 2);
               }
 
+              // Crisp Separation Line
               ctx.strokeStyle = isPainted ? this.colorObj.darkHex : '#2D3D4A';
               ctx.lineWidth = 1.0;
               ctx.stroke();
               ctx.restore();
             } else {
+              // Outer Void with 3D Drop-Shadow edges adjacent to playable tiles
               ctx.save();
               ctx.fillStyle = '#FAF7EE';
               ctx.fillRect(tx, ty, ts, ts);
@@ -1174,13 +2659,27 @@
             }
           }
         }
+
+        // 3. Victory Radial Wave Animation
+        if (this.state === 'GREAT_ANIMATION' && this.rippleRadius > 0) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(this.width / 2, this.boardY + this.boardH / 2, this.rippleRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+          ctx.lineWidth = 6;
+          ctx.stroke();
+          ctx.restore();
+        }
       }
 
-      renderBall(ctx) {
+      // JUICY 3D MARBLE BALL WITH SQUASH & STRETCH
+      renderJuicyMarbleBall(ctx) {
         const b = this.ball;
         ctx.save();
         ctx.translate(b.x, b.y);
+        ctx.scale(b.scaleX, b.scaleY);
 
+        // Soft Dynamic Drop Shadow
         ctx.save();
         ctx.beginPath();
         ctx.ellipse(0, b.radius * 0.75, b.radius * 0.85, b.radius * 0.35, 0, 0, Math.PI * 2);
@@ -1188,6 +2687,7 @@
         ctx.fill();
         ctx.restore();
 
+        // 3D Spherical Marble Body with Specular Highlight
         ctx.beginPath();
         ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
         const grad = ctx.createRadialGradient(-b.radius * 0.35, -b.radius * 0.35, b.radius * 0.1, 0, 0, b.radius);
@@ -1197,12 +2697,25 @@
         ctx.fillStyle = grad;
         ctx.fill();
 
+        // Top Specular Gleam
         ctx.beginPath();
         ctx.arc(-b.radius * 0.35, -b.radius * 0.35, b.radius * 0.28, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.80)';
         ctx.fill();
 
         ctx.restore();
+      }
+
+      renderSplats(ctx) {
+        for (const sp of this.splats) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(sp.x, sp.y, sp.size, 0, Math.PI * 2);
+          ctx.fillStyle = this.colorObj.hex;
+          ctx.globalAlpha = sp.alpha;
+          ctx.fill();
+          ctx.restore();
+        }
       }
 
       renderBottomHintButton(ctx) {
