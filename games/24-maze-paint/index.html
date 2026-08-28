@@ -3842,7 +3842,7 @@
   ]
 };
 
-    // 3. AUDIO SYNTHESIZER
+    // 3. AUDIO SYNTHESIZER (Crisp Marble Wall Clacks, Roll Whirrs, Fanfares)
     class SoundSynth {
       constructor() {
         this.ctx = null;
@@ -3866,14 +3866,14 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(340, t);
-        osc.frequency.exponentialRampToValueAtTime(220, t + 0.12);
-        gain.gain.setValueAtTime(0.14, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc.frequency.setValueAtTime(360, t);
+        osc.frequency.exponentialRampToValueAtTime(240, t + 0.10);
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.10);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(t);
-        osc.stop(t + 0.13);
+        osc.stop(t + 0.11);
       }
 
       playPaintTile() {
@@ -3892,39 +3892,56 @@
         osc.stop(t + 0.06);
       }
 
+      // Crisp, Tactile Marble-Wall Clack Impact
       playImpact() {
         if (this.muted || !this.ctx) return;
         this.init();
         const t = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(160, t);
-        osc.frequency.exponentialRampToValueAtTime(50, t + 0.09);
-        gain.gain.setValueAtTime(0.22, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.10);
+
+        // 1. Wooden/Marble Body Clack
+        const osc1 = this.ctx.createOscillator();
+        const gain1 = this.ctx.createGain();
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(320, t);
+        osc1.frequency.exponentialRampToValueAtTime(70, t + 0.08);
+        gain1.gain.setValueAtTime(0.35, t);
+        gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc1.connect(gain1);
+        gain1.connect(this.ctx.destination);
+        osc1.start(t);
+        osc1.stop(t + 0.09);
+
+        // 2. High Ceramic Snap Transient
+        const osc2 = this.ctx.createOscillator();
+        const gain2 = this.ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(880, t);
+        osc2.frequency.exponentialRampToValueAtTime(200, t + 0.04);
+        gain2.gain.setValueAtTime(0.20, t);
+        gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+        osc2.connect(gain2);
+        gain2.connect(this.ctx.destination);
+        osc2.start(t);
+        osc2.stop(t + 0.05);
       }
 
+      // Glorious Cascading AAA Victory Fanfare
       playWinFanfare() {
         if (this.muted || !this.ctx) return;
         this.init();
-        const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
-        notes.forEach((freq, i) => {
-          const t = this.ctx.currentTime + i * 0.07;
+        const chord = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
+        chord.forEach((freq, i) => {
+          const t = this.ctx.currentTime + i * 0.06;
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
-          osc.type = 'triangle';
+          osc.type = (i % 2 === 0) ? 'triangle' : 'sine';
           osc.frequency.setValueAtTime(freq, t);
           gain.gain.setValueAtTime(0.22, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.40);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.50);
           osc.connect(gain);
           gain.connect(this.ctx.destination);
           osc.start(t);
-          osc.stop(t + 0.41);
+          osc.stop(t + 0.52);
         });
       }
 
@@ -3935,7 +3952,7 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(560, t);
+        osc.frequency.setValueAtTime(580, t);
         gain.gain.setValueAtTime(0.12, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
         osc.connect(gain);
@@ -4077,7 +4094,7 @@
         this.levelStartTime = performance.now();
         this.levelDurationSec = 0;
 
-        // 3D Marble Ball with Dynamic Squash & Stretch
+        // 3D Marble Ball with Sleek Radius & Dynamic Squash & Stretch
         this.ball = {
           r: 0,
           c: 0,
@@ -4087,7 +4104,7 @@
           targetY: 0,
           targetR: 0,
           targetC: 0,
-          radius: 18,
+          radius: 15,
           speed: 880,
           scaleX: 1.0,
           scaleY: 1.0
@@ -4245,7 +4262,8 @@
         this.boardX = Math.round((this.width - this.boardW) / 2);
         this.boardY = Math.round((this.height - this.boardH) / 2 - 6);
 
-        this.ball.radius = Math.floor(this.tileSize * 0.40);
+        // Sleek Marble Ball Radius with Comfortable Breathing Room
+        this.ball.radius = Math.floor(this.tileSize * 0.33);
         this.ball.x = this.boardX + this.ball.c * this.tileSize + this.tileSize / 2;
         this.ball.y = this.boardY + this.ball.r * this.tileSize + this.tileSize / 2;
         this.ball.targetX = this.ball.x;
@@ -4473,11 +4491,11 @@
           this.ball.targetY = this.boardY + currR * this.tileSize + this.tileSize / 2;
 
           if (dc !== 0) {
-            this.ball.scaleX = 1.18;
-            this.ball.scaleY = 0.88;
+            this.ball.scaleX = 1.22;
+            this.ball.scaleY = 0.82;
           } else {
-            this.ball.scaleX = 0.88;
-            this.ball.scaleY = 1.18;
+            this.ball.scaleX = 0.82;
+            this.ball.scaleY = 1.22;
           }
 
           this.synth.playRoll();
@@ -4534,19 +4552,20 @@
         this.ball.scaleX = 1.0;
         this.ball.scaleY = 1.0;
 
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 6; i++) {
           this.splats.push({
             x: this.ball.x,
             y: this.ball.y,
-            vx: (Math.random() - 0.5) * 70,
-            vy: (Math.random() - 0.5) * 70,
+            vx: (Math.random() - 0.5) * 80,
+            vy: (Math.random() - 0.5) * 80,
             size: 2.0 + Math.random() * 2.5,
             alpha: 1.0
           });
         }
 
+        // Play Satisfying Wall Impact Clack Sound & Haptic
         this.synth.playImpact();
-        this.haptic(18);
+        this.haptic(22);
 
         if (this.paintedCount >= this.totalPlayableTiles) {
           this.handleWin();
@@ -4559,16 +4578,16 @@
         this.victoryAnimT = 0;
         this.rippleRadius = 0;
         this.synth.playWinFanfare();
-        this.haptic(40);
+        this.haptic(45);
 
-        for (let i = 0; i < 50; i++) {
+        for (let i = 0; i < 60; i++) {
           this.confetti.push({
             x: this.width / 2,
             y: this.height / 2 - 40,
-            vx: (Math.random() - 0.5) * 340,
-            vy: -160 - Math.random() * 240,
-            color: (i % 2 === 0) ? this.colorObj.hex : '#FBBF24',
-            size: 5 + Math.random() * 5,
+            vx: (Math.random() - 0.5) * 380,
+            vy: -180 - Math.random() * 260,
+            color: (i % 3 === 0) ? this.colorObj.hex : ((i % 3 === 1) ? '#FBBF24' : '#FFFFFF'),
+            size: 5 + Math.random() * 6,
             alpha: 1.0,
             rot: Math.random() * Math.PI,
             vrot: (Math.random() - 0.5) * 8
@@ -4631,7 +4650,7 @@
           c.y += c.vy * dt;
           c.vy += 320 * dt;
           c.rot += c.vrot * dt;
-          c.alpha -= dt * 0.40;
+          c.alpha -= dt * 0.35;
           if (c.alpha <= 0) this.confetti.splice(i, 1);
         }
 
@@ -4862,8 +4881,8 @@
           ctx.save();
           ctx.beginPath();
           ctx.arc(this.width / 2, this.boardY + this.boardH / 2, this.rippleRadius, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
-          ctx.lineWidth = 6;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+          ctx.lineWidth = 8;
           ctx.stroke();
           ctx.restore();
         }
@@ -4901,32 +4920,35 @@
         }
       }
 
-      // JUICY 3D MARBLE BALL WITH SQUASH & STRETCH
+      // SLEEK JUICY 3D MARBLE BALL WITH SQUASH & STRETCH
       renderJuicyMarbleBall(ctx) {
         const b = this.ball;
         ctx.save();
         ctx.translate(b.x, b.y);
         ctx.scale(b.scaleX, b.scaleY);
 
+        // Ground Ambient Shadow
         ctx.save();
         ctx.beginPath();
-        ctx.ellipse(0, b.radius * 0.75, b.radius * 0.85, b.radius * 0.35, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, b.radius * 0.85, b.radius * 0.90, b.radius * 0.40, 0, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
         ctx.fill();
         ctx.restore();
 
+        // Glossy Spherical Marble
         ctx.beginPath();
         ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
-        const grad = ctx.createRadialGradient(-b.radius * 0.35, -b.radius * 0.35, b.radius * 0.1, 0, 0, b.radius);
+        const grad = ctx.createRadialGradient(-b.radius * 0.35, -b.radius * 0.35, b.radius * 0.08, 0, 0, b.radius);
         grad.addColorStop(0, '#FFFFFF');
         grad.addColorStop(0.55, '#F1F5F9');
         grad.addColorStop(1, '#94A3B8');
         ctx.fillStyle = grad;
         ctx.fill();
 
+        // Crisp Specular Light Gleam
         ctx.beginPath();
-        ctx.arc(-b.radius * 0.35, -b.radius * 0.35, b.radius * 0.28, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.80)';
+        ctx.arc(-b.radius * 0.32, -b.radius * 0.32, b.radius * 0.26, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
         ctx.fill();
 
         ctx.restore();
@@ -5053,94 +5075,204 @@
         ctx.restore();
       }
 
-      // AAA CUSTOM LEVEL COMPLETE MODAL
+      // AAA GAMING MASTERPIECE LEVEL COMPLETE MODAL (Classy, Bouncy, Glowing 3-Stars, Specular Shimmer)
       renderVictoryModal(ctx) {
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.70)';
+        // Soft Dark Vignette Overlay
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.76)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const cardW = Math.min(310, this.width - 40);
-        const cardH = 300;
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 340;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
+        // Bouncy Scale-In Spring Physics
+        const t = Math.min(1.0, this.victoryAnimT * 3.2);
+        // Spring easeOutBack curve
+        const c1 = 1.70158;
+        const c3 = c1 + 1;
+        const scale = 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.40)';
-        ctx.shadowBlur = 32;
-        ctx.shadowOffsetY = 12;
+        ctx.translate(this.width / 2, this.height / 2);
+        ctx.scale(Math.max(0, scale), Math.max(0, scale));
+        ctx.translate(-this.width / 2, -this.height / 2);
+
+        // 1. Outer Neon Holographic Back-Glow
+        ctx.save();
+        ctx.shadowColor = this.colorObj.hex;
+        ctx.shadowBlur = 36;
+        ctx.shadowOffsetY = 8;
         ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.roundRect(cardX, cardY, cardW, cardH, 28);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
         ctx.restore();
 
-        // Header Title
-        ctx.font = '900 20px Outfit, sans-serif';
-        ctx.fillStyle = '#701A75';
-        ctx.textAlign = 'center';
-        ctx.fillText('LEVEL COMPLETED', this.width / 2, cardY + 38);
-
-        // Centerpiece Ring Badge
-        const ringY = cardY + 102;
+        // 2. Card Gradient Border
         ctx.save();
         ctx.beginPath();
-        ctx.arc(this.width / 2, ringY, 34, 0, Math.PI * 2);
-        ctx.fillStyle = '#FAF7EE';
-        ctx.fill();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 28);
         ctx.strokeStyle = this.colorObj.hex;
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 2.5;
         ctx.stroke();
-
-        ctx.font = '900 19px Outfit, sans-serif';
-        ctx.fillStyle = this.colorObj.hex;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('100%', this.width / 2, ringY - 2);
-
-        ctx.font = '800 10px Outfit, sans-serif';
-        ctx.fillStyle = '#64748B';
-        ctx.fillText('COATED', this.width / 2, ringY + 15);
         ctx.restore();
 
-        // Level Stats Row
-        const statsY = cardY + 168;
-        ctx.font = '800 13px Outfit, sans-serif';
-        ctx.fillStyle = '#1E293B';
+        // 3. Floating 3-Star Rating Crest
+        const starY = cardY + 44;
+        const starSpacing = 42;
+        for (let i = -1; i <= 1; i++) {
+          const sx = this.width / 2 + i * starSpacing;
+          const isCenter = (i === 0);
+          const sy = isCenter ? starY - 8 : starY;
+          const sSize = isCenter ? 22 : 17;
+
+          // Individual Star Spring Scale
+          const starDelay = 0.2 + (i + 1) * 0.12;
+          const starT = Math.max(0, Math.min(1.0, (this.victoryAnimT - starDelay) * 4));
+          const starScale = starT > 0 ? (1 + c3 * Math.pow(starT - 1, 3) + c1 * Math.pow(starT - 1, 2)) : 0;
+
+          if (starScale > 0) {
+            ctx.save();
+            ctx.translate(sx, sy);
+            ctx.scale(starScale, starScale);
+
+            // Golden Glow
+            ctx.shadowColor = '#F59E0B';
+            ctx.shadowBlur = 14;
+
+            // 5-Pointed 3D Star
+            ctx.beginPath();
+            for (let s = 0; s < 5; s++) {
+              const rot = (Math.PI / 2 * 3) + (s * Math.PI / 2.5);
+              const ox = Math.cos(rot) * sSize;
+              const oy = Math.sin(rot) * sSize;
+              if (s === 0) ctx.moveTo(ox, oy);
+              else ctx.lineTo(ox, oy);
+
+              const inRot = rot + Math.PI / 5;
+              ctx.lineTo(Math.cos(inRot) * (sSize * 0.44), Math.sin(inRot) * (sSize * 0.44));
+            }
+            ctx.closePath();
+
+            const starGrad = ctx.createLinearGradient(0, -sSize, 0, sSize);
+            starGrad.addColorStop(0, '#FEF08A');
+            starGrad.addColorStop(0.5, '#F59E0B');
+            starGrad.addColorStop(1, '#D97706');
+            ctx.fillStyle = starGrad;
+            ctx.fill();
+
+            ctx.strokeStyle = '#FFFBEB';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.restore();
+          }
+        }
+
+        // 4. Header Title: "PERFECT CLEAR!" in Vibrant Theme Color
+        ctx.font = '900 24px Outfit, sans-serif';
+        ctx.fillStyle = '#701A75';
         ctx.textAlign = 'center';
-        ctx.fillText(this.levelSwipes + ' Swipes  •  ' + this.levelDurationSec + 's Time', this.width / 2, statsY);
+        ctx.fillText('PERFECT CLEAR!', this.width / 2, cardY + 98);
 
-        ctx.font = '600 11px Outfit, sans-serif';
-        ctx.fillStyle = '#94A3B8';
-        ctx.fillText('Difficulty: ' + this.difficulty.toUpperCase(), this.width / 2, statsY + 18);
+        ctx.font = '700 13px Outfit, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.fillText('Level ' + (this.levelIndex + 1) + ' Completed', this.width / 2, cardY + 118);
 
-        // [ NEXT LEVEL ▶ ] Button
-        const btnW = cardW - 40;
-        const btnH = 50;
-        const btnX = cardX + 20;
-        const btnY = cardY + cardH - 68;
+        // 5. High-End Frosted Glass Metrics Tray
+        const trayW = cardW - 40;
+        const trayH = 74;
+        const trayX = cardX + 20;
+        const trayY = cardY + 138;
 
         ctx.save();
-        ctx.shadowColor = this.colorObj.hex + '66';
-        ctx.shadowBlur = 16;
-        ctx.shadowOffsetY = 5;
+        ctx.beginPath();
+        ctx.roundRect(trayX, trayY, trayW, trayH, 18);
+        ctx.fillStyle = '#F8FAFC';
+        ctx.fill();
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        // Divider
+        ctx.beginPath();
+        ctx.moveTo(this.width / 2, trayY + 12);
+        ctx.lineTo(this.width / 2, trayY + trayH - 12);
+        ctx.strokeStyle = '#CBD5E1';
+        ctx.lineWidth = 1.0;
+        ctx.stroke();
+
+        // Left Stat: Coverage
+        const leftX = trayX + trayW * 0.25;
+        ctx.font = '900 20px Outfit, sans-serif';
+        ctx.fillStyle = this.colorObj.hex;
+        ctx.textAlign = 'center';
+        ctx.fillText('100%', leftX, trayY + 34);
+
+        ctx.font = '800 11px Outfit, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.fillText('COATED', leftX, trayY + 54);
+
+        // Right Stat: Swipes & Time
+        const rightX = trayX + trayW * 0.75;
+        ctx.font = '900 20px Outfit, sans-serif';
+        ctx.fillStyle = '#701A75';
+        ctx.fillText(this.levelSwipes.toString(), rightX, trayY + 34);
+
+        ctx.font = '800 11px Outfit, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.fillText(this.levelDurationSec + 's TIME', rightX, trayY + 54);
+        ctx.restore();
+
+        // 6. Big Juicy Shimmering [ NEXT LEVEL ▶ ] Button
+        const btnW = cardW - 40;
+        const btnH = 54;
+        const btnX = cardX + 20;
+        const btnY = cardY + cardH - 80;
+
+        ctx.save();
+        ctx.shadowColor = this.colorObj.hex + '88';
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetY = 6;
 
         ctx.beginPath();
-        ctx.roundRect(btnX, btnY, btnW, btnH, 16);
+        ctx.roundRect(btnX, btnY, btnW, btnH, 18);
         const btnGrad = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
         btnGrad.addColorStop(0, this.colorObj.hex);
         btnGrad.addColorStop(1, this.colorObj.darkHex);
         ctx.fillStyle = btnGrad;
         ctx.fill();
 
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.lineWidth = 2.0;
         ctx.stroke();
+
+        // Shimmer Light Sweep Beam Across Button
+        const shimmerPos = ((this.victoryAnimT * 1.6) % 2.0) - 0.5;
+        const shimX = btnX + shimmerPos * btnW;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(btnX, btnY, btnW, btnH, 18);
+        ctx.clip();
+
+        const sGrad = ctx.createLinearGradient(shimX - 30, btnY, shimX + 30, btnY);
+        sGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+        sGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.45)');
+        sGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = sGrad;
+        ctx.fillRect(shimX - 30, btnY, 60, btnH);
         ctx.restore();
 
-        ctx.font = '900 16px Outfit, sans-serif';
+        ctx.restore();
+
+        ctx.font = '900 18px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('NEXT LEVEL ▶', btnX + btnW / 2, btnY + btnH / 2);
+        ctx.fillText('NEXT LEVEL ▶', btnX + btnW / 2, btnY + btnH / 2 + 1);
+
+        ctx.restore();
       }
 
       // CLEAN, SIMPLIFIED DIFFICULTY MODAL
