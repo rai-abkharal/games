@@ -4364,13 +4364,11 @@
           }
         };
 
-        // Pointer listeners with passive: false to prevent scrolling
         this.canvas.addEventListener('pointerdown', handleDown, { passive: false });
         window.addEventListener('pointermove', handleMove, { passive: false });
         window.addEventListener('pointerup', handleUp, { passive: false });
         window.addEventListener('pointercancel', handleUp, { passive: false });
 
-        // Touch fallback for older WebViews
         this.canvas.addEventListener('touchstart', handleDown, { passive: false });
         window.addEventListener('touchmove', handleMove, { passive: false });
         window.addEventListener('touchend', handleUp, { passive: false });
@@ -4390,14 +4388,12 @@
         });
       }
 
-      // SIMPLIFIED, CLEAN DIFFICULTY MODAL CLICK HANDLER
       handleModeModalClick(px, py) {
         const cardW = Math.min(320, this.width - 36);
         const cardH = 320;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
-        // Close '✕' Button
         if (px >= cardX + cardW - 46 && px <= cardX + cardW - 6 && py >= cardY + 6 && py <= cardY + 46) {
           this.synth.playTap();
           this.state = 'IDLE';
@@ -4430,7 +4426,6 @@
         }
       }
 
-      // AAA VICTORY MODAL CLICK HANDLER
       handleVictoryModalClick(px, py) {
         this.synth.playTap();
         this.loadLevel(this.levelIndex + 1);
@@ -4693,7 +4688,7 @@
         ctx.restore();
       }
 
-      // EXECUTIVE MODERN TOP HEADER (Clean, Balanced, Luxurious)
+      // EXECUTIVE MODERN TOP HEADER
       renderTopUI(ctx) {
         const y = this.headerY;
 
@@ -4945,6 +4940,18 @@
           ctx.fillStyle = this.colorObj.hex;
           ctx.globalAlpha = sp.alpha;
           ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      renderConfetti(ctx) {
+        for (const c of this.confetti) {
+          ctx.save();
+          ctx.translate(c.x, c.y);
+          ctx.rotate(c.rot);
+          ctx.fillStyle = c.color;
+          ctx.globalAlpha = Math.max(0, c.alpha);
+          ctx.fillRect(-c.size / 2, -c.size / 2, c.size, c.size * 0.7);
           ctx.restore();
         }
       }
