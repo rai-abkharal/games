@@ -1,8 +1,8 @@
 {
   "id": "maze-paint",
   "title": "Color Maze Paint",
-  "version": "1.7.0",
-  "description": "Hardcore Pro 3D underground sunken roller paint puzzle game. Features 60 mathematically verified, high-depth softlock-free mazes (Easy: 10-14 swipes, Medium: 14-16 swipes, Hard: 18-21+ swipes), continuous drag controls, star sparkle trail animations, and 0ms instant loading.",
+  "version": "1.8.0",
+  "description": "Masterwork 3D underground sunken roller paint puzzle game. Features Sudoku Pro-style themed difficulty modal, full BFS multi-step hint pathfinding, custom AAA victory celebration modal, continuous drag controls, star sparkle trail animations, and 0ms instant loading.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Puzzle",

@@ -53,7 +53,7 @@
 
     // 1. VIBRANT LEVEL COLOR PALETTES
     const LEVEL_COLORS = [
-      { id: 'cyan', hex: '#22D3EE', darkHex: '#0891B2', name: 'Cyan Glow' },
+      { id: 'cyan', hex: '#06B6D4', darkHex: '#0891B2', name: 'Cyan Glow' },
       { id: 'rose', hex: '#F43F5E', darkHex: '#BE123C', name: 'Rose Red' },
       { id: 'blue', hex: '#3B82F6', darkHex: '#1D4ED8', name: 'Royal Blue' },
       { id: 'magenta', hex: '#EC4899', darkHex: '#BE185D', name: 'Berry Magenta' },
@@ -3961,7 +3961,7 @@
       }
     };
 
-    // 5. INTELLIGENT SOLVER / HINT SYSTEM (BFS Solver)
+    // 5. ACCURATE MULTI-STEP BFS HINT SOLVER (Shortest Path to Nearest Unpainted Tile)
     class MazeSolver {
       static solveNextStep(grid, startR, startC, paintedMatrix) {
         const rows = grid.length;
@@ -3973,34 +3973,80 @@
           { dr: 0, dc: 1, name: 'RIGHT' }
         ];
 
+        // BFS queue: state = { r, c, firstDir }
+        const queue = [];
+        const visited = new Set();
+        visited.add(startR + ',' + startC);
+
+        // Enqueue 1st level moves
         for (const dir of dirs) {
-          let r = startR;
-          let c = startC;
-          let newTiles = 0;
+          let currR = startR;
+          let currC = startC;
+          let foundUnpainted = false;
+          let steps = 0;
 
           while (true) {
-            const nextR = r + dir.dr;
-            const nextC = c + dir.dc;
-
+            const nextR = currR + dir.dr;
+            const nextC = currC + dir.dc;
             if (nextR >= 0 && nextR < rows && nextC >= 0 && nextC < cols && grid[nextR][nextC] === 1) {
-              r = nextR;
-              c = nextC;
-              if (!paintedMatrix[r][c]) newTiles++;
+              currR = nextR;
+              currC = nextC;
+              steps++;
+              if (!paintedMatrix[currR][currC]) {
+                foundUnpainted = true;
+              }
             } else {
               break;
             }
           }
 
-          if ((r !== startR || c !== startC) && newTiles > 0) {
-            return dir;
+          if (steps > 0) {
+            if (foundUnpainted) {
+              return dir; // Found immediate unpainted tile!
+            }
+            const key = currR + ',' + currC;
+            if (!visited.has(key)) {
+              visited.add(key);
+              queue.push({ r: currR, c: currC, firstDir: dir });
+            }
           }
         }
 
-        for (const dir of dirs) {
-          const nextR = startR + dir.dr;
-          const nextC = startC + dir.dc;
-          if (nextR >= 0 && nextR < rows && nextC >= 0 && nextC < cols && grid[nextR][nextC] === 1) {
-            return dir;
+        // Multi-step BFS if nearest unpainted tile is multiple turns away
+        while (queue.length > 0) {
+          const { r, c, firstDir } = queue.shift();
+
+          for (const dir of dirs) {
+            let currR = r;
+            let currC = c;
+            let foundUnpainted = false;
+            let steps = 0;
+
+            while (true) {
+              const nextR = currR + dir.dr;
+              const nextC = currC + dir.dc;
+              if (nextR >= 0 && nextR < rows && nextC >= 0 && nextC < cols && grid[nextR][nextC] === 1) {
+                currR = nextR;
+                currC = nextC;
+                steps++;
+                if (!paintedMatrix[currR][currC]) {
+                  foundUnpainted = true;
+                }
+              } else {
+                break;
+              }
+            }
+
+            if (steps > 0) {
+              if (foundUnpainted) {
+                return firstDir; // This firstDir leads to the unpainted tile!
+              }
+              const key = currR + ',' + currC;
+              if (!visited.has(key)) {
+                visited.add(key);
+                queue.push({ r: currR, c: currC, firstDir });
+              }
+            }
           }
         }
 
@@ -4008,7 +4054,7 @@
       }
     }
 
-    // 6. MAIN COLOR MAZE PAINT GAME ENGINE
+    // 6. MAIN COLOR MAZE PAINT GAME CONTROLLER
     class ColorMazeGame {
       constructor(canvas) {
         this.canvas = canvas;
@@ -4019,8 +4065,13 @@
         this.levelIndex = this.loadLevelIndex(this.difficulty); // starts at 0 (Level 1)
         this.hints = 1;
 
-        this.state = 'IDLE'; // 'IDLE', 'MOVING', 'GREAT_ANIMATION', 'MODE_SELECT'
+        this.state = 'IDLE'; // 'IDLE', 'MOVING', 'VICTORY_MODAL', 'MODE_SELECT'
         this.toast = null;
+
+        // Level Stats
+        this.levelSwipes = 0;
+        this.levelStartTime = performance.now();
+        this.levelDurationSec = 0;
 
         // 3D Marble Ball with Dynamic Squash & Stretch
         this.ball = {
@@ -4047,7 +4098,7 @@
         this.splats = [];
         this.stars = [];
         this.confetti = [];
-        this.greatAnimTimer = 0;
+        this.victoryAnimT = 0;
         this.rippleRadius = 0;
         this.hintArrow = null;
 
@@ -4133,9 +4184,11 @@
         this.splats = [];
         this.stars = [];
         this.confetti = [];
-        this.greatAnimTimer = 0;
+        this.victoryAnimT = 0;
         this.rippleRadius = 0;
         this.hintArrow = null;
+        this.levelSwipes = 0;
+        this.levelStartTime = performance.now();
         this.state = 'IDLE';
 
         this.initLayout();
@@ -4162,6 +4215,8 @@
         this.stars = [];
         this.confetti = [];
         this.hintArrow = null;
+        this.levelSwipes = 0;
+        this.levelStartTime = performance.now();
         this.state = 'IDLE';
         this.synth.playTap();
       }
@@ -4174,7 +4229,7 @@
         this.canvas.width = Math.round(this.width * dpr);
         this.canvas.height = Math.round(this.height * dpr);
 
-        this.headerY = 44;
+        this.headerY = 40;
 
         const availW = Math.min(330, this.width - 48);
         const availH = Math.min(360, this.height - 230);
@@ -4216,17 +4271,15 @@
             return;
           }
 
-          // Top Left Back Button Click
-          if (px >= 12 && px <= 58 && py >= this.headerY - 14 && py <= this.headerY + 34) {
-            this.synth.playTap();
-            this.state = 'MODE_SELECT';
+          if (this.state === 'VICTORY_MODAL') {
+            this.handleVictoryModalClick(px, py);
             return;
           }
 
           // Top Center Difficulty Pill Click
-          const diffPillW = 86;
+          const diffPillW = 96;
           const diffPillX = (this.width - diffPillW) / 2;
-          if (px >= diffPillX && px <= diffPillX + diffPillW && py >= this.headerY - 20 && py <= this.headerY + 6) {
+          if (px >= diffPillX && px <= diffPillX + diffPillW && py >= this.headerY - 18 && py <= this.headerY + 8) {
             this.synth.playTap();
             this.state = 'MODE_SELECT';
             return;
@@ -4305,6 +4358,10 @@
         window.addEventListener('pointercancel', handleUp);
 
         window.addEventListener('keydown', (e) => {
+          if (this.state === 'VICTORY_MODAL' && (e.key === ' ' || e.key === 'Enter')) {
+            this.loadLevel(this.levelIndex + 1);
+            return;
+          }
           if (this.state !== 'IDLE') return;
           if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') this.tryRoll(0, 1);
           else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') this.tryRoll(0, -1);
@@ -4314,30 +4371,32 @@
         });
       }
 
+      // SUDOKU PRO STYLE DIFFICULTY MODAL CLICK HANDLER
       handleModeModalClick(px, py) {
-        const cardW = Math.min(310, this.width - 36);
-        const cardH = 300;
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 340;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
-        if (px >= cardX + cardW - 44 && px <= cardX + cardW - 10 && py >= cardY + 10 && py <= cardY + 44) {
+        // Close X button
+        if (px >= cardX + cardW - 44 && px <= cardX + cardW - 8 && py >= cardY + 8 && py <= cardY + 44) {
           this.synth.playTap();
           this.state = 'IDLE';
           return;
         }
 
         const modes = [
-          { id: 'easy', label: 'EASY', desc: '10-14 swipes labyrinth puzzles' },
-          { id: 'medium', label: 'MEDIUM', desc: '14-16 swipes multi-corridor mazes' },
-          { id: 'hard', label: 'HARD', desc: '18-21+ swipes hardcore master mazes' }
+          { id: 'easy', label: 'EASY', desc: '10-14 Swipes • Relaxed tracks', color: '#10B981' },
+          { id: 'medium', label: 'MEDIUM', desc: '14-16 Swipes • Tricky corridors', color: '#F59E0B' },
+          { id: 'hard', label: 'HARD', desc: '18-21+ Swipes • Hardcore master', color: '#EF4444' }
         ];
 
-        const optH = 64;
-        const startY = cardY + 68;
+        const optH = 72;
+        const startY = cardY + 70;
 
         for (let i = 0; i < modes.length; i++) {
           const m = modes[i];
-          const optY = startY + i * (optH + 10);
+          const optY = startY + i * (optH + 12);
           if (px >= cardX + 16 && px <= cardX + cardW - 16 && py >= optY && py <= optY + optH) {
             this.synth.playTap();
             this.saveDifficulty(m.id);
@@ -4352,11 +4411,29 @@
         }
       }
 
+      // AAA VICTORY MODAL CLICK HANDLER
+      handleVictoryModalClick(px, py) {
+        const cardW = Math.min(310, this.width - 40);
+        const cardH = 310;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        const btnW = cardW - 40;
+        const btnH = 50;
+        const btnX = cardX + 20;
+        const btnY = cardY + cardH - 68;
+
+        if (px >= btnX && px <= btnX + btnW && py >= btnY && py <= btnY + btnH) {
+          this.synth.playTap();
+          this.loadLevel(this.levelIndex + 1);
+        }
+      }
+
       useHint() {
         if (this.state !== 'IDLE') return;
         const step = MazeSolver.solveNextStep(this.grid, this.ball.r, this.ball.c, this.painted);
         if (step) {
-          this.hintArrow = { ...step, timer: 1.8 };
+          this.hintArrow = { ...step, timer: 2.2 };
           this.synth.playTap();
           this.haptic(15);
         }
@@ -4385,6 +4462,7 @@
 
         if (steps > 0) {
           this.state = 'MOVING';
+          this.levelSwipes++;
           this.startMoveR = this.ball.r;
           this.startMoveC = this.ball.c;
           this.ball.targetR = currR;
@@ -4474,19 +4552,20 @@
       }
 
       handleWin() {
-        this.state = 'GREAT_ANIMATION';
-        this.greatAnimTimer = 1.6;
+        this.state = 'VICTORY_MODAL';
+        this.levelDurationSec = Math.max(1, Math.round((performance.now() - this.levelStartTime) / 1000));
+        this.victoryAnimT = 0;
         this.rippleRadius = 0;
         this.synth.playWinFanfare();
         this.haptic(40);
 
-        for (let i = 0; i < 40; i++) {
+        for (let i = 0; i < 50; i++) {
           this.confetti.push({
             x: this.width / 2,
-            y: this.height / 2,
-            vx: (Math.random() - 0.5) * 320,
-            vy: -140 - Math.random() * 220,
-            color: this.colorObj.hex,
+            y: this.height / 2 - 40,
+            vx: (Math.random() - 0.5) * 340,
+            vy: -160 - Math.random() * 240,
+            color: (i % 2 === 0) ? this.colorObj.hex : '#FBBF24',
             size: 5 + Math.random() * 5,
             alpha: 1.0,
             rot: Math.random() * Math.PI,
@@ -4494,7 +4573,7 @@
           });
         }
 
-        Host.post('onLevelCompleted', { level: this.levelIndex + 1, difficulty: this.difficulty });
+        Host.post('onLevelCompleted', { level: this.levelIndex + 1, difficulty: this.difficulty, swipes: this.levelSwipes });
       }
 
       haptic(ms) {
@@ -4550,7 +4629,7 @@
           c.y += c.vy * dt;
           c.vy += 320 * dt;
           c.rot += c.vrot * dt;
-          c.alpha -= dt * 0.45;
+          c.alpha -= dt * 0.40;
           if (c.alpha <= 0) this.confetti.splice(i, 1);
         }
 
@@ -4559,12 +4638,9 @@
           if (this.hintArrow.timer <= 0) this.hintArrow = null;
         }
 
-        if (this.state === 'GREAT_ANIMATION') {
+        if (this.state === 'VICTORY_MODAL') {
+          this.victoryAnimT += dt;
           this.rippleRadius += dt * 380;
-          this.greatAnimTimer -= dt;
-          if (this.greatAnimTimer <= 0) {
-            this.loadLevel(this.levelIndex + 1);
-          }
         }
 
         this.render();
@@ -4604,8 +4680,8 @@
         this.renderBottomControls(ctx);
         this.renderConfetti(ctx);
 
-        if (this.state === 'GREAT_ANIMATION') this.renderGreatBanner(ctx);
-        if (this.state === 'MODE_SELECT') this.renderModeDialog(ctx);
+        if (this.state === 'VICTORY_MODAL') this.renderVictoryModal(ctx);
+        if (this.state === 'MODE_SELECT') this.renderSudokuStyleDifficultyModal(ctx);
 
         ctx.restore();
       }
@@ -4613,40 +4689,27 @@
       renderTopUI(ctx) {
         const y = this.headerY;
 
-        // Circular White Back Button
-        ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetY = 4;
-        ctx.beginPath();
-        ctx.arc(36, y + 2, 22, 0, Math.PI * 2);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fill();
-        ctx.restore();
-
-        ctx.font = '900 20px Outfit, sans-serif';
-        ctx.fillStyle = '#701A75';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('‹', 36, y + 2);
-
-        // Top Center Difficulty Pill
-        const pillW = 86;
+        // Top Center Difficulty Pill (Tappable with subtle chevron)
+        const pillW = 96;
         const pillH = 22;
         const pillX = (this.width - pillW) / 2;
         const pillY = y - 16;
 
+        let diffColor = '#10B981';
+        if (this.difficulty === 'medium') diffColor = '#F59E0B';
+        if (this.difficulty === 'hard') diffColor = '#EF4444';
+
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(pillX, pillY, pillW, pillH, 11);
-        ctx.fillStyle = '#A8A29E';
+        ctx.fillStyle = diffColor;
         ctx.fill();
 
         ctx.font = '900 11px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(this.difficulty.toUpperCase(), this.width / 2, pillY + pillH / 2 + 1);
+        ctx.fillText(this.difficulty.toUpperCase() + ' ▾', this.width / 2, pillY + pillH / 2 + 1);
         ctx.restore();
 
         // Level Title in Deep Berry Purple
@@ -4655,6 +4718,12 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('Level ' + (this.levelIndex + 1), this.width / 2, y + 20);
+
+        // Paint Coverage Percentage Meter
+        const pct = Math.min(100, Math.round((this.paintedCount / this.totalPlayableTiles) * 100));
+        ctx.font = '800 12px Outfit, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.fillText(pct + '% COATED', this.width / 2, y + 38);
       }
 
       // UNDERGROUND SUNKEN TRAY 3D DEPTH
@@ -4740,7 +4809,7 @@
         }
 
         // 3. Victory Radial Wave
-        if (this.state === 'GREAT_ANIMATION' && this.rippleRadius > 0) {
+        if (this.state === 'VICTORY_MODAL' && this.rippleRadius > 0) {
           ctx.save();
           ctx.beginPath();
           ctx.arc(this.width / 2, this.boardY + this.boardH / 2, this.rippleRadius, 0, Math.PI * 2);
@@ -4921,106 +4990,179 @@
         ctx.restore();
       }
 
-      renderGreatBanner(ctx) {
-        ctx.save();
-        ctx.fillStyle = 'rgba(250, 247, 238, 0.45)';
+      // AAA CUSTOM LEVEL COMPLETE MODAL (Clean, Elegant, Zero Emojis, Pure Tactile Design)
+      renderVictoryModal(ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.70)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const textY = this.boardY + this.boardH / 2;
-
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-        ctx.shadowBlur = 16;
-
-        ctx.font = '900 48px Outfit, sans-serif';
-        ctx.fillStyle = this.colorObj.hex;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('GREAT!', this.width / 2, textY);
-
-        ctx.font = '900 18px Outfit, sans-serif';
-        ctx.fillStyle = '#701A75';
-        ctx.fillText('Level Complete ⭐', this.width / 2, textY + 44);
-
-        ctx.restore();
-      }
-
-      renderConfetti(ctx) {
-        for (const c of this.confetti) {
-          ctx.save();
-          ctx.translate(c.x, c.y);
-          ctx.rotate(c.rot);
-          ctx.fillStyle = c.color;
-          ctx.globalAlpha = Math.max(0, c.alpha);
-          ctx.fillRect(-c.size / 2, -c.size / 2, c.size, c.size * 0.7);
-          ctx.restore();
-        }
-      }
-
-      renderModeDialog(ctx) {
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
-        ctx.fillRect(0, 0, this.width, this.height);
-
-        const cardW = Math.min(310, this.width - 36);
-        const cardH = 300;
+        const cardW = Math.min(310, this.width - 40);
+        const cardH = 310;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 28;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.40)';
+        ctx.shadowBlur = 32;
+        ctx.shadowOffsetY = 12;
         ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 20);
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
+        ctx.restore();
 
-        ctx.font = '900 18px Outfit, sans-serif';
+        // Top Header
+        ctx.font = '900 20px Outfit, sans-serif';
+        ctx.fillStyle = '#701A75';
+        ctx.textAlign = 'center';
+        ctx.fillText('LEVEL COMPLETED', this.width / 2, cardY + 38);
+
+        // Centerpiece Ring Badge
+        const ringY = cardY + 104;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(this.width / 2, ringY, 36, 0, Math.PI * 2);
+        ctx.fillStyle = '#FAF7EE';
+        ctx.fill();
+        ctx.strokeStyle = this.colorObj.hex;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        ctx.font = '900 20px Outfit, sans-serif';
+        ctx.fillStyle = this.colorObj.hex;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('100%', this.width / 2, ringY - 2);
+
+        ctx.font = '800 10px Outfit, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.fillText('COATED', this.width / 2, ringY + 16);
+        ctx.restore();
+
+        // Level Stats Row (Swipes & Time)
+        const statsY = cardY + 176;
+        ctx.font = '800 13px Outfit, sans-serif';
+        ctx.fillStyle = '#1E293B';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.levelSwipes + ' Swipes  •  ' + this.levelDurationSec + 's Time', this.width / 2, statsY);
+
+        ctx.font = '600 11px Outfit, sans-serif';
+        ctx.fillStyle = '#94A3B8';
+        ctx.fillText('Difficulty: ' + this.difficulty.toUpperCase(), this.width / 2, statsY + 18);
+
+        // Big Juicy Bouncy [ NEXT LEVEL ▶ ] Button
+        const btnW = cardW - 40;
+        const btnH = 50;
+        const btnX = cardX + 20;
+        const btnY = cardY + cardH - 68;
+
+        ctx.save();
+        ctx.shadowColor = this.colorObj.hex + '66';
+        ctx.shadowBlur = 16;
+        ctx.shadowOffsetY = 5;
+
+        ctx.beginPath();
+        ctx.roundRect(btnX, btnY, btnW, btnH, 16);
+        const btnGrad = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
+        btnGrad.addColorStop(0, this.colorObj.hex);
+        btnGrad.addColorStop(1, this.colorObj.darkHex);
+        ctx.fillStyle = btnGrad;
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.font = '900 16px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('NEXT LEVEL ▶', btnX + btnW / 2, btnY + btnH / 2);
+      }
+
+      // SUDOKU PRO STYLE DIFFICULTY MODAL (Theme-Matched with Outfit font & color cards)
+      renderSudokuStyleDifficultyModal(ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 340;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 32;
+        ctx.shadowOffsetY = 12;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.restore();
+
+        // Modal Title
+        ctx.font = '900 19px Outfit, sans-serif';
         ctx.fillStyle = '#701A75';
         ctx.textAlign = 'center';
         ctx.fillText('SELECT DIFFICULTY', this.width / 2, cardY + 38);
 
+        // Close '✕' Button
         ctx.font = '800 18px sans-serif';
         ctx.fillStyle = '#94A3B8';
-        ctx.fillText('✕', cardX + cardW - 26, cardY + 38);
+        ctx.fillText('✕', cardX + cardW - 26, cardY + 36);
 
         const modes = [
-          { id: 'easy', label: 'EASY', desc: '10-14 swipes labyrinth puzzles' },
-          { id: 'medium', label: 'MEDIUM', desc: '14-16 swipes multi-corridor mazes' },
-          { id: 'hard', label: 'HARD', desc: '18-21+ swipes hardcore master mazes' }
+          { id: 'easy', label: 'EASY', desc: '10-14 Swipes • Relaxed tracks', color: '#10B981' },
+          { id: 'medium', label: 'MEDIUM', desc: '14-16 Swipes • Tricky corridors', color: '#F59E0B' },
+          { id: 'hard', label: 'HARD', desc: '18-21+ Swipes • Hardcore master', color: '#EF4444' }
         ];
 
-        const optH = 64;
-        const startY = cardY + 68;
+        const optH = 72;
+        const startY = cardY + 66;
 
         for (let i = 0; i < modes.length; i++) {
           const m = modes[i];
-          const optY = startY + i * (optH + 10);
+          const optY = startY + i * (optH + 12);
           const isSelected = (this.difficulty === m.id);
 
+          ctx.save();
+          if (isSelected) {
+            ctx.shadowColor = m.color + '44';
+            ctx.shadowBlur = 12;
+            ctx.shadowOffsetY = 3;
+          }
+
           ctx.beginPath();
-          ctx.roundRect(cardX + 16, optY, cardW - 32, optH, 14);
+          ctx.roundRect(cardX + 16, optY, cardW - 32, optH, 16);
           ctx.fillStyle = isSelected ? '#FAF7EE' : '#F8FAFC';
           ctx.fill();
-          ctx.strokeStyle = isSelected ? '#701A75' : '#E2E8F0';
-          ctx.lineWidth = isSelected ? 2.0 : 1.2;
+          ctx.strokeStyle = isSelected ? m.color : '#E2E8F0';
+          ctx.lineWidth = isSelected ? 2.2 : 1.2;
           ctx.stroke();
+          ctx.restore();
 
-          ctx.font = '900 15px Outfit, sans-serif';
+          // Left Color Pill Indicator
+          ctx.beginPath();
+          ctx.roundRect(cardX + 28, optY + 16, 6, optH - 32, 3);
+          ctx.fillStyle = m.color;
+          ctx.fill();
+
+          ctx.font = '900 16px Outfit, sans-serif';
           ctx.fillStyle = isSelected ? '#701A75' : '#1E293B';
           ctx.textAlign = 'left';
-          ctx.fillText(m.label, cardX + 32, optY + 26);
+          ctx.fillText(m.label, cardX + 44, optY + 28);
 
           ctx.font = '600 12px Outfit, sans-serif';
           ctx.fillStyle = '#64748B';
-          ctx.fillText(m.desc, cardX + 32, optY + 46);
+          ctx.fillText(m.desc, cardX + 44, optY + 50);
 
           if (isSelected) {
-            ctx.font = '900 16px sans-serif';
-            ctx.fillStyle = '#701A75';
+            ctx.font = '900 18px sans-serif';
+            ctx.fillStyle = m.color;
             ctx.textAlign = 'right';
-            ctx.fillText('✓', cardX + cardW - 32, optY + optH / 2);
+            ctx.fillText('✓', cardX + cardW - 28, optY + optH / 2);
           }
         }
-        ctx.restore();
       }
     }
 
