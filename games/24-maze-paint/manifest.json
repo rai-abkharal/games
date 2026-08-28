@@ -1,8 +1,8 @@
 {
   "id": "maze-paint",
-  "title": "Maze Paint",
+  "title": "Color Maze Paint",
   "version": "1.0.0",
-  "description": "Juicy roller splat puzzle game! Swipe in 4 directions to roll your paint ball across the maze, splatting glossy colorful paint on every tile to achieve 100% coverage. Features Easy, Medium, and Hard obstacle challenges.",
+  "description": "Premium 3D recessed tray roller paint puzzle game. Glide the glossy marble ball to coat every grid tile in bright, luscious color. Features Easy, Medium, and Hard level packs, intelligent hint solver, and 3D visual polish.",
   "orientation": "portrait",
   "engine": "canvas2d",
   "category": "Puzzle",
@@ -13,6 +13,7 @@
     "sound": true,
     "vibration": true,
     "modes": true,
+    "hints": true,
     "particles": true
   }
 }
