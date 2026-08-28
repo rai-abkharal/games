@@ -3842,7 +3842,7 @@
   ]
 };
 
-    // 3. SWEET JUICY AUDIO SYNTHESIZER
+    // 3. ELEGANT ZEN AUDIO SYNTHESIZER
     class SoundSynth {
       constructor() {
         this.ctx = null;
@@ -3868,7 +3868,7 @@
         osc.type = 'sine';
         osc.frequency.setValueAtTime(320, t);
         osc.frequency.exponentialRampToValueAtTime(220, t + 0.08);
-        gain.gain.setValueAtTime(0.09, t);
+        gain.gain.setValueAtTime(0.06, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
@@ -3883,8 +3883,8 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(540 + Math.random() * 80, t);
-        gain.gain.setValueAtTime(0.07, t);
+        osc.frequency.setValueAtTime(560 + Math.random() * 60, t);
+        gain.gain.setValueAtTime(0.06, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
@@ -3892,7 +3892,7 @@
         osc.stop(t + 0.05);
       }
 
-      // Sweet, Satisfying, Soft Juicy Bubble-Pop Wall Impact
+      // Ultra-Elegant Soft Marimba / Kalimba Acoustic Tap (Classy & Soothing)
       playImpact() {
         if (this.muted || !this.ctx) return;
         this.init();
@@ -3901,14 +3901,16 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(460, t);
-        osc.frequency.exponentialRampToValueAtTime(240, t + 0.07);
-        gain.gain.setValueAtTime(0.18, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+        osc.frequency.setValueAtTime(587.33, t); // D5 Marimba Note
+        osc.frequency.exponentialRampToValueAtTime(520, t + 0.05);
+
+        gain.gain.setValueAtTime(0.09, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(t);
-        osc.stop(t + 0.08);
+        osc.stop(t + 0.07);
       }
 
       // Cascading AAA Victory Fanfare
@@ -3922,7 +3924,7 @@
           const gain = this.ctx.createGain();
           osc.type = (i % 2 === 0) ? 'triangle' : 'sine';
           osc.frequency.setValueAtTime(freq, t);
-          gain.gain.setValueAtTime(0.20, t);
+          gain.gain.setValueAtTime(0.18, t);
           gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
           osc.connect(gain);
           gain.connect(this.ctx.destination);
@@ -3939,7 +3941,7 @@
         const gain = this.ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(540, t);
-        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.setValueAtTime(0.10, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
@@ -4287,7 +4289,7 @@
           if (e.stopPropagation) e.stopPropagation();
 
           const now = performance.now();
-          if (now - lastPointerDownTime < 180) return; // Prevent double-triggering
+          if (now - lastPointerDownTime < 180) return;
           lastPointerDownTime = now;
 
           this.synth.init();
@@ -4404,7 +4406,6 @@
 
       // SIMPLIFIED, CLEAN DIFFICULTY MODAL CLICK HANDLER
       handleModeModalClick(px, py) {
-        // Protect from immediate close right after open
         if (performance.now() - (this.modalOpenTime || 0) < 150) return;
 
         const cardW = Math.min(320, this.width - 36);
@@ -4564,7 +4565,7 @@
           });
         }
 
-        // Play Sweet, Soft Juicy Bubble-Pop Impact
+        // Play Ultra-Elegant Soft Marimba/Kalimba Tap
         this.synth.playImpact();
         this.haptic(20);
 
