@@ -42,8 +42,11 @@ async function deployAll() {
       try {
         const m = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
         if (deletedList.includes(m.id)) {
-          console.log(`🚫 Skipping blacklisted deleted game: ${m.title || m.id} (${m.id})`);
-          continue;
+          console.log(`✨ Reactivating & Unblacklisting Recreated Game from Repo: ${m.title || m.id} (${m.id})`);
+          deletedList = deletedList.filter(id => id !== m.id);
+          if (fs.existsSync(deletedGamesPath)) {
+            fs.writeFileSync(deletedGamesPath, JSON.stringify(deletedList, null, 2), 'utf8');
+          }
         }
       } catch {}
     }

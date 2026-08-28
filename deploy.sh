@@ -53,6 +53,16 @@ if [ -f /tmp/games_platform_backup/games.json ]; then
       if (fs.existsSync(delPath)) {
         try { deletedList = JSON.parse(fs.readFileSync(delPath, 'utf8')); } catch {}
       }
+      // Unblacklist any games that exist in current build/git
+      (cur.games || []).forEach(cg => {
+        if (deletedList.includes(cg.id)) {
+          console.log('✨ Unblacklisting recreated game from deleted_games.json:', cg.id);
+          deletedList = deletedList.filter(id => id !== cg.id);
+        }
+      });
+      if (fs.existsSync(delPath)) {
+        fs.writeFileSync(delPath, JSON.stringify(deletedList, null, 2), 'utf8');
+      }
 
       // 1. Find newly published games (present in cur from git/build, but not yet in live backup)
       const newGames = (cur.games || []).filter(cg => !bak.games.some(bg => bg.id === cg.id) && !deletedList.includes(cg.id));
