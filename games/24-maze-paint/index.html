@@ -3842,16 +3842,16 @@
   ]
 };
 
-    // 2. MODERN EDITORIAL DARK THEME & DIFFICULTY TIERS
+    // 2. MODERN EDITORIAL CREAM/WHITE THEME & DIFFICULTY TIERS
     const THEME = {
-      cardBg: '#13161F',
-      cardBorder: '#2E3547',
-      textMain: '#FFFFFF',
-      textMuted: '#94A3B8',
+      cardBg: '#FFFFFF',
+      cardBorder: '#E2E8F0',
+      textMain: '#1E293B',
+      textMuted: '#64748B',
       accentGreen: '#10B981',
       accentYellow: '#F59E0B',
       accentRed: '#EF4444',
-      accentPurple: '#8B5CF6'
+      accentPurple: '#701A75'
     };
 
     const DIFFICULTIES = [
@@ -5457,9 +5457,9 @@
         ctx.restore();
       }
 
-      // --- DARK THEMED SUDOKU PRO STYLE DIFFICULTY SLIDER MODAL ---
+      // --- EDITORIAL CREAM/WHITE SUDOKU PRO STYLE DIFFICULTY SLIDER MODAL ---
       renderSudokuSliderDifficultyModal(ctx) {
-        ctx.fillStyle = 'rgba(10, 13, 20, 0.85)';
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
         ctx.fillRect(0, 0, this.width, this.height);
 
         const cardW = Math.min(324, this.width - 36);
@@ -5468,19 +5468,21 @@
         const cardY = (this.height - cardH) / 2;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.70)';
-        ctx.shadowBlur = 36;
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.25)';
+        ctx.shadowBlur = 32;
+        ctx.shadowOffsetY = 8;
         ctx.beginPath();
         ctx.roundRect(cardX, cardY, cardW, cardH, 24);
-        ctx.fillStyle = THEME.cardBg;
+        ctx.fillStyle = '#FFFFFF';
         ctx.fill();
-        ctx.strokeStyle = THEME.cardBorder;
-        ctx.lineWidth = 2.0;
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
+        ctx.restore();
 
         // 1. Header Title: SELECT DIFFICULTY
         ctx.font = '900 18px Outfit, sans-serif';
-        ctx.fillStyle = THEME.textMain;
+        ctx.fillStyle = '#701A75';
         ctx.textAlign = 'center';
         ctx.fillText('SELECT DIFFICULTY', this.width / 2, cardY + 36);
 
@@ -5488,14 +5490,15 @@
         const emblemY = cardY + 98;
         const diffObj = DIFFICULTIES.find(d => d.id === this.difficulty) || DIFFICULTIES[0];
 
-        ctx.shadowColor = diffObj.color;
-        ctx.shadowBlur = 18;
+        ctx.save();
+        ctx.shadowColor = diffObj.color + '44';
+        ctx.shadowBlur = 14;
         ctx.beginPath();
         ctx.arc(this.width / 2, emblemY, 36, 0, Math.PI * 2);
-        ctx.fillStyle = '#1E2330';
+        ctx.fillStyle = '#FAF7EE';
         ctx.fill();
         ctx.strokeStyle = diffObj.color;
-        ctx.lineWidth = 3.5;
+        ctx.lineWidth = 3.0;
         ctx.stroke();
 
         ctx.font = '32px sans-serif';
@@ -5512,7 +5515,7 @@
         ctx.fillText(diffObj.label, this.width / 2, cardY + 162);
 
         ctx.font = '700 12.5px Outfit, sans-serif';
-        ctx.fillStyle = THEME.textMuted;
+        ctx.fillStyle = '#64748B';
         ctx.fillText(diffObj.subtitle, this.width / 2, cardY + 185);
 
         // 4. Horizontal Slider Track
@@ -5523,9 +5526,9 @@
 
         ctx.beginPath();
         ctx.roundRect(trackX, trackY, trackW, trackH, 7);
-        ctx.fillStyle = '#1E2330';
+        ctx.fillStyle = '#F1F5F9';
         ctx.fill();
-        ctx.strokeStyle = '#2E3547';
+        ctx.strokeStyle = '#CBD5E1';
         ctx.lineWidth = 1.2;
         ctx.stroke();
 
@@ -5545,8 +5548,10 @@
         const thumbX = trackX + trackW * this.sliderPos;
         const thumbY = trackY + trackH / 2;
 
-        ctx.shadowColor = diffObj.color;
-        ctx.shadowBlur = 12;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.20)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 2;
         ctx.beginPath();
         ctx.arc(thumbX, thumbY, 13, 0, Math.PI * 2);
         ctx.fillStyle = '#FFFFFF';
@@ -5563,8 +5568,9 @@
         const playBtnX = cardX + 24;
         const playBtnY = cardY + 282;
 
-        ctx.shadowColor = diffObj.color;
-        ctx.shadowBlur = 14;
+        ctx.shadowColor = diffObj.color + '66';
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetY = 3;
         ctx.beginPath();
         ctx.roundRect(playBtnX, playBtnY, playBtnW, playBtnH, 18);
         ctx.fillStyle = diffObj.color;
@@ -5578,11 +5584,12 @@
 
         // Purple ? Button
         const qBtnX = cardX + cardW - 74;
-        ctx.shadowColor = '#8B5CF6';
-        ctx.shadowBlur = 14;
+        ctx.shadowColor = 'rgba(112, 26, 117, 0.35)';
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetY = 3;
         ctx.beginPath();
         ctx.roundRect(qBtnX, playBtnY, 50, playBtnH, 18);
-        ctx.fillStyle = '#8B5CF6';
+        ctx.fillStyle = '#701A75';
         ctx.fill();
 
         ctx.font = '900 20px Outfit, sans-serif';
@@ -5593,9 +5600,9 @@
         ctx.restore();
       }
 
-      // --- SLEEK HOW TO PLAY MODAL ---
+      // --- EDITORIAL CREAM/WHITE HOW TO PLAY MODAL WITH REAL MAZE GRAPHICS ---
       renderHowToPlayModal(ctx) {
-        ctx.fillStyle = 'rgba(10, 13, 20, 0.85)';
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
         ctx.fillRect(0, 0, this.width, this.height);
 
         const cardW = Math.min(324, this.width - 36);
@@ -5604,23 +5611,25 @@
         const cardY = (this.height - cardH) / 2;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.70)';
-        ctx.shadowBlur = 36;
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.25)';
+        ctx.shadowBlur = 32;
+        ctx.shadowOffsetY = 8;
         ctx.beginPath();
         ctx.roundRect(cardX, cardY, cardW, cardH, 24);
-        ctx.fillStyle = THEME.cardBg;
+        ctx.fillStyle = '#FFFFFF';
         ctx.fill();
-        ctx.strokeStyle = THEME.cardBorder;
-        ctx.lineWidth = 2.0;
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
+        ctx.restore();
 
         // Title: HOW TO PLAY
         ctx.font = '900 18px Outfit, sans-serif';
-        ctx.fillStyle = THEME.textMain;
+        ctx.fillStyle = '#701A75';
         ctx.textAlign = 'center';
         ctx.fillText('HOW TO PLAY', this.width / 2, cardY + 30);
 
-        // Simulation Grid Container
+        // Simulation Maze Container (Cream Sunken Board)
         const gridBoxW = cardW - 48;
         const gridBoxH = 168;
         const gridBoxX = cardX + 24;
@@ -5628,75 +5637,108 @@
 
         ctx.beginPath();
         ctx.roundRect(gridBoxX, gridBoxY, gridBoxW, gridBoxH, 14);
-        ctx.fillStyle = '#1E2330';
+        ctx.fillStyle = '#FAF7EE';
         ctx.fill();
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
 
         const tRows = 4;
         const tCols = 4;
-        const tCellSize = gridBoxH / tRows;
+        const tCellSize = Math.floor(gridBoxH / tRows);
         const gridOffsetX = gridBoxX + (gridBoxW - tCols * tCellSize) / 2;
 
-        for (let r = 0; r < tRows; r++) {
-          for (let c = 0; c < tCols; c++) {
-            ctx.beginPath();
-            ctx.roundRect(gridOffsetX + c * tCellSize + 2, gridBoxY + r * tCellSize + 2, tCellSize - 4, tCellSize - 4, 6);
-            ctx.fillStyle = '#13161F';
+        // Draw In-Game Style Sunken Chasm Tiles
+        const drawMazeTile = (r, c, isPainted, color = '#10B981') => {
+          const tx = gridOffsetX + c * tCellSize;
+          const ty = gridBoxY + r * tCellSize;
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(tx + 1, ty + 1, tCellSize - 2, tCellSize - 2);
+          if (isPainted) {
+            ctx.fillStyle = color;
             ctx.fill();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+            ctx.fillRect(tx + 2, ty + 2, tCellSize - 4, 2);
+          } else {
+            ctx.fillStyle = '#334155';
+            ctx.fill();
+            ctx.fillStyle = '#1E293B';
+            ctx.fillRect(tx + 2, ty + tCellSize - 4, tCellSize - 4, 2);
           }
-        }
+          ctx.strokeStyle = isPainted ? '#059669' : '#243242';
+          ctx.lineWidth = 1.0;
+          ctx.stroke();
+          ctx.restore();
+        };
+
+        const drawGlossyMarble = (cx, cy, radius) => {
+          ctx.save();
+          // Shadow
+          ctx.beginPath();
+          ctx.ellipse(cx, cy + radius * 0.8, radius * 0.9, radius * 0.4, 0, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+          ctx.fill();
+          // Sphere
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+          const grad = ctx.createRadialGradient(cx - radius * 0.35, cy - radius * 0.35, radius * 0.08, cx, cy, radius);
+          grad.addColorStop(0, '#FFFFFF');
+          grad.addColorStop(0.55, '#F1F5F9');
+          grad.addColorStop(1, '#94A3B8');
+          ctx.fillStyle = grad;
+          ctx.fill();
+          // Specular gleam
+          ctx.beginPath();
+          ctx.arc(cx - radius * 0.32, cy - radius * 0.32, radius * 0.25, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.90)';
+          ctx.fill();
+          ctx.restore();
+        };
 
         const t = (this.tutorialAnimT % 2.5) / 2.5;
 
-        // Slide 1: Roll the Paint Roller Ball
+        // Slide 1: Roll the Marble Paint Ball
         if (this.tutorialSlide === 0) {
-          ctx.beginPath();
-          ctx.arc(gridOffsetX + 0.5 * tCellSize, gridBoxY + 0.5 * tCellSize, tCellSize * 0.35, 0, Math.PI * 2);
-          ctx.fillStyle = '#10B981';
-          ctx.fill();
+          for (let r = 0; r < tRows; r++) {
+            for (let c = 0; c < tCols; c++) {
+              drawMazeTile(r, c, (r === 0 && c === 0));
+            }
+          }
+          const ballX = gridOffsetX + (0.5 + t * 2.5) * tCellSize;
+          const ballY = gridBoxY + 0.5 * tCellSize;
+          drawGlossyMarble(ballX, ballY, tCellSize * 0.33);
 
-          const handX = gridOffsetX + (0.5 + t * 2.5) * tCellSize;
           ctx.font = '24px sans-serif';
-          ctx.fillText('👉', handX, gridBoxY + 0.5 * tCellSize + 8);
+          ctx.fillText('👉', ballX + tCellSize * 0.4, ballY + 6);
 
           ctx.font = '800 13.5px Outfit, sans-serif';
-          ctx.fillStyle = THEME.textMain;
+          ctx.fillStyle = '#1E293B';
           ctx.textAlign = 'center';
           ctx.fillText('Swipe in any direction to roll the', this.width / 2, cardY + 236);
-          ctx.fillText('paint roller ball through the maze.', this.width / 2, cardY + 256);
+          ctx.fillText('marble paint ball through the maze.', this.width / 2, cardY + 256);
         }
-        // Slide 2: The Ball Paints Every Tile
+        // Slide 2: The Ball Paints Every Tile Along Path
         else if (this.tutorialSlide === 1) {
-          for (let c = 0; c < 4; c++) {
-            ctx.beginPath();
-            ctx.roundRect(gridOffsetX + c * tCellSize + 2, gridBoxY + 0.5 * tCellSize - tCellSize * 0.45, tCellSize - 4, tCellSize - 4, 6);
-            ctx.fillStyle = '#10B981';
-            ctx.fill();
+          for (let r = 0; r < tRows; r++) {
+            for (let c = 0; c < tCols; c++) {
+              const isP = (r === 0) || (c === 3);
+              drawMazeTile(r, c, isP);
+            }
           }
-          for (let r = 1; r < 4; r++) {
-            ctx.beginPath();
-            ctx.roundRect(gridOffsetX + 3 * tCellSize + 2, gridBoxY + r * tCellSize + 2, tCellSize - 4, tCellSize - 4, 6);
-            ctx.fillStyle = '#10B981';
-            ctx.fill();
-          }
-          ctx.beginPath();
-          ctx.arc(gridOffsetX + 3.5 * tCellSize, gridBoxY + 3.5 * tCellSize, tCellSize * 0.35, 0, Math.PI * 2);
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fill();
+          drawGlossyMarble(gridOffsetX + 3.5 * tCellSize, gridBoxY + 3.5 * tCellSize, tCellSize * 0.33);
 
           ctx.font = '800 13.5px Outfit, sans-serif';
-          ctx.fillStyle = THEME.textMain;
+          ctx.fillStyle = '#1E293B';
           ctx.textAlign = 'center';
           ctx.fillText('The ball rolls until it hits a wall,', this.width / 2, cardY + 236);
-          ctx.fillText('painting every tile along its trail.', this.width / 2, cardY + 256);
+          ctx.fillText('coating every tile along its trail.', this.width / 2, cardY + 256);
         }
         // Slide 3: Paint 100% of Tiles to Win
         else {
           for (let r = 0; r < tRows; r++) {
             for (let c = 0; c < tCols; c++) {
-              ctx.beginPath();
-              ctx.roundRect(gridOffsetX + c * tCellSize + 2, gridBoxY + r * tCellSize + 2, tCellSize - 4, tCellSize - 4, 6);
-              ctx.fillStyle = '#10B981';
-              ctx.fill();
+              drawMazeTile(r, c, true);
             }
           }
           ctx.font = '32px sans-serif';
@@ -5704,7 +5746,7 @@
           ctx.fillText('⭐', gridOffsetX + 2 * tCellSize, gridBoxY + 2 * tCellSize);
 
           ctx.font = '800 13.5px Outfit, sans-serif';
-          ctx.fillStyle = THEME.textMain;
+          ctx.fillStyle = '#1E293B';
           ctx.textAlign = 'center';
           ctx.fillText('Paint 100% of all playable tiles in', this.width / 2, cardY + 236);
           ctx.fillText('the labyrinth to complete the level!', this.width / 2, cardY + 256);
@@ -5718,10 +5760,13 @@
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(cardX + 16, btnY, 48, btnH, 14);
-        ctx.fillStyle = (this.tutorialSlide > 0) ? '#2E3547' : '#1E2330';
+        ctx.fillStyle = (this.tutorialSlide > 0) ? '#F1F5F9' : '#F8FAFC';
         ctx.fill();
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
         ctx.font = '900 18px Outfit, sans-serif';
-        ctx.fillStyle = (this.tutorialSlide > 0) ? '#FFFFFF' : '#475569';
+        ctx.fillStyle = (this.tutorialSlide > 0) ? '#1E293B' : '#94A3B8';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('◀', cardX + 40, btnY + btnH / 2 + 1);
@@ -5731,11 +5776,12 @@
         const okW = cardW - 140;
         const okX = cardX + 70;
         ctx.save();
-        ctx.shadowColor = '#8B5CF6';
+        ctx.shadowColor = 'rgba(112, 26, 117, 0.30)';
         ctx.shadowBlur = 12;
+        ctx.shadowOffsetY = 3;
         ctx.beginPath();
         ctx.roundRect(okX, btnY, okW, btnH, 14);
-        ctx.fillStyle = '#8B5CF6';
+        ctx.fillStyle = '#701A75';
         ctx.fill();
         ctx.font = '900 16px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
@@ -5749,10 +5795,13 @@
         const nextX = cardX + cardW - 64;
         ctx.beginPath();
         ctx.roundRect(nextX, btnY, 48, btnH, 14);
-        ctx.fillStyle = '#2E3547';
+        ctx.fillStyle = '#F1F5F9';
         ctx.fill();
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
         ctx.font = '900 18px Outfit, sans-serif';
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = '#1E293B';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('▶', nextX + 24, btnY + btnH / 2 + 1);
@@ -5764,7 +5813,7 @@
           const dx = this.width / 2 + (i - 1) * 16;
           ctx.beginPath();
           ctx.arc(dx, dotY, (i === this.tutorialSlide) ? 4.5 : 3, 0, Math.PI * 2);
-          ctx.fillStyle = (i === this.tutorialSlide) ? '#8B5CF6' : '#475569';
+          ctx.fillStyle = (i === this.tutorialSlide) ? '#701A75' : '#CBD5E1';
           ctx.fill();
         }
         ctx.restore();
