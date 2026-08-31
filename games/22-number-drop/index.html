@@ -475,19 +475,30 @@
         this.canvas.width = Math.round(this.width * dpr);
         this.canvas.height = Math.round(this.height * dpr);
 
-        this.headerY = 48;
-        this.subHudY = this.headerY + 54;
+        // 1. Dynamic Top Safe Area & Header Coordinates
+        this.headerY = Math.max(16, Math.min(26, Math.round(this.height * 0.03)));
+        this.subHudY = this.headerY + 48;
 
-        const availW = Math.min(340, this.width - 32);
-        this.colWidth = Math.floor(availW / this.cols);
+        // 2. Available Vertical & Horizontal Space for Board & Drop Zone
+        const topOccupied = this.subHudY + 46;
+        const bottomMargin = Math.max(16, Math.round(this.height * 0.025));
+        const availH = Math.max(200, this.height - topOccupied - bottomMargin);
+        const availW = Math.min(360, this.width - 28);
+
+        // Calculate maximum cell size bounded by BOTH screen height and screen width
+        const maxColFromH = Math.floor(availH / (this.maxRows + 1.25));
+        const maxColFromW = Math.floor(availW / this.cols);
+
+        this.colWidth = Math.max(30, Math.min(maxColFromW, maxColFromH, 62));
         this.boardW = this.colWidth * this.cols;
-        this.tileSize = Math.floor(this.colWidth * 0.90);
-
         this.boardH = this.colWidth * this.maxRows;
-        this.boardX = Math.round((this.width - this.boardW) / 2);
-        this.boardY = Math.round(this.height - this.boardH - 24);
+        this.tileSize = Math.floor(this.colWidth * 0.88);
 
-        this.spawnY = this.boardY - this.colWidth * 1.35;
+        this.boardX = Math.round((this.width - this.boardW) / 2);
+        this.boardY = Math.round(this.height - this.boardH - bottomMargin);
+
+        // Spawn Aiming Line is positioned cleanly above the board with generous clearance
+        this.spawnY = Math.round(this.boardY - this.colWidth * 1.18);
         this.resetPieceToCenter();
       }
 
@@ -537,10 +548,10 @@
       }
 
       updateDifficultySlider(px) {
-        const cardW = Math.min(324, this.width - 36);
+        const cardW = Math.min(320, this.width - 32);
         const cardX = (this.width - cardW) / 2;
-        const trackX = cardX + 32;
-        const trackW = cardW - 64;
+        const trackX = cardX + 30;
+        const trackW = cardW - 60;
 
         let pct = (px - trackX) / trackW;
         pct = Math.max(0, Math.min(1.0, pct));
@@ -569,14 +580,14 @@
           return;
         }
 
-        const cardW = Math.min(324, this.width - 36);
-        const cardH = 376;
+        const cardW = Math.min(320, this.width - 32);
+        const cardH = Math.min(376, this.height - 40);
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
-        const trackX = cardX + 32;
-        const trackW = cardW - 64;
-        const trackY = cardY + 218;
+        const trackX = cardX + 30;
+        const trackW = cardW - 60;
+        const trackY = cardY + 212;
 
         // Slider Touch
         if (py >= trackY - 24 && py <= trackY + 32 && px >= trackX - 16 && px <= trackX + trackW + 16) {
@@ -586,10 +597,10 @@
         }
 
         // PLAY Button
-        const playBtnW = cardW - 110;
-        const playBtnH = 50;
-        const playBtnX = cardX + 24;
-        const playBtnY = cardY + 282;
+        const playBtnW = cardW - 96;
+        const playBtnH = 48;
+        const playBtnX = cardX + 20;
+        const playBtnY = cardY + cardH - 68;
 
         if (px >= playBtnX && px <= playBtnX + playBtnW && py >= playBtnY && py <= playBtnY + playBtnH) {
           this.playBtnDown = true;
@@ -597,8 +608,9 @@
         }
 
         // ? Question Button
-        const qBtnX = cardX + cardW - 74;
-        if (px >= qBtnX && px <= qBtnX + 50 && py >= playBtnY && py <= playBtnY + playBtnH) {
+        const qBtnX = cardX + cardW - 64;
+        const qBtnW = 44;
+        if (px >= qBtnX && px <= qBtnX + qBtnW && py >= playBtnY && py <= playBtnY + playBtnH) {
           this.qBtnDown = true;
           return;
         }
@@ -617,14 +629,14 @@
           return;
         }
 
-        const cardW = Math.min(324, this.width - 36);
-        const cardH = 376;
+        const cardW = Math.min(320, this.width - 32);
+        const cardH = Math.min(376, this.height - 40);
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
-        const playBtnW = cardW - 110;
-        const playBtnH = 50;
-        const playBtnX = cardX + 24;
-        const playBtnY = cardY + 282;
+        const playBtnW = cardW - 96;
+        const playBtnH = 48;
+        const playBtnX = cardX + 20;
+        const playBtnY = cardY + cardH - 68;
 
         if (this.playBtnDown) {
           this.playBtnDown = false;
@@ -638,10 +650,11 @@
           }
         }
 
-        const qBtnX = cardX + cardW - 74;
+        const qBtnX = cardX + cardW - 64;
+        const qBtnW = 44;
         if (this.qBtnDown) {
           this.qBtnDown = false;
-          if (px >= qBtnX - 10 && px <= qBtnX + 60 && py >= playBtnY - 10 && py <= playBtnY + playBtnH + 10) {
+          if (px >= qBtnX - 10 && px <= qBtnX + qBtnW + 10 && py >= playBtnY - 10 && py <= playBtnY + playBtnH + 10) {
             this.synth.playTap();
             this.tutorialSlide = 0;
             this.tutorialAnimT = 0;
@@ -657,11 +670,11 @@
           return;
         }
 
-        const cardW = Math.min(324, this.width - 36);
-        const cardH = 376;
+        const cardW = Math.min(320, this.width - 32);
+        const cardH = Math.min(376, this.height - 40);
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
-        const btnY = cardY + 312;
+        const btnY = cardY + cardH - 60;
         const btnH = 44;
 
         // 1. Back Arrow Button
@@ -675,8 +688,8 @@
         }
 
         // 2. Center OK Button
-        const okX = cardX + 70;
-        const okW = cardW - 140;
+        const okX = cardX + 68;
+        const okW = cardW - 136;
         if (px >= okX && px <= okX + okW && py >= btnY - 4 && py <= btnY + btnH + 4) {
           this.synth.playTap();
           this.lastPlayClickTime = performance.now();
@@ -685,7 +698,7 @@
         }
 
         // 3. Next Arrow Button
-        const nextX = cardX + cardW - 64;
+        const nextX = cardX + cardW - 60;
         if (px >= nextX && px <= nextX + 48 && py >= btnY - 4 && py <= btnY + btnH + 4) {
           if (this.tutorialSlide < 2) {
             this.synth.playTap();
@@ -745,18 +758,19 @@
             return;
           }
 
-          // Top Header Mode Pill (px: modePillX, py: headerY) -> Open Difficulty Modal
-          if (py >= this.headerY - 4 && py <= this.headerY + 54) {
-            const modePillW = 112;
-            const modePillX = (this.width / 2) - modePillW - 8;
-            if (px >= modePillX && px <= modePillX + modePillW) {
+          // Top Header Mode Pill -> Open Difficulty Modal
+          const pillW = Math.min(116, Math.floor((this.width - 96) / 2));
+          const modePillX = Math.round((this.width / 2) - pillW - 6);
+          if (py >= this.headerY - 4 && py <= this.headerY + 46) {
+            if (px >= modePillX && px <= modePillX + pillW) {
               this.synth.playTap();
               this.showDiffSelect();
               return;
             }
 
             // Restart Button (↺)
-            if (px >= this.width - 56 && px <= this.width - 14) {
+            const restartX = this.width - 32;
+            if (px >= restartX - 24 && px <= restartX + 24) {
               this.synth.playTap();
               this.startNewGame(true);
               return;
@@ -764,14 +778,15 @@
           }
 
           // Sub-HUD Undo Button
-          if (py >= this.subHudY - 6 && py <= this.subHudY + 50 && px >= 14 && px <= 78) {
+          const undoX = Math.max(28, this.boardX + 18);
+          if (py >= this.subHudY - 6 && py <= this.subHudY + 44 && px >= undoX - 22 && px <= undoX + 22) {
             this.handleUndo();
             return;
           }
 
           // Game Over Modal Restart
           if (this.state === 'GAME_OVER') {
-            const cardW = Math.min(320, this.width - 36);
+            const cardW = Math.min(320, this.width - 32);
             const cardH = 310;
             const cardY = (this.height - cardH) / 2;
             const btnW = 200, btnH = 48;
@@ -784,8 +799,8 @@
             return;
           }
 
-          const inPlayZone = (px >= this.boardX - 8 && px <= this.boardX + this.boardW + 8 &&
-                              py >= this.spawnY - 20 && py <= this.boardY + this.boardH + 10);
+          const inPlayZone = (px >= this.boardX - 12 && px <= this.boardX + this.boardW + 12 &&
+                              py >= this.spawnY - 24 && py <= this.boardY + this.boardH + 20);
 
           if (this.state === 'AIMING' && inPlayZone) {
             this.isPointerDown = true;
@@ -1213,16 +1228,17 @@
 
       renderHeader(ctx) {
         const y = this.headerY;
+        const pillH = 40;
+        const pillW = Math.min(116, Math.floor((this.width - 96) / 2));
 
-        // Mode & Live Score Pill
-        const modePillW = 112;
-        const modePillX = (this.width / 2) - modePillW - 8;
+        // Mode & Live Score Pill (Left Center)
+        const modePillX = Math.round((this.width / 2) - pillW - 6);
         ctx.save();
         ctx.shadowColor = 'rgba(15, 23, 42, 0.06)';
         ctx.shadowBlur = 8;
         ctx.shadowOffsetY = 2;
         ctx.beginPath();
-        ctx.roundRect(modePillX, y, modePillW, 42, 12);
+        ctx.roundRect(modePillX, y, pillW, pillH, 12);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
         ctx.strokeStyle = '#E2E8F0';
@@ -1230,24 +1246,23 @@
         ctx.stroke();
 
         ctx.font = '800 10.5px Fredoka, sans-serif';
-        ctx.fillStyle = '#64748B';
+        ctx.fillStyle = this.mode.color || '#10B981';
         ctx.textAlign = 'center';
-        ctx.fillText(this.mode.label + ' ▾', modePillX + modePillW / 2, y + 14);
+        ctx.fillText(this.mode.label + ' ▾', modePillX + pillW / 2, y + 13);
 
-        ctx.font = '900 16px Fredoka, sans-serif';
+        ctx.font = '900 15px Fredoka, sans-serif';
         ctx.fillStyle = '#0F172A';
-        ctx.fillText(this.score.toLocaleString(), modePillX + modePillW / 2, y + 32);
+        ctx.fillText(this.score.toLocaleString(), modePillX + pillW / 2, y + 30);
         ctx.restore();
 
-        // All Time High Score Pill
-        const bestPillW = 112;
-        const bestPillX = (this.width / 2) + 8;
+        // All Time High Score Pill (Right Center)
+        const bestPillX = Math.round((this.width / 2) + 6);
         ctx.save();
         ctx.shadowColor = 'rgba(15, 23, 42, 0.06)';
         ctx.shadowBlur = 8;
         ctx.shadowOffsetY = 2;
         ctx.beginPath();
-        ctx.roundRect(bestPillX, y, bestPillW, 42, 12);
+        ctx.roundRect(bestPillX, y, pillW, pillH, 12);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
         ctx.strokeStyle = '#E2E8F0';
@@ -1257,66 +1272,98 @@
         ctx.font = '800 10px Fredoka, sans-serif';
         ctx.fillStyle = '#D97706';
         ctx.textAlign = 'center';
-        ctx.fillText('👑 ALL TIME', bestPillX + bestPillW / 2, y + 14);
+        ctx.fillText('👑 ALL TIME', bestPillX + pillW / 2, y + 13);
 
-        ctx.font = '900 16px Fredoka, sans-serif';
+        ctx.font = '900 15px Fredoka, sans-serif';
         ctx.fillStyle = '#D97706';
-        ctx.fillText(this.allTimeBest.toLocaleString(), bestPillX + bestPillW / 2, y + 32);
+        ctx.fillText(this.allTimeBest.toLocaleString(), bestPillX + pillW / 2, y + 30);
         ctx.restore();
 
         // Restart Button (↺)
-        const restartX = this.width - 36;
+        const restartX = this.width - 32;
         ctx.save();
         ctx.shadowColor = 'rgba(15, 23, 42, 0.08)';
         ctx.shadowBlur = 8;
         ctx.shadowOffsetY = 2;
         ctx.beginPath();
-        ctx.arc(restartX, y + 21, 20, 0, Math.PI * 2);
+        ctx.arc(restartX, y + pillH / 2, 19, 0, Math.PI * 2);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
         ctx.strokeStyle = '#E2E8F0';
         ctx.lineWidth = 1.2;
         ctx.stroke();
 
-        ctx.font = '900 18px sans-serif';
+        ctx.font = '900 17px sans-serif';
         ctx.fillStyle = '#EF4444';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('↺', restartX, y + 21);
+        ctx.fillText('↺', restartX, y + pillH / 2);
         ctx.restore();
       }
 
       renderSubHUD(ctx) {
         const y = this.subHudY;
 
-        // Undo Button (Left)
-        const undoX = 36;
-        const undoY = y + 18;
+        // Undo Button (Left, aligned with board left edge)
+        const undoX = Math.max(28, this.boardX + 18);
+        const undoY = y + 16;
         ctx.save();
         ctx.shadowColor = 'rgba(245, 158, 11, 0.25)';
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 8;
         ctx.shadowOffsetY = 2;
         ctx.beginPath();
-        ctx.arc(undoX, undoY, 22, 0, Math.PI * 2);
+        ctx.arc(undoX, undoY, 18, 0, Math.PI * 2);
         ctx.fillStyle = '#FEF3C7';
         ctx.fill();
         ctx.strokeStyle = '#FDE68A';
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1.2;
         ctx.stroke();
 
-        ctx.font = '900 18px sans-serif';
+        ctx.font = '900 16px sans-serif';
         ctx.fillStyle = '#D97706';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('↶', undoX, undoY - 1);
 
         ctx.beginPath();
-        ctx.arc(undoX + 15, undoY - 15, 8.5, 0, Math.PI * 2);
+        ctx.arc(undoX + 13, undoY - 13, 7.5, 0, Math.PI * 2);
         ctx.fillStyle = '#D97706';
         ctx.fill();
-        ctx.font = '900 10.5px Inter, sans-serif';
+        ctx.font = '900 9.5px Inter, sans-serif';
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(this.undoCharges.toString(), undoX + 15, undoY - 14);
+        ctx.fillText(this.undoCharges.toString(), undoX + 13, undoY - 12);
+        ctx.restore();
+
+        // Dedicated Next Tile Preview Badge (Right, aligned with board right edge)
+        const nextBadgeW = 72;
+        const nextBadgeH = 34;
+        const nextBadgeX = Math.min(this.width - nextBadgeW - 14, this.boardX + this.boardW - nextBadgeW);
+        const nextBadgeY = y - 1;
+        const nextPal = TILE_PALETTE[this.nextVal] || TILE_PALETTE[2];
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.06)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetY = 2;
+        ctx.beginPath();
+        ctx.roundRect(nextBadgeX, nextBadgeY, nextBadgeW, nextBadgeH, 10);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '900 9.5px Fredoka, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('NEXT', nextBadgeX + 8, nextBadgeY + nextBadgeH / 2);
+
+        // Mini Tile preview
+        const miniTs = 22;
+        const miniX = nextBadgeX + nextBadgeW - miniTs / 2 - 6;
+        const miniY = nextBadgeY + nextBadgeH / 2;
+        this.drawTile(ctx, miniX, miniY, miniTs, this.nextVal, nextPal, 0, 1.0);
         ctx.restore();
       }
 
@@ -1352,7 +1399,7 @@
 
         // Dynamic downward glow matching current piece color
         const activePal = TILE_PALETTE[this.currentVal] || TILE_PALETTE[2];
-        const dangerH = this.colWidth * 1.5;
+        const dangerH = Math.min(bh, this.colWidth * 1.5);
         const dangerGrad = ctx.createLinearGradient(0, by, 0, by + dangerH);
         dangerGrad.addColorStop(0, activePal.glow + '25');
         dangerGrad.addColorStop(1, activePal.glow + '00');
@@ -1368,7 +1415,7 @@
         if (this.state === 'FALLING' && this.fallingPiece) {
           const p = this.fallingPiece;
           const pal = TILE_PALETTE[p.val] || TILE_PALETTE[2];
-          const beamLen = Math.min(130, p.y - this.boardY + 20);
+          const beamLen = Math.min(130, Math.max(20, p.y - this.boardY + 20));
 
           ctx.save();
           const glowGrad = ctx.createLinearGradient(0, p.y, 0, p.y - beamLen);
@@ -1418,25 +1465,26 @@
           this.drawTile(ctx, p.x, p.y, ts, p.val, pal, 0.4, 1.0);
         }
 
-        // 4. NEXT UPCOMING BLOCK
-        const centerSpawnX = bx + 2 * cs + cs / 2;
-        const centerSpawnY = this.spawnY + cs / 2;
-        const nextPal = TILE_PALETTE[this.nextVal] || TILE_PALETTE[2];
-
-        const diagNextX = centerSpawnX + cs * 1.08;
-        const diagNextY = centerSpawnY - cs * 0.32;
-
-        ctx.save();
-        ctx.globalAlpha = 0.95;
-        this.drawTile(ctx, diagNextX, diagNextY, ts, this.nextVal, nextPal, 0.0, 0.78);
-        ctx.restore();
-
-        // 5. CURRENT ACTIVE PIECE
+        // 4. CURRENT ACTIVE AIMING PIECE & COLUMN DROP GUIDE
         if (this.state === 'AIMING') {
-          const cx = this.currentPieceX;
-          const cy = centerSpawnY;
+          const targetColX = bx + this.targetCol * cs + cs / 2;
+          const stackLen = this.columns[this.targetCol].length;
+          const topTargetY = by + (this.maxRows - 1 - stackLen) * cs + cs / 2;
+          const cy = this.spawnY + cs / 2;
           const pal = TILE_PALETTE[this.currentVal] || TILE_PALETTE[2];
-          this.drawTile(ctx, cx, cy, ts, this.currentVal, pal, 0.0, 1.0);
+
+          // Dotted Aiming Guideline
+          ctx.save();
+          ctx.strokeStyle = pal.glow + '55';
+          ctx.lineWidth = 2.0;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(targetColX, cy + ts / 2 + 4);
+          ctx.lineTo(targetColX, topTargetY - ts / 2);
+          ctx.stroke();
+          ctx.restore();
+
+          this.drawTile(ctx, this.currentPieceX, cy, ts, this.currentVal, pal, 0.0, 1.0);
         }
       }
 
@@ -1555,8 +1603,8 @@
         ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const cardW = Math.min(324, this.width - 36);
-        const cardH = 376;
+        const cardW = Math.min(320, this.width - 32);
+        const cardH = Math.min(376, this.height - 40);
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
@@ -1577,44 +1625,44 @@
         ctx.font = '900 18px Fredoka, sans-serif';
         ctx.fillStyle = '#0F172A';
         ctx.textAlign = 'center';
-        ctx.fillText('SELECT GRID MODE', this.width / 2, cardY + 36);
+        ctx.fillText('SELECT GRID MODE', this.width / 2, cardY + 34);
 
         // Emblem
-        const emblemY = cardY + 98;
+        const emblemY = cardY + 92;
         const diffObj = MODES.find(m => m.id === this.modeId) || MODES[0];
 
         ctx.save();
         ctx.shadowColor = diffObj.color + '44';
         ctx.shadowBlur = 14;
         ctx.beginPath();
-        ctx.arc(this.width / 2, emblemY, 36, 0, Math.PI * 2);
+        ctx.arc(this.width / 2, emblemY, 34, 0, Math.PI * 2);
         ctx.fillStyle = '#F8FAFC';
         ctx.fill();
         ctx.strokeStyle = diffObj.color;
         ctx.lineWidth = 3.0;
         ctx.stroke();
 
-        ctx.font = '32px sans-serif';
+        ctx.font = '30px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(diffObj.icon, this.width / 2, emblemY);
         ctx.restore();
 
         // Difficulty Title & Subtitle
-        ctx.font = '900 21px Fredoka, sans-serif';
+        ctx.font = '900 20px Fredoka, sans-serif';
         ctx.fillStyle = diffObj.color;
         ctx.textAlign = 'center';
-        ctx.fillText(diffObj.label, this.width / 2, cardY + 162);
+        ctx.fillText(diffObj.label, this.width / 2, cardY + 154);
 
-        ctx.font = '700 12.5px Inter, sans-serif';
+        ctx.font = '700 12px Inter, sans-serif';
         ctx.fillStyle = '#64748B';
-        ctx.fillText(diffObj.desc + ' • ' + diffObj.subtitle, this.width / 2, cardY + 185);
+        ctx.fillText(diffObj.desc + ' • ' + diffObj.subtitle, this.width / 2, cardY + 176);
 
         // Slider Track
-        const trackX = cardX + 32;
-        const trackW = cardW - 64;
+        const trackX = cardX + 30;
+        const trackW = cardW - 60;
         const trackH = 14;
-        const trackY = cardY + 218;
+        const trackY = cardY + 212;
 
         ctx.beginPath();
         ctx.roundRect(trackX, trackY, trackW, trackH, 7);
@@ -1654,10 +1702,10 @@
 
         // Bottom Row: PLAY ▶ and ? Help
         ctx.save();
-        const playBtnW = cardW - 110;
-        const playBtnH = 50;
-        const playBtnX = cardX + 24;
-        const playBtnY = cardY + 282;
+        const playBtnW = cardW - 96;
+        const playBtnH = 48;
+        const playBtnX = cardX + 20;
+        const playBtnY = cardY + cardH - 68;
 
         ctx.shadowColor = diffObj.color + '66';
         ctx.shadowBlur = 12;
@@ -1674,12 +1722,13 @@
         ctx.fillText('PLAY  ▶', playBtnX + playBtnW / 2, playBtnY + playBtnH / 2 + 1);
 
         // Purple ? Button
-        const qBtnX = cardX + cardW - 74;
+        const qBtnX = cardX + cardW - 64;
+        const qBtnW = 44;
         ctx.shadowColor = 'rgba(139, 92, 246, 0.35)';
         ctx.shadowBlur = 12;
         ctx.shadowOffsetY = 3;
         ctx.beginPath();
-        ctx.roundRect(qBtnX, playBtnY, 50, playBtnH, 18);
+        ctx.roundRect(qBtnX, playBtnY, qBtnW, playBtnH, 18);
         ctx.fillStyle = '#8B5CF6';
         ctx.fill();
 
@@ -1687,7 +1736,7 @@
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('?', qBtnX + 25, playBtnY + playBtnH / 2 + 1);
+        ctx.fillText('?', qBtnX + qBtnW / 2, playBtnY + playBtnH / 2 + 1);
         ctx.restore();
       }
 
@@ -1696,8 +1745,8 @@
         ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const cardW = Math.min(324, this.width - 36);
-        const cardH = 376;
+        const cardW = Math.min(320, this.width - 32);
+        const cardH = Math.min(376, this.height - 40);
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
