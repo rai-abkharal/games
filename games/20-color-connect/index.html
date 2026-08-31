@@ -66020,8 +66020,8 @@
         this.difficulty = this.loadDifficulty();
         this.level = this.loadLevel(this.difficulty);
 
-        // Always ask Difficulty on launch!
-        this.state = 'DIFF_SELECT';
+        this.hasSeenDiffPromptThisVisit = true;
+        this.lastPlayClickTime = 0;
 
         this.tutorialSlide = 0;
         this.tutorialAnimT = 0;
@@ -66257,35 +66257,32 @@
           window.addEventListener('touchcancel', handleUp, { passive: false });
         }
 
-        // Platform swipe-in / activation handlers (with active gameplay protection)
-        let lastLifecycleTime = 0;
-        const handleLifecycleEvent = () => {
-          const now = performance.now();
-          if (now - lastLifecycleTime < 250) return;
-          lastLifecycleTime = now;
+        // Platform swipe-away / inactive event
+        const onSwipeAway = () => {
+          this.hasSeenDiffPromptThisVisit = false;
+        };
+
+        // Platform swipe-in / resume event
+        const onSwipeIn = () => {
           this.showDiffSelect(false);
         };
 
         window.addEventListener('message', (e) => {
           if (!e.data) return;
           const act = e.data.action || e.data.type || e.data;
-          if (act === 'onGameActive' || act === 'resume' || act === 'active' || act === 'swipe_in' || act === 'show' || act === 'restart') {
-            handleLifecycleEvent();
+          if (act === 'onGameInactive' || act === 'pause' || act === 'hide' || act === 'blur') {
+            onSwipeAway();
+          } else if (act === 'onGameActive' || act === 'resume' || act === 'active' || act === 'swipe_in' || act === 'show' || act === 'restart') {
+            onSwipeIn();
           }
         });
 
-        window.addEventListener('pageshow', () => {
-          handleLifecycleEvent();
-        });
-
-        window.addEventListener('focus', () => {
-          handleLifecycleEvent();
-        });
-
         document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') {
+          if (document.visibilityState === 'hidden') {
+            onSwipeAway();
+          } else if (document.visibilityState === 'visible') {
             this.initLayout();
-            handleLifecycleEvent();
+            onSwipeIn();
           }
         });
       }
@@ -66296,29 +66293,53 @@
         for (const [_, pathArr] of Object.entries(this.paths)) {
           if (pathArr && pathArr.length > 0) lineCount++;
         }
-        return (lineCount > 0 || this.completedColors.size > 0);
+        return (lineCount > 0);
       }
 
       showDiffSelect(force = false) {
         if (force) {
           this.sliderPos = this.difficulty === 'hard' ? 1.0 : (this.difficulty === 'medium' ? 0.5 : 0.0);
           this.state = 'DIFF_SELECT';
+          this.hasSeenDiffPromptThisVisit = true;
+          return;
+        }
+
+        // If user just tapped PLAY within the last 2.5 seconds, ignore background noise
+        if (this.lastPlayClickTime && (performance.now() - this.lastPlayClickTime < 2500)) {
+          return;
+        }
+
+        // If already prompted during this visit, DO NOT prompt a second time!
+        if (this.hasSeenDiffPromptThisVisit) {
           return;
         }
 
         // If user is actively playing with progress (e.g. >= 1 line drawn), DO NOT interrupt!
         if (this.hasActiveGameplayProgress()) {
+          this.hasSeenDiffPromptThisVisit = true;
           return;
         }
 
         // If already in DIFF_SELECT or HOW_TO_PLAY, do not reset
         if (this.state === 'DIFF_SELECT' || this.state === 'HOW_TO_PLAY') {
+          this.hasSeenDiffPromptThisVisit = true;
           return;
+        }
+
+        // If returning after winning a level, advance puzzle and show difficulty selector
+        if (this.state === 'VICTORY' || this.state === 'CELEBRATING') {
+          const pack = VERIFIED_PUZZLES[this.difficulty] || [];
+          if (this.level < pack.length) {
+            this.loadPuzzle(this.level + 1, false);
+          } else {
+            this.loadPuzzle(1, false);
+          }
         }
 
         // Show difficulty selection on fresh unplayed board or post-victory swipe return
         this.sliderPos = this.difficulty === 'hard' ? 1.0 : (this.difficulty === 'medium' ? 0.5 : 0.0);
         this.state = 'DIFF_SELECT';
+        this.hasSeenDiffPromptThisVisit = true;
       }
 
       getCellFromPos(px, py) {
@@ -66614,8 +66635,9 @@
           this.synth.playTap();
           this.snapDifficultySlider();
           this.saveDifficulty();
-          this.loadPuzzle(this.loadLevel(this.difficulty));
-          this.state = 'PLAYING';
+          this.lastPlayClickTime = performance.now();
+          this.hasSeenDiffPromptThisVisit = true;
+          this.loadPuzzle(this.loadLevel(this.difficulty), true);
           return;
         }
 
@@ -66682,6 +66704,8 @@
         const okW = cardW - 140;
         if (px >= okX && px <= okX + okW && py >= btnY - 4 && py <= btnY + btnH + 4) {
           this.synth.playTap();
+          this.lastPlayClickTime = performance.now();
+          this.hasSeenDiffPromptThisVisit = true;
           this.state = 'PLAYING';
           return;
         }
@@ -66695,6 +66719,8 @@
             this.tutorialAnimT = 0;
           } else {
             this.synth.playTap();
+            this.lastPlayClickTime = performance.now();
+            this.hasSeenDiffPromptThisVisit = true;
             this.state = 'PLAYING';
           }
           return;
