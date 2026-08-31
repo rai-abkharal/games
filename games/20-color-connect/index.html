@@ -55,7 +55,7 @@
   <script>
     'use strict';
 
-    // 1. PALETTE & THEME CONFIGURATION (16 Vibrant Distinguishable Colors)
+    // 1. PALETTE & THEME CONFIGURATION
     const PALETTE = [
       { id: 0, name: 'Red', hex: '#EF4444', tint: 'rgba(239, 68, 68, 0.22)', dark: '#7F1D1D', note: 261.63 },
       { id: 1, name: 'Blue', hex: '#2563EB', tint: 'rgba(37, 99, 235, 0.22)', dark: '#1E3A8A', note: 293.66 },
@@ -66020,11 +66020,9 @@
         this.difficulty = this.loadDifficulty();
         this.level = this.loadLevel(this.difficulty);
 
-        // Always ask Difficulty on launch!
-        this.state = 'DIFF_SELECT';
-
         this.tutorialSlide = 0;
         this.tutorialAnimT = 0;
+        this.victoryStarTimer = 0;
 
         this.paths = {};
         this.completedColors = new Set();
@@ -66043,7 +66041,10 @@
 
         this.initLayout();
         this.bindEvents();
-        this.loadPuzzle(this.level);
+        this.loadPuzzle(this.level, false);
+
+        // Always prompt Select Difficulty on initial startup!
+        this.state = 'DIFF_SELECT';
 
         this.lastTime = performance.now();
         requestAnimationFrame((t) => this.loop(t));
@@ -66071,7 +66072,7 @@
         try { localStorage.setItem('cc_lvl_' + this.difficulty, this.level.toString()); } catch (e) {}
       }
 
-      loadPuzzle(lvl) {
+      loadPuzzle(lvl, setPlaying = true) {
         const pack = VERIFIED_PUZZLES[this.difficulty] || VERIFIED_PUZZLES['easy'];
         this.level = Math.max(1, Math.min(pack.length, lvl));
         this.saveLevel();
@@ -66089,7 +66090,9 @@
         this.cursorPos = null;
         this.hintHighlight = null;
         this.toast = null;
-        this.state = 'PLAYING';
+        if (setPlaying) {
+          this.state = 'PLAYING';
+        }
 
         this.particles.clear();
         this.initLayout();
@@ -66172,7 +66175,6 @@
           }
 
           // 2. Top Header Controls
-          // Difficulty Pill (Top Left: x: 14 to 146, y: headerY to headerY + 40)
           if (px >= 14 && px <= 146 && py >= this.headerY - 4 && py <= this.headerY + 42) {
             this.synth.playTap();
             this.sliderPos = this.difficulty === 'hard' ? 1.0 : (this.difficulty === 'medium' ? 0.5 : 0.0);
@@ -66180,7 +66182,6 @@
             return;
           }
 
-          // Reset Button (x: width - 78 to width - 42)
           if (px >= this.width - 78 && px <= this.width - 42 && py >= this.headerY - 4 && py <= this.headerY + 42) {
             this.synth.playTap();
             this.loadPuzzle(this.level);
@@ -66188,7 +66189,6 @@
             return;
           }
 
-          // Sound Button (x: width - 40 to width - 6)
           if (px >= this.width - 40 && px <= this.width - 6 && py >= this.headerY - 4 && py <= this.headerY + 42) {
             this.synth.muted = !this.synth.muted;
             this.synth.playTap();
@@ -66196,7 +66196,7 @@
             return;
           }
 
-          // 3. HUD Hint Button (x: width - 70 to width - 12, y: hudY to hudY + 52)
+          // 3. HUD Hint Button
           if (px >= this.width - 70 && px <= this.width - 12 && py >= this.hudY - 4 && py <= this.hudY + 52) {
             this.useHint();
             return;
@@ -66255,12 +66255,15 @@
       }
 
       getCellFromPos(px, py) {
-        if (px < this.boardX || px >= this.boardX + this.boardW ||
-            py < this.boardY || py >= this.boardY + this.boardH) {
+        const margin = this.cellSize * 0.35;
+        if (px < this.boardX - margin || px > this.boardX + this.boardW + margin ||
+            py < this.boardY - margin || py > this.boardY + this.boardH + margin) {
           return null;
         }
-        const c = Math.floor((px - this.boardX) / this.cellSize);
-        const r = Math.floor((py - this.boardY) / this.cellSize);
+        const clampedPx = Math.max(this.boardX, Math.min(this.boardX + this.boardW - 1, px));
+        const clampedPy = Math.max(this.boardY, Math.min(this.boardY + this.boardH - 1, py));
+        const c = Math.floor((clampedPx - this.boardX) / this.cellSize);
+        const r = Math.floor((clampedPy - this.boardY) / this.cellSize);
         if (r >= 0 && r < this.gridRows && c >= 0 && c < this.gridCols) {
           return { r, c };
         }
@@ -66306,7 +66309,6 @@
         }
       }
 
-      // INTENTIONAL DELIBERATE DRAGGING (Zero accidental cuts)
       processContinuousDrag(px, py) {
         if (this.activeColor === null || !this.isDragging) return;
         const curPath = this.paths[this.activeColor];
@@ -66318,8 +66320,8 @@
         const curHead = curPath[curPath.length - 1];
         if (destCell.r === curHead.r && destCell.c === curHead.c) return;
 
-        // Step towards destination cell along the intentional movement axis
-        for (let iter = 0; iter < 4; iter++) {
+        const maxSteps = (this.gridRows || 5) + (this.gridCols || 5) + 4;
+        for (let iter = 0; iter < maxSteps; iter++) {
           const head = curPath[curPath.length - 1];
           if (head.r === destCell.r && head.c === destCell.c) break;
 
@@ -66461,46 +66463,52 @@
       startVictoryCelebration() {
         this.state = 'CELEBRATING';
         this.celebrationTimer = 1.2;
+        this.victoryStarTimer = 0;
         this.synth.playVictory();
         this.particles.addVictoryConfetti(this.width, this.height);
         this.haptic(60);
-        Host.post('onLevelCompleted', { difficulty: this.difficulty, level: this.level });
+
+        Host.post('onLevelCompleted', {
+          difficulty: this.difficulty,
+          level: this.level,
+          score: 1000 + this.level * 100
+        });
       }
 
-      // HINT WITH CONFLICT AUTO-ERASE (Zero overlapping/wrong lines remaining!)
       useHint() {
         if (this.hintsRemaining <= 0) {
-          this.showToast('No Hints Remaining');
+          this.showToast('No hints remaining!');
+          this.synth.playTap();
           return;
         }
+
         for (const dot of this.dots) {
           if (!this.completedColors.has(dot.color)) {
-            if (dot.solution) {
+            if (dot.solution && dot.solution.length > 0) {
               this.hintsRemaining--;
-              const solPts = dot.solution.map(p => ({ r: p[0], c: p[1] }));
+              this.synth.playTap();
 
-              // Erase/Cut ANY other color's path intersecting with hint solution
-              for (const pt of solPts) {
-                for (const [otherColStr, otherPath] of Object.entries(this.paths)) {
+              for (const [solR, solC] of dot.solution) {
+                for (const [otherColStr, pathArr] of Object.entries(this.paths)) {
                   const otherCol = parseInt(otherColStr);
                   if (otherCol === dot.color) continue;
-                  const conflictIdx = otherPath.findIndex(p => p.r === pt.r && p.c === pt.c);
-                  if (conflictIdx >= 0) {
-                    this.paths[otherCol] = otherPath.slice(0, conflictIdx);
+                  const idx = pathArr.findIndex(p => p.r === solR && p.c === solC);
+                  if (idx >= 0) {
+                    this.paths[otherCol] = pathArr.slice(0, idx);
                     this.completedColors.delete(otherCol);
                   }
                 }
               }
 
-              this.paths[dot.color] = solPts;
+              this.paths[dot.color] = dot.solution.map(p => ({ r: p[0], c: p[1] }));
               this.completedColors.add(dot.color);
               this.synth.playConnected(dot.color);
-              this.particles.addBurst(
-                this.boardX + (dot.p2[1] + 0.5) * this.cellSize,
-                this.boardY + (dot.p2[0] + 0.5) * this.cellSize,
-                PALETTE[dot.color % PALETTE.length].hex
-              );
-              this.showToast('Hint Applied!');
+
+              const centerPt = dot.solution[Math.floor(dot.solution.length / 2)];
+              const dotX = this.boardX + centerPt[1] * this.cellSize + this.cellSize / 2;
+              const dotY = this.boardY + centerPt[0] * this.cellSize + this.cellSize / 2;
+              this.particles.addBurst(dotX, dotY, PALETTE[dot.color % PALETTE.length].hex);
+
               if (this.validateCompleteLevel()) {
                 this.startVictoryCelebration();
               }
@@ -66508,47 +66516,42 @@
             }
           }
         }
-        this.showToast('All Connected!');
       }
 
-      showToast(text) {
-        this.toast = { text, t: 1.8 };
+      showToast(msg) {
+        this.toast = { text: msg, t: 2.0 };
       }
 
-      // --- DARK THEMED SUDOKU PRO STYLE DIFFICULTY SLIDER MODAL ---
       handleDifficultyModalDown(px, py) {
-        const cardW = Math.min(320, this.width - 36);
-        const cardH = 370;
+        const cardW = Math.min(324, this.width - 36);
+        const cardH = 376;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
+        // 1. Slider Track & Thumb Hit Area
         const trackX = cardX + 32;
         const trackW = cardW - 64;
-        const trackY = cardY + 225;
+        const trackY = cardY + 218;
 
-        // Slider Touch
-        if (py >= trackY - 24 && py <= trackY + 32 && px >= trackX - 16 && px <= trackX + trackW + 16) {
+        if (px >= trackX - 16 && px <= trackX + trackW + 16 && py >= trackY - 20 && py <= trackY + 34) {
           this.isDraggingSlider = true;
           this.updateDifficultySlider(px);
           return;
         }
 
-        // PLAY Button
+        // 2. Big PLAY ▶ Button
         const playBtnW = cardW - 110;
         const playBtnH = 50;
         const playBtnX = cardX + 24;
-        const playBtnY = cardY + 285;
+        const playBtnY = cardY + 282;
 
         if (px >= playBtnX && px <= playBtnX + playBtnW && py >= playBtnY && py <= playBtnY + playBtnH) {
           this.synth.playTap();
-          this.snapDifficultySlider();
-          this.saveDifficulty();
-          this.loadPuzzle(this.loadLevel(this.difficulty));
-          this.state = 'PLAYING';
+          this.loadPuzzle(this.loadLevel(this.difficulty), true);
           return;
         }
 
-        // ? Question Button
+        // 3. Purple ? Button (How to Play)
         const qBtnX = cardX + cardW - 74;
         if (px >= qBtnX && px <= qBtnX + 50 && py >= playBtnY && py <= playBtnY + playBtnH) {
           this.synth.playTap();
@@ -66560,34 +66563,33 @@
       }
 
       updateDifficultySlider(px) {
-        const cardW = Math.min(320, this.width - 36);
+        const cardW = Math.min(324, this.width - 36);
         const cardX = (this.width - cardW) / 2;
         const trackX = cardX + 32;
         const trackW = cardW - 64;
 
-        let pct = (px - trackX) / trackW;
-        pct = Math.max(0, Math.min(1.0, pct));
-        this.sliderPos = pct;
+        let pos = (px - trackX) / trackW;
+        pos = Math.max(0.0, Math.min(1.0, pos));
+        this.sliderPos = pos;
 
-        if (pct < 0.33) this.difficulty = 'easy';
-        else if (pct < 0.66) this.difficulty = 'medium';
-        else this.difficulty = 'hard';
-      }
+        let diff = 'easy';
+        if (pos > 0.66) diff = 'hard';
+        else if (pos > 0.33) diff = 'medium';
 
-      snapDifficultySlider() {
-        if (this.sliderPos < 0.33) {
-          this.sliderPos = 0.0;
-          this.difficulty = 'easy';
-        } else if (this.sliderPos < 0.66) {
-          this.sliderPos = 0.5;
-          this.difficulty = 'medium';
-        } else {
-          this.sliderPos = 1.0;
-          this.difficulty = 'hard';
+        if (diff !== this.difficulty) {
+          this.difficulty = diff;
+          this.saveDifficulty();
+          this.synth.playTap();
+          this.haptic(8);
         }
       }
 
-      // --- SLEEK HOW TO PLAY MODAL (MATCHING SCREENSHOT 4 WITHOUT CLUNKY BORDERS) ---
+      snapDifficultySlider() {
+        if (this.difficulty === 'easy') this.sliderPos = 0.0;
+        else if (this.difficulty === 'medium') this.sliderPos = 0.5;
+        else this.sliderPos = 1.0;
+      }
+
       handleHowToPlayModalClick(px, py) {
         const cardW = Math.min(324, this.width - 36);
         const cardH = 376;
@@ -66597,7 +66599,7 @@
         const btnH = 44;
 
         // 1. Sleek Back Arrow Button
-        if (px >= cardX + 16 && px <= cardX + 64 && py >= btnY - 4 && py <= btnY + btnH + 4) {
+        if (px >= cardX + 16 && px <= cardX + 60 && py >= btnY - 4 && py <= btnY + btnH + 4) {
           if (this.tutorialSlide > 0) {
             this.synth.playTap();
             this.tutorialSlide--;
@@ -66611,20 +66613,20 @@
         const okW = cardW - 140;
         if (px >= okX && px <= okX + okW && py >= btnY - 4 && py <= btnY + btnH + 4) {
           this.synth.playTap();
-          this.state = 'PLAYING';
+          this.loadPuzzle(this.loadLevel(this.difficulty), true);
           return;
         }
 
         // 3. Sleek Next Arrow Button
-        const nextX = cardX + cardW - 64;
-        if (px >= nextX && px <= nextX + 48 && py >= btnY - 4 && py <= btnY + btnH + 4) {
+        const nextX = cardX + cardW - 60;
+        if (px >= nextX && px <= nextX + 44 && py >= btnY - 4 && py <= btnY + btnH + 4) {
           if (this.tutorialSlide < 2) {
             this.synth.playTap();
             this.tutorialSlide++;
             this.tutorialAnimT = 0;
           } else {
             this.synth.playTap();
-            this.state = 'PLAYING';
+            this.loadPuzzle(this.loadLevel(this.difficulty), true);
           }
           return;
         }
@@ -66632,12 +66634,11 @@
 
       handleVictoryClick(px, py) {
         this.synth.playTap();
-        this.state = 'PLAYING';
         const pack = VERIFIED_PUZZLES[this.difficulty] || [];
         if (this.level < pack.length) {
-          this.loadPuzzle(this.level + 1);
+          this.loadPuzzle(this.level + 1, true);
         } else {
-          this.loadPuzzle(1);
+          this.loadPuzzle(1, true);
         }
       }
 
@@ -66658,13 +66659,18 @@
           this.celebrationTimer -= dt;
           if (this.celebrationTimer <= 0) {
             this.state = 'VICTORY';
+            this.victoryStarTimer = 0;
           }
+        }
+
+        if (this.state === 'VICTORY') {
+          this.victoryStarTimer += dt;
         }
 
         if (this.isDragging && this.pointerPos) {
           if (!this.cursorPos) this.cursorPos = { x: this.pointerPos.px, y: this.pointerPos.py };
-          this.cursorPos.x += (this.pointerPos.px - this.cursorPos.x) * 0.45;
-          this.cursorPos.y += (this.pointerPos.py - this.cursorPos.y) * 0.45;
+          this.cursorPos.x += (this.pointerPos.px - this.cursorPos.x) * 0.85;
+          this.cursorPos.y += (this.pointerPos.py - this.cursorPos.y) * 0.85;
         }
 
         this.tutorialAnimT += dt;
@@ -66807,52 +66813,32 @@
         ctx.stroke();
         ctx.restore();
 
-        const cellOccupancy = {};
-        for (const [colIdStr, pathArr] of Object.entries(this.paths)) {
-          const cId = parseInt(colIdStr);
-          for (const pt of pathArr) {
-            cellOccupancy[pt.r + ',' + pt.c] = cId;
-          }
-        }
-
-        // 1. Grid Cells with Soft Matching Color Tint
+        // 1. Cells Background Grid
         for (let r = 0; r < gr; r++) {
           for (let c = 0; c < gc; c++) {
             const cx = bx + c * cs;
             const cy = by + r * cs;
-            const occColorId = cellOccupancy[r + ',' + c];
+            const pad = 1.5;
 
             ctx.beginPath();
-            ctx.roundRect(cx + 1, cy + 1, cs - 2, cs - 2, 6);
-
-            if (occColorId !== undefined) {
-              const pal = PALETTE[occColorId % PALETTE.length];
-              ctx.fillStyle = pal.tint;
-            } else {
-              ctx.fillStyle = THEME.cellDefault;
-            }
+            ctx.roundRect(cx + pad, cy + pad, cs - pad * 2, cs - pad * 2, 6);
+            ctx.fillStyle = THEME.cellDefault;
             ctx.fill();
+            ctx.strokeStyle = THEME.cellBorder;
+            ctx.lineWidth = 1.0;
+            ctx.stroke();
           }
         }
 
-        // 2. Smooth Continuous Path Lines
+        // 2. Glowing Neon Laser Pipes (Smooth Glowing Underlayer + Vibrant Core + Specular Highlight)
         for (const [colIdStr, pathArr] of Object.entries(this.paths)) {
-          if (!pathArr || pathArr.length === 0) continue;
-          const colorId = parseInt(colIdStr);
-          const colorObj = PALETTE[colorId % PALETTE.length];
-          const isActive = (this.isDragging && this.activeColor === colorId);
+          if (!pathArr || pathArr.length < 2) continue;
+          const colId = parseInt(colIdStr);
+          const colorObj = PALETTE[colId % PALETTE.length];
+          const isDone = this.completedColors.has(colId);
 
+          // Glowing Bloom
           ctx.save();
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          ctx.strokeStyle = colorObj.hex;
-          ctx.lineWidth = cs * 0.27;
-
-          if (this.state === 'CELEBRATING') {
-            ctx.shadowColor = colorObj.hex;
-            ctx.shadowBlur = 12;
-          }
-
           ctx.beginPath();
           for (let i = 0; i < pathArr.length; i++) {
             const px = bx + pathArr[i].c * cs + cs / 2;
@@ -66860,94 +66846,62 @@
             if (i === 0) ctx.moveTo(px, py);
             else ctx.lineTo(px, py);
           }
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = colorObj.hex;
+          ctx.shadowColor = colorObj.hex;
+          ctx.shadowBlur = isDone ? 18 : 10;
+          ctx.lineWidth = cs * 0.38;
+          ctx.stroke();
 
-          if (isActive && this.cursorPos) {
-            const head = pathArr[pathArr.length - 1];
-            const hx = bx + head.c * cs + cs / 2;
-            const hy = by + head.r * cs + cs / 2;
-            const dx = this.cursorPos.x - hx;
-            const dy = this.cursorPos.y - hy;
-
-            let tipX = hx;
-            let tipY = hy;
-            if (Math.abs(dx) >= Math.abs(dy)) {
-              tipX = hx + Math.max(-cs * 0.85, Math.min(cs * 0.85, dx));
-              tipY = hy;
-            } else {
-              tipX = hx;
-              tipY = hy + Math.max(-cs * 0.85, Math.min(cs * 0.85, dy));
-            }
-            ctx.lineTo(tipX, tipY);
+          // Laser White Specular Highlight Core
+          ctx.beginPath();
+          for (let i = 0; i < pathArr.length; i++) {
+            const px = bx + pathArr[i].c * cs + cs / 2;
+            const py = by + pathArr[i].r * cs + cs / 2;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
           }
-
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+          ctx.lineWidth = cs * 0.12;
           ctx.stroke();
           ctx.restore();
         }
 
-        // 3. Endpoint Dots (Donuts when connected)
+        // 3. Glowing Endpoint Dots (With Neon Halo & Reflection)
         for (const dot of this.dots) {
           const colorObj = PALETTE[dot.color % PALETTE.length];
           const isConnected = this.completedColors.has(dot.color);
-          const pathArr = this.paths[dot.color];
-          const hasPath = (pathArr && pathArr.length > 1);
-          const isDonut = isConnected || hasPath;
+          const pts = [dot.p1, dot.p2];
 
-          [dot.p1, dot.p2].forEach(([r, c]) => {
-            const cx = bx + c * cs + cs / 2;
-            const cy = by + r * cs + cs / 2;
-            const radius = cs * 0.27;
+          for (const pt of pts) {
+            const dx = bx + pt[1] * cs + cs / 2;
+            const dy = by + pt[0] * cs + cs / 2;
+            const r = cs * 0.28;
 
             ctx.save();
+            ctx.shadowColor = colorObj.hex;
+            ctx.shadowBlur = isConnected ? 18 : 12;
             ctx.beginPath();
-            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.arc(dx, dy, r + 1.5, 0, Math.PI * 2);
             ctx.fillStyle = colorObj.hex;
             ctx.fill();
 
-            if (isDonut) {
-              ctx.beginPath();
-              ctx.arc(cx, cy, radius * 0.52, 0, Math.PI * 2);
-              ctx.fillStyle = colorObj.dark;
-              ctx.fill();
-            }
+            // Inner dark core
+            ctx.beginPath();
+            ctx.arc(dx, dy, r * 0.65, 0, Math.PI * 2);
+            ctx.fillStyle = colorObj.dark;
+            ctx.fill();
 
-            if (this.hintHighlight === dot.color) {
-              ctx.strokeStyle = '#FACC15';
-              ctx.lineWidth = 2.5;
-              ctx.beginPath();
-              ctx.arc(cx, cy, radius + 3, 0, Math.PI * 2);
-              ctx.stroke();
-            }
+            // Specular reflection dot
+            ctx.beginPath();
+            ctx.arc(dx - r * 0.25, dy - r * 0.25, r * 0.22, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.fill();
             ctx.restore();
-          });
-        }
-
-        // 4. FLOATING GESTURE GUIDE AURA BALL
-        if (this.isDragging && this.activeColor !== null && this.cursorPos) {
-          const pal = PALETTE[this.activeColor % PALETTE.length];
-          const auraR = cs * 0.60;
-          const coreR = cs * 0.28;
-
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(this.cursorPos.x, this.cursorPos.y, auraR, 0, Math.PI * 2);
-          ctx.fillStyle = pal.tint;
-          ctx.fill();
-          ctx.strokeStyle = pal.hex + '66';
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-
-          ctx.shadowColor = pal.hex;
-          ctx.shadowBlur = 10;
-          ctx.beginPath();
-          ctx.arc(this.cursorPos.x, this.cursorPos.y, coreR, 0, Math.PI * 2);
-          ctx.fillStyle = pal.hex;
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.arc(this.cursorPos.x - coreR * 0.25, this.cursorPos.y - coreR * 0.25, coreR * 0.28, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-          ctx.fill();
-          ctx.restore();
+          }
         }
 
         ctx.restore();
@@ -66955,55 +66909,58 @@
 
       renderHUD(ctx) {
         const y = this.hudY;
+        const total = this.dots.length;
         const flows = this.completedColors.size;
-        const totalFlows = this.dots.length;
-        const fillPercent = this.getBoardFillPercentage();
+        const fillPct = this.getBoardFillPercentage();
 
         // 1. Flows Card
+        const flowW = (this.width - 32 - 70) * 0.48;
+        const fillW = (this.width - 32 - 70) * 0.52;
+
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
         ctx.shadowBlur = 8;
         ctx.shadowOffsetY = 2;
         ctx.beginPath();
-        ctx.roundRect(16, y, (this.width - 110) / 2, 46, 14);
+        ctx.roundRect(16, y, flowW, 46, 14);
         ctx.fillStyle = THEME.cardBg;
         ctx.fill();
-        ctx.strokeStyle = THEME.cardBorder;
+        ctx.strokeStyle = flows === total ? THEME.accentGreen : THEME.cardBorder;
         ctx.lineWidth = 1.2;
         ctx.stroke();
 
-        ctx.font = '700 11px Inter, sans-serif';
+        ctx.font = '800 11px Inter, sans-serif';
         ctx.fillStyle = THEME.textMuted;
         ctx.textAlign = 'center';
-        ctx.fillText('FLOWS', 16 + (this.width - 110) / 4, y + 16);
+        ctx.fillText('FLOWS', 16 + flowW / 2, y + 16);
 
-        ctx.font = '900 16px Outfit, Fredoka, sans-serif';
-        ctx.fillStyle = (flows === totalFlows) ? THEME.accentGreen : THEME.textMain;
-        ctx.fillText(flows + '/' + totalFlows, 16 + (this.width - 110) / 4, y + 34);
+        ctx.font = '900 15px Outfit, sans-serif';
+        ctx.fillStyle = flows === total ? THEME.accentGreen : THEME.textMain;
+        ctx.fillText(flows + ' / ' + total, 16 + flowW / 2, y + 33);
         ctx.restore();
 
         // 2. Pipe Fill Card
-        const fillX = 24 + (this.width - 110) / 2;
+        const fillX = 16 + flowW + 8;
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
         ctx.shadowBlur = 8;
         ctx.shadowOffsetY = 2;
         ctx.beginPath();
-        ctx.roundRect(fillX, y, (this.width - 110) / 2, 46, 14);
+        ctx.roundRect(fillX, y, fillW, 46, 14);
         ctx.fillStyle = THEME.cardBg;
         ctx.fill();
-        ctx.strokeStyle = THEME.cardBorder;
+        ctx.strokeStyle = fillPct === 100 ? THEME.accentGreen : THEME.cardBorder;
         ctx.lineWidth = 1.2;
         ctx.stroke();
 
-        ctx.font = '700 11px Inter, sans-serif';
+        ctx.font = '800 11px Inter, sans-serif';
         ctx.fillStyle = THEME.textMuted;
         ctx.textAlign = 'center';
-        ctx.fillText('PIPE FILL', fillX + (this.width - 110) / 4, y + 16);
+        ctx.fillText('PIPE FILL', fillX + fillW / 2, y + 16);
 
-        ctx.font = '900 16px Outfit, Fredoka, sans-serif';
-        ctx.fillStyle = (fillPercent === 100) ? THEME.accentGreen : (flows === totalFlows ? THEME.accentYellow : THEME.textMain);
-        ctx.fillText(fillPercent + '%', fillX + (this.width - 110) / 4, y + 34);
+        ctx.font = '900 15px Outfit, sans-serif';
+        ctx.fillStyle = fillPct === 100 ? THEME.accentGreen : (fillPct > 70 ? THEME.accentYellow : THEME.textMain);
+        ctx.fillText(fillPct + '%', fillX + fillW / 2, y + 33);
         ctx.restore();
 
         // 3. Hint Button
@@ -67352,7 +67309,7 @@
           ctx.fillStyle = '#DC2626';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText('✖', crossX, crossY);
+          ctx.fillText('✕', crossX, crossY);
 
           ctx.font = '800 15px Outfit, sans-serif';
           ctx.fillStyle = THEME.textMain;
@@ -67419,7 +67376,7 @@
         ctx.restore();
       }
 
-      // VICTORY CELEBRATION MODAL
+      // --- VICTORY CELEBRATION MODAL WITH STAR DROP ANIMATION ---
       renderVictoryModal(ctx) {
         ctx.fillStyle = 'rgba(11, 15, 25, 0.75)';
         ctx.fillRect(0, 0, this.width, this.height);
@@ -67445,10 +67402,24 @@
         ctx.textAlign = 'center';
         ctx.fillText('LEVEL COMPLETED! 🎉', this.width / 2, cardY + 42);
 
+        // ⭐ ⭐ ⭐ 3-STAR DROP ANIMATION
         const starY = cardY + 80;
-        for (let i = -1; i <= 1; i++) {
-          ctx.font = '26px sans-serif';
-          ctx.fillText('⭐', this.width / 2 + i * 40, starY);
+        const starTimes = [0.1, 0.25, 0.4];
+        for (let i = 0; i < 3; i++) {
+          const starX = this.width / 2 + (i - 1) * 40;
+          const hasDropped = this.victoryStarTimer >= starTimes[i];
+          const scale = hasDropped ? Math.min(1.0, (this.victoryStarTimer - starTimes[i]) * 8) : 0;
+
+          if (scale > 0) {
+            ctx.save();
+            ctx.translate(starX, starY);
+            ctx.scale(scale, scale);
+            ctx.font = '28px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('⭐', 0, 0);
+            ctx.restore();
+          }
         }
 
         ctx.font = '700 13.5px Inter, sans-serif';
