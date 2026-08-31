@@ -93075,6 +93075,7 @@
         this.cursorPos = null;
         this.hintHighlight = null;
         this.toast = null;
+        this.state = 'PLAYING';
 
         this.particles.clear();
         this.initLayout();
@@ -93291,38 +93292,40 @@
         }
       }
 
+      // INTENTIONAL DELIBERATE DRAGGING (Zero accidental cuts)
       processContinuousDrag(px, py) {
         if (this.activeColor === null || !this.isDragging) return;
         const curPath = this.paths[this.activeColor];
         if (!curPath || curPath.length === 0) return;
 
+        const destCell = this.getCellFromPos(px, py);
+        if (!destCell) return;
+
+        const curHead = curPath[curPath.length - 1];
+        if (destCell.r === curHead.r && destCell.c === curHead.c) return;
+
+        // Step towards destination cell along the intentional movement axis
         for (let iter = 0; iter < 4; iter++) {
           const head = curPath[curPath.length - 1];
-          const hx = this.boardX + head.c * this.cellSize + this.cellSize / 2;
-          const hy = this.boardY + head.r * this.cellSize + this.cellSize / 2;
+          if (head.r === destCell.r && head.c === destCell.c) break;
 
-          const dx = px - hx;
-          const dy = py - hy;
-          const threshold = this.cellSize * 0.32;
+          const dr = destCell.r - head.r;
+          const dc = destCell.c - head.c;
 
-          let targetR = head.r;
-          let targetC = head.c;
+          let stepR = head.r;
+          let stepC = head.c;
 
-          if (Math.abs(dx) > Math.abs(dy)) {
-            if (dx > threshold) targetC = head.c + 1;
-            else if (dx < -threshold) targetC = head.c - 1;
-          } else {
-            if (dy > threshold) targetR = head.r + 1;
-            else if (dy < -threshold) targetR = head.r - 1;
+          if (Math.abs(dc) >= Math.abs(dr) && dc !== 0) {
+            stepC = head.c + (dc > 0 ? 1 : -1);
+          } else if (dr !== 0) {
+            stepR = head.r + (dr > 0 ? 1 : -1);
+          } else if (dc !== 0) {
+            stepC = head.c + (dc > 0 ? 1 : -1);
           }
 
-          if (targetR !== head.r || targetC !== head.c) {
-            if (targetR >= 0 && targetR < this.gridRows && targetC >= 0 && targetC < this.gridCols) {
-              const advanced = this.stepPathTo(targetR, targetC);
-              if (!advanced) break;
-            } else {
-              break;
-            }
+          if (stepR >= 0 && stepR < this.gridRows && stepC >= 0 && stepC < this.gridCols) {
+            const advanced = this.stepPathTo(stepR, stepC);
+            if (!advanced) break;
           } else {
             break;
           }
@@ -93615,6 +93618,7 @@
 
       handleVictoryClick(px, py) {
         this.synth.playTap();
+        this.state = 'PLAYING';
         const pack = VERIFIED_PUZZLES[this.difficulty] || [];
         if (this.level < pack.length) {
           this.loadPuzzle(this.level + 1);
@@ -94403,16 +94407,16 @@
 
       // VICTORY CELEBRATION MODAL
       renderVictoryModal(ctx) {
-        ctx.fillStyle = 'rgba(11, 15, 25, 0.70)';
+        ctx.fillStyle = 'rgba(11, 15, 25, 0.75)';
         ctx.fillRect(0, 0, this.width, this.height);
 
         const cardW = Math.min(320, this.width - 40);
-        const cardH = 310;
+        const cardH = 290;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
         ctx.shadowBlur = 32;
         ctx.beginPath();
         ctx.roundRect(cardX, cardY, cardW, cardH, 24);
@@ -94422,33 +94426,35 @@
         ctx.lineWidth = 2.0;
         ctx.stroke();
 
-        ctx.font = '900 24px Outfit, sans-serif';
+        ctx.font = '900 22px Outfit, sans-serif';
         ctx.fillStyle = THEME.accentGreen;
         ctx.textAlign = 'center';
-        ctx.fillText('LEVEL COMPLETED! 🎉', this.width / 2, cardY + 48);
+        ctx.fillText('LEVEL COMPLETED! 🎉', this.width / 2, cardY + 42);
 
-        const starY = cardY + 92;
+        const starY = cardY + 80;
         for (let i = -1; i <= 1; i++) {
-          ctx.font = '28px sans-serif';
-          ctx.fillText('⭐', this.width / 2 + i * 42, starY);
+          ctx.font = '26px sans-serif';
+          ctx.fillText('⭐', this.width / 2 + i * 40, starY);
         }
 
-        ctx.font = '700 14px Inter, sans-serif';
+        ctx.font = '700 13.5px Inter, sans-serif';
         ctx.fillStyle = THEME.textMuted;
-        ctx.fillText('Difficulty: ' + this.difficulty.toUpperCase(), this.width / 2, cardY + 144);
-        ctx.fillText('Level: ' + this.level + ' • 100% Pipe Filled', this.width / 2, cardY + 172);
+        ctx.fillText('Difficulty: ' + this.difficulty.toUpperCase(), this.width / 2, cardY + 130);
+        ctx.fillText('Level: ' + this.level + ' • 100% Pipe Filled', this.width / 2, cardY + 155);
 
-        const btnW = 200, btnH = 48;
-        const btnX = (this.width - btnW) / 2;
-        const btnY = this.height * 0.68;
+        const btnW = cardW - 60, btnH = 48;
+        const btnX = cardX + 30;
+        const btnY = cardY + 205;
 
+        ctx.shadowColor = THEME.accentGreen;
+        ctx.shadowBlur = 12;
         ctx.beginPath();
-        ctx.roundRect(btnX, btnY, btnW, btnH, 24);
+        ctx.roundRect(btnX, btnY, btnW, btnH, 18);
         ctx.fillStyle = THEME.accentGreen;
         ctx.fill();
-        ctx.font = '800 16px Outfit, sans-serif';
+        ctx.font = '900 16px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText('NEXT LEVEL ▶', this.width / 2, btnY + 24);
+        ctx.fillText('NEXT LEVEL ▶', this.width / 2, btnY + 24 + 1);
         ctx.restore();
       }
     }
