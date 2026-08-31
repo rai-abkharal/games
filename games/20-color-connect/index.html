@@ -66262,7 +66262,7 @@
         window.addEventListener('message', (e) => {
           if (!e.data) return;
           const act = e.data.action || e.data.type || e.data;
-          if (act === 'onGameActive' || act === 'resume' || act === 'active' || act === 'swipe_in' || act === 'show' || act === 'restart') {
+          if (act === 'onGameActive' || act === 'resume' || act === 'active' || act === 'swipe_in' || act === 'show' || act === 'restart' || act === 'focus') {
             showDiffSelect();
           }
         });
@@ -66271,9 +66271,14 @@
           showDiffSelect();
         });
 
+        window.addEventListener('focus', () => {
+          showDiffSelect();
+        });
+
         document.addEventListener('visibilitychange', () => {
           if (document.visibilityState === 'visible') {
             this.initLayout();
+            showDiffSelect();
           }
         });
       }
@@ -66659,13 +66664,24 @@
       }
 
       handleVictoryClick(px, py) {
-        this.synth.playTap();
-        this.state = 'PLAYING';
-        const pack = VERIFIED_PUZZLES[this.difficulty] || [];
-        if (this.level < pack.length) {
-          this.loadPuzzle(this.level + 1);
-        } else {
-          this.loadPuzzle(1);
+        const cardW = Math.min(320, this.width - 40);
+        const cardH = 290;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+        const btnW = cardW - 60, btnH = 48;
+        const btnX = cardX + 30;
+        const btnY = cardY + 205;
+
+        // ONLY proceed if clicked specifically inside the NEXT LEVEL button
+        if (px >= btnX && px <= btnX + btnW && py >= btnY && py <= btnY + btnH) {
+          this.synth.playTap();
+          this.state = 'PLAYING';
+          const pack = VERIFIED_PUZZLES[this.difficulty] || [];
+          if (this.level < pack.length) {
+            this.loadPuzzle(this.level + 1);
+          } else {
+            this.loadPuzzle(1);
+          }
         }
       }
 
