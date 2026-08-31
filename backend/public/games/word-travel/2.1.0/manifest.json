@@ -1,0 +1,19 @@
+{
+  "id": "word-travel",
+  "title": "Word Travel",
+  "version": "2.1.0",
+  "description": "Continuous travel-themed word search puzzle journey. Features pure crystal-clear white letter board, living atmospheric environments, vibrant colorful swipe capsules, and passport milestones.",
+  "orientation": "portrait",
+  "engine": "canvas2d",
+  "category": "Word Puzzle",
+  "feedOrder": 23,
+  "status": "published",
+  "touchZones": [],
+  "features": {
+    "sound": true,
+    "vibration": true,
+    "hints": true,
+    "powerups": true,
+    "particles": true
+  }
+}

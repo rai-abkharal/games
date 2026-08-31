@@ -1,0 +1,20 @@
+{
+  "id": "real-drive",
+  "title": "Real Drive: 3D Simulator",
+  "version": "1.0.0",
+  "description": "High-graphics 3D vehicle and transit bus simulator. Features realistic engine start/stop ignition, pneumatic air brakes, realistic suspension & drift physics, interactive cockpit controls, bus stop passenger pickup routes, day/night lighting, and dual vehicle modes (Transit Bus & GT Supercar).",
+  "orientation": "portrait",
+  "engine": "canvas2d",
+  "category": "Simulation",
+  "feedOrder": 25,
+  "status": "published",
+  "touchZones": [],
+  "features": {
+    "sound": true,
+    "vibration": true,
+    "cockpit": true,
+    "busStops": true,
+    "physics": true,
+    "dayNight": true
+  }
+}

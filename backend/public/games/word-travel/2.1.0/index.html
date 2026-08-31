@@ -1,0 +1,1763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Word Travel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800;900&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0284C7;
+      font-family: 'Outfit', 'Nunito', system-ui, -apple-system, sans-serif;
+      touch-action: none;
+    }
+    #game-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <script>
+    'use strict';
+
+    // 1. VIBRANT HIGHLIGHT PALETTE FOR FOUND WORDS (PURE CLEAN COLORS)
+    const WORD_COLORS = [
+      { bg: '#06B6D4', topBg: '#22D3EE', text: '#FFFFFF', glow: '#06B6D4' }, // Cyan
+      { bg: '#F43F5E', topBg: '#FB7185', text: '#FFFFFF', glow: '#F43F5E' }, // Rose Pink
+      { bg: '#10B981', topBg: '#34D399', text: '#FFFFFF', glow: '#10B981' }, // Emerald
+      { bg: '#8B5CF6', topBg: '#A78BFA', text: '#FFFFFF', glow: '#8B5CF6' }, // Purple
+      { bg: '#F59E0B', topBg: '#FBBF24', text: '#FFFFFF', glow: '#F59E0B' }, // Amber
+      { bg: '#EC4899', topBg: '#F472B6', text: '#FFFFFF', glow: '#EC4899' }, // Magenta
+      { bg: '#3B82F6', topBg: '#60A5FA', text: '#FFFFFF', glow: '#3B82F6' }, // Blue
+      { bg: '#84CC16', topBg: '#A3E635', text: '#FFFFFF', glow: '#84CC16' }, // Lime Green
+      { bg: '#6366F1', topBg: '#818CF8', text: '#FFFFFF', glow: '#6366F1' }, // Indigo
+      { bg: '#14B8A6', topBg: '#2DD4BF', text: '#FFFFFF', glow: '#14B8A6' }, // Teal
+      { bg: '#FB923C', topBg: '#FDBA74', text: '#FFFFFF', glow: '#FB923C' }  // Orange
+    ];
+
+    const PRAISE_MESSAGES = [
+      'Brilliant!', 'Awesome!', 'Perfect!', 'Fabulous!',
+      'Wonderful!', 'Amazing!', 'Sensational!', 'Fantastic!'
+    ];
+
+    // 2. WORLD DESTINATIONS & THEMED LEVEL PACKS
+    const DESTINATIONS = [
+      {
+        id: 'maldives',
+        country: 'MALDIVES',
+        tagline: 'Tropical Paradise & Turquoise Waters',
+        skyTop: '#0284C7',
+        skyMid: '#38BDF8',
+        sandColor: '#E0F2FE',
+        accentColor: '#F97316',
+        icon: '🌴',
+        ambientType: 'sunbeams',
+        levels: [
+          {
+            theme: 'FIRST WORDS',
+            words: ['WIN', 'JOY', 'PLAY'],
+            gridSize: 5
+          },
+          {
+            theme: 'BIRTHDAY',
+            words: ['CAKE', 'CARD', 'FUN', 'GUEST', 'WISH'],
+            gridSize: 6
+          },
+          {
+            theme: 'AT THE BEACH',
+            words: ['SAND', 'SEA', 'TAN', 'WAVES', 'YACHT'],
+            gridSize: 6
+          },
+          {
+            theme: 'THINGS THAT FLY',
+            words: ['BIRD', 'BUG', 'CLOUD', 'DRAGON', 'KITE', 'TIME'],
+            gridSize: 6
+          },
+          {
+            theme: 'GAMES',
+            words: ['CARD', 'CLUE', 'DICE', 'LUDO', 'MATCH', 'SCORE', 'TIE'],
+            gridSize: 6
+          }
+        ]
+      },
+      {
+        id: 'italy',
+        country: 'ITALY',
+        tagline: 'Lake Como & Alpine Charm',
+        skyTop: '#1E3A8A',
+        skyMid: '#60A5FA',
+        sandColor: '#DBEAFE',
+        accentColor: '#EA580C',
+        icon: '🏛️',
+        ambientType: 'glints',
+        levels: [
+          {
+            theme: 'ITALIAN FOOD',
+            words: ['BREAD', 'GELATO', 'OLIVE', 'PASTA', 'PIZZA'],
+            gridSize: 6
+          },
+          {
+            theme: 'SIGHTSEEING',
+            words: ['CASTLE', 'MUSEUM', 'PLAZA', 'RIVER', 'TOWER'],
+            gridSize: 6
+          },
+          {
+            theme: 'FASHION',
+            words: ['BOOTS', 'DRESS', 'GLOVES', 'HAT', 'RING', 'SILK'],
+            gridSize: 6
+          },
+          {
+            theme: 'ART & MUSIC',
+            words: ['OPERA', 'PAINT', 'SONG', 'STAGE', 'TENOR'],
+            gridSize: 6
+          }
+        ]
+      },
+      {
+        id: 'grand_canyon',
+        country: 'GRAND CANYON',
+        tagline: 'Sunset Canyons & Starry Camping',
+        skyTop: '#7C2D12',
+        skyMid: '#EA580C',
+        sandColor: '#FED7AA',
+        accentColor: '#F59E0B',
+        icon: '🏜️',
+        ambientType: 'fireflies',
+        levels: [
+          {
+            theme: 'CAMPING',
+            words: ['ANIMAL', 'FIRE', 'LAKE', 'MAP', 'MOON', 'NATURE', 'PARK'],
+            gridSize: 7
+          },
+          {
+            theme: 'DESERT LIFE',
+            words: ['CACTUS', 'CANYON', 'DUNE', 'OASIS', 'ROCK', 'SAND'],
+            gridSize: 6
+          },
+          {
+            theme: 'NIGHT SKY',
+            words: ['COMET', 'GALAXY', 'METEOR', 'ORBIT', 'PLANET', 'STAR'],
+            gridSize: 6
+          }
+        ]
+      },
+      {
+        id: 'japan',
+        country: 'JAPAN',
+        tagline: 'Kyoto Gardens & Cherry Blossoms',
+        skyTop: '#4C1D95',
+        skyMid: '#F472B6',
+        sandColor: '#FCE7F3',
+        accentColor: '#E11D48',
+        icon: '⛩️',
+        ambientType: 'sakura',
+        levels: [
+          {
+            theme: 'GARDENS',
+            words: ['BAMBOO', 'BLOSSOM', 'BRIDGE', 'LOTUS', 'POND', 'STONE'],
+            gridSize: 7
+          },
+          {
+            theme: 'JAPANESE CUISINE',
+            words: ['RAMEN', 'SUSHI', 'TEA', 'TEMPURA', 'TOFU', 'WASABI'],
+            gridSize: 7
+          },
+          {
+            theme: 'TRADITION',
+            words: ['FAN', 'KIMONO', 'LANTERN', 'SHRINE', 'TEMPLE'],
+            gridSize: 6
+          }
+        ]
+      },
+      {
+        id: 'switzerland',
+        country: 'SWITZERLAND',
+        tagline: 'Snowy Peaks & Alpine Chalets',
+        skyTop: '#0F172A',
+        skyMid: '#38BDF8',
+        sandColor: '#E0F2FE',
+        accentColor: '#2563EB',
+        icon: '🏔️',
+        ambientType: 'snow',
+        levels: [
+          {
+            theme: 'WINTER SPORTS',
+            words: ['CHALET', 'GLACIER', 'PEAK', 'SKI', 'SNOW', 'TRAIL'],
+            gridSize: 7
+          },
+          {
+            theme: 'ALPINE LIFE',
+            words: ['BELL', 'CABIN', 'FOG', 'HORN', 'MEADOW', 'PINE'],
+            gridSize: 6
+          },
+          {
+            theme: 'SWISS TREATS',
+            words: ['CHEESE', 'COCOA', 'HONEY', 'MILK', 'SWEET'],
+            gridSize: 6
+          }
+        ]
+      }
+    ];
+
+    // 3. ACOUSTIC KALIMBA / HARP AUDIO SYNTHESIZER
+    class SoundSynth {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      playStep(index = 1) {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const kalimbaScale = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51];
+        const freq = kalimbaScale[(index - 1) % kalimbaScale.length];
+
+        const osc1 = this.ctx.createOscillator();
+        const gain1 = this.ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(freq, t);
+        gain1.gain.setValueAtTime(0.18, t);
+        gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+        osc1.connect(gain1);
+        gain1.connect(this.ctx.destination);
+        osc1.start(t);
+        osc1.stop(t + 0.29);
+
+        const osc2 = this.ctx.createOscillator();
+        const gain2 = this.ctx.createGain();
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(freq * 2.76, t);
+        gain2.gain.setValueAtTime(0.04, t);
+        gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+        osc2.connect(gain2);
+        gain2.connect(this.ctx.destination);
+        osc2.start(t);
+        osc2.stop(t + 0.15);
+      }
+
+      playWordFound() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const chord = [523.25, 659.25, 783.99, 1046.50];
+        chord.forEach((freq, i) => {
+          const t = this.ctx.currentTime + i * 0.04;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.20, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.40);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.41);
+        });
+      }
+
+      playLevelComplete() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const notes = [392, 523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, i) => {
+          const t = this.ctx.currentTime + i * 0.07;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.22, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.46);
+        });
+      }
+
+      playCountryComplete() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const fanfare = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+        fanfare.forEach((freq, i) => {
+          const t = this.ctx.currentTime + i * 0.10;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.56);
+        });
+      }
+
+      playLightning() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(800, t);
+        osc.frequency.exponentialRampToValueAtTime(100, t + 0.22);
+        gain.gain.setValueAtTime(0.25, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.23);
+      }
+
+      playTap() {
+        if (this.muted || !this.ctx) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(540, t);
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.06);
+      }
+    }
+
+    // 4. HOST PLATFORM BRIDGE
+    const Host = {
+      post(action, payload) {
+        const body = payload || {};
+        const msg = JSON.stringify({ action: action, payload: body });
+        try {
+          if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+            window.flutter_inappwebview.callHandler('GameBridgeChannel', msg);
+          }
+        } catch (e) {}
+        try {
+          if (window.FlutterGameBridge && window.FlutterGameBridge.postMessage) {
+            window.FlutterGameBridge.postMessage(msg);
+          }
+        } catch (e) {}
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ source: 'GameBridge', action: action, payload: body }, '*');
+          }
+        } catch (e) {}
+      }
+    };
+
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    // 5. INSTANT GUARANTEED WORD SEARCH GRID GENERATOR
+    class GridGenerator {
+      static generate(words, size) {
+        const directions = [
+          { dr: 0, dc: 1 },
+          { dr: 0, dc: -1 },
+          { dr: 1, dc: 0 },
+          { dr: -1, dc: 0 },
+          { dr: 1, dc: 1 },
+          { dr: -1, dc: -1 },
+          { dr: 1, dc: -1 },
+          { dr: -1, dc: 1 }
+        ];
+
+        const shuffledWords = shuffleArray(words);
+        shuffledWords.sort((a, b) => b.length - a.length);
+
+        for (let restart = 0; restart < 25; restart++) {
+          const grid = Array(size).fill(null).map(() => Array(size).fill(''));
+          const placements = [];
+          let allPlaced = true;
+
+          for (const word of shuffledWords) {
+            const slots = [];
+            for (let r = 0; r < size; r++) {
+              for (let c = 0; c < size; c++) {
+                for (const dir of directions) {
+                  const endR = r + dir.dr * (word.length - 1);
+                  const endC = c + dir.dc * (word.length - 1);
+                  if (endR >= 0 && endR < size && endC >= 0 && endC < size) {
+                    let canFit = true;
+                    for (let i = 0; i < word.length; i++) {
+                      const checkR = r + dir.dr * i;
+                      const checkC = c + dir.dc * i;
+                      const existing = grid[checkR][checkC];
+                      if (existing !== '' && existing !== word[i]) {
+                        canFit = false;
+                        break;
+                      }
+                    }
+                    if (canFit) slots.push({ r, c, dir });
+                  }
+                }
+              }
+            }
+
+            if (slots.length > 0) {
+              const choice = slots[Math.floor(Math.random() * slots.length)];
+              const coords = [];
+              for (let i = 0; i < word.length; i++) {
+                const placeR = choice.r + choice.dir.dr * i;
+                const placeC = choice.c + choice.dir.dc * i;
+                grid[placeR][placeC] = word[i];
+                coords.push({ r: placeR, c: placeC });
+              }
+              placements.push({ word, coords });
+            } else {
+              allPlaced = false;
+              break;
+            }
+          }
+
+          if (allPlaced) {
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            for (let r = 0; r < size; r++) {
+              for (let c = 0; c < size; c++) {
+                if (grid[r][c] === '') {
+                  grid[r][c] = alphabet[Math.floor(Math.random() * alphabet.length)];
+                }
+              }
+            }
+            return { grid, placements };
+          }
+        }
+
+        return this.generate(words, size + 1);
+      }
+    }
+
+    // 6. MAIN WORD TRAVEL ENGINE
+    class WordTravelGame {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.synth = new SoundSynth();
+
+        this.levelIndex = this.loadLevelIndex();
+        this.coins = this.loadCoins();
+        this.wisdom = this.loadWisdom();
+        this.hints = 2;
+
+        this.state = 'PLAYING';
+        this.toast = null;
+
+        this.activePath = [];
+        this.isDragging = false;
+        this.startCell = null;
+        this.currentDragPos = null;
+
+        this.foundWords = [];
+        this.hintHighlight = null;
+        this.lightningFlash = 0;
+        this.confetti = [];
+        this.tileBounces = {};
+        this.sparkles = [];
+
+        this.ambientParticles = [];
+
+        this.lastWordFindTime = 0;
+        this.comboStreak = 0;
+
+        this.levelColors = [];
+        this.modalBtnRect = null;
+        this.modalAnimProgress = 0;
+
+        this.initLayout();
+        this.bindEvents();
+        this.loadLevel(this.levelIndex);
+
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      loadLevelIndex() {
+        try {
+          const v = localStorage.getItem('wt_level_idx');
+          return v ? parseInt(v) || 0 : 0;
+        } catch (e) {
+          return 0;
+        }
+      }
+
+      saveLevelIndex() {
+        try {
+          localStorage.setItem('wt_level_idx', this.levelIndex.toString());
+        } catch (e) {}
+      }
+
+      loadCoins() {
+        try {
+          const v = localStorage.getItem('wt_coins');
+          return v ? parseInt(v) || 250 : 250;
+        } catch (e) {
+          return 250;
+        }
+      }
+
+      saveCoins() {
+        try {
+          localStorage.setItem('wt_coins', this.coins.toString());
+        } catch (e) {}
+      }
+
+      loadWisdom() {
+        try {
+          const v = localStorage.getItem('wt_wisdom');
+          return v ? parseInt(v) || 120 : 120;
+        } catch (e) {
+          return 120;
+        }
+      }
+
+      saveWisdom() {
+        try {
+          localStorage.setItem('wt_wisdom', this.wisdom.toString());
+        } catch (e) {}
+      }
+
+      getDestinationAndLevel(idx) {
+        let total = 0;
+        for (let d = 0; d < DESTINATIONS.length; d++) {
+          const dest = DESTINATIONS[d];
+          if (idx < total + dest.levels.length) {
+            return {
+              destIndex: d,
+              destination: dest,
+              levelInDest: idx - total,
+              isLastLevelInCountry: (idx - total === dest.levels.length - 1),
+              levelData: dest.levels[idx - total]
+            };
+          }
+          total += dest.levels.length;
+        }
+
+        const loopIdx = idx % DESTINATIONS.length;
+        const dest = DESTINATIONS[loopIdx];
+        const lvlIdx = idx % dest.levels.length;
+        return {
+          destIndex: loopIdx,
+          destination: dest,
+          levelInDest: lvlIdx,
+          isLastLevelInCountry: (lvlIdx === dest.levels.length - 1),
+          levelData: dest.levels[lvlIdx]
+        };
+      }
+
+      loadLevel(idx) {
+        this.levelIndex = idx;
+        this.saveLevelIndex();
+
+        const info = this.getDestinationAndLevel(idx);
+        this.destination = info.destination;
+        this.levelData = info.levelData;
+        this.isLastLevelInCountry = info.isLastLevelInCountry;
+
+        this.gridSize = this.levelData.gridSize || 6;
+        
+        this.targetWords = shuffleArray(this.levelData.words);
+        this.levelColors = shuffleArray(WORD_COLORS);
+
+        const { grid, placements } = GridGenerator.generate(this.targetWords, this.gridSize);
+        this.grid = grid;
+        this.placements = placements;
+        this.foundWords = [];
+
+        this.activePath = [];
+        this.isDragging = false;
+        this.hintHighlight = null;
+        this.lightningFlash = 0;
+        this.confetti = [];
+        this.tileBounces = {};
+        this.sparkles = [];
+        this.state = 'PLAYING';
+        this.modalAnimProgress = 0;
+        this.comboStreak = 0;
+
+        this.initAmbientParticles();
+
+        this.praiseText = PRAISE_MESSAGES[Math.floor(Math.random() * PRAISE_MESSAGES.length)];
+        this.initLayout();
+
+        Host.post('onGameStarted', { level: this.levelIndex + 1, country: this.destination.country });
+      }
+
+      initAmbientParticles() {
+        this.ambientParticles = [];
+        const type = this.destination.ambientType || 'sunbeams';
+        const count = type === 'sakura' ? 18 : (type === 'snow' ? 24 : 12);
+
+        for (let i = 0; i < count; i++) {
+          this.ambientParticles.push({
+            x: Math.random() * this.width,
+            y: Math.random() * this.height,
+            vx: type === 'sakura' ? (0.4 + Math.random() * 0.8) : (Math.random() - 0.5) * 0.6,
+            vy: type === 'snow' ? (0.6 + Math.random() * 1.0) : (0.4 + Math.random() * 0.6),
+            size: type === 'sakura' ? (6 + Math.random() * 5) : (3 + Math.random() * 4),
+            rot: Math.random() * Math.PI * 2,
+            vrot: (Math.random() - 0.5) * 2.0,
+            alpha: 0.35 + Math.random() * 0.45,
+            type: type
+          });
+        }
+      }
+
+      initLayout() {
+        const dpr = window.devicePixelRatio || 1;
+        this.dpr = dpr;
+        this.width = window.innerWidth || 360;
+        this.height = window.innerHeight || 640;
+        this.canvas.width = Math.round(this.width * dpr);
+        this.canvas.height = Math.round(this.height * dpr);
+
+        this.headerY = 14;
+
+        this.themeBoxY = 56;
+        this.themeBoxW = Math.min(340, this.width - 24);
+        this.themeBoxX = (this.width - this.themeBoxW) / 2;
+        this.themeHeaderH = 28;
+        this.themeContentH = 50;
+        this.themeBoxH = this.themeHeaderH + this.themeContentH;
+
+        const gridTop = this.themeBoxY + this.themeBoxH + 12;
+        const availableGridW = this.width - 24;
+        const availableGridH = this.height - gridTop - 80;
+
+        const maxCell = Math.floor(Math.min(availableGridW / this.gridSize, availableGridH / this.gridSize, 56));
+        this.cellSize = maxCell;
+        this.gridW = this.gridSize * this.cellSize;
+        this.gridH = this.gridSize * this.cellSize;
+
+        this.cardPadding = 12;
+        this.cardW = this.gridW + this.cardPadding * 2;
+        this.cardH = this.gridH + this.cardPadding * 2;
+        this.cardX = (this.width - this.cardW) / 2;
+        this.cardY = gridTop + Math.max(0, (availableGridH - this.cardH) / 2);
+
+        this.gridX = this.cardX + this.cardPadding;
+        this.gridY = this.cardY + this.cardPadding;
+
+        this.btnY = this.height - 58;
+      }
+
+      bindEvents() {
+        window.addEventListener('resize', () => this.initLayout());
+
+        const getPos = (e) => {
+          const rect = this.canvas.getBoundingClientRect();
+          const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+          const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+          return { px: clientX - rect.left, py: clientY - rect.top };
+        };
+
+        const handleDown = (e) => {
+          e.preventDefault();
+          this.synth.init();
+          if (e.pointerId !== undefined) {
+            try { this.canvas.setPointerCapture(e.pointerId); } catch (_) {}
+          }
+          const { px, py } = getPos(e);
+
+          if (this.state === 'LEVEL_COMPLETE' || this.state === 'COUNTRY_COMPLETE') {
+            let clickedButton = false;
+            if (this.modalBtnRect) {
+              const r = this.modalBtnRect;
+              if (px >= r.x - 20 && px <= r.x + r.w + 20 && py >= r.y - 15 && py <= r.y + r.h + 25) {
+                clickedButton = true;
+              }
+            } else {
+              clickedButton = true;
+            }
+
+            if (clickedButton) {
+              this.synth.playTap();
+              if (this.state === 'COUNTRY_COMPLETE') {
+                this.coins += 25;
+                this.saveCoins();
+              }
+              this.loadLevel(this.levelIndex + 1);
+            }
+            return;
+          }
+
+          if (py >= this.btnY - 26 && py <= this.btnY + 26) {
+            const lightningX = this.width / 2 + 10;
+            if (px >= lightningX - 22 && px <= lightningX + 22) {
+              this.useLightningPowerup();
+              return;
+            }
+
+            const hintX = this.width / 2 + 62;
+            if (px >= hintX - 22 && px <= hintX + 22) {
+              this.useHint();
+              return;
+            }
+
+            const refreshX = this.width / 2 + 114;
+            if (px >= refreshX - 22 && px <= refreshX + 22) {
+              this.synth.playTap();
+              this.activePath = [];
+              return;
+            }
+          }
+
+          const cell = this.getCellFromPos(px, py);
+          if (cell) {
+            this.isDragging = true;
+            this.startCell = cell;
+            this.activePath = [cell];
+            this.currentDragPos = { px, py };
+            this.synth.playStep(1);
+            this.haptic(10);
+          }
+        };
+
+        const handleMove = (e) => {
+          if (!this.isDragging || this.state !== 'PLAYING') return;
+          e.preventDefault();
+          const { px, py } = getPos(e);
+          this.currentDragPos = { px, py };
+
+          const cell = this.getCellFromPos(px, py);
+          if (!cell || !this.startCell) return;
+
+          const dr = cell.r - this.startCell.r;
+          const dc = cell.c - this.startCell.c;
+
+          const absR = Math.abs(dr);
+          const absC = Math.abs(dc);
+
+          if (absR === 0 && absC === 0) {
+            this.activePath = [this.startCell];
+            return;
+          }
+
+          let stepR = 0, stepC = 0, length = 0;
+
+          if (absR === 0) {
+            stepC = Math.sign(dc);
+            length = absC;
+          } else if (absC === 0) {
+            stepR = Math.sign(dr);
+            length = absR;
+          } else if (absR === absC) {
+            stepR = Math.sign(dr);
+            stepC = Math.sign(dc);
+            length = absR;
+          } else {
+            return;
+          }
+
+          const newPath = [];
+          for (let i = 0; i <= length; i++) {
+            newPath.push({
+              r: this.startCell.r + stepR * i,
+              c: this.startCell.c + stepC * i
+            });
+          }
+
+          if (newPath.length !== this.activePath.length) {
+            this.activePath = newPath;
+            this.synth.playStep(newPath.length);
+            this.haptic(8);
+          }
+        };
+
+        const handleUp = (e) => {
+          if (!this.isDragging) return;
+          this.isDragging = false;
+
+          if (this.activePath.length >= 2) {
+            this.validateActivePath();
+          }
+          this.activePath = [];
+          this.startCell = null;
+        };
+
+        this.canvas.addEventListener('pointerdown', handleDown);
+        window.addEventListener('pointermove', handleMove);
+        window.addEventListener('pointerup', handleUp);
+        window.addEventListener('pointercancel', handleUp);
+      }
+
+      getCellFromPos(px, py) {
+        if (px < this.gridX || px > this.gridX + this.gridW ||
+            py < this.gridY || py > this.gridY + this.gridH) {
+          return null;
+        }
+        const c = Math.floor((px - this.gridX) / this.cellSize);
+        const r = Math.floor((py - this.gridY) / this.cellSize);
+        if (r >= 0 && r < this.gridSize && c >= 0 && c < this.gridSize) {
+          return { r, c };
+        }
+        return null;
+      }
+
+      validateActivePath() {
+        const formedWord = this.activePath.map(pt => this.grid[pt.r][pt.c]).join('');
+        const reversedWord = formedWord.split('').reverse().join('');
+
+        let matchWord = null;
+        for (const target of this.targetWords) {
+          if (this.foundWords.some(fw => fw.word === target)) continue;
+          if (formedWord === target || reversedWord === target) {
+            matchWord = target;
+            break;
+          }
+        }
+
+        if (matchWord) {
+          const colorObj = this.levelColors[this.foundWords.length % this.levelColors.length] || WORD_COLORS[0];
+          this.foundWords.push({
+            word: matchWord,
+            coords: [...this.activePath],
+            colorObj: colorObj
+          });
+
+          for (const pt of this.activePath) {
+            this.tileBounces[pt.r + ',' + pt.c] = 1.25;
+
+            const cx = this.gridX + pt.c * this.cellSize + this.cellSize / 2;
+            const cy = this.gridY + pt.r * this.cellSize + this.cellSize / 2;
+            for (let k = 0; k < 4; k++) {
+              this.sparkles.push({
+                x: cx,
+                y: cy,
+                vx: (Math.random() - 0.5) * 70,
+                vy: (Math.random() - 0.5) * 70,
+                color: colorObj.topBg || '#FFFFFF',
+                alpha: 1.0,
+                size: 3 + Math.random() * 3
+              });
+            }
+          }
+
+          const now = Date.now();
+          if (now - this.lastWordFindTime < 4000) {
+            this.comboStreak++;
+            if (this.comboStreak >= 2) {
+              this.wisdom += 5;
+              this.toast = { text: '🔥 COMBO x' + this.comboStreak + '! +5 Wisdom', t: 1.2 };
+            } else {
+              this.toast = { text: matchWord + ' FOUND! ✨', t: 1.0 };
+            }
+          } else {
+            this.comboStreak = 1;
+            this.toast = { text: matchWord + ' FOUND! ✨', t: 1.0 };
+          }
+          this.lastWordFindTime = now;
+
+          this.synth.playWordFound();
+          this.haptic(25);
+
+          Host.post('onWordFound', { word: matchWord });
+
+          if (this.foundWords.length === this.targetWords.length) {
+            this.handleLevelWin();
+          }
+        }
+      }
+
+      useHint() {
+        if (this.state !== 'PLAYING') return;
+        const unsolved = this.placements.find(p => !this.foundWords.some(fw => fw.word === p.word));
+        if (!unsolved) return;
+
+        const startPt = unsolved.coords[0];
+        this.hintHighlight = { r: startPt.r, c: startPt.c, t: 2.2 };
+        this.synth.playTap();
+        this.haptic(15);
+        this.toast = { text: 'Hint: Starts with "' + this.grid[startPt.r][startPt.c] + '"', t: 1.5 };
+      }
+
+      useLightningPowerup() {
+        if (this.state !== 'PLAYING') return;
+        if (this.coins < 200) {
+          this.toast = { text: 'Need 200 Coins for Lightning ⚡', t: 1.5 };
+          return;
+        }
+
+        const unsolved = this.placements.find(p => !this.foundWords.some(fw => fw.word === p.word));
+        if (!unsolved) return;
+
+        this.coins -= 200;
+        this.saveCoins();
+        this.lightningFlash = 1.0;
+        this.synth.playLightning();
+        this.haptic(40);
+
+        const colorObj = this.levelColors[this.foundWords.length % this.levelColors.length] || WORD_COLORS[0];
+        this.foundWords.push({
+          word: unsolved.word,
+          coords: [...unsolved.coords],
+          colorObj: colorObj
+        });
+
+        for (const pt of unsolved.coords) {
+          this.tileBounces[pt.r + ',' + pt.c] = 1.25;
+        }
+
+        this.toast = { text: '⚡ ' + unsolved.word + ' REVEALED!', t: 1.5 };
+
+        if (this.foundWords.length === this.targetWords.length) {
+          setTimeout(() => this.handleLevelWin(), 500);
+        }
+      }
+
+      handleLevelWin() {
+        this.wisdom += 15;
+        this.saveWisdom();
+        this.modalAnimProgress = 0;
+
+        for (let i = 0; i < 40; i++) {
+          this.confetti.push({
+            x: this.width / 2,
+            y: this.height / 2,
+            vx: (Math.random() - 0.5) * 280,
+            vy: -120 - Math.random() * 220,
+            color: this.levelColors[i % this.levelColors.length].bg,
+            size: 5 + Math.random() * 5,
+            alpha: 1.0,
+            rot: Math.random() * Math.PI,
+            vrot: (Math.random() - 0.5) * 8
+          });
+        }
+
+        if (this.isLastLevelInCountry) {
+          this.state = 'COUNTRY_COMPLETE';
+          this.synth.playCountryComplete();
+          Host.post('onCountryCompleted', { country: this.destination.country, wisdom: this.wisdom });
+        } else {
+          this.state = 'LEVEL_COMPLETE';
+          this.synth.playLevelComplete();
+          Host.post('onLevelCompleted', { level: this.levelIndex + 1, wisdom: this.wisdom });
+        }
+      }
+
+      haptic(ms) {
+        try {
+          if (navigator.vibrate) navigator.vibrate(ms);
+        } catch (e) {}
+      }
+
+      loop(timestamp) {
+        const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
+        this.lastTime = timestamp;
+
+        for (const p of this.ambientParticles) {
+          p.x += p.vx * 60 * dt;
+          p.y += p.vy * 60 * dt;
+          p.rot += p.vrot * dt;
+
+          if (p.y > this.height + 20) p.y = -20;
+          if (p.x > this.width + 20) p.x = -20;
+          if (p.x < -20) p.x = this.width + 20;
+        }
+
+        for (const key in this.tileBounces) {
+          if (this.tileBounces[key] > 1.0) {
+            this.tileBounces[key] -= dt * 1.8;
+            if (this.tileBounces[key] <= 1.0) delete this.tileBounces[key];
+          }
+        }
+
+        for (let i = this.sparkles.length - 1; i >= 0; i--) {
+          const spk = this.sparkles[i];
+          spk.x += spk.vx * dt;
+          spk.y += spk.vy * dt;
+          spk.alpha -= dt * 2.2;
+          if (spk.alpha <= 0) this.sparkles.splice(i, 1);
+        }
+
+        if (this.state === 'LEVEL_COMPLETE' || this.state === 'COUNTRY_COMPLETE') {
+          if (this.modalAnimProgress < 1.0) {
+            this.modalAnimProgress = Math.min(1.0, this.modalAnimProgress + dt * 2.8);
+          }
+        }
+
+        if (this.lightningFlash > 0) {
+          this.lightningFlash = Math.max(0, this.lightningFlash - dt * 3.0);
+        }
+
+        if (this.hintHighlight) {
+          this.hintHighlight.t -= dt;
+          if (this.hintHighlight.t <= 0) this.hintHighlight = null;
+        }
+
+        for (let i = this.confetti.length - 1; i >= 0; i--) {
+          const c = this.confetti[i];
+          c.x += c.vx * dt;
+          c.y += c.vy * dt;
+          c.vy += 320 * dt;
+          c.rot += c.vrot * dt;
+          c.alpha -= dt * 0.45;
+          if (c.alpha <= 0) this.confetti.splice(i, 1);
+        }
+
+        if (this.toast) {
+          this.toast.t -= dt;
+          if (this.toast.t <= 0) this.toast = null;
+        }
+
+        this.render();
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      // --- RENDERING PIPELINE ---
+      render() {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.scale(this.dpr, this.dpr);
+
+        this.renderLivingScenicBackground(ctx);
+        this.renderAmbientLivingParticles(ctx);
+        this.renderPassportHeader(ctx);
+        this.renderTravelCard(ctx);
+        this.renderPureWhiteGridCard(ctx);
+        this.renderBottomControls(ctx);
+
+        if (this.levelIndex === 0 && this.foundWords.length === 0 && this.state === 'PLAYING') {
+          this.renderTutorialOverlay(ctx);
+        }
+
+        this.renderSparkles(ctx);
+        this.renderConfetti(ctx);
+
+        if (this.lightningFlash > 0) {
+          ctx.fillStyle = 'rgba(255, 255, 255, ' + (this.lightningFlash * 0.7) + ')';
+          ctx.fillRect(0, 0, this.width, this.height);
+        }
+
+        if (this.toast) this.renderToast(ctx);
+        if (this.state === 'LEVEL_COMPLETE') this.renderAnimatedLevelCompleteModal(ctx);
+        if (this.state === 'COUNTRY_COMPLETE') this.renderAnimatedCountryCompleteModal(ctx);
+
+        ctx.restore();
+      }
+
+      // 1. LIVING SCENIC BACKGROUND (ZERO GRAY LINES)
+      renderLivingScenicBackground(ctx) {
+        const dest = this.destination;
+        const w = this.width;
+        const h = this.height;
+
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+        skyGrad.addColorStop(0, dest.skyTop);
+        skyGrad.addColorStop(0.55, dest.skyMid);
+        skyGrad.addColorStop(1, dest.sandColor);
+
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.save();
+
+        const sunX = w * 0.82;
+        const sunY = h * 0.15;
+
+        const sunHalo = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 75);
+        sunHalo.addColorStop(0, 'rgba(255, 255, 255, 0.40)');
+        sunHalo.addColorStop(0.5, 'rgba(254, 240, 138, 0.18)');
+        sunHalo.addColorStop(1, 'rgba(254, 240, 138, 0)');
+        ctx.fillStyle = sunHalo;
+        ctx.beginPath();
+        ctx.arc(sunX, sunY, 75, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(sunX, sunY, 20, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.20)';
+        ctx.beginPath();
+        ctx.arc(w * 0.20, h * 0.12, 28, 0, Math.PI * 2);
+        ctx.arc(w * 0.28, h * 0.11, 38, 0, Math.PI * 2);
+        ctx.arc(w * 0.36, h * 0.13, 24, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      // 2. AMBIENT LIVING PARTICLES (Sakura, Snow, Sunbeams, Fireflies)
+      renderAmbientLivingParticles(ctx) {
+        for (const p of this.ambientParticles) {
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.globalAlpha = p.alpha;
+
+          if (p.type === 'sakura') {
+            ctx.fillStyle = '#F472B6';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, p.size, p.size * 0.55, Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (p.type === 'snow') {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (p.type === 'fireflies') {
+            ctx.fillStyle = '#FDE047';
+            ctx.shadowColor = '#FDE047';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.fillStyle = '#FEF08A';
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+      }
+
+      // 3. PASSPORT STAMP HEADER
+      renderPassportHeader(ctx) {
+        const y = this.headerY;
+
+        ctx.save();
+        ctx.font = '900 22px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(0,0,0,0.35)';
+        ctx.shadowBlur = 8;
+        ctx.fillText('Level ' + (this.levelIndex + 1), this.width / 2, y + 21);
+        ctx.restore();
+
+        const coinPillW = 88;
+        const coinPillX = this.width - coinPillW - 12;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.roundRect(coinPillX, y + 4, coinPillW, 30, 15);
+        ctx.fillStyle = '#111827';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '900 14px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'left';
+        ctx.fillText(this.coins.toLocaleString(), coinPillX + 14, y + 23);
+
+        ctx.font = '13.5px sans-serif';
+        ctx.fillText('🪙', coinPillX + coinPillW - 24, y + 23);
+        ctx.restore();
+      }
+
+      // 4. TRAVEL CATEGORY CARD (PURE CRISP WHITE)
+      renderTravelCard(ctx) {
+        const bx = this.themeBoxX;
+        const by = this.themeBoxY;
+        const bw = this.themeBoxW;
+        const hh = this.themeHeaderH;
+        const ch = this.themeContentH;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+        ctx.shadowBlur = 14;
+        ctx.shadowOffsetY = 4;
+
+        // Orange Header
+        const headGrad = ctx.createLinearGradient(bx, by, bx + bw, by + hh);
+        headGrad.addColorStop(0, this.destination.accentColor || '#F97316');
+        headGrad.addColorStop(1, '#EA580C');
+
+        ctx.beginPath();
+        ctx.roundRect(bx, by, bw, hh, [12, 12, 0, 0]);
+        ctx.fillStyle = headGrad;
+        ctx.fill();
+
+        ctx.font = '900 13px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.levelData.theme.toUpperCase(), bx + bw / 2, by + hh / 2 + 1);
+
+        // Pure Solid White Target Words Body
+        ctx.beginPath();
+        ctx.roundRect(bx, by + hh, bw, ch, [0, 0, 12, 12]);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.restore();
+
+        // Render Words as Rounded Chip Capsules
+        ctx.save();
+        const words = this.targetWords;
+        const row1 = words.slice(0, Math.ceil(words.length / 2));
+        const row2 = words.slice(Math.ceil(words.length / 2));
+
+        const renderChipRow = (wList, rowY) => {
+          const totalSpacing = bw - 16;
+          const step = totalSpacing / (wList.length + 1);
+
+          wList.forEach((word, idx) => {
+            const wx = bx + 8 + step * (idx + 1);
+            const foundObj = this.foundWords.find(fw => fw.word === word);
+
+            ctx.font = '900 13px Outfit, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            if (foundObj) {
+              const pal = foundObj.colorObj;
+              const metrics = ctx.measureText(word);
+              const chipW = metrics.width + 16;
+              const chipH = 20;
+
+              ctx.beginPath();
+              ctx.roundRect(wx - chipW / 2, rowY - chipH / 2, chipW, chipH, 10);
+              ctx.fillStyle = pal.bg;
+              ctx.fill();
+
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillText(word, wx, rowY + 1);
+            } else {
+              ctx.fillStyle = '#000000';
+              ctx.fillText(word, wx, rowY + 1);
+            }
+          });
+        };
+
+        if (row2.length === 0) {
+          renderChipRow(row1, by + hh + ch / 2);
+        } else {
+          renderChipRow(row1, by + hh + ch * 0.32);
+          renderChipRow(row2, by + hh + ch * 0.72);
+        }
+        ctx.restore();
+      }
+
+      // 5. PURE LUMINOUS WHITE GRID CARD (ZERO GRAY TINT / ZERO GRAY BORDERS)
+      renderPureWhiteGridCard(ctx) {
+        const cx = this.cardX;
+        const cy = this.cardY;
+        const cw = this.cardW;
+        const ch = this.cardH;
+
+        // Pure Crisp Solid White Card with Soft Natural Shadow
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
+        ctx.shadowBlur = 18;
+        ctx.shadowOffsetY = 6;
+        ctx.beginPath();
+        ctx.roundRect(cx, cy, cw, ch, 16);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.restore();
+
+        const gx = this.gridX;
+        const gy = this.gridY;
+        const cs = this.cellSize;
+
+        // 1. Found Words Highlight Capsules Behind Letters
+        for (const fw of this.foundWords) {
+          const pal = fw.colorObj;
+          ctx.save();
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.lineWidth = cs * 0.76;
+          ctx.strokeStyle = pal.bg;
+
+          ctx.beginPath();
+          for (let i = 0; i < fw.coords.length; i++) {
+            const pt = fw.coords[i];
+            const px = gx + pt.c * cs + cs / 2;
+            const py = gy + pt.r * cs + cs / 2;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 2. ACTIVE DRAG LINE (DYNAMIC NEXT COLOR)
+        if (this.isDragging && this.activePath.length > 0) {
+          const nextColor = this.levelColors[this.foundWords.length % this.levelColors.length] || WORD_COLORS[0];
+
+          ctx.save();
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.lineWidth = cs * 0.76;
+          ctx.strokeStyle = nextColor.bg;
+          ctx.shadowColor = nextColor.glow || nextColor.bg;
+          ctx.shadowBlur = 12;
+
+          ctx.beginPath();
+          for (let i = 0; i < this.activePath.length; i++) {
+            const pt = this.activePath[i];
+            const px = gx + pt.c * cs + cs / 2;
+            const py = gy + pt.r * cs + cs / 2;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 3. Hint Pulsing Highlight
+        if (this.hintHighlight) {
+          const hx = gx + this.hintHighlight.c * cs + cs / 2;
+          const hy = gy + this.hintHighlight.r * cs + cs / 2;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(hx, hy, cs * 0.42, 0, Math.PI * 2);
+          ctx.strokeStyle = '#FACC15';
+          ctx.lineWidth = 3.5;
+          ctx.shadowColor = '#FACC15';
+          ctx.shadowBlur = 14;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 4. Letters (Crisp Pure Black on White, Pure White on Colored Capsules)
+        for (let r = 0; r < this.gridSize; r++) {
+          for (let c = 0; c < this.gridSize; c++) {
+            const letter = this.grid[r][c];
+            const lx = gx + c * cs + cs / 2;
+            const ly = gy + r * cs + cs / 2;
+
+            const isPartOfFound = this.foundWords.some(fw => fw.coords.some(pt => pt.r === r && pt.c === c));
+            const isPartOfActive = this.activePath.some(pt => pt.r === r && pt.c === c);
+            const bounceScale = this.tileBounces[r + ',' + c] || 1.0;
+
+            ctx.save();
+            ctx.translate(lx, ly);
+            if (bounceScale !== 1.0) {
+              ctx.scale(bounceScale, bounceScale);
+            }
+
+            ctx.font = '900 ' + Math.floor(cs * 0.52) + 'px Outfit, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            if (isPartOfActive || isPartOfFound) {
+              ctx.fillStyle = '#FFFFFF';
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+              ctx.shadowBlur = 4;
+            } else {
+              ctx.fillStyle = '#000000';
+            }
+
+            ctx.fillText(letter, 0, 1);
+            ctx.restore();
+          }
+        }
+      }
+
+      renderSparkles(ctx) {
+        for (const spk of this.sparkles) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(spk.x, spk.y, spk.size, 0, Math.PI * 2);
+          ctx.fillStyle = spk.color;
+          ctx.globalAlpha = spk.alpha;
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      renderBottomControls(ctx) {
+        const y = this.btnY;
+
+        const lightningX = this.width / 2 + 10;
+        this.renderCircleButton(ctx, lightningX, y, 22, '#F97316', '⚡', '200🪙');
+
+        const hintX = this.width / 2 + 62;
+        this.renderCircleButton(ctx, hintX, y, 22, '#EA580C', '💡', null, this.hints);
+
+        const refreshX = this.width / 2 + 114;
+        this.renderCircleButton(ctx, refreshX, y, 22, '#F97316', '🔄', null);
+      }
+
+      renderCircleButton(ctx, x, y, radius, bg, icon, subtext, badge = null) {
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = bg;
+        ctx.fill();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        ctx.font = '900 16px sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(icon, x, subtext ? y - 3 : y);
+
+        if (subtext) {
+          ctx.font = '800 8.5px Outfit, sans-serif';
+          ctx.fillStyle = '#FEF08A';
+          ctx.fillText(subtext, x, y + 11);
+        }
+
+        if (badge !== null) {
+          ctx.beginPath();
+          ctx.arc(x + 14, y - 14, 7.5, 0, Math.PI * 2);
+          ctx.fillStyle = '#38BDF8';
+          ctx.fill();
+          ctx.font = '900 9.5px Outfit, sans-serif';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText(badge.toString(), x + 14, y - 14);
+        }
+        ctx.restore();
+      }
+
+      renderTutorialOverlay(ctx) {
+        const firstPlacement = this.placements[0];
+        if (!firstPlacement) return;
+
+        const startPt = firstPlacement.coords[0];
+        const endPt = firstPlacement.coords[firstPlacement.coords.length - 1];
+
+        const sx = this.gridX + startPt.c * this.cellSize + this.cellSize / 2;
+        const sy = this.gridY + startPt.r * this.cellSize + this.cellSize / 2;
+        const ex = this.gridX + endPt.c * this.cellSize + this.cellSize / 2;
+        const ey = this.gridY + endPt.r * this.cellSize + this.cellSize / 2;
+
+        const t = (Date.now() % 1600) / 1600;
+        const handX = sx + (ex - sx) * t;
+        const handY = sy + (ey - sy) * t;
+
+        const bubbleW = 240, bubbleH = 36;
+        const bubbleX = (this.width - bubbleW) / 2;
+        const bubbleY = this.cardY - 44;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.roundRect(bubbleX, bubbleY, bubbleW, bubbleH, 18);
+        ctx.fillStyle = '#1E293B';
+        ctx.fill();
+        ctx.strokeStyle = '#38BDF8';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.font = '800 13.5px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('👉 Swipe to make "' + firstPlacement.word + '"!', bubbleX + bubbleW / 2, bubbleY + bubbleH / 2);
+
+        ctx.font = '24px sans-serif';
+        ctx.fillText('👆', handX, handY + 12);
+        ctx.restore();
+      }
+
+      renderConfetti(ctx) {
+        for (const c of this.confetti) {
+          ctx.save();
+          ctx.translate(c.x, c.y);
+          ctx.rotate(c.rot);
+          ctx.fillStyle = c.color;
+          ctx.globalAlpha = Math.max(0, c.alpha);
+          ctx.fillRect(-c.size / 2, -c.size / 2, c.size, c.size * 0.7);
+          ctx.restore();
+        }
+      }
+
+      renderAnimatedLevelCompleteModal(ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        const t = Math.min(1.0, this.modalAnimProgress);
+        const scale = 0.65 + 0.35 * Math.sin(t * Math.PI / 2);
+
+        const cardW = Math.min(324, this.width - 36);
+        const cardH = 346;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        ctx.save();
+        ctx.translate(this.width / 2, this.height / 2);
+        ctx.scale(scale, scale);
+        ctx.translate(-this.width / 2, -this.height / 2);
+
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+        ctx.shadowBlur = 32;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+
+        const ribbonW = 210, ribbonH = 44;
+        const ribbonX = (this.width - ribbonW) / 2;
+        const ribbonY = cardY - 20;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(234, 88, 12, 0.45)';
+        ctx.shadowBlur = 14;
+        ctx.beginPath();
+        ctx.roundRect(ribbonX, ribbonY, ribbonW, ribbonH, 12);
+        const ribGrad = ctx.createLinearGradient(ribbonX, ribbonY, ribbonX, ribbonY + ribbonH);
+        ribGrad.addColorStop(0, '#F97316');
+        ribGrad.addColorStop(1, '#C2410C');
+        ctx.fillStyle = ribGrad;
+        ctx.fill();
+
+        ctx.strokeStyle = '#FDE68A';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.font = '900 20px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⭐ ' + this.praiseText + ' ⭐', this.width / 2, ribbonY + ribbonH / 2 + 1);
+        ctx.restore();
+
+        const badgeY = cardY + 84;
+        ctx.save();
+        ctx.shadowColor = 'rgba(2, 132, 199, 0.35)';
+        ctx.shadowBlur = 16;
+        ctx.beginPath();
+        ctx.arc(this.width / 2, badgeY, 38, 0, Math.PI * 2);
+        const badgeGrad = ctx.createLinearGradient(0, badgeY - 38, 0, badgeY + 38);
+        badgeGrad.addColorStop(0, '#0284C7');
+        badgeGrad.addColorStop(1, '#38BDF8');
+        ctx.fillStyle = badgeGrad;
+        ctx.fill();
+
+        ctx.strokeStyle = '#FACC15';
+        ctx.lineWidth = 2.8;
+        ctx.stroke();
+
+        ctx.font = '36px sans-serif';
+        ctx.fillText(this.destination.icon || '🌴', this.width / 2, badgeY + 5);
+        ctx.restore();
+
+        ctx.font = '800 13px Outfit, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.textAlign = 'center';
+        ctx.fillText('WISDOM PROGRESS', this.width / 2, badgeY + 56);
+
+        ctx.font = '900 26px Outfit, sans-serif';
+        ctx.fillStyle = '#0284C7';
+        ctx.fillText('✨ ' + this.wisdom, this.width / 2, badgeY + 86);
+
+        const barW = 200, barH = 10;
+        const barX = (this.width - barW) / 2;
+        const barY = badgeY + 100;
+
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, barW, barH, 5);
+        ctx.fillStyle = '#E2E8F0';
+        ctx.fill();
+
+        const fillW = (barW * ((this.levelIndex % 5) + 1)) / 5;
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, fillW, barH, 5);
+        const fillGrad = ctx.createLinearGradient(barX, 0, barX + fillW, 0);
+        fillGrad.addColorStop(0, '#10B981');
+        fillGrad.addColorStop(1, '#34D399');
+        ctx.fillStyle = fillGrad;
+        ctx.fill();
+
+        const btnW = 208, btnH = 50;
+        const btnX = (this.width - btnW) / 2;
+        const btnY = cardY + cardH - 68;
+
+        this.modalBtnRect = { x: btnX, y: btnY, w: btnW, h: btnH };
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(16, 185, 129, 0.45)';
+        ctx.shadowBlur = 14;
+        ctx.beginPath();
+        ctx.roundRect(btnX, btnY, btnW, btnH, 25);
+        const btnGrad = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
+        btnGrad.addColorStop(0, '#10B981');
+        btnGrad.addColorStop(1, '#059669');
+        ctx.fillStyle = btnGrad;
+        ctx.fill();
+
+        ctx.strokeStyle = '#A7F3D0';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.font = '900 17px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('NEXT LEVEL ➔', this.width / 2, btnY + btnH / 2 + 1);
+        ctx.restore();
+
+        ctx.restore();
+      }
+
+      renderAnimatedCountryCompleteModal(ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        const t = Math.min(1.0, this.modalAnimProgress);
+        const scale = 0.65 + 0.35 * Math.sin(t * Math.PI / 2);
+
+        const cardW = Math.min(330, this.width - 32);
+        const cardH = 376;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+
+        ctx.save();
+        ctx.translate(this.width / 2, this.height / 2);
+        ctx.scale(scale, scale);
+        ctx.translate(-this.width / 2, -this.height / 2);
+
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        ctx.shadowBlur = 36;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.strokeStyle = '#FBBF24';
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+
+        ctx.font = '900 22px Outfit, sans-serif';
+        ctx.fillStyle = '#EA580C';
+        ctx.textAlign = 'center';
+        ctx.fillText('🎉 Country Complete! 🎉', this.width / 2, cardY + 38);
+
+        ctx.font = '900 28px Outfit, sans-serif';
+        ctx.fillStyle = '#0F172A';
+        ctx.fillText(this.destination.country, this.width / 2, cardY + 74);
+
+        ctx.font = '600 13px Outfit, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.fillText(this.destination.tagline, this.width / 2, cardY + 95);
+
+        const giftY = cardY + 164;
+        ctx.beginPath();
+        ctx.arc(this.width / 2, giftY, 46, 0, Math.PI * 2);
+        ctx.fillStyle = '#FEF3C7';
+        ctx.fill();
+        ctx.strokeStyle = '#F59E0B';
+        ctx.lineWidth = 2.8;
+        ctx.stroke();
+
+        ctx.font = '44px sans-serif';
+        ctx.fillText('🎁', this.width / 2, giftY + 5);
+
+        ctx.font = '900 24px Outfit, sans-serif';
+        ctx.fillStyle = '#D97706';
+        ctx.fillText('+25 COINS', this.width / 2, giftY + 70);
+
+        const btnW = 210, btnH = 50;
+        const btnX = (this.width - btnW) / 2;
+        const btnY = cardY + cardH - 68;
+
+        this.modalBtnRect = { x: btnX, y: btnY, w: btnW, h: btnH };
+
+        ctx.beginPath();
+        ctx.roundRect(btnX, btnY, btnW, btnH, 25);
+        ctx.fillStyle = '#10B981';
+        ctx.fill();
+        ctx.strokeStyle = '#A7F3D0';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.font = '900 17px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('COLLECT & TRAVEL ➔', this.width / 2, btnY + btnH / 2 + 1);
+        ctx.restore();
+      }
+
+      renderToast(ctx) {
+        const t = this.toast;
+        if (!t) return;
+        const tw = Math.min(260, this.width - 40);
+        const tx = (this.width - tw) / 2;
+        const ty = this.cardY - 40;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.roundRect(tx, ty, tw, 34, 17);
+        ctx.fillStyle = '#0F172A';
+        ctx.fill();
+        ctx.strokeStyle = '#38BDF8';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '800 13.5px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(t.text, tx + tw / 2, ty + 17);
+        ctx.restore();
+      }
+    }
+
+    function initGame() {
+      const canvas = document.getElementById('gameCanvas');
+      if (canvas && !window.game) {
+        window.game = new WordTravelGame(canvas);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initGame);
+    } else {
+      initGame();
+    }
+  </script>
+</body>
+</html>
