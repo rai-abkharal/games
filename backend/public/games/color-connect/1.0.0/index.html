@@ -23,7 +23,7 @@
       height: 100%;
       overflow: hidden;
       background: #181C26;
-      font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+      font-family: 'Fredoka', 'Inter', system-ui, -apple-system, sans-serif;
       touch-action: none !important;
       -webkit-overflow-scrolling: auto;
     }
@@ -70,9 +70,9 @@
     ];
 
     const DIFFICULTIES = [
-      { id: 'easy', label: 'EASY', sizeLabel: '5x5 - 6x6', subtitle: '100 Levels • Relaxed flow & logic', color: '#22C55E', icon: '🟢' },
-      { id: 'medium', label: 'MEDIUM', sizeLabel: '6x6 - 8x8', subtitle: '100 Levels • Interlocking routes & corners', color: '#F59E0B', icon: '🟡' },
-      { id: 'hard', label: 'HARD', sizeLabel: '8x8 - 10x10', subtitle: '100 Levels • Tight bottlenecks & deep mazes', color: '#EF4444', icon: '🔴' }
+      { id: 'easy', label: 'EASY', sizeLabel: '5x5 - 6x6 Grid', subtitle: '100 Levels • Relaxed & Fun', color: '#22C55E', icon: '🍃' },
+      { id: 'medium', label: 'MEDIUM', sizeLabel: '6x6 - 8x8 Grid', subtitle: '100 Levels • Balanced Logic', color: '#F59E0B', icon: '⚡' },
+      { id: 'hard', label: 'HARD', sizeLabel: '8x8 - 10x10 Grid', subtitle: '100 Levels • Deep Strategy', color: '#EF4444', icon: '💎' }
     ];
 
     const THEME = {
@@ -92,8 +92,8 @@
       accentRed: '#EF4444'
     };
 
-    // 2. 300 VERIFIED LEVEL PACKS (100 EASY, 100 MEDIUM, 100 HARD)
-    const PUZZLES = {
+    // 2. 300 VERIFIED PUZZLE LEVEL PACKS (100 EASY, 100 MEDIUM, 100 HARD)
+    const VERIFIED_PUZZLES = {
   "easy": [
     {
       "rows": 5,
@@ -89437,25 +89437,33 @@
         this.particles = new ParticleSystem();
 
         this.difficulty = this.loadDifficulty();
-        this.levelIndex = this.loadLevelIndex(this.difficulty);
+        this.level = this.loadLevel(this.difficulty);
 
-        // State: 'PLAYING', 'MODE_SELECT', 'HOW_TO_PLAY', 'VICTORY'
+        // State: 'PLAYING', 'CELEBRATING', 'VICTORY', 'DIFF_SELECT', 'HOW_TO_PLAY'
         this.state = 'PLAYING';
 
-        this.tutorialSlide = 0; // 0: Connect matching, 1: All dots connected, 2: No overlapping paths
+        this.tutorialSlide = 0;
         this.tutorialAnimT = 0;
 
         this.paths = {};
+        this.completedColors = new Set();
+        this.isDragging = false;
         this.activeColor = null;
-        this.isDrawing = false;
-        this.lastHoverCell = null;
+        this.cursorPos = null;
+        this.pointerPos = null;
 
         this.hintsRemaining = 3;
-        this.activeHintColor = null;
+        this.hintHighlight = null;
+        this.toast = null;
+        this.celebrationTimer = 0;
+
+        // Modal Slider Position: 0 (Easy), 0.5 (Medium), 1.0 (Hard)
+        this.sliderPos = this.difficulty === 'hard' ? 1.0 : (this.difficulty === 'medium' ? 0.5 : 0.0);
+        this.isDraggingSlider = false;
 
         this.initLayout();
         this.bindEvents();
-        this.loadLevel(this.levelIndex);
+        this.loadPuzzle(this.level);
 
         this.lastTime = performance.now();
         requestAnimationFrame((t) => this.loop(t));
@@ -89472,42 +89480,41 @@
         try { localStorage.setItem('cc_diff', this.difficulty); } catch (e) {}
       }
 
-      loadLevelIndex(diff) {
+      loadLevel(diff) {
         try {
           const v = localStorage.getItem('cc_lvl_' + diff);
-          return v !== null ? (parseInt(v) || 0) : 0;
-        } catch (e) { return 0; }
+          return v !== null ? Math.max(1, parseInt(v) || 1) : 1;
+        } catch (e) { return 1; }
       }
 
-      saveLevelIndex() {
-        try { localStorage.setItem('cc_lvl_' + this.difficulty, this.levelIndex.toString()); } catch (e) {}
+      saveLevel() {
+        try { localStorage.setItem('cc_lvl_' + this.difficulty, this.level.toString()); } catch (e) {}
       }
 
-      loadLevel(idx) {
-        const pack = PUZZLES[this.difficulty] || PUZZLES['easy'];
-        this.levelIndex = Math.max(0, Math.min(pack.length - 1, idx));
-        this.saveLevelIndex();
+      loadPuzzle(lvl) {
+        const pack = VERIFIED_PUZZLES[this.difficulty] || VERIFIED_PUZZLES['easy'];
+        this.level = Math.max(1, Math.min(pack.length, lvl));
+        this.saveLevel();
 
-        this.puzzle = pack[this.levelIndex];
-        this.rows = this.puzzle.rows || this.puzzle.size || 5;
-        this.cols = this.puzzle.cols || this.puzzle.size || 5;
-        this.dots = this.puzzle.dots;
+        const puzzleData = pack[this.level - 1];
+        this.gridSize = puzzleData.rows || puzzleData.size || 5;
+        this.gridRows = puzzleData.rows || puzzleData.size || 5;
+        this.gridCols = puzzleData.cols || puzzleData.size || 5;
+        this.dots = puzzleData.dots;
 
         this.paths = {};
+        this.completedColors = new Set();
+        this.isDragging = false;
         this.activeColor = null;
-        this.isDrawing = false;
-        this.lastHoverCell = null;
-        this.activeHintColor = null;
-
-        for (const d of this.dots) {
-          this.paths[d.color] = [];
-        }
+        this.cursorPos = null;
+        this.hintHighlight = null;
+        this.toast = null;
+        this.state = 'PLAYING';
 
         this.particles.clear();
-        this.state = 'PLAYING';
         this.initLayout();
 
-        Host.post('onLevelStarted', { difficulty: this.difficulty, level: this.levelIndex + 1 });
+        Host.post('onLevelStarted', { difficulty: this.difficulty, level: this.level });
       }
 
       initLayout() {
@@ -89518,23 +89525,24 @@
         this.canvas.width = Math.round(this.width * dpr);
         this.canvas.height = Math.round(this.height * dpr);
 
-        this.headerTopY = 24;
+        this.headerY = 24;
 
-        // Board Layout
-        const maxBoardW = Math.min(this.width - 24, 420);
-        const maxBoardH = this.height - 240;
+        // Board Dimensions
+        const maxBoardW = Math.min(this.width - 24, 400);
+        const maxBoardH = this.height - 230;
 
-        const cellW = maxBoardW / this.cols;
-        const cellH = maxBoardH / this.rows;
+        const cellW = maxBoardW / (this.gridCols || 5);
+        const cellH = maxBoardH / (this.gridRows || 5);
         this.cellSize = Math.min(cellW, cellH);
 
-        this.boardW = this.cellSize * this.cols;
-        this.boardH = this.cellSize * this.rows;
+        this.boardW = this.cellSize * (this.gridCols || 5);
+        this.boardH = this.cellSize * (this.gridRows || 5);
+        this.boardSize = this.boardW;
 
         this.boardX = (this.width - this.boardW) / 2;
-        this.boardY = 120 + (maxBoardH - this.boardH) / 2;
+        this.boardY = 110 + (maxBoardH - this.boardH) / 2;
 
-        this.bottomNavY = this.height - 72;
+        this.hudY = this.boardY + this.boardH + 20;
       }
 
       bindEvents() {
@@ -89564,19 +89572,19 @@
           if (e.stopPropagation) e.stopPropagation();
 
           const now = performance.now();
-          if (now - lastPointerDownTime < 140) return;
+          if (now - lastPointerDownTime < 120) return;
           lastPointerDownTime = now;
 
           this.synth.init();
           const { px, py } = getPos(e);
 
           // 1. Modals Interaction
-          if (this.state === 'MODE_SELECT') {
-            this.handleModeSelectClick(px, py);
+          if (this.state === 'DIFF_SELECT') {
+            this.handleDifficultyModalDown(px, py);
             return;
           }
           if (this.state === 'HOW_TO_PLAY') {
-            this.handleTutorialClick(px, py);
+            this.handleHowToPlayModalClick(px, py);
             return;
           }
           if (this.state === 'VICTORY') {
@@ -89584,92 +89592,77 @@
             return;
           }
 
-          // 2. Top Header Buttons
-          // Mode Select Button (Top Left Pill: x: 16 to 130, y: 16 to 64)
-          if (px >= 14 && px <= 140 && py >= this.headerTopY - 8 && py <= this.headerTopY + 44) {
+          // 2. Top Header Controls
+          // Difficulty Pill (Top Left: x: 14 to 146, y: headerY to headerY + 40)
+          if (px >= 14 && px <= 146 && py >= this.headerY - 4 && py <= this.headerY + 42) {
             this.synth.playTap();
-            this.state = 'MODE_SELECT';
+            this.sliderPos = this.difficulty === 'hard' ? 1.0 : (this.difficulty === 'medium' ? 0.5 : 0.0);
+            this.state = 'DIFF_SELECT';
             return;
           }
 
-          // How to Play Question Button (Top Right 1: x: width - 150 to width - 110)
-          const qX = this.width - 130;
-          if (Math.hypot(px - qX, py - (this.headerTopY + 16)) <= 22) {
+          // Reset Button (x: width - 78 to width - 42)
+          if (px >= this.width - 78 && px <= this.width - 42 && py >= this.headerY - 4 && py <= this.headerY + 42) {
             this.synth.playTap();
-            this.tutorialSlide = 0;
-            this.tutorialAnimT = 0;
-            this.state = 'HOW_TO_PLAY';
+            this.loadPuzzle(this.level);
+            this.showToast('Board Cleared');
             return;
           }
 
-          // Sound Toggle Button (Top Right 2: x: width - 88 to width - 52)
-          const sndX = this.width - 76;
-          if (Math.hypot(px - sndX, py - (this.headerTopY + 16)) <= 22) {
+          // Sound Button (x: width - 40 to width - 6)
+          if (px >= this.width - 40 && px <= this.width - 6 && py >= this.headerY - 4 && py <= this.headerY + 42) {
             this.synth.muted = !this.synth.muted;
             this.synth.playTap();
+            this.showToast(this.synth.muted ? 'Sound Muted' : 'Sound Enabled');
             return;
           }
 
-          // Restart Button (Top Right 3: x: width - 42 to width - 10)
-          const rstX = this.width - 28;
-          if (Math.hypot(px - rstX, py - (this.headerTopY + 16)) <= 22) {
-            this.synth.playTap();
-            this.loadLevel(this.levelIndex);
+          // 3. HUD Hint Button (x: width - 68 to width - 14, y: hudY to hudY + 48)
+          if (px >= this.width - 70 && px <= this.width - 12 && py >= this.hudY - 4 && py <= this.hudY + 52) {
+            this.useHint();
             return;
-          }
-
-          // 3. Bottom Controls (‹ PREV, HINT 💡, NEXT ›)
-          const botY = this.bottomNavY;
-          if (py >= botY - 10 && py <= botY + 48) {
-            // Prev Level
-            if (px >= 20 && px <= 100) {
-              if (this.levelIndex > 0) {
-                this.synth.playTap();
-                this.loadLevel(this.levelIndex - 1);
-              }
-              return;
-            }
-            // Hint Button
-            if (px >= (this.width - 100) / 2 && px <= (this.width + 100) / 2) {
-              this.applyHint();
-              return;
-            }
-            // Next Level
-            if (px >= this.width - 100 && px <= this.width - 20) {
-              const pack = PUZZLES[this.difficulty] || [];
-              if (this.levelIndex < pack.length - 1) {
-                this.synth.playTap();
-                this.loadLevel(this.levelIndex + 1);
-              }
-              return;
-            }
           }
 
           // 4. Board Grid Interaction
           const cell = this.getCellFromPos(px, py);
           if (cell) {
-            this.startPathDrawing(cell.r, cell.c);
+            this.startPath(cell.r, cell.c, px, py);
           }
         };
 
         const handleMove = (e) => {
           if (e.preventDefault) e.preventDefault();
           if (e.stopPropagation) e.stopPropagation();
-          if (!this.isDrawing || this.state !== 'PLAYING') return;
 
           const { px, py } = getPos(e);
-          const cell = this.getCellFromPos(px, py);
-          if (cell) {
-            this.continuePathDrawing(cell.r, cell.c);
+          this.pointerPos = { px, py };
+
+          if (this.state === 'DIFF_SELECT' && this.isDraggingSlider) {
+            this.updateDifficultySlider(px);
+            return;
+          }
+
+          if (this.isDragging && this.state === 'PLAYING') {
+            const cell = this.getCellFromPos(px, py);
+            if (cell) {
+              this.continuePath(cell.r, cell.c);
+            }
           }
         };
 
         const handleUp = (e) => {
           if (e.preventDefault) e.preventDefault();
           if (e.stopPropagation) e.stopPropagation();
-          if (this.isDrawing) {
-            this.isDrawing = false;
-            this.checkLevelCompletion();
+
+          if (this.isDraggingSlider) {
+            this.isDraggingSlider = false;
+            // Snap to nearest difficulty
+            this.snapDifficultySlider();
+            return;
+          }
+
+          if (this.isDragging) {
+            this.endPath();
           }
         };
 
@@ -89693,61 +89686,61 @@
         }
         const c = Math.floor((px - this.boardX) / this.cellSize);
         const r = Math.floor((py - this.boardY) / this.cellSize);
-        if (r >= 0 && r < this.rows && c >= 0 && c < this.cols) {
+        if (r >= 0 && r < this.gridRows && c >= 0 && c < this.gridCols) {
           return { r, c };
         }
         return null;
       }
 
-      startPathDrawing(r, c) {
-        // Find if this cell is an endpoint dot
+      startPath(r, c, px, py) {
         const dot = this.dots.find(d => (d.p1[0] === r && d.p1[1] === c) || (d.p2[0] === r && d.p2[1] === c));
         if (dot) {
           this.activeColor = dot.color;
-          this.isDrawing = true;
-          this.paths[dot.color] = [[r, c]];
-          this.lastHoverCell = { r, c };
+          this.isDragging = true;
+          this.cursorPos = { px, py };
+          this.paths[dot.color] = [{ r, c }];
+          this.completedColors.delete(dot.color);
           this.synth.playDotSelect(dot.color);
           this.haptic(10);
           return;
         }
 
-        // Check if tapping existing path
-        for (const [colorStr, pathArr] of Object.entries(this.paths)) {
-          const color = parseInt(colorStr);
-          const idx = pathArr.findIndex(p => p[0] === r && p[1] === c);
+        // Tap on existing path segment to pick it up
+        for (const [colIdStr, pathArr] of Object.entries(this.paths)) {
+          const colId = parseInt(colIdStr);
+          const idx = pathArr.findIndex(p => p.r === r && p.c === c);
           if (idx >= 0) {
-            this.activeColor = color;
-            this.isDrawing = true;
-            this.paths[color] = pathArr.slice(0, idx + 1);
-            this.lastHoverCell = { r, c };
-            this.synth.playCellStep(color, this.paths[color].length);
-            this.haptic(10);
+            this.activeColor = colId;
+            this.isDragging = true;
+            this.cursorPos = { px, py };
+            this.paths[colId] = pathArr.slice(0, idx + 1);
+            this.completedColors.delete(colId);
+            this.synth.playCellStep(colId, this.paths[colId].length);
+            this.haptic(8);
             return;
           }
         }
       }
 
-      continuePathDrawing(r, c) {
+      continuePath(r, c) {
         if (this.activeColor === null) return;
         const pathArr = this.paths[this.activeColor];
         if (!pathArr || pathArr.length === 0) return;
 
         const last = pathArr[pathArr.length - 1];
-        if (last[0] === r && last[1] === c) return;
+        if (last.r === r && last.c === c) return;
 
-        // Must be orthogonally adjacent
-        const dr = Math.abs(r - last[0]);
-        const dc = Math.abs(c - last[1]);
+        const dr = Math.abs(r - last.r);
+        const dc = Math.abs(c - last.c);
         if (dr + dc !== 1) return;
 
-        // If backtracking onto previous cell in current path
+        // Backtrack detection
         if (pathArr.length >= 2) {
           const prev = pathArr[pathArr.length - 2];
-          if (prev[0] === r && prev[1] === c) {
+          if (prev.r === r && prev.c === c) {
             pathArr.pop();
             this.synth.playBacktrack();
-            this.haptic(8);
+            this.haptic(6);
             return;
           }
         }
@@ -89757,148 +89750,230 @@
           ((d.p1[0] === r && d.p1[1] === c) || (d.p2[0] === r && d.p2[1] === c)));
         if (otherDot) return;
 
-        // Overwriting an existing path of another color chops that path
-        for (const [colorStr, oPath] of Object.entries(this.paths)) {
-          const oColor = parseInt(colorStr);
-          if (oColor === this.activeColor) continue;
-          const oIdx = oPath.findIndex(p => p[0] === r && p[1] === c);
+        // Overwrite conflicting path of another color
+        for (const [colIdStr, oPath] of Object.entries(this.paths)) {
+          const oColId = parseInt(colIdStr);
+          if (oColId === this.activeColor) continue;
+          const oIdx = oPath.findIndex(p => p.r === r && p.c === c);
           if (oIdx >= 0) {
-            this.paths[oColor] = oPath.slice(0, oIdx);
+            this.paths[oColId] = oPath.slice(0, oIdx);
+            this.completedColors.delete(oColId);
           }
         }
 
-        // Add to active path
-        pathArr.push([r, c]);
+        pathArr.push({ r, c });
         this.synth.playCellStep(this.activeColor, pathArr.length);
-        this.haptic(10);
+        this.haptic(8);
 
-        // Check if just reached target matching dot
+        // Check connection to target matching dot
         const targetDot = this.dots.find(d => d.color === this.activeColor);
         if (targetDot) {
           const isP1 = (targetDot.p1[0] === r && targetDot.p1[1] === c);
           const isP2 = (targetDot.p2[0] === r && targetDot.p2[1] === c);
           if (isP1 || isP2) {
+            this.completedColors.add(this.activeColor);
             this.synth.playConnected(this.activeColor);
             this.particles.addBurst(
               this.boardX + (c + 0.5) * this.cellSize,
               this.boardY + (r + 0.5) * this.cellSize,
               PALETTE[this.activeColor % PALETTE.length].hex
             );
-            this.isDrawing = false;
-            this.checkLevelCompletion();
+            this.isDragging = false;
+            this.checkVictory();
           }
         }
       }
 
-      checkLevelCompletion() {
-        let allConnected = true;
-        for (const dot of this.dots) {
-          const pathArr = this.paths[dot.color];
-          if (!pathArr || pathArr.length < 2) {
-            allConnected = false;
-            break;
-          }
-          const head = pathArr[0];
-          const tail = pathArr[pathArr.length - 1];
-          const isNormal = (head[0] === dot.p1[0] && head[1] === dot.p1[1] && tail[0] === dot.p2[0] && tail[1] === dot.p2[1]);
-          const isReverse = (head[0] === dot.p2[0] && head[1] === dot.p2[1] && tail[0] === dot.p1[0] && tail[1] === dot.p1[1]);
-          if (!isNormal && !isReverse) {
-            allConnected = false;
-            break;
+      endPath() {
+        this.isDragging = false;
+        if (this.activeColor !== null) {
+          const targetDot = this.dots.find(d => d.color === this.activeColor);
+          const pathArr = this.paths[this.activeColor];
+          if (targetDot && pathArr && pathArr.length > 1) {
+            const head = pathArr[0];
+            const tail = pathArr[pathArr.length - 1];
+            const isP1toP2 = (head.r === targetDot.p1[0] && head.c === targetDot.p1[1] && tail.r === targetDot.p2[0] && tail.c === targetDot.p2[1]);
+            const isP2toP1 = (head.r === targetDot.p2[0] && head.c === targetDot.p2[1] && tail.r === targetDot.p1[0] && tail.c === targetDot.p1[1]);
+            if (isP1toP2 || isP2toP1) {
+              this.completedColors.add(this.activeColor);
+            } else {
+              this.completedColors.delete(this.activeColor);
+            }
           }
         }
+        this.checkVictory();
+      }
 
-        if (!allConnected) return;
-
-        // Check full board coverage
+      getBoardFillPercentage() {
         let covered = 0;
         for (const [_, pathArr] of Object.entries(this.paths)) {
           covered += pathArr.length;
         }
+        const total = (this.gridRows || 5) * (this.gridCols || 5);
+        return Math.min(100, Math.round((covered / total) * 100));
+      }
 
-        if (covered === this.rows * this.cols) {
-          this.state = 'VICTORY';
+      checkVictory() {
+        if (this.completedColors.size !== this.dots.length) return;
+        const fill = this.getBoardFillPercentage();
+        if (fill === 100) {
+          this.state = 'CELEBRATING';
+          this.celebrationTimer = 1.2;
           this.synth.playVictory();
           this.particles.addVictoryConfetti(this.width, this.height);
           this.haptic(60);
-          Host.post('onLevelCompleted', { difficulty: this.difficulty, level: this.levelIndex + 1 });
+          Host.post('onLevelCompleted', { difficulty: this.difficulty, level: this.level });
         }
       }
 
-      applyHint() {
-        this.synth.playTap();
-        // Find unconnected color from puzzle solution
+      useHint() {
+        if (this.hintsRemaining <= 0) {
+          this.showToast('No Hints Remaining');
+          return;
+        }
         for (const dot of this.dots) {
-          const pathArr = this.paths[dot.color];
-          if (!pathArr || pathArr.length < 2) {
+          if (!this.completedColors.has(dot.color)) {
             if (dot.solution) {
-              this.paths[dot.color] = dot.solution.map(p => [...p]);
+              this.hintsRemaining--;
+              this.paths[dot.color] = dot.solution.map(p => ({ r: p[0], c: p[1] }));
+              this.completedColors.add(dot.color);
               this.synth.playConnected(dot.color);
               this.particles.addBurst(
                 this.boardX + (dot.p2[1] + 0.5) * this.cellSize,
                 this.boardY + (dot.p2[0] + 0.5) * this.cellSize,
                 PALETTE[dot.color % PALETTE.length].hex
               );
-              this.checkLevelCompletion();
+              this.showToast('Hint Applied!');
+              this.checkVictory();
               return;
             }
           }
         }
+        this.showToast('All Connected!');
       }
 
-      handleModeSelectClick(px, py) {
-        const cardW = Math.min(330, this.width - 36);
-        const cardH = 340;
+      showToast(text) {
+        this.toast = { text, t: 1.8 };
+      }
+
+      // --- EXACT SUDOKU PRO STYLE DIFFICULTY SLIDER MODAL ---
+      handleDifficultyModalDown(px, py) {
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 370;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
-        // Close button (Top-Right: cardX + cardW - 36 to cardX + cardW)
-        if (px >= cardX + cardW - 48 && px <= cardX + cardW && py >= cardY && py <= cardY + 48) {
+        // Slider track bounds: y = cardY + 220, x from cardX + 32 to cardX + cardW - 32
+        const trackX = cardX + 32;
+        const trackW = cardW - 64;
+        const trackY = cardY + 215;
+
+        if (py >= trackY - 20 && py <= trackY + 30 && px >= trackX - 16 && px <= trackX + trackW + 16) {
+          this.isDraggingSlider = true;
+          this.updateDifficultySlider(px);
+          return;
+        }
+
+        // PLAY Button (x: cardX + 24 to cardX + cardW - 84, y: cardY + 280 to cardY + 334)
+        const playBtnW = cardW - 110;
+        const playBtnH = 50;
+        const playBtnX = cardX + 24;
+        const playBtnY = cardY + 276;
+
+        if (px >= playBtnX && px <= playBtnX + playBtnW && py >= playBtnY && py <= playBtnY + playBtnH) {
+          this.synth.playTap();
+          this.snapDifficultySlider();
+          this.saveDifficulty();
+          this.loadPuzzle(this.loadLevel(this.difficulty));
+          this.state = 'PLAYING';
+          return;
+        }
+
+        // ? Question Button (x: cardX + cardW - 74 to cardX + cardW - 24, y: playBtnY to playBtnY + playBtnH)
+        const qBtnX = cardX + cardW - 74;
+        if (px >= qBtnX && px <= qBtnX + 50 && py >= playBtnY && py <= playBtnY + playBtnH) {
+          this.synth.playTap();
+          this.tutorialSlide = 0;
+          this.tutorialAnimT = 0;
+          this.state = 'HOW_TO_PLAY';
+          return;
+        }
+      }
+
+      updateDifficultySlider(px) {
+        const cardW = Math.min(320, this.width - 36);
+        const cardX = (this.width - cardW) / 2;
+        const trackX = cardX + 32;
+        const trackW = cardW - 64;
+
+        let pct = (px - trackX) / trackW;
+        pct = Math.max(0, Math.min(1.0, pct));
+        this.sliderPos = pct;
+
+        if (pct < 0.33) this.difficulty = 'easy';
+        else if (pct < 0.66) this.difficulty = 'medium';
+        else this.difficulty = 'hard';
+      }
+
+      snapDifficultySlider() {
+        if (this.sliderPos < 0.33) {
+          this.sliderPos = 0.0;
+          this.difficulty = 'easy';
+        } else if (this.sliderPos < 0.66) {
+          this.sliderPos = 0.5;
+          this.difficulty = 'medium';
+        } else {
+          this.sliderPos = 1.0;
+          this.difficulty = 'hard';
+        }
+      }
+
+      // --- EXACT HOW TO PLAY MODAL (MATCHING SCREENSHOT 4) ---
+      handleHowToPlayModalClick(px, py) {
+        const cardW = Math.min(330, this.width - 32);
+        const cardH = 460;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+        const btnY = cardY + cardH - 64;
+
+        // 1. Back Arrow Button (cardX + 24 to cardX + 68)
+        if (px >= cardX + 20 && px <= cardX + 68 && py >= btnY && py <= btnY + 48) {
+          if (this.tutorialSlide > 0) {
+            this.synth.playTap();
+            this.tutorialSlide--;
+            this.tutorialAnimT = 0;
+          }
+          return;
+        }
+
+        // 2. OK Button (Center: cardX + 78 to cardX + cardW - 78)
+        if (px >= cardX + 78 && px <= cardX + cardW - 78 && py >= btnY && py <= btnY + 48) {
           this.synth.playTap();
           this.state = 'PLAYING';
           return;
         }
 
-        // 3 Difficulty Options
-        DIFFICULTIES.forEach((diff, i) => {
-          const optY = cardY + 70 + i * 78;
-          const optH = 68;
-          if (px >= cardX + 16 && px <= cardX + cardW - 16 && py >= optY && py <= optY + optH) {
-            this.synth.playTap();
-            this.difficulty = diff.id;
-            this.saveDifficulty();
-            this.loadLevel(this.loadLevelIndex(diff.id));
-            this.state = 'PLAYING';
-          }
-        });
-      }
-
-      handleTutorialClick(px, py) {
-        const cardW = Math.min(340, this.width - 32);
-        const cardH = 460;
-        const cardX = (this.width - cardW) / 2;
-        const cardY = (this.height - cardH) / 2;
-
-        // Bottom OK button (cardX + 24 to cardX + cardW - 24, cardY + cardH - 64 to cardY + cardH - 16)
-        const btnY = cardY + cardH - 64;
-        if (px >= cardX + 24 && px <= cardX + cardW - 24 && py >= btnY && py <= btnY + 48) {
-          this.synth.playTap();
+        // 3. Next Arrow Button (cardX + cardW - 68 to cardX + cardW - 20)
+        if (px >= cardX + cardW - 68 && px <= cardX + cardW - 20 && py >= btnY && py <= btnY + 48) {
           if (this.tutorialSlide < 2) {
+            this.synth.playTap();
             this.tutorialSlide++;
             this.tutorialAnimT = 0;
           } else {
+            this.synth.playTap();
             this.state = 'PLAYING';
           }
+          return;
         }
       }
 
       handleVictoryClick(px, py) {
         this.synth.playTap();
-        const pack = PUZZLES[this.difficulty] || [];
-        if (this.levelIndex < pack.length - 1) {
-          this.loadLevel(this.levelIndex + 1);
+        const pack = VERIFIED_PUZZLES[this.difficulty] || [];
+        if (this.level < pack.length) {
+          this.loadPuzzle(this.level + 1);
         } else {
-          this.loadLevel(0);
+          this.loadPuzzle(1);
         }
       }
 
@@ -89908,8 +89983,26 @@
 
       // --- RENDER LOOP ---
       loop(timestamp) {
-        const dt = Math.min(0.06, (timestamp - (this.lastTime || timestamp)) / 1000);
+        const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
         this.lastTime = timestamp;
+
+        if (this.toast) {
+          this.toast.t -= dt;
+          if (this.toast.t <= 0) this.toast = null;
+        }
+
+        if (this.state === 'CELEBRATING') {
+          this.celebrationTimer -= dt;
+          if (this.celebrationTimer <= 0) {
+            this.state = 'VICTORY';
+          }
+        }
+
+        if (this.isDragging && this.pointerPos) {
+          if (!this.cursorPos) this.cursorPos = { x: this.pointerPos.px, y: this.pointerPos.py };
+          this.cursorPos.x += (this.pointerPos.px - this.cursorPos.x) * 0.45;
+          this.cursorPos.y += (this.pointerPos.py - this.cursorPos.y) * 0.45;
+        }
 
         this.tutorialAnimT += dt;
         this.particles.update(dt);
@@ -89923,380 +90016,538 @@
         ctx.save();
         ctx.scale(this.dpr, this.dpr);
 
-        // 1. Sleek Obsidian Background
         const bgGrad = ctx.createLinearGradient(0, 0, 0, this.height);
         bgGrad.addColorStop(0, THEME.bgTop);
         bgGrad.addColorStop(1, THEME.bgBottom);
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // 2. Top Header Bar
         this.renderHeader(ctx);
-
-        // 3. Main Board Grid
         this.renderBoard(ctx);
-
-        // 4. Completed & In-Progress Paths
-        this.renderPaths(ctx);
-
-        // 5. Endpoint Color Dots
-        this.renderDots(ctx);
-
-        // 6. Particle FX
+        this.renderHUD(ctx);
         this.particles.render(ctx);
 
-        // 7. Bottom Navigation & Hint Tray
-        this.renderBottomControls(ctx);
-
-        // 8. Modals
-        if (this.state === 'MODE_SELECT') this.renderSudokuStyleDifficultyModal(ctx);
+        if (this.toast) this.renderToast(ctx);
+        if (this.state === 'DIFF_SELECT') this.renderSudokuSliderDifficultyModal(ctx);
         if (this.state === 'HOW_TO_PLAY') this.renderHowToPlayModal(ctx);
         if (this.state === 'VICTORY') this.renderVictoryModal(ctx);
 
         ctx.restore();
       }
 
-      // TOP HEADER
       renderHeader(ctx) {
-        const y = this.headerTopY;
-        const currDiff = DIFFICULTIES.find(d => d.id === this.difficulty) || DIFFICULTIES[0];
+        const y = this.headerY;
+        const diffObj = DIFFICULTIES.find(d => d.id === this.difficulty) || DIFFICULTIES[0];
 
-        // 1. Mode Select Pill (Top-Left)
+        // 1. Difficulty Pill (Top Left)
         ctx.save();
-        const pillX = 14;
-        const pillY = y;
-        const pillW = 120;
-        const pillH = 34;
-
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 2;
         ctx.beginPath();
-        ctx.roundRect(pillX, pillY, pillW, pillH, 17);
+        ctx.roundRect(16, y, 126, 36, 18);
         ctx.fillStyle = THEME.cardBg;
         ctx.fill();
-        ctx.strokeStyle = currDiff.color;
-        ctx.lineWidth = 1.8;
+        ctx.strokeStyle = THEME.cardBorder;
+        ctx.lineWidth = 1.2;
         ctx.stroke();
 
-        ctx.font = '800 13px Outfit, sans-serif';
-        ctx.fillStyle = currDiff.color;
+        ctx.beginPath();
+        ctx.arc(32, y + 18, 5, 0, Math.PI * 2);
+        ctx.fillStyle = diffObj.color;
+        ctx.fill();
+
+        ctx.font = '800 12.5px Fredoka, Inter, sans-serif';
+        ctx.fillStyle = THEME.textMain;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(currDiff.icon + ' ' + currDiff.label + ' ▾', pillX + 12, pillY + pillH / 2);
+        ctx.fillText(diffObj.label + ' ▼', 43, y + 18);
         ctx.restore();
 
-        // 2. Center Level Title
+        // 2. Clean Center Level Display
         ctx.save();
-        ctx.font = '800 16px Outfit, sans-serif';
+        ctx.font = '900 15px Fredoka, sans-serif';
         ctx.fillStyle = THEME.textMain;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('LEVEL ' + (this.levelIndex + 1), this.width / 2, y + 17);
+        ctx.fillText('LEVEL ' + this.level, this.width / 2, y + 18);
         ctx.restore();
 
-        // 3. Top-Right Buttons (? Help, 🔊 Sound, ↺ Restart)
-        const btnRadius = 16;
-        const icons = [
-          { x: this.width - 130, icon: '?', color: THEME.accent },
-          { x: this.width - 76, icon: this.synth.muted ? '🔇' : '🔊', color: THEME.textMuted },
-          { x: this.width - 28, icon: '↺', color: THEME.textMuted }
-        ];
+        // 3. Reset Button (Right-1)
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(this.width - 76, y, 32, 36, 12);
+        ctx.fillStyle = THEME.cardBg;
+        ctx.fill();
+        ctx.strokeStyle = THEME.cardBorder;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = THEME.textMain;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('↺', this.width - 60, y + 18);
+        ctx.restore();
 
-        for (const b of icons) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(b.x, y + 17, btnRadius, 0, Math.PI * 2);
-          ctx.fillStyle = THEME.cardBg;
-          ctx.fill();
-          ctx.strokeStyle = THEME.cardBorder;
-          ctx.lineWidth = 1.4;
-          ctx.stroke();
-
-          ctx.font = '700 14px Outfit, sans-serif';
-          ctx.fillStyle = b.color;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(b.icon, b.x, y + 17);
-          ctx.restore();
-        }
+        // 4. Sound Button (Right)
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(this.width - 38, y, 32, 36, 12);
+        ctx.fillStyle = THEME.cardBg;
+        ctx.fill();
+        ctx.strokeStyle = THEME.cardBorder;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.synth.muted ? '🔇' : '🔊', this.width - 22, y + 18);
+        ctx.restore();
       }
 
-      // MAIN BOARD GRID
       renderBoard(ctx) {
         const bx = this.boardX;
         const by = this.boardY;
         const bw = this.boardW;
         const bh = this.boardH;
         const cs = this.cellSize;
+        const gr = this.gridRows || 5;
+        const gc = this.gridCols || 5;
+
+        let boardScale = 1.0;
+        let boardGlow = 0;
+        if (this.state === 'CELEBRATING') {
+          const progress = 1.0 - (this.celebrationTimer / 1.2);
+          boardScale = 1.0 + Math.sin(progress * Math.PI) * 0.04;
+          boardGlow = Math.sin(progress * Math.PI) * 20;
+        }
 
         ctx.save();
-        // Board Outer Shadow & Panel
+        if (boardScale !== 1.0) {
+          const cx = bx + bw / 2;
+          const cy = by + bh / 2;
+          ctx.translate(cx, cy);
+          ctx.scale(boardScale, boardScale);
+          ctx.translate(-cx, -cy);
+        }
+
+        // Board Card
+        ctx.save();
+        ctx.shadowColor = boardGlow > 0 ? 'rgba(56, 189, 248, 0.45)' : 'rgba(0, 0, 0, 0.55)';
+        ctx.shadowBlur = 24 + boardGlow;
+        ctx.shadowOffsetY = 8;
         ctx.beginPath();
-        ctx.roundRect(bx - 6, by - 6, bw + 12, bh + 12, 16);
+        ctx.roundRect(bx - 4, by - 4, bw + 8, bh + 8, 14);
         ctx.fillStyle = THEME.boardBg;
         ctx.fill();
-        ctx.strokeStyle = THEME.boardBorder;
+        ctx.strokeStyle = boardGlow > 0 ? THEME.accent : THEME.boardBorder;
         ctx.lineWidth = 2.0;
         ctx.stroke();
+        ctx.restore();
 
-        // Cells Grid
-        for (let r = 0; r < this.rows; r++) {
-          for (let c = 0; c < this.cols; c++) {
-            const cx = bx + c * cs;
-            const cy = by + r * cs;
-
-            ctx.beginPath();
-            ctx.roundRect(cx + 2, cy + 2, cs - 4, cs - 4, 8);
-            ctx.fillStyle = THEME.cellDefault;
-            ctx.fill();
-            ctx.strokeStyle = THEME.cellBorder;
-            ctx.lineWidth = 1.0;
-            ctx.stroke();
+        // Occupancy mapping for cell tints
+        const cellOccupancy = {};
+        for (const [colIdStr, pathArr] of Object.entries(this.paths)) {
+          const cId = parseInt(colIdStr);
+          for (const pt of pathArr) {
+            cellOccupancy[pt.r + ',' + pt.c] = cId;
           }
         }
-        ctx.restore();
-      }
 
-      // PATHS DRAWING
-      renderPaths(ctx) {
-        const bx = this.boardX;
-        const by = this.boardY;
-        const cs = this.cellSize;
-        const pathLineWidth = Math.max(12, cs * 0.38);
+        // 1. Grid Cells with Soft Matching Color Tint
+        for (let r = 0; r < gr; r++) {
+          for (let c = 0; c < gc; c++) {
+            const cx = bx + c * cs;
+            const cy = by + r * cs;
+            const occColorId = cellOccupancy[r + ',' + c];
 
-        for (const [colorStr, pathArr] of Object.entries(this.paths)) {
-          if (!pathArr || pathArr.length < 2) continue;
-          const color = PALETTE[parseInt(colorStr) % PALETTE.length];
+            ctx.beginPath();
+            ctx.roundRect(cx + 1, cy + 1, cs - 2, cs - 2, 6);
+
+            if (occColorId !== undefined) {
+              const pal = PALETTE[occColorId % PALETTE.length];
+              ctx.fillStyle = pal.tint;
+            } else {
+              ctx.fillStyle = THEME.cellDefault;
+            }
+            ctx.fill();
+          }
+        }
+
+        // 2. Smooth Continuous Path Lines
+        for (const [colIdStr, pathArr] of Object.entries(this.paths)) {
+          if (!pathArr || pathArr.length === 0) continue;
+          const colorId = parseInt(colIdStr);
+          const colorObj = PALETTE[colorId % PALETTE.length];
+          const isActive = (this.isDragging && this.activeColor === colorId);
 
           ctx.save();
-          ctx.beginPath();
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
-          ctx.strokeStyle = color.hex;
-          ctx.lineWidth = pathLineWidth;
+          ctx.strokeStyle = colorObj.hex;
+          ctx.lineWidth = cs * 0.27;
 
-          const startX = bx + (pathArr[0][1] + 0.5) * cs;
-          const startY = by + (pathArr[0][0] + 0.5) * cs;
-          ctx.moveTo(startX, startY);
-
-          for (let i = 1; i < pathArr.length; i++) {
-            const px = bx + (pathArr[i][1] + 0.5) * cs;
-            const py = by + (pathArr[i][0] + 0.5) * cs;
-            ctx.lineTo(px, py);
+          if (this.state === 'CELEBRATING') {
+            ctx.shadowColor = colorObj.hex;
+            ctx.shadowBlur = 12;
           }
+
+          ctx.beginPath();
+          for (let i = 0; i < pathArr.length; i++) {
+            const px = bx + pathArr[i].c * cs + cs / 2;
+            const py = by + pathArr[i].r * cs + cs / 2;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+
+          if (isActive && this.cursorPos) {
+            const head = pathArr[pathArr.length - 1];
+            const hx = bx + head.c * cs + cs / 2;
+            const hy = by + head.r * cs + cs / 2;
+            const dx = this.cursorPos.x - hx;
+            const dy = this.cursorPos.y - hy;
+
+            let tipX = hx;
+            let tipY = hy;
+            if (Math.abs(dx) >= Math.abs(dy)) {
+              tipX = hx + Math.max(-cs * 0.85, Math.min(cs * 0.85, dx));
+              tipY = hy;
+            } else {
+              tipX = hx;
+              tipY = hy + Math.max(-cs * 0.85, Math.min(cs * 0.85, dy));
+            }
+            ctx.lineTo(tipX, tipY);
+          }
+
           ctx.stroke();
           ctx.restore();
         }
-      }
 
-      // COLOR DOTS
-      renderDots(ctx) {
-        const bx = this.boardX;
-        const by = this.boardY;
-        const cs = this.cellSize;
-        const dotRadius = Math.max(10, cs * 0.30);
+        // 3. Endpoint Dots (Donuts when connected)
+        for (const dot of this.dots) {
+          const colorObj = PALETTE[dot.color % PALETTE.length];
+          const isConnected = this.completedColors.has(dot.color);
+          const pathArr = this.paths[dot.color];
+          const hasPath = (pathArr && pathArr.length > 1);
+          const isDonut = isConnected || hasPath;
 
-        for (const d of this.dots) {
-          const color = PALETTE[d.color % PALETTE.length];
-          const pts = [d.p1, d.p2];
-
-          for (const pt of pts) {
-            const dx = bx + (pt[1] + 0.5) * cs;
-            const dy = by + (pt[0] + 0.5) * cs;
+          [dot.p1, dot.p2].forEach(([r, c]) => {
+            const cx = bx + c * cs + cs / 2;
+            const cy = by + r * cs + cs / 2;
+            const radius = cs * 0.27;
 
             ctx.save();
-            // Outer Ring
             ctx.beginPath();
-            ctx.arc(dx, dy, dotRadius + 3, 0, Math.PI * 2);
-            ctx.fillStyle = color.tint;
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fillStyle = colorObj.hex;
             ctx.fill();
 
-            // Inner Core Dot
-            ctx.beginPath();
-            ctx.arc(dx, dy, dotRadius, 0, Math.PI * 2);
-            ctx.fillStyle = color.hex;
-            ctx.fill();
+            if (isDonut) {
+              ctx.beginPath();
+              ctx.arc(cx, cy, radius * 0.52, 0, Math.PI * 2);
+              ctx.fillStyle = colorObj.dark;
+              ctx.fill();
+            }
 
-            // Specular Highlight
-            ctx.beginPath();
-            ctx.arc(dx - dotRadius * 0.3, dy - dotRadius * 0.3, dotRadius * 0.35, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-            ctx.fill();
+            if (this.hintHighlight === dot.color) {
+              ctx.strokeStyle = '#FACC15';
+              ctx.lineWidth = 2.5;
+              ctx.beginPath();
+              ctx.arc(cx, cy, radius + 3, 0, Math.PI * 2);
+              ctx.stroke();
+            }
             ctx.restore();
-          }
+          });
         }
+
+        // 4. FLOATING GESTURE GUIDE AURA BALL (Tactile Follower)
+        if (this.isDragging && this.activeColor !== null && this.cursorPos) {
+          const pal = PALETTE[this.activeColor % PALETTE.length];
+          const auraR = cs * 0.60;
+          const coreR = cs * 0.28;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(this.cursorPos.x, this.cursorPos.y, auraR, 0, Math.PI * 2);
+          ctx.fillStyle = pal.tint;
+          ctx.fill();
+          ctx.strokeStyle = pal.hex + '66';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          ctx.shadowColor = pal.hex;
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.arc(this.cursorPos.x, this.cursorPos.y, coreR, 0, Math.PI * 2);
+          ctx.fillStyle = pal.hex;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(this.cursorPos.x - coreR * 0.25, this.cursorPos.y - coreR * 0.25, coreR * 0.28, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.restore();
       }
 
-      // BOTTOM NAVIGATION & CONTROLS
-      renderBottomControls(ctx) {
-        const botY = this.bottomNavY;
+      renderHUD(ctx) {
+        const y = this.hudY;
+        const flows = this.completedColors.size;
+        const totalFlows = this.dots.length;
+        const fillPercent = this.getBoardFillPercentage();
 
-        // 1. Prev Button (‹ PREV)
+        // 1. Flows Card
         ctx.save();
-        const prevW = 84;
-        const prevH = 42;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 2;
         ctx.beginPath();
-        ctx.roundRect(20, botY, prevW, prevH, 12);
-        ctx.fillStyle = THEME.cardBg;
-        ctx.fill();
-        ctx.strokeStyle = this.levelIndex > 0 ? THEME.cardBorder : 'rgba(255,255,255,0.05)';
-        ctx.stroke();
-
-        ctx.font = '700 13px Outfit, sans-serif';
-        ctx.fillStyle = this.levelIndex > 0 ? THEME.textMain : THEME.textMuted;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('‹  PREV', 20 + prevW / 2, botY + prevH / 2);
-        ctx.restore();
-
-        // 2. Hint Button (💡 HINT)
-        ctx.save();
-        const hintW = 100;
-        const hintH = 42;
-        const hintX = (this.width - hintW) / 2;
-
-        ctx.beginPath();
-        ctx.roundRect(hintX, botY, hintW, hintH, 12);
-        ctx.fillStyle = THEME.cardBg;
-        ctx.fill();
-        ctx.strokeStyle = THEME.accentYellow;
-        ctx.lineWidth = 1.6;
-        ctx.stroke();
-
-        ctx.font = '800 13px Outfit, sans-serif';
-        ctx.fillStyle = THEME.accentYellow;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('💡  HINT', hintX + hintW / 2, botY + hintH / 2);
-        ctx.restore();
-
-        // 3. Next Button (NEXT ›)
-        ctx.save();
-        const nextW = 84;
-        const nextH = 42;
-        const nextX = this.width - nextW - 20;
-
-        ctx.beginPath();
-        ctx.roundRect(nextX, botY, nextW, nextH, 12);
+        ctx.roundRect(16, y, (this.width - 110) / 2, 46, 14);
         ctx.fillStyle = THEME.cardBg;
         ctx.fill();
         ctx.strokeStyle = THEME.cardBorder;
+        ctx.lineWidth = 1.2;
         ctx.stroke();
 
-        ctx.font = '700 13px Outfit, sans-serif';
-        ctx.fillStyle = THEME.textMain;
+        ctx.font = '700 11px Inter, sans-serif';
+        ctx.fillStyle = THEME.textMuted;
+        ctx.textAlign = 'center';
+        ctx.fillText('FLOWS', 16 + (this.width - 110) / 4, y + 16);
+
+        ctx.font = '900 16px Fredoka, sans-serif';
+        ctx.fillStyle = (flows === totalFlows) ? THEME.accentGreen : THEME.textMain;
+        ctx.fillText(flows + '/' + totalFlows, 16 + (this.width - 110) / 4, y + 34);
+        ctx.restore();
+
+        // 2. Pipe Fill Card
+        const fillX = 24 + (this.width - 110) / 2;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 2;
+        ctx.beginPath();
+        ctx.roundRect(fillX, y, (this.width - 110) / 2, 46, 14);
+        ctx.fillStyle = THEME.cardBg;
+        ctx.fill();
+        ctx.strokeStyle = THEME.cardBorder;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '700 11px Inter, sans-serif';
+        ctx.fillStyle = THEME.textMuted;
+        ctx.textAlign = 'center';
+        ctx.fillText('PIPE FILL', fillX + (this.width - 110) / 4, y + 16);
+
+        ctx.font = '900 16px Fredoka, sans-serif';
+        ctx.fillStyle = (fillPercent === 100) ? THEME.accentGreen : (flows === totalFlows ? THEME.accentYellow : THEME.textMain);
+        ctx.fillText(fillPercent + '%', fillX + (this.width - 110) / 4, y + 34);
+        ctx.restore();
+
+        // 3. Hint Button
+        const hintX = this.width - 66;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 2;
+        ctx.beginPath();
+        ctx.roundRect(hintX, y, 50, 46, 14);
+        ctx.fillStyle = THEME.cardBg;
+        ctx.fill();
+        ctx.strokeStyle = THEME.cardBorder;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '20px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('NEXT  ›', nextX + nextW / 2, botY + nextH / 2);
+        ctx.fillText('💡', hintX + 25, y + 23);
+
+        ctx.beginPath();
+        ctx.arc(hintX + 42, y + 10, 8, 0, Math.PI * 2);
+        ctx.fillStyle = this.hintsRemaining > 0 ? THEME.accentYellow : '#64748B';
+        ctx.fill();
+        ctx.font = '800 10px Inter, sans-serif';
+        ctx.fillStyle = '#000000';
+        ctx.fillText(this.hintsRemaining.toString(), hintX + 42, y + 10);
         ctx.restore();
       }
 
-      // SUDOKU-STYLE DIFFICULTY SELECTION MODAL
-      renderSudokuStyleDifficultyModal(ctx) {
-        ctx.fillStyle = 'rgba(10, 13, 20, 0.82)';
+      renderToast(ctx) {
+        const t = this.toast;
+        if (!t) return;
+        const tw = Math.min(280, this.width - 40);
+        const tx = (this.width - tw) / 2;
+        const ty = this.boardY - 45;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.roundRect(tx, ty, tw, 36, 18);
+        ctx.fillStyle = '#1E2432';
+        ctx.fill();
+        ctx.strokeStyle = THEME.accent;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = '800 12px Inter, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(t.text, tx + tw / 2, ty + 18);
+        ctx.restore();
+      }
+
+      // --- EXACT SUDOKU PRO STYLE DIFFICULTY SLIDER MODAL (MATCHING SCREENSHOTS 1, 2, 3) ---
+      renderSudokuSliderDifficultyModal(ctx) {
+        ctx.fillStyle = 'rgba(11, 15, 25, 0.75)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const cardW = Math.min(330, this.width - 36);
-        const cardH = 350;
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 370;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.50)';
         ctx.shadowBlur = 32;
+        ctx.shadowOffsetY = 12;
         ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 20);
-        ctx.fillStyle = THEME.cardBg;
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.fillStyle = '#FFFFFF'; // Clean White Card (Matching Screenshot)
         ctx.fill();
-        ctx.strokeStyle = THEME.cardBorder;
-        ctx.lineWidth = 2.0;
+
+        // 1. Header Title: SELECT DIFFICULTY
+        ctx.font = '900 17px Outfit, Fredoka, sans-serif';
+        ctx.fillStyle = '#1E293B';
+        ctx.textAlign = 'center';
+        ctx.fillText('SELECT DIFFICULTY', this.width / 2, cardY + 38);
+
+        // 2. Large Circular Emblem with Icon
+        const emblemY = cardY + 100;
+        const diffObj = DIFFICULTIES.find(d => d.id === this.difficulty) || DIFFICULTIES[0];
+
+        ctx.beginPath();
+        ctx.arc(this.width / 2, emblemY, 36, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.strokeStyle = diffObj.color;
+        ctx.lineWidth = 3.5;
         ctx.stroke();
 
-        // Header Title
-        ctx.font = '900 18px Outfit, sans-serif';
-        ctx.fillStyle = THEME.textMain;
-        ctx.textAlign = 'left';
-        ctx.fillText('SELECT DIFFICULTY', cardX + 24, cardY + 40);
-
-        // Close X Button
-        ctx.font = '700 18px Outfit, sans-serif';
-        ctx.fillStyle = THEME.textMuted;
+        ctx.font = '32px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('✕', cardX + cardW - 28, cardY + 38);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(diffObj.icon, this.width / 2, emblemY);
 
-        // 3 Difficulty Options
-        DIFFICULTIES.forEach((diff, i) => {
-          const optY = cardY + 68 + i * 82;
-          const optW = cardW - 32;
-          const optH = 70;
-          const optX = cardX + 16;
-          const isSelected = (this.difficulty === diff.id);
+        // 3. Difficulty Title & Subtitle
+        ctx.font = '900 20px Outfit, Fredoka, sans-serif';
+        ctx.fillStyle = diffObj.color;
+        ctx.textAlign = 'center';
+        ctx.fillText(diffObj.label, this.width / 2, cardY + 164);
 
-          ctx.beginPath();
-          ctx.roundRect(optX, optY, optW, optH, 14);
-          ctx.fillStyle = isSelected ? 'rgba(56, 189, 248, 0.10)' : '#171B26';
-          ctx.fill();
-          ctx.strokeStyle = isSelected ? diff.color : '#282F42';
-          ctx.lineWidth = isSelected ? 2.0 : 1.2;
-          ctx.stroke();
+        ctx.font = '700 12.5px Inter, sans-serif';
+        ctx.fillStyle = '#64748B';
+        ctx.fillText(diffObj.subtitle, this.width / 2, cardY + 186);
 
-          // Left Color Indicator Bar
-          ctx.beginPath();
-          ctx.roundRect(optX + 6, optY + 12, 5, optH - 24, 2.5);
-          ctx.fillStyle = diff.color;
-          ctx.fill();
+        // 4. Horizontal Slider Track
+        const trackX = cardX + 32;
+        const trackW = cardW - 64;
+        const trackH = 14;
+        const trackY = cardY + 215;
 
-          // Title & Badge
-          ctx.font = '800 15px Outfit, sans-serif';
-          ctx.fillStyle = isSelected ? THEME.textMain : '#E2E8F0';
-          ctx.textAlign = 'left';
-          ctx.fillText(diff.label, optX + 22, optY + 28);
+        ctx.beginPath();
+        ctx.roundRect(trackX, trackY, trackW, trackH, 7);
+        ctx.fillStyle = '#E2E8F0';
+        ctx.fill();
 
-          ctx.font = '700 11px Outfit, sans-serif';
-          ctx.fillStyle = diff.color;
-          ctx.fillText('(' + diff.sizeLabel + ')', optX + 22 + ctx.measureText(diff.label).width + 8, optY + 28);
+        // Active Track Gradient (Green -> Orange -> Red)
+        const fillW = Math.max(14, trackW * this.sliderPos);
+        const grad = ctx.createLinearGradient(trackX, trackY, trackX + trackW, trackY);
+        grad.addColorStop(0, '#22C55E');
+        grad.addColorStop(0.5, '#F59E0B');
+        grad.addColorStop(1, '#EF4444');
 
-          // Subtitle
-          ctx.font = '500 12px Inter, sans-serif';
-          ctx.fillStyle = THEME.textMuted;
-          ctx.fillText(diff.subtitle, optX + 22, optY + 50);
+        ctx.beginPath();
+        ctx.roundRect(trackX, trackY, fillW, trackH, 7);
+        ctx.fillStyle = grad;
+        ctx.fill();
 
-          // Checkmark if selected
-          if (isSelected) {
-            ctx.font = '800 16px Outfit, sans-serif';
-            ctx.fillStyle = diff.color;
-            ctx.textAlign = 'right';
-            ctx.fillText('✓', optX + optW - 18, optY + optH / 2 + 5);
-          }
-        });
+        // Slider Thumb Handle
+        const thumbX = trackX + trackW * this.sliderPos;
+        const thumbY = trackY + trackH / 2;
+
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(thumbX, thumbY, 13, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.strokeStyle = diffObj.color;
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
+        ctx.restore();
+
+        // 5. Bottom Row: Big PLAY ▶ Button + Purple ? Help Button
+        ctx.save();
+        const playBtnW = cardW - 110;
+        const playBtnH = 50;
+        const playBtnX = cardX + 24;
+        const playBtnY = cardY + 276;
+
+        ctx.beginPath();
+        ctx.roundRect(playBtnX, playBtnY, playBtnW, playBtnH, 18);
+        ctx.fillStyle = diffObj.color;
+        ctx.fill();
+
+        ctx.font = '900 17px Fredoka, Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('PLAY  ▶', playBtnX + playBtnW / 2, playBtnY + playBtnH / 2 + 1);
+
+        // Purple ? Button
+        const qBtnX = cardX + cardW - 74;
+        ctx.beginPath();
+        ctx.roundRect(qBtnX, playBtnY, 50, playBtnH, 18);
+        ctx.fillStyle = '#8B5CF6';
+        ctx.fill();
+
+        ctx.font = '900 20px Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('?', qBtnX + 25, playBtnY + playBtnH / 2 + 1);
         ctx.restore();
       }
 
-      // EXACT HOW TO PLAY 3-SLIDE TUTORIAL MODAL (MATCHING SCREENSHOTS)
+      // --- EXACT HOW TO PLAY MODAL (MATCHING SCREENSHOT 4) ---
       renderHowToPlayModal(ctx) {
-        ctx.fillStyle = 'rgba(10, 13, 20, 0.85)';
+        ctx.fillStyle = 'rgba(11, 15, 25, 0.80)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const cardW = Math.min(340, this.width - 32);
+        const cardW = Math.min(330, this.width - 32);
         const cardH = 470;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
         ctx.save();
-        // Warm Cream Card (Matching Screenshot)
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.50)';
+        ctx.shadowBlur = 32;
         ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 28);
-        ctx.fillStyle = '#FFF7ED'; // Warm Cream Background
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.fillStyle = '#FFFFFF';
         ctx.fill();
-        ctx.strokeStyle = '#FED7AA';
-        ctx.lineWidth = 2.0;
-        ctx.stroke();
 
         // Title: HOW TO PLAY
-        ctx.font = '900 20px Outfit, sans-serif';
-        ctx.fillStyle = '#4338CA'; // Deep Indigo/Purple
+        ctx.font = '900 18px Outfit, sans-serif';
+        ctx.fillStyle = '#1E293B';
         ctx.textAlign = 'center';
         ctx.fillText('HOW TO PLAY', this.width / 2, cardY + 36);
 
-        // Simulation Grid Container
+        // Illustration Box
         const gridBoxW = cardW - 48;
         const gridBoxH = 210;
         const gridBoxX = cardX + 24;
@@ -90307,7 +90558,6 @@
         ctx.fillStyle = '#181C26';
         ctx.fill();
 
-        // Draw 4x4 Tutorial Simulation
         const tRows = 4;
         const tCols = 4;
         const tCellSize = gridBoxW / tCols;
@@ -90321,20 +90571,17 @@
           }
         }
 
-        // Draw Animated Illustration based on active slide (0, 1, 2)
         const t = (this.tutorialAnimT % 2.5) / 2.5;
 
         // Slide 1: Connect matching colored dots
         if (this.tutorialSlide === 0) {
-          // Dots: Cyan at (0,0), Orange at (1,0) & (1,2), Red at (0,2) & (3,3)
-          this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 0, 0, PALETTE[6].hex); // Cyan
+          this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 0, 0, PALETTE[6].hex);
           this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 2, 1, PALETTE[6].hex);
-          this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 1, 0, PALETTE[4].hex); // Orange
+          this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 1, 0, PALETTE[4].hex);
           this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 1, 2, PALETTE[4].hex);
-          this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 0, 2, PALETTE[0].hex); // Red start
-          this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 3, 3, PALETTE[0].hex); // Red end
+          this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 0, 2, PALETTE[0].hex);
+          this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 3, 3, PALETTE[0].hex);
 
-          // Red path in progress
           ctx.beginPath();
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
@@ -90346,17 +90593,14 @@
           ctx.lineTo(gridBoxX + 3.5 * tCellSize, Math.min(gridBoxY + 3.5 * tCellSize, handY));
           ctx.stroke();
 
-          // Hand Icon
           ctx.font = '24px sans-serif';
           ctx.fillText('👆', gridBoxX + 3.5 * tCellSize + 4, handY + 12);
 
-          // Description Text
-          ctx.font = '800 16px Outfit, sans-serif';
-          ctx.fillStyle = '#1E1B4B';
+          ctx.font = '800 15.5px Outfit, sans-serif';
+          ctx.fillStyle = '#1E293B';
           ctx.textAlign = 'center';
-          ctx.fillText('Connect matching', this.width / 2, cardY + 295);
-          ctx.fillText('colored dots to create a', this.width / 2, cardY + 318);
-          ctx.fillText('continuous flow of lines.', this.width / 2, cardY + 341);
+          ctx.fillText('Connect matching colored dots to create', this.width / 2, cardY + 300);
+          ctx.fillText('a continuous flow of lines.', this.width / 2, cardY + 324);
         }
 
         // Slide 2: All dots need to be connected
@@ -90368,7 +90612,6 @@
           this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 0, 2, PALETTE[0].hex);
           this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 3, 3, PALETTE[0].hex);
 
-          // Red completed line
           ctx.beginPath();
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
@@ -90379,7 +90622,6 @@
           ctx.lineTo(gridBoxX + 3.5 * tCellSize, gridBoxY + 3.5 * tCellSize);
           ctx.stroke();
 
-          // Cyan path in progress
           ctx.beginPath();
           ctx.strokeStyle = PALETTE[6].hex;
           ctx.lineWidth = tCellSize * 0.38;
@@ -90388,14 +90630,14 @@
           ctx.lineTo(gridBoxX + 1.5 * tCellSize, gridBoxY + 2.5 * tCellSize);
           ctx.stroke();
 
-          ctx.font = '800 18px Outfit, sans-serif';
-          ctx.fillStyle = '#1E1B4B';
+          ctx.font = '800 17px Outfit, sans-serif';
+          ctx.fillStyle = '#1E293B';
           ctx.textAlign = 'center';
           ctx.fillText('All dots need to be', this.width / 2, cardY + 305);
-          ctx.fillText('connected', this.width / 2, cardY + 332);
+          ctx.fillText('connected', this.width / 2, cardY + 330);
         }
 
-        // Slide 3: There must be no overlapping paths (Red Cross)
+        // Slide 3: No overlapping paths (Red Cross)
         else {
           this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 0, 0, PALETTE[6].hex);
           this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 2, 1, PALETTE[6].hex);
@@ -90404,7 +90646,6 @@
           this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 0, 2, PALETTE[0].hex);
           this.drawTutDot(ctx, gridBoxX, gridBoxY, tCellSize, 3, 3, PALETTE[0].hex);
 
-          // Red path
           ctx.beginPath();
           ctx.strokeStyle = PALETTE[0].hex;
           ctx.lineWidth = tCellSize * 0.38;
@@ -90413,7 +90654,6 @@
           ctx.lineTo(gridBoxX + 3.5 * tCellSize, gridBoxY + 3.5 * tCellSize);
           ctx.stroke();
 
-          // Cyan path
           ctx.beginPath();
           ctx.strokeStyle = PALETTE[6].hex;
           ctx.lineWidth = tCellSize * 0.38;
@@ -90422,7 +90662,6 @@
           ctx.lineTo(gridBoxX + 1.5 * tCellSize, gridBoxY + 2.5 * tCellSize);
           ctx.stroke();
 
-          // Orange overlapping path
           ctx.beginPath();
           ctx.strokeStyle = PALETTE[4].hex;
           ctx.lineWidth = tCellSize * 0.38;
@@ -90430,7 +90669,6 @@
           ctx.lineTo(gridBoxX + 1.5 * tCellSize, gridBoxY + 1.5 * tCellSize);
           ctx.stroke();
 
-          // Red X Collision Cross
           const crossX = gridBoxX + 1.5 * tCellSize;
           const crossY = gridBoxY + 1.5 * tCellSize;
           ctx.font = '900 32px sans-serif';
@@ -90439,44 +90677,57 @@
           ctx.textBaseline = 'middle';
           ctx.fillText('✖', crossX, crossY);
 
-          ctx.font = '800 18px Outfit, sans-serif';
-          ctx.fillStyle = '#1E1B4B';
+          ctx.font = '800 17px Outfit, sans-serif';
+          ctx.fillStyle = '#1E293B';
           ctx.textAlign = 'center';
           ctx.fillText('There must be no', this.width / 2, cardY + 305);
-          ctx.fillText('overlapping paths', this.width / 2, cardY + 332);
+          ctx.fillText('overlapping paths', this.width / 2, cardY + 330);
         }
 
-        // Pagination Dots / Progress Bar
-        const barW = 80;
-        const barH = 4;
-        const barX = (this.width - barW) / 2;
-        const barY = cardY + cardH - 84;
-        ctx.beginPath();
-        ctx.roundRect(barX, barY, barW, barH, 2);
-        ctx.fillStyle = '#FED7AA';
-        ctx.fill();
+        // Pagination Dots
+        for (let i = 0; i < 3; i++) {
+          const dotX = this.width / 2 + (i - 1) * 16;
+          const isCur = (this.tutorialSlide === i);
+          ctx.beginPath();
+          ctx.arc(dotX, cardY + 360, isCur ? 5 : 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = isCur ? '#F59E0B' : '#CBD5E1';
+          ctx.fill();
+        }
 
-        ctx.beginPath();
-        ctx.roundRect(barX + (this.tutorialSlide / 2) * (barW - 28), barY, 28, barH, 2);
-        ctx.fillStyle = '#F97316';
-        ctx.fill();
-
-        // Purple OK / NEXT Button (Matching Screenshot)
-        const btnW = cardW - 48;
-        const btnH = 46;
-        const btnX = cardX + 24;
+        // Bottom Controls: [ ◀ ]   [ OK ]   [ ▶ ]
         const btnY = cardY + cardH - 64;
 
+        // 1. Back Arrow Button
         ctx.beginPath();
-        ctx.roundRect(btnX, btnY, btnW, btnH, 14);
-        ctx.fillStyle = '#8B5CF6'; // Purple Button
+        ctx.roundRect(cardX + 20, btnY, 48, 46, 14);
+        ctx.fillStyle = '#F1F5F9';
         ctx.fill();
-
-        ctx.font = '900 17px Outfit, sans-serif';
-        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '700 16px sans-serif';
+        ctx.fillStyle = this.tutorialSlide > 0 ? '#475569' : '#CBD5E1';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(this.tutorialSlide === 2 ? 'OK' : 'NEXT  ▶', btnX + btnW / 2, btnY + btnH / 2 + 1);
+        ctx.fillText('◀', cardX + 44, btnY + 23);
+
+        // 2. OK Button (Center)
+        const okW = cardW - 156;
+        const okX = cardX + 78;
+        ctx.beginPath();
+        ctx.roundRect(okX, btnY, okW, 46, 14);
+        ctx.fillStyle = '#8B5CF6';
+        ctx.fill();
+        ctx.font = '900 16px Fredoka, Outfit, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('OK', okX + okW / 2, btnY + 24);
+
+        // 3. Next Arrow Button
+        const nextX = cardX + cardW - 68;
+        ctx.beginPath();
+        ctx.roundRect(nextX, btnY, 48, 46, 14);
+        ctx.fillStyle = '#F1F5F9';
+        ctx.fill();
+        ctx.font = '700 16px sans-serif';
+        ctx.fillStyle = this.tutorialSlide < 2 ? '#475569' : '#CBD5E1';
+        ctx.fillText('▶', nextX + 24, btnY + 23);
         ctx.restore();
       }
 
@@ -90491,50 +90742,52 @@
 
       // VICTORY CELEBRATION MODAL
       renderVictoryModal(ctx) {
-        ctx.fillStyle = 'rgba(10, 13, 20, 0.85)';
+        ctx.fillStyle = 'rgba(11, 15, 25, 0.70)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const cardW = Math.min(320, this.width - 36);
-        const cardH = 320;
+        const cardW = Math.min(320, this.width - 40);
+        const cardH = 310;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
         ctx.save();
-        ctx.shadowColor = '#22C55E';
-        ctx.shadowBlur = 28;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+        ctx.shadowBlur = 32;
         ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 22);
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
         ctx.fillStyle = THEME.cardBg;
         ctx.fill();
-        ctx.strokeStyle = '#22C55E';
+        ctx.strokeStyle = THEME.accentGreen;
         ctx.lineWidth = 2.0;
         ctx.stroke();
 
-        ctx.font = '42px sans-serif';
+        ctx.font = '900 24px Fredoka, sans-serif';
+        ctx.fillStyle = THEME.accentGreen;
         ctx.textAlign = 'center';
-        ctx.fillText('⭐ ⭐ ⭐', this.width / 2, cardY + 64);
+        ctx.fillText('LEVEL COMPLETED! 🎉', this.width / 2, cardY + 48);
 
-        ctx.font = '900 24px Outfit, sans-serif';
-        ctx.fillStyle = '#22C55E';
-        ctx.fillText('PERFECT FLOW!', this.width / 2, cardY + 114);
+        const starY = cardY + 92;
+        for (let i = -1; i <= 1; i++) {
+          ctx.font = '28px sans-serif';
+          ctx.fillText('⭐', this.width / 2 + i * 42, starY);
+        }
 
-        ctx.font = '700 15px Outfit, sans-serif';
+        ctx.font = '700 14px Inter, sans-serif';
         ctx.fillStyle = THEME.textMuted;
-        ctx.fillText('LEVEL ' + (this.levelIndex + 1) + ' COMPLETED', this.width / 2, cardY + 144);
+        ctx.fillText('Difficulty: ' + this.difficulty.toUpperCase(), this.width / 2, cardY + 144);
+        ctx.fillText('Level: ' + this.level + ' • 100% Pipe Filled', this.width / 2, cardY + 172);
 
-        const btnW = cardW - 40;
-        const btnH = 50;
-        const btnX = cardX + 20;
-        const btnY = cardY + cardH - 80;
+        const btnW = 200, btnH = 48;
+        const btnX = (this.width - btnW) / 2;
+        const btnY = this.height * 0.68;
 
         ctx.beginPath();
-        ctx.roundRect(btnX, btnY, btnW, btnH, 16);
-        ctx.fillStyle = '#22C55E';
+        ctx.roundRect(btnX, btnY, btnW, btnH, 24);
+        ctx.fillStyle = THEME.accentGreen;
         ctx.fill();
-
-        ctx.font = '900 17px Outfit, sans-serif';
+        ctx.font = '800 16px Fredoka, sans-serif';
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText('NEXT LEVEL  ▶', btnX + btnW / 2, btnY + btnH / 2 + 5);
+        ctx.fillText('NEXT LEVEL ▶', this.width / 2, btnY + 24);
         ctx.restore();
       }
     }
