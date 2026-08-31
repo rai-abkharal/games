@@ -48,6 +48,42 @@
   <script>
     'use strict';
 
+    // Universal Bulletproof roundRect Implementation for 100% Android WebView Compatibility
+    if (typeof CanvasRenderingContext2D !== 'undefined') {
+      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, radii) {
+        if (w === 0 || h === 0) return this;
+        if (!radii) radii = 0;
+        if (typeof radii === 'number') {
+          radii = [radii, radii, radii, radii];
+        } else if (Array.isArray(radii)) {
+          if (radii.length === 1) radii = [radii[0], radii[0], radii[0], radii[0]];
+          else if (radii.length === 2) radii = [radii[0], radii[1], radii[0], radii[1]];
+          else if (radii.length === 3) radii = [radii[0], radii[1], radii[2], radii[1]];
+          else if (radii.length >= 4) radii = [radii[0], radii[1], radii[2], radii[3]];
+        } else {
+          radii = [0, 0, 0, 0];
+        }
+
+        var maxR = Math.min(Math.abs(w) / 2, Math.abs(h) / 2);
+        var rTL = Math.min(Math.max(0, Number(radii[0]) || 0), maxR);
+        var rTR = Math.min(Math.max(0, Number(radii[1]) || 0), maxR);
+        var rBR = Math.min(Math.max(0, Number(radii[2]) || 0), maxR);
+        var rBL = Math.min(Math.max(0, Number(radii[3]) || 0), maxR);
+
+        this.moveTo(x + rTL, y);
+        this.lineTo(x + w - rTR, y);
+        if (rTR > 0) this.quadraticCurveTo(x + w, y, x + w, y + rTR);
+        this.lineTo(x + w, y + h - rBR);
+        if (rBR > 0) this.quadraticCurveTo(x + w, y + h, x + w - rBR, y + h);
+        this.lineTo(x + rBL, y + h);
+        if (rBL > 0) this.quadraticCurveTo(x, y + h, x, y + h - rBL);
+        this.lineTo(x, y + rTL);
+        if (rTL > 0) this.quadraticCurveTo(x, y, x + rTL, y);
+        this.closePath();
+        return this;
+      };
+    }
+
     // 1. TILE PALETTE CONFIGURATION
     const TILE_PALETTE = {
       2:    { bg: '#FF5E62', text: '#FFFFFF', border: '#E04A4E' },
@@ -994,50 +1030,54 @@
 
       // 5. ANIMATION LOOP & PHYSICS
       loop(timestamp) {
-        if (!this.lastTime) this.lastTime = timestamp;
-        const dt = Math.min(0.06, (timestamp - this.lastTime) / 1000);
-        this.lastTime = timestamp;
+        try {
+          if (!this.lastTime) this.lastTime = timestamp;
+          const dt = Math.min(0.06, (timestamp - this.lastTime) / 1000);
+          this.lastTime = timestamp;
 
-        this.tutorialAnimT += dt;
+          this.tutorialAnimT += dt;
 
-        // Cascade Drop Gravity Springs
-        for (let r = 0; r < this.rows; r++) {
-          for (let c = 0; c < this.cols; c++) {
-            const cell = this.grid[r] && this.grid[r][c];
-            if (cell && cell.offsetY < 0) {
-              cell.offsetY += 1400 * dt;
-              if (cell.offsetY > 0) cell.offsetY = 0;
-            }
-            if (cell && cell.highlight > 0 && !this.isDragging) {
-              cell.highlight = 0;
+          // Cascade Drop Gravity Springs
+          for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+              const cell = this.grid[r] && this.grid[r][c];
+              if (cell && cell.offsetY < 0) {
+                cell.offsetY += 1400 * dt;
+                if (cell.offsetY > 0) cell.offsetY = 0;
+              }
+              if (cell && cell.highlight > 0 && !this.isDragging) {
+                cell.highlight = 0;
+              }
             }
           }
-        }
 
-        // Floating Scores
-        for (let i = this.floatingScores.length - 1; i >= 0; i--) {
-          const fs = this.floatingScores[i];
-          fs.y += fs.vy * dt;
-          fs.alpha -= dt * 0.95;
-          if (fs.alpha <= 0) this.floatingScores.splice(i, 1);
-        }
-
-        // Ripples
-        for (let i = this.ripples.length - 1; i >= 0; i--) {
-          const rip = this.ripples[i];
-          rip.radius += 240 * dt;
-          rip.alpha -= dt * 2.6;
-          if (rip.alpha <= 0 || rip.radius >= rip.maxRadius) {
-            this.ripples.splice(i, 1);
+          // Floating Scores
+          for (let i = this.floatingScores.length - 1; i >= 0; i--) {
+            const fs = this.floatingScores[i];
+            fs.y += fs.vy * dt;
+            fs.alpha -= dt * 0.95;
+            if (fs.alpha <= 0) this.floatingScores.splice(i, 1);
           }
-        }
 
-        if (this.toast) {
-          this.toast.t -= dt;
-          if (this.toast.t <= 0) this.toast = null;
-        }
+          // Ripples
+          for (let i = this.ripples.length - 1; i >= 0; i--) {
+            const rip = this.ripples[i];
+            rip.radius += 240 * dt;
+            rip.alpha -= dt * 2.6;
+            if (rip.alpha <= 0 || rip.radius >= rip.maxRadius) {
+              this.ripples.splice(i, 1);
+            }
+          }
 
-        this.render();
+          if (this.toast) {
+            this.toast.t -= dt;
+            if (this.toast.t <= 0) this.toast = null;
+          }
+
+          this.render();
+        } catch (err) {
+          console.error("NumberChain loop error:", err);
+        }
         requestAnimationFrame((t) => this.loop(t));
       }
 

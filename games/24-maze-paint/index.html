@@ -58,6 +58,42 @@
   <script>
     'use strict';
 
+    // Universal Bulletproof roundRect Implementation for 100% Android WebView Compatibility
+    if (typeof CanvasRenderingContext2D !== 'undefined') {
+      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, radii) {
+        if (w === 0 || h === 0) return this;
+        if (!radii) radii = 0;
+        if (typeof radii === 'number') {
+          radii = [radii, radii, radii, radii];
+        } else if (Array.isArray(radii)) {
+          if (radii.length === 1) radii = [radii[0], radii[0], radii[0], radii[0]];
+          else if (radii.length === 2) radii = [radii[0], radii[1], radii[0], radii[1]];
+          else if (radii.length === 3) radii = [radii[0], radii[1], radii[2], radii[1]];
+          else if (radii.length >= 4) radii = [radii[0], radii[1], radii[2], radii[3]];
+        } else {
+          radii = [0, 0, 0, 0];
+        }
+
+        var maxR = Math.min(Math.abs(w) / 2, Math.abs(h) / 2);
+        var rTL = Math.min(Math.max(0, Number(radii[0]) || 0), maxR);
+        var rTR = Math.min(Math.max(0, Number(radii[1]) || 0), maxR);
+        var rBR = Math.min(Math.max(0, Number(radii[2]) || 0), maxR);
+        var rBL = Math.min(Math.max(0, Number(radii[3]) || 0), maxR);
+
+        this.moveTo(x + rTL, y);
+        this.lineTo(x + w - rTR, y);
+        if (rTR > 0) this.quadraticCurveTo(x + w, y, x + w, y + rTR);
+        this.lineTo(x + w, y + h - rBR);
+        if (rBR > 0) this.quadraticCurveTo(x + w, y + h, x + w - rBR, y + h);
+        this.lineTo(x + rBL, y + h);
+        if (rBL > 0) this.quadraticCurveTo(x, y + h, x, y + h - rBL);
+        this.lineTo(x, y + rTL);
+        if (rTL > 0) this.quadraticCurveTo(x, y, x + rTL, y);
+        this.closePath();
+        return this;
+      };
+    }
+
     // 1. VIBRANT LEVEL COLOR PALETTES
     const LEVEL_COLORS = [
       { id: 'cyan', hex: '#06B6D4', darkHex: '#0891B2', name: 'Cyan Glow' },
@@ -4849,67 +4885,71 @@
       }
 
       loop(timestamp) {
-        const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
-        this.lastTime = timestamp;
+        try {
+          const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
+          this.lastTime = timestamp;
 
-        if (this.state === 'MOVING') {
-          const dx = this.ball.targetX - this.ball.x;
-          const dy = this.ball.targetY - this.ball.y;
-          const dist = Math.hypot(dx, dy);
-          const moveDist = this.ball.speed * dt;
+          if (this.state === 'MOVING') {
+            const dx = this.ball.targetX - this.ball.x;
+            const dy = this.ball.targetY - this.ball.y;
+            const dist = Math.hypot(dx, dy);
+            const moveDist = this.ball.speed * dt;
 
-          if (dist <= moveDist) {
-            this.ball.x = this.ball.targetX;
-            this.ball.y = this.ball.targetY;
-            this.paintTileAtPos(this.ball.x, this.ball.y);
-            this.onBallReachedDestination();
-          } else {
-            const angle = Math.atan2(dy, dx);
-            this.ball.x += Math.cos(angle) * moveDist;
-            this.ball.y += Math.sin(angle) * moveDist;
-            this.paintTileAtPos(this.ball.x, this.ball.y);
+            if (dist <= moveDist) {
+              this.ball.x = this.ball.targetX;
+              this.ball.y = this.ball.targetY;
+              this.paintTileAtPos(this.ball.x, this.ball.y);
+              this.onBallReachedDestination();
+            } else {
+              const angle = Math.atan2(dy, dx);
+              this.ball.x += Math.cos(angle) * moveDist;
+              this.ball.y += Math.sin(angle) * moveDist;
+              this.paintTileAtPos(this.ball.x, this.ball.y);
+            }
           }
-        }
 
-        // Particle Updates
-        for (let i = this.stars.length - 1; i >= 0; i--) {
-          const st = this.stars[i];
-          st.x += st.vx * dt;
-          st.y += st.vy * dt;
-          st.rot += st.vrot * dt;
-          st.alpha -= dt * 1.6;
-          if (st.alpha <= 0) this.stars.splice(i, 1);
-        }
+          // Particle Updates
+          for (let i = this.stars.length - 1; i >= 0; i--) {
+            const st = this.stars[i];
+            st.x += st.vx * dt;
+            st.y += st.vy * dt;
+            st.rot += st.vrot * dt;
+            st.alpha -= dt * 1.6;
+            if (st.alpha <= 0) this.stars.splice(i, 1);
+          }
 
-        for (let i = this.splats.length - 1; i >= 0; i--) {
-          const sp = this.splats[i];
-          sp.x += sp.vx * dt;
-          sp.y += sp.vy * dt;
-          sp.alpha -= dt * 2.8;
-          if (sp.alpha <= 0) this.splats.splice(i, 1);
-        }
+          for (let i = this.splats.length - 1; i >= 0; i--) {
+            const sp = this.splats[i];
+            sp.x += sp.vx * dt;
+            sp.y += sp.vy * dt;
+            sp.alpha -= dt * 2.8;
+            if (sp.alpha <= 0) this.splats.splice(i, 1);
+          }
 
-        for (let i = this.confetti.length - 1; i >= 0; i--) {
-          const c = this.confetti[i];
-          c.x += c.vx * dt;
-          c.y += c.vy * dt;
-          c.vy += 320 * dt;
-          c.rot += c.vrot * dt;
-          c.alpha -= dt * 0.35;
-          if (c.alpha <= 0) this.confetti.splice(i, 1);
-        }
+          for (let i = this.confetti.length - 1; i >= 0; i--) {
+            const c = this.confetti[i];
+            c.x += c.vx * dt;
+            c.y += c.vy * dt;
+            c.vy += 320 * dt;
+            c.rot += c.vrot * dt;
+            c.alpha -= dt * 0.35;
+            if (c.alpha <= 0) this.confetti.splice(i, 1);
+          }
 
-        if (this.hintArrow) {
-          this.hintArrow.timer -= dt;
-          if (this.hintArrow.timer <= 0) this.hintArrow = null;
-        }
+          if (this.hintArrow) {
+            this.hintArrow.timer -= dt;
+            if (this.hintArrow.timer <= 0) this.hintArrow = null;
+          }
 
-        if (this.state === 'VICTORY_MODAL') {
-          this.victoryAnimT += dt;
-          this.rippleRadius += dt * 380;
-        }
+          if (this.state === 'VICTORY_MODAL') {
+            this.victoryAnimT += dt;
+            this.rippleRadius += dt * 380;
+          }
 
-        this.render();
+          this.render();
+        } catch (err) {
+          console.error("ColorMaze loop error:", err);
+        }
         requestAnimationFrame((t) => this.loop(t));
       }
 

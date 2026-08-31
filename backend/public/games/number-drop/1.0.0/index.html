@@ -51,6 +51,42 @@
   <script>
     'use strict';
 
+    // Universal Bulletproof roundRect Implementation for 100% Android WebView Compatibility
+    if (typeof CanvasRenderingContext2D !== 'undefined') {
+      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, radii) {
+        if (w === 0 || h === 0) return this;
+        if (!radii) radii = 0;
+        if (typeof radii === 'number') {
+          radii = [radii, radii, radii, radii];
+        } else if (Array.isArray(radii)) {
+          if (radii.length === 1) radii = [radii[0], radii[0], radii[0], radii[0]];
+          else if (radii.length === 2) radii = [radii[0], radii[1], radii[0], radii[1]];
+          else if (radii.length === 3) radii = [radii[0], radii[1], radii[2], radii[1]];
+          else if (radii.length >= 4) radii = [radii[0], radii[1], radii[2], radii[3]];
+        } else {
+          radii = [0, 0, 0, 0];
+        }
+
+        var maxR = Math.min(Math.abs(w) / 2, Math.abs(h) / 2);
+        var rTL = Math.min(Math.max(0, Number(radii[0]) || 0), maxR);
+        var rTR = Math.min(Math.max(0, Number(radii[1]) || 0), maxR);
+        var rBR = Math.min(Math.max(0, Number(radii[2]) || 0), maxR);
+        var rBL = Math.min(Math.max(0, Number(radii[3]) || 0), maxR);
+
+        this.moveTo(x + rTL, y);
+        this.lineTo(x + w - rTR, y);
+        if (rTR > 0) this.quadraticCurveTo(x + w, y, x + w, y + rTR);
+        this.lineTo(x + w, y + h - rBR);
+        if (rBR > 0) this.quadraticCurveTo(x + w, y + h, x + w - rBR, y + h);
+        this.lineTo(x + rBL, y + h);
+        if (rBL > 0) this.quadraticCurveTo(x, y + h, x, y + h - rBL);
+        this.lineTo(x, y + rTL);
+        if (rTL > 0) this.quadraticCurveTo(x, y, x + rTL, y);
+        this.closePath();
+        return this;
+      };
+    }
+
     // 1. TILE PALETTE CONFIGURATION (Vibrant, high-contrast, juicy colors)
     const TILE_PALETTE = {
       2:    { bg: '#FF4D6D', topBg: '#FF758F', text: '#FFFFFF', border: '#E01E42', glow: '#FF4D6D' },
@@ -1062,88 +1098,92 @@
 
       // 5. ANIMATION LOOP & PHYSICS
       loop(timestamp) {
-        if (!this.lastTime) this.lastTime = timestamp;
-        const dt = Math.min(0.06, (timestamp - this.lastTime) / 1000);
-        this.lastTime = timestamp;
+        try {
+          if (!this.lastTime) this.lastTime = timestamp;
+          const dt = Math.min(0.06, (timestamp - this.lastTime) / 1000);
+          this.lastTime = timestamp;
 
-        this.tutorialAnimT += dt;
+          this.tutorialAnimT += dt;
 
-        // Falling Block Physics
-        if (this.state === 'FALLING' && this.fallingPiece) {
-          const p = this.fallingPiece;
-          p.vy += 2200 * dt;
-          p.y += p.vy * dt;
-          if (p.y >= p.targetY) {
-            p.y = p.targetY;
-            this.resolveLanding();
-          }
-        }
-
-        // Absorbing Source Block Animations
-        for (let i = this.absorbingBlocks.length - 1; i >= 0; i--) {
-          const ab = this.absorbingBlocks[i];
-          ab.t += dt;
-          const prog = Math.min(1.0, ab.t / ab.duration);
-          ab.currX = ab.startX + (ab.targetX - ab.startX) * prog;
-          ab.currY = ab.startY + (ab.targetY - ab.startY) * prog;
-          ab.alpha = 1.0 - prog;
-          ab.scale = 1.0 - prog * 0.5;
-          if (prog >= 1.0) {
-            this.absorbingBlocks.splice(i, 1);
-          }
-        }
-
-        // Settled Blocks Highlights & Scales Decay
-        for (let c = 0; c < this.cols; c++) {
-          for (let r = 0; r < this.columns[c].length; r++) {
-            const b = this.columns[c][r];
-            if (b.highlight > 0) {
-              b.highlight -= dt * 3.5;
-              if (b.highlight < 0) b.highlight = 0;
-            }
-            if (b.scale && b.scale > 1.0) {
-              b.scale -= dt * 2.0;
-              if (b.scale < 1.0) b.scale = 1.0;
+          // Falling Block Physics
+          if (this.state === 'FALLING' && this.fallingPiece) {
+            const p = this.fallingPiece;
+            p.vy += 2200 * dt;
+            p.y += p.vy * dt;
+            if (p.y >= p.targetY) {
+              p.y = p.targetY;
+              this.resolveLanding();
             }
           }
-        }
 
-        // Shockwaves
-        for (let i = this.shockwaves.length - 1; i >= 0; i--) {
-          const sw = this.shockwaves[i];
-          sw.radius += 260 * dt;
-          sw.alpha -= dt * 2.8;
-          if (sw.alpha <= 0 || sw.radius >= sw.maxRadius) {
-            this.shockwaves.splice(i, 1);
+          // Absorbing Source Block Animations
+          for (let i = this.absorbingBlocks.length - 1; i >= 0; i--) {
+            const ab = this.absorbingBlocks[i];
+            ab.t += dt;
+            const prog = Math.min(1.0, ab.t / ab.duration);
+            ab.currX = ab.startX + (ab.targetX - ab.startX) * prog;
+            ab.currY = ab.startY + (ab.targetY - ab.startY) * prog;
+            ab.alpha = 1.0 - prog;
+            ab.scale = 1.0 - prog * 0.5;
+            if (prog >= 1.0) {
+              this.absorbingBlocks.splice(i, 1);
+            }
           }
-        }
 
-        // Sparkles
-        for (let i = this.sparkles.length - 1; i >= 0; i--) {
-          const spk = this.sparkles[i];
-          spk.x += spk.vx * dt;
-          spk.y += spk.vy * dt;
-          spk.vy += 300 * dt;
-          spk.alpha -= dt * 2.4;
-          if (spk.alpha <= 0) {
-            this.sparkles.splice(i, 1);
+          // Settled Blocks Highlights & Scales Decay
+          for (let c = 0; c < this.cols; c++) {
+            for (let r = 0; r < this.columns[c].length; r++) {
+              const b = this.columns[c][r];
+              if (b.highlight > 0) {
+                b.highlight -= dt * 3.5;
+                if (b.highlight < 0) b.highlight = 0;
+              }
+              if (b.scale && b.scale > 1.0) {
+                b.scale -= dt * 2.0;
+                if (b.scale < 1.0) b.scale = 1.0;
+              }
+            }
           }
-        }
 
-        // Floating Scores
-        for (let i = this.floatingScores.length - 1; i >= 0; i--) {
-          const fs = this.floatingScores[i];
-          fs.y += fs.vy * dt;
-          fs.alpha -= dt * 0.9;
-          if (fs.alpha <= 0) this.floatingScores.splice(i, 1);
-        }
+          // Shockwaves
+          for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+            const sw = this.shockwaves[i];
+            sw.radius += 260 * dt;
+            sw.alpha -= dt * 2.8;
+            if (sw.alpha <= 0 || sw.radius >= sw.maxRadius) {
+              this.shockwaves.splice(i, 1);
+            }
+          }
 
-        if (this.toast) {
-          this.toast.t -= dt;
-          if (this.toast.t <= 0) this.toast = null;
-        }
+          // Sparkles
+          for (let i = this.sparkles.length - 1; i >= 0; i--) {
+            const spk = this.sparkles[i];
+            spk.x += spk.vx * dt;
+            spk.y += spk.vy * dt;
+            spk.vy += 300 * dt;
+            spk.alpha -= dt * 2.4;
+            if (spk.alpha <= 0) {
+              this.sparkles.splice(i, 1);
+            }
+          }
 
-        this.render();
+          // Floating Scores
+          for (let i = this.floatingScores.length - 1; i >= 0; i--) {
+            const fs = this.floatingScores[i];
+            fs.y += fs.vy * dt;
+            fs.alpha -= dt * 0.9;
+            if (fs.alpha <= 0) this.floatingScores.splice(i, 1);
+          }
+
+          if (this.toast) {
+            this.toast.t -= dt;
+            if (this.toast.t <= 0) this.toast = null;
+          }
+
+          this.render();
+        } catch (err) {
+          console.error("NumberDrop loop error:", err);
+        }
         requestAnimationFrame((t) => this.loop(t));
       }
 

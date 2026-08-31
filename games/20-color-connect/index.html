@@ -55,6 +55,42 @@
   <script>
     'use strict';
 
+    // Universal Bulletproof roundRect Implementation for 100% Android WebView Compatibility
+    if (typeof CanvasRenderingContext2D !== 'undefined') {
+      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, radii) {
+        if (w === 0 || h === 0) return this;
+        if (!radii) radii = 0;
+        if (typeof radii === 'number') {
+          radii = [radii, radii, radii, radii];
+        } else if (Array.isArray(radii)) {
+          if (radii.length === 1) radii = [radii[0], radii[0], radii[0], radii[0]];
+          else if (radii.length === 2) radii = [radii[0], radii[1], radii[0], radii[1]];
+          else if (radii.length === 3) radii = [radii[0], radii[1], radii[2], radii[1]];
+          else if (radii.length >= 4) radii = [radii[0], radii[1], radii[2], radii[3]];
+        } else {
+          radii = [0, 0, 0, 0];
+        }
+
+        var maxR = Math.min(Math.abs(w) / 2, Math.abs(h) / 2);
+        var rTL = Math.min(Math.max(0, Number(radii[0]) || 0), maxR);
+        var rTR = Math.min(Math.max(0, Number(radii[1]) || 0), maxR);
+        var rBR = Math.min(Math.max(0, Number(radii[2]) || 0), maxR);
+        var rBL = Math.min(Math.max(0, Number(radii[3]) || 0), maxR);
+
+        this.moveTo(x + rTL, y);
+        this.lineTo(x + w - rTR, y);
+        if (rTR > 0) this.quadraticCurveTo(x + w, y, x + w, y + rTR);
+        this.lineTo(x + w, y + h - rBR);
+        if (rBR > 0) this.quadraticCurveTo(x + w, y + h, x + w - rBR, y + h);
+        this.lineTo(x + rBL, y + h);
+        if (rBL > 0) this.quadraticCurveTo(x, y + h, x, y + h - rBL);
+        this.lineTo(x, y + rTL);
+        if (rTL > 0) this.quadraticCurveTo(x, y, x + rTL, y);
+        this.closePath();
+        return this;
+      };
+    }
+
     // 1. PALETTE & THEME CONFIGURATION (16 Vibrant Distinguishable Colors)
     const PALETTE = [
       { id: 0, name: 'Red', hex: '#EF4444', tint: 'rgba(239, 68, 68, 0.22)', dark: '#7F1D1D', note: 261.63 },
@@ -66787,36 +66823,39 @@
       }
 
       loop(timestamp) {
-        const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
-        this.lastTime = timestamp;
+        try {
+          const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
+          this.lastTime = timestamp;
 
-        if (this.toast) {
-          this.toast.t -= dt;
-          if (this.toast.t <= 0) this.toast = null;
-        }
-
-        if (this.state === 'CELEBRATING') {
-          this.celebrationTimer -= dt;
-          if (this.celebrationTimer <= 0) {
-            this.state = 'VICTORY';
-            this.victoryStarTimer = 0;
+          if (this.toast) {
+            this.toast.t -= dt;
+            if (this.toast.t <= 0) this.toast = null;
           }
+
+          if (this.state === 'CELEBRATING') {
+            this.celebrationTimer -= dt;
+            if (this.celebrationTimer <= 0) {
+              this.state = 'VICTORY';
+              this.victoryStarTimer = 0;
+            }
+          }
+
+          if (this.state === 'VICTORY') {
+            this.victoryStarTimer += dt;
+          }
+
+          if (this.isDragging && this.pointerPos) {
+            if (!this.cursorPos) this.cursorPos = { x: this.pointerPos.px, y: this.pointerPos.py };
+            this.cursorPos.x += (this.pointerPos.px - this.cursorPos.x) * 0.85;
+            this.cursorPos.y += (this.pointerPos.py - this.cursorPos.y) * 0.85;
+          }
+
+          this.tutorialAnimT += dt;
+          this.particles.update(dt);
+          this.render();
+        } catch (err) {
+          console.error("ColorConnect loop error:", err);
         }
-
-        if (this.state === 'VICTORY') {
-          this.victoryStarTimer += dt;
-        }
-
-        if (this.isDragging && this.pointerPos) {
-          if (!this.cursorPos) this.cursorPos = { x: this.pointerPos.px, y: this.pointerPos.py };
-          this.cursorPos.x += (this.pointerPos.px - this.cursorPos.x) * 0.85;
-          this.cursorPos.y += (this.pointerPos.py - this.cursorPos.y) * 0.85;
-        }
-
-        this.tutorialAnimT += dt;
-        this.particles.update(dt);
-        this.render();
-
         requestAnimationFrame((t) => this.loop(t));
       }
 
