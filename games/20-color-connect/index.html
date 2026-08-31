@@ -65898,21 +65898,33 @@
       }
     }
 
-    // 4. PARTICLE SYSTEM
+    // 4. PARTICLE & SHOCKWAVE SYSTEM
     class ParticleSystem {
       constructor() { this.items = []; }
       clear() { this.items = []; }
 
       addBurst(x, y, color) {
-        for (let i = 0; i < 12; i++) {
+        // Shockwave Ring
+        this.items.push({
+          type: 'RING',
+          x, y,
+          r: 8,
+          maxR: 36,
+          life: 0.45,
+          maxLife: 0.45,
+          color
+        });
+
+        // Sparkle Stars
+        for (let i = 0; i < 14; i++) {
           const a = Math.random() * Math.PI * 2;
-          const speed = 15 + Math.random() * 24;
+          const speed = 16 + Math.random() * 28;
           this.items.push({
             type: 'STAR',
             x, y,
             vx: Math.cos(a) * speed,
             vy: Math.sin(a) * speed - 8,
-            size: 2.5 + Math.random() * 3,
+            size: 2.8 + Math.random() * 3,
             rot: Math.random() * Math.PI * 2,
             vRot: (Math.random() - 0.5) * 3,
             life: 0.7 + Math.random() * 0.4,
@@ -65945,12 +65957,17 @@
       update(dt) {
         for (let i = this.items.length - 1; i >= 0; i--) {
           const p = this.items[i];
-          p.x += p.vx * dt;
-          p.y += p.vy * dt;
-          p.rot += p.vRot * dt;
-          p.life -= dt;
-          if (p.type === 'CONFETTI' || p.type === 'SPRINKLE') {
-            p.vx += Math.sin(p.life * 3) * 1.0;
+          if (p.type === 'RING') {
+            p.r += (p.maxR - p.r) * (dt * 10);
+            p.life -= dt;
+          } else {
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.rot += p.vRot * dt;
+            p.life -= dt;
+            if (p.type === 'CONFETTI' || p.type === 'SPRINKLE') {
+              p.vx += Math.sin(p.life * 3) * 1.0;
+            }
           }
           if (p.life <= 0) this.items.splice(i, 1);
         }
@@ -65961,25 +65978,34 @@
           const k = Math.max(0, p.life / p.maxLife);
           ctx.save();
           ctx.globalAlpha = Math.min(1, k * 1.4);
-          ctx.translate(p.x, p.y);
-          ctx.rotate(p.rot);
-          ctx.fillStyle = p.color;
 
-          if (p.type === 'CONFETTI') {
-            ctx.fillRect(-p.size * 0.5, -p.size * 0.25, p.size, p.size * 0.5);
-          } else if (p.type === 'SPRINKLE') {
+          if (p.type === 'RING') {
             ctx.beginPath();
-            ctx.roundRect(-p.size * 0.8, -p.size * 0.35, p.size * 1.6, p.size * 0.7, p.size * 0.35);
-            ctx.fill();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = 3.0 * k;
+            ctx.stroke();
           } else {
-            const s = p.size;
-            ctx.beginPath();
-            ctx.moveTo(0, -s);
-            ctx.quadraticCurveTo(0, 0, s, 0);
-            ctx.quadraticCurveTo(0, 0, 0, s);
-            ctx.quadraticCurveTo(0, 0, -s, 0);
-            ctx.quadraticCurveTo(0, 0, 0, -s);
-            ctx.fill();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot);
+            ctx.fillStyle = p.color;
+
+            if (p.type === 'CONFETTI') {
+              ctx.fillRect(-p.size * 0.5, -p.size * 0.25, p.size, p.size * 0.5);
+            } else if (p.type === 'SPRINKLE') {
+              ctx.beginPath();
+              ctx.roundRect(-p.size * 0.8, -p.size * 0.35, p.size * 1.6, p.size * 0.7, p.size * 0.35);
+              ctx.fill();
+            } else {
+              const s = p.size;
+              ctx.beginPath();
+              ctx.moveTo(0, -s);
+              ctx.quadraticCurveTo(0, 0, s, 0);
+              ctx.quadraticCurveTo(0, 0, 0, s);
+              ctx.quadraticCurveTo(0, 0, -s, 0);
+              ctx.quadraticCurveTo(0, 0, 0, -s);
+              ctx.fill();
+            }
           }
           ctx.restore();
         }
@@ -66646,6 +66672,8 @@
         const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
         this.lastTime = timestamp;
 
+        this.pulseT = (this.pulseT || 0) + dt;
+
         if (this.toast) {
           this.toast.t -= dt;
           if (this.toast.t <= 0) this.toast = null;
@@ -66686,6 +66714,18 @@
         bgGrad.addColorStop(1, THEME.bgBottom);
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, this.width, this.height);
+
+        // Soft Ambient Dragging Glow Behind Board
+        if (this.activeColor !== null) {
+          const radial = ctx.createRadialGradient(
+            this.width / 2, this.boardY + this.boardH / 2, 20,
+            this.width / 2, this.boardY + this.boardH / 2, this.boardW * 0.75
+          );
+          radial.addColorStop(0, PALETTE[this.activeColor % PALETTE.length].tint);
+          radial.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = radial;
+          ctx.fillRect(0, this.boardY - 30, this.width, this.boardH + 60);
+        }
 
         this.renderHeader(ctx);
         this.renderBoard(ctx);
@@ -66826,12 +66866,14 @@
           }
         }
 
-        // 2. Continuous Clean Paths (Pipes)
+        // 2. Glowing Neon Laser Pipes
         for (const [colIdStr, pathArr] of Object.entries(this.paths)) {
           if (!pathArr || pathArr.length < 2) continue;
           const colId = parseInt(colIdStr);
           const colorObj = PALETTE[colId % PALETTE.length];
+          const isDone = this.completedColors.has(colId);
 
+          // Soft Colored Glow Bloom
           ctx.save();
           ctx.beginPath();
           for (let i = 0; i < pathArr.length; i++) {
@@ -66843,10 +66885,12 @@
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
           ctx.strokeStyle = colorObj.hex;
-          ctx.lineWidth = cs * 0.38;
+          ctx.shadowColor = colorObj.hex;
+          ctx.shadowBlur = isDone ? 18 : 10;
+          ctx.lineWidth = cs * 0.40;
           ctx.stroke();
 
-          // Smooth inner highlight core
+          // Laser White Specular Highlight Core
           ctx.beginPath();
           for (let i = 0; i < pathArr.length; i++) {
             const px = bx + pathArr[i].c * cs + cs / 2;
@@ -66856,25 +66900,27 @@
           }
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
           ctx.lineWidth = cs * 0.12;
           ctx.stroke();
           ctx.restore();
         }
 
-        // 3. Endpoint Dots
+        // 3. Glowing Breathing Endpoint Dots / Balls
         for (const dot of this.dots) {
           const colorObj = PALETTE[dot.color % PALETTE.length];
+          const isConnected = this.completedColors.has(dot.color);
           const pts = [dot.p1, dot.p2];
+          const breathe = isConnected ? 1.0 : (1.0 + Math.sin(this.pulseT * 4 + dot.color) * 0.08);
 
           for (const pt of pts) {
             const dx = bx + pt[1] * cs + cs / 2;
             const dy = by + pt[0] * cs + cs / 2;
-            const r = cs * 0.28;
+            const r = cs * 0.28 * breathe;
 
             ctx.save();
             ctx.shadowColor = colorObj.hex;
-            ctx.shadowBlur = 12;
+            ctx.shadowBlur = isConnected ? 18 : 12;
             ctx.beginPath();
             ctx.arc(dx, dy, r + 1.5, 0, Math.PI * 2);
             ctx.fillStyle = colorObj.hex;
@@ -66889,7 +66935,7 @@
             // Specular reflection dot
             ctx.beginPath();
             ctx.arc(dx - r * 0.25, dy - r * 0.25, r * 0.22, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
             ctx.fill();
             ctx.restore();
           }
