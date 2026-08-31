@@ -66040,6 +66040,9 @@
 
         this.sliderPos = this.difficulty === 'hard' ? 1.0 : (this.difficulty === 'medium' ? 0.5 : 0.0);
         this.isDraggingSlider = false;
+        this.modalOpenTime = performance.now();
+        this.playBtnDown = false;
+        this.qBtnDown = false;
 
         this.initLayout();
         this.bindEvents();
@@ -66047,6 +66050,7 @@
 
         // Always prompt Select Difficulty on initial startup!
         this.state = 'DIFF_SELECT';
+        this.modalOpenTime = performance.now();
 
         this.lastTime = performance.now();
         requestAnimationFrame((t) => this.loop(t));
@@ -66234,9 +66238,10 @@
           if (e.preventDefault) e.preventDefault();
           if (e.stopPropagation) e.stopPropagation();
 
-          if (this.isDraggingSlider) {
-            this.isDraggingSlider = false;
-            this.snapDifficultySlider();
+          const { px, py } = getPos(e);
+
+          if (this.state === 'DIFF_SELECT') {
+            this.handleDifficultyModalUp(px, py);
             return;
           }
 
@@ -66591,6 +66596,10 @@
 
       // --- DARK THEMED SUDOKU PRO STYLE DIFFICULTY SLIDER MODAL ---
       handleDifficultyModalDown(px, py) {
+        if (this.modalOpenTime && (performance.now() - this.modalOpenTime < 300)) {
+          return;
+        }
+
         const cardW = Math.min(320, this.width - 36);
         const cardH = 370;
         const cardX = (this.width - cardW) / 2;
@@ -66614,23 +66623,64 @@
         const playBtnY = cardY + 285;
 
         if (px >= playBtnX && px <= playBtnX + playBtnW && py >= playBtnY && py <= playBtnY + playBtnH) {
-          this.synth.playTap();
-          this.snapDifficultySlider();
-          this.saveDifficulty();
-          this.isPlayingSession = true;
-          this.lastPlayClickTime = performance.now();
-          this.loadPuzzle(this.loadLevel(this.difficulty), true);
+          this.playBtnDown = true;
           return;
         }
 
         // ? Question Button
         const qBtnX = cardX + cardW - 74;
         if (px >= qBtnX && px <= qBtnX + 50 && py >= playBtnY && py <= playBtnY + playBtnH) {
-          this.synth.playTap();
-          this.tutorialSlide = 0;
-          this.tutorialAnimT = 0;
-          this.state = 'HOW_TO_PLAY';
+          this.qBtnDown = true;
           return;
+        }
+      }
+
+      handleDifficultyModalUp(px, py) {
+        if (this.isDraggingSlider) {
+          this.isDraggingSlider = false;
+          this.snapDifficultySlider();
+          return;
+        }
+
+        if (this.modalOpenTime && (performance.now() - this.modalOpenTime < 300)) {
+          this.playBtnDown = false;
+          this.qBtnDown = false;
+          return;
+        }
+
+        const cardW = Math.min(320, this.width - 36);
+        const cardH = 370;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+        const playBtnW = cardW - 110;
+        const playBtnH = 50;
+        const playBtnX = cardX + 24;
+        const playBtnY = cardY + 285;
+
+        if (this.playBtnDown) {
+          this.playBtnDown = false;
+          if (px >= playBtnX - 10 && px <= playBtnX + playBtnW + 10 && py >= playBtnY - 10 && py <= playBtnY + playBtnH + 10) {
+            this.synth.playTap();
+            this.snapDifficultySlider();
+            this.saveDifficulty();
+            this.isPlayingSession = true;
+            this.lastPlayClickTime = performance.now();
+            this.loadPuzzle(this.loadLevel(this.difficulty), true);
+            return;
+          }
+        }
+
+        const qBtnX = cardX + cardW - 74;
+        if (this.qBtnDown) {
+          this.qBtnDown = false;
+          if (px >= qBtnX - 10 && px <= qBtnX + 60 && py >= playBtnY - 10 && py <= playBtnY + playBtnH + 10) {
+            this.synth.playTap();
+            this.tutorialSlide = 0;
+            this.tutorialAnimT = 0;
+            this.modalOpenTime = performance.now();
+            this.state = 'HOW_TO_PLAY';
+            return;
+          }
         }
       }
 

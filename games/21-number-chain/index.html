@@ -256,6 +256,9 @@
         this.lastPlayClickTime = 0;
         this.tutorialSlide = 0;
         this.tutorialAnimT = 0;
+        this.modalOpenTime = performance.now();
+        this.playBtnDown = false;
+        this.qBtnDown = false;
 
         this.grid = [];
         this.floatingScores = [];
@@ -279,6 +282,7 @@
 
         // Always show difficulty selection on initial app launch!
         this.state = 'DIFF_SELECT';
+        this.modalOpenTime = performance.now();
 
         requestAnimationFrame((t) => this.loop(t));
       }
@@ -473,12 +477,15 @@
           this.startNewGame(false);
         }
 
-        this.sliderPos = this.modeId === 'hard' ? 1.0 : (this.modeId === 'medium' ? 0.5 : 0.0);
-        this.state = 'DIFF_SELECT';
+        this.showDiffSelect();
       }
 
       showDiffSelect() {
         this.sliderPos = this.modeId === 'hard' ? 1.0 : (this.modeId === 'medium' ? 0.5 : 0.0);
+        this.modalOpenTime = performance.now();
+        this.playBtnDown = false;
+        this.qBtnDown = false;
+        this.isDraggingSlider = false;
         this.state = 'DIFF_SELECT';
       }
 
@@ -511,6 +518,10 @@
       }
 
       handleDifficultyModalDown(px, py) {
+        if (this.modalOpenTime && (performance.now() - this.modalOpenTime < 300)) {
+          return;
+        }
+
         const cardW = Math.min(324, this.width - 36);
         const cardH = 376;
         const cardX = (this.width - cardW) / 2;
@@ -534,26 +545,71 @@
         const playBtnY = cardY + 282;
 
         if (px >= playBtnX && px <= playBtnX + playBtnW && py >= playBtnY && py <= playBtnY + playBtnH) {
-          this.synth.playTap();
-          this.snapDifficultySlider();
-          this.saveModeId(this.modeId);
-          this.lastPlayClickTime = performance.now();
-          this.startNewGame(true);
+          this.playBtnDown = true;
           return;
         }
 
         // ? Question Button
         const qBtnX = cardX + cardW - 74;
         if (px >= qBtnX && px <= qBtnX + 50 && py >= playBtnY && py <= playBtnY + playBtnH) {
-          this.synth.playTap();
-          this.tutorialSlide = 0;
-          this.tutorialAnimT = 0;
-          this.state = 'HOW_TO_PLAY';
+          this.qBtnDown = true;
           return;
         }
       }
 
+      handleDifficultyModalUp(px, py) {
+        if (this.isDraggingSlider) {
+          this.isDraggingSlider = false;
+          this.snapDifficultySlider();
+          return;
+        }
+
+        if (this.modalOpenTime && (performance.now() - this.modalOpenTime < 300)) {
+          this.playBtnDown = false;
+          this.qBtnDown = false;
+          return;
+        }
+
+        const cardW = Math.min(324, this.width - 36);
+        const cardH = 376;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+        const playBtnW = cardW - 110;
+        const playBtnH = 50;
+        const playBtnX = cardX + 24;
+        const playBtnY = cardY + 282;
+
+        if (this.playBtnDown) {
+          this.playBtnDown = false;
+          if (px >= playBtnX - 10 && px <= playBtnX + playBtnW + 10 && py >= playBtnY - 10 && py <= playBtnY + playBtnH + 10) {
+            this.synth.playTap();
+            this.snapDifficultySlider();
+            this.saveModeId(this.modeId);
+            this.lastPlayClickTime = performance.now();
+            this.startNewGame(true);
+            return;
+          }
+        }
+
+        const qBtnX = cardX + cardW - 74;
+        if (this.qBtnDown) {
+          this.qBtnDown = false;
+          if (px >= qBtnX - 10 && px <= qBtnX + 60 && py >= playBtnY - 10 && py <= playBtnY + playBtnH + 10) {
+            this.synth.playTap();
+            this.tutorialSlide = 0;
+            this.tutorialAnimT = 0;
+            this.modalOpenTime = performance.now();
+            this.state = 'HOW_TO_PLAY';
+            return;
+          }
+        }
+      }
+
       handleHowToPlayModalClick(px, py) {
+        if (this.modalOpenTime && (performance.now() - this.modalOpenTime < 250)) {
+          return;
+        }
+
         const cardW = Math.min(324, this.width - 36);
         const cardH = 376;
         const cardX = (this.width - cardW) / 2;
@@ -725,9 +781,10 @@
         };
 
         const handleUp = (e) => {
-          if (this.isDraggingSlider) {
-            this.isDraggingSlider = false;
-            this.snapDifficultySlider();
+          const { px, py } = getPos(e);
+
+          if (this.state === 'DIFF_SELECT') {
+            this.handleDifficultyModalUp(px, py);
             return;
           }
 
