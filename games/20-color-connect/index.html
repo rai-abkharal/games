@@ -66043,7 +66043,10 @@
 
         this.initLayout();
         this.bindEvents();
-        this.loadPuzzle(this.level);
+        this.loadPuzzle(this.level, false);
+
+        // Always prompt Select Difficulty on initial startup!
+        this.state = 'DIFF_SELECT';
 
         this.lastTime = performance.now();
         requestAnimationFrame((t) => this.loop(t));
@@ -66071,7 +66074,7 @@
         try { localStorage.setItem('cc_lvl_' + this.difficulty, this.level.toString()); } catch (e) {}
       }
 
-      loadPuzzle(lvl) {
+      loadPuzzle(lvl, setPlaying = true) {
         const pack = VERIFIED_PUZZLES[this.difficulty] || VERIFIED_PUZZLES['easy'];
         this.level = Math.max(1, Math.min(pack.length, lvl));
         this.saveLevel();
@@ -66089,7 +66092,9 @@
         this.cursorPos = null;
         this.hintHighlight = null;
         this.toast = null;
-        this.state = 'PLAYING';
+        if (setPlaying) {
+          this.state = 'PLAYING';
+        }
 
         this.particles.clear();
         this.initLayout();
@@ -66175,8 +66180,7 @@
           // Difficulty Pill (Top Left: x: 14 to 146, y: headerY to headerY + 40)
           if (px >= 14 && px <= 146 && py >= this.headerY - 4 && py <= this.headerY + 42) {
             this.synth.playTap();
-            this.sliderPos = this.difficulty === 'hard' ? 1.0 : (this.difficulty === 'medium' ? 0.5 : 0.0);
-            this.state = 'DIFF_SELECT';
+            this.showDiffSelect(true);
             return;
           }
 
@@ -66253,34 +66257,68 @@
           window.addEventListener('touchcancel', handleUp, { passive: false });
         }
 
-        // Platform swipe-in / activation handlers
-        const showDiffSelect = () => {
-          this.sliderPos = this.difficulty === 'hard' ? 1.0 : (this.difficulty === 'medium' ? 0.5 : 0.0);
-          this.state = 'DIFF_SELECT';
+        // Platform swipe-in / activation handlers (with active gameplay protection)
+        let lastLifecycleTime = 0;
+        const handleLifecycleEvent = () => {
+          const now = performance.now();
+          if (now - lastLifecycleTime < 250) return;
+          lastLifecycleTime = now;
+          this.showDiffSelect(false);
         };
 
         window.addEventListener('message', (e) => {
           if (!e.data) return;
           const act = e.data.action || e.data.type || e.data;
-          if (act === 'onGameActive' || act === 'resume' || act === 'active' || act === 'swipe_in' || act === 'show' || act === 'restart' || act === 'focus') {
-            showDiffSelect();
+          if (act === 'onGameActive' || act === 'resume' || act === 'active' || act === 'swipe_in' || act === 'show' || act === 'restart') {
+            handleLifecycleEvent();
           }
         });
 
         window.addEventListener('pageshow', () => {
-          showDiffSelect();
+          handleLifecycleEvent();
         });
 
         window.addEventListener('focus', () => {
-          showDiffSelect();
+          handleLifecycleEvent();
         });
 
         document.addEventListener('visibilitychange', () => {
           if (document.visibilityState === 'visible') {
             this.initLayout();
-            showDiffSelect();
+            handleLifecycleEvent();
           }
         });
+      }
+
+      hasActiveGameplayProgress() {
+        if (this.state !== 'PLAYING') return false;
+        let lineCount = 0;
+        for (const [_, pathArr] of Object.entries(this.paths)) {
+          if (pathArr && pathArr.length > 0) lineCount++;
+        }
+        return (lineCount > 0 || this.completedColors.size > 0);
+      }
+
+      showDiffSelect(force = false) {
+        if (force) {
+          this.sliderPos = this.difficulty === 'hard' ? 1.0 : (this.difficulty === 'medium' ? 0.5 : 0.0);
+          this.state = 'DIFF_SELECT';
+          return;
+        }
+
+        // If user is actively playing with progress (e.g. >= 1 line drawn), DO NOT interrupt!
+        if (this.hasActiveGameplayProgress()) {
+          return;
+        }
+
+        // If already in DIFF_SELECT or HOW_TO_PLAY, do not reset
+        if (this.state === 'DIFF_SELECT' || this.state === 'HOW_TO_PLAY') {
+          return;
+        }
+
+        // Show difficulty selection on fresh unplayed board or post-victory swipe return
+        this.sliderPos = this.difficulty === 'hard' ? 1.0 : (this.difficulty === 'medium' ? 0.5 : 0.0);
+        this.state = 'DIFF_SELECT';
       }
 
       getCellFromPos(px, py) {
