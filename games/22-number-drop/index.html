@@ -1601,7 +1601,6 @@
         ctx.restore();
 
         // Difficulty Title & Subtitle
-        ctx.save();
         ctx.font = '900 21px Fredoka, sans-serif';
         ctx.fillStyle = diffObj.color;
         ctx.textAlign = 'center';
@@ -1846,7 +1845,6 @@
           ctx.fillStyle = (i === this.tutorialSlide) ? '#8B5CF6' : '#CBD5E1';
           ctx.fill();
         }
-        ctx.restore();
       }
 
       renderGameOverModal(ctx) {
