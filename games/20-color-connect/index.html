@@ -22,7 +22,7 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #111520;
+      background: #181C26;
       font-family: 'Outfit', 'Fredoka', 'Inter', system-ui, -apple-system, sans-serif;
       touch-action: none !important;
       -webkit-overflow-scrolling: auto;
@@ -57,39 +57,39 @@
 
     // 1. PALETTE & THEME CONFIGURATION (16 Vibrant Distinguishable Colors)
     const PALETTE = [
-      { id: 0, name: 'Red', hex: '#EF4444', tint: 'rgba(239, 68, 68, 0.25)', dark: '#7F1D1D', glow: 'rgba(239, 68, 68, 0.65)', note: 261.63 },
-      { id: 1, name: 'Blue', hex: '#3B82F6', tint: 'rgba(59, 130, 246, 0.25)', dark: '#1E3A8A', glow: 'rgba(59, 130, 246, 0.65)', note: 293.66 },
-      { id: 2, name: 'Green', hex: '#22C55E', tint: 'rgba(34, 197, 94, 0.25)', dark: '#14532D', glow: 'rgba(34, 197, 94, 0.65)', note: 329.63 },
-      { id: 3, name: 'Yellow', hex: '#FACC15', tint: 'rgba(250, 204, 21, 0.25)', dark: '#713F12', glow: 'rgba(250, 204, 21, 0.65)', note: 392.00 },
-      { id: 4, name: 'Orange', hex: '#FB923C', tint: 'rgba(251, 146, 60, 0.25)', dark: '#7C2D12', glow: 'rgba(251, 146, 60, 0.65)', note: 440.00 },
-      { id: 5, name: 'Purple', hex: '#C084FC', tint: 'rgba(192, 132, 252, 0.25)', dark: '#581C87', glow: 'rgba(192, 132, 252, 0.65)', note: 523.25 },
-      { id: 6, name: 'Cyan', hex: '#22D3EE', tint: 'rgba(34, 211, 238, 0.25)', dark: '#164E63', glow: 'rgba(34, 211, 238, 0.65)', note: 587.33 },
-      { id: 7, name: 'Pink', hex: '#F472B6', tint: 'rgba(244, 114, 182, 0.25)', dark: '#831843', glow: 'rgba(244, 114, 182, 0.65)', note: 659.25 },
-      { id: 8, name: 'Lime', hex: '#A3E635', tint: 'rgba(163, 230, 53, 0.25)', dark: '#365314', glow: 'rgba(163, 230, 53, 0.65)', note: 783.99 },
-      { id: 9, name: 'Amber', hex: '#FBBF24', tint: 'rgba(251, 191, 36, 0.25)', dark: '#78350F', glow: 'rgba(251, 191, 36, 0.65)', note: 880.00 },
-      { id: 10, name: 'Teal', hex: '#2DD4BF', tint: 'rgba(45, 212, 191, 0.25)', dark: '#134E4A', glow: 'rgba(45, 212, 191, 0.65)', note: 932.33 },
-      { id: 11, name: 'Indigo', hex: '#818CF8', tint: 'rgba(129, 140, 248, 0.25)', dark: '#312E81', glow: 'rgba(129, 140, 248, 0.65)', note: 987.77 },
-      { id: 12, name: 'Rose', hex: '#FB7185', tint: 'rgba(251, 113, 133, 0.25)', dark: '#881337', glow: 'rgba(251, 113, 133, 0.65)', note: 1046.50 },
-      { id: 13, name: 'Emerald', hex: '#34D399', tint: 'rgba(52, 211, 153, 0.25)', dark: '#064E3B', glow: 'rgba(52, 211, 153, 0.65)', note: 1108.73 },
-      { id: 14, name: 'Sky', hex: '#38BDF8', tint: 'rgba(56, 189, 248, 0.25)', dark: '#0C4A6E', glow: 'rgba(56, 189, 248, 0.65)', note: 1174.66 },
-      { id: 15, name: 'Gold', hex: '#FCD34D', tint: 'rgba(252, 211, 77, 0.25)', dark: '#713F12', glow: 'rgba(252, 211, 77, 0.65)', note: 1244.51 }
+      { id: 0, name: 'Red', hex: '#EF4444', tint: 'rgba(239, 68, 68, 0.22)', dark: '#7F1D1D', note: 261.63 },
+      { id: 1, name: 'Blue', hex: '#2563EB', tint: 'rgba(37, 99, 235, 0.22)', dark: '#1E3A8A', note: 293.66 },
+      { id: 2, name: 'Green', hex: '#16A34A', tint: 'rgba(22, 163, 74, 0.22)', dark: '#14532D', note: 329.63 },
+      { id: 3, name: 'Yellow', hex: '#FACC15', tint: 'rgba(250, 204, 21, 0.22)', dark: '#713F12', note: 392.00 },
+      { id: 4, name: 'Orange', hex: '#F97316', tint: 'rgba(249, 115, 22, 0.22)', dark: '#7C2D12', note: 440.00 },
+      { id: 5, name: 'Purple', hex: '#A855F7', tint: 'rgba(168, 85, 247, 0.22)', dark: '#581C87', note: 523.25 },
+      { id: 6, name: 'Cyan', hex: '#06B6D4', tint: 'rgba(6, 182, 212, 0.22)', dark: '#164E63', note: 587.33 },
+      { id: 7, name: 'Pink', hex: '#EC4899', tint: 'rgba(236, 72, 153, 0.22)', dark: '#831843', note: 659.25 },
+      { id: 8, name: 'Lime', hex: '#84CC16', tint: 'rgba(132, 204, 22, 0.22)', dark: '#365314', note: 783.99 },
+      { id: 9, name: 'Amber', hex: '#F59E0B', tint: 'rgba(245, 158, 11, 0.22)', dark: '#78350F', note: 880.00 },
+      { id: 10, name: 'Teal', hex: '#14B8A6', tint: 'rgba(20, 184, 166, 0.22)', dark: '#134E4A', note: 932.33 },
+      { id: 11, name: 'Indigo', hex: '#6366F1', tint: 'rgba(99, 102, 241, 0.22)', dark: '#312E81', note: 987.77 },
+      { id: 12, name: 'Rose', hex: '#F43F5E', tint: 'rgba(244, 63, 94, 0.22)', dark: '#881337', note: 1046.50 },
+      { id: 13, name: 'Emerald', hex: '#10B981', tint: 'rgba(16, 185, 129, 0.22)', dark: '#064E3B', note: 1108.73 },
+      { id: 14, name: 'Sky', hex: '#38BDF8', tint: 'rgba(56, 189, 248, 0.22)', dark: '#0C4A6E', note: 1174.66 },
+      { id: 15, name: 'Gold', hex: '#EAB308', tint: 'rgba(234, 179, 8, 0.22)', dark: '#713F12', note: 1244.51 }
     ];
 
     const DIFFICULTIES = [
-      { id: 'easy', label: 'EASY', sizeLabel: '5x5 - 6x6 Grid', subtitle: '100 Levels • Relaxed Flow', color: '#22C55E', grad: ['#16A34A', '#22C55E'], icon: '🍃' },
-      { id: 'medium', label: 'MEDIUM', sizeLabel: '5x5 - 6x6 Grid', subtitle: '100 Levels • Balanced Logic', color: '#F59E0B', grad: ['#D97706', '#F59E0B'], icon: '⚡' },
-      { id: 'hard', label: 'HARD', sizeLabel: '6x6 Grid', subtitle: '100 Levels • Deep Strategy', color: '#EC4899', grad: ['#DB2777', '#F43F5E'], icon: '💎' }
+      { id: 'easy', label: 'EASY', sizeLabel: '5x5 - 6x6 Grid', subtitle: '100 Levels • Relaxed & Fun', color: '#22C55E', icon: '🍃' },
+      { id: 'medium', label: 'MEDIUM', sizeLabel: '5x5 - 6x6 Grid', subtitle: '100 Levels • Balanced Logic', color: '#F59E0B', icon: '⚡' },
+      { id: 'hard', label: 'HARD', sizeLabel: '6x6 Grid', subtitle: '100 Levels • Deep Strategy', color: '#EF4444', icon: '💎' }
     ];
 
     const THEME = {
-      bgTop: '#141824',
-      bgBottom: '#0D111A',
-      boardBg: '#0F131D',
-      boardBorder: '#1F2637',
-      cellDefault: '#1A2130',
-      cellBorder: '#141A26',
-      cardBg: '#19202E',
-      cardBorder: '#2B354C',
+      bgTop: '#181C26',
+      bgBottom: '#131720',
+      boardBg: '#13161F',
+      boardBorder: '#232836',
+      cellDefault: '#1E2330',
+      cellBorder: '#161922',
+      cardBg: '#1F2432',
+      cardBorder: '#2E3547',
       textMain: '#F8FAFC',
       textMuted: '#94A3B8',
       accent: '#38BDF8',
@@ -65790,9 +65790,8 @@
         this.init();
         const t = this.ctx.currentTime;
         const color = PALETTE[colorId % PALETTE.length];
-        const scaleMultipliers = [1.0, 1.125, 1.25, 1.333, 1.5, 1.667, 1.875, 2.0];
-        const mult = scaleMultipliers[(stepLen - 1) % scaleMultipliers.length];
-        const freq = color.note * mult * 0.75;
+        const pitchMult = 1.0 + 0.035 * ((stepLen - 1) % 12);
+        const freq = color.note * pitchMult;
 
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -65800,12 +65799,12 @@
         osc.frequency.setValueAtTime(freq, t);
 
         gain.gain.setValueAtTime(0.14, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
 
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(t);
-        osc.stop(t + 0.10);
+        osc.stop(t + 0.09);
       }
 
       playDotSelect(colorId) {
@@ -65815,10 +65814,10 @@
         const color = PALETTE[colorId % PALETTE.length];
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(color.note * 0.8, t);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(color.note * 0.9, t);
         osc.frequency.exponentialRampToValueAtTime(color.note, t + 0.08);
-        gain.gain.setValueAtTime(0.16, t);
+        gain.gain.setValueAtTime(0.15, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
@@ -65831,18 +65830,18 @@
         this.init();
         const color = PALETTE[colorId % PALETTE.length];
         const base = color.note;
-        [base, base * 1.25, base * 1.5, base * 2.0].forEach((freq, i) => {
-          const t = this.ctx.currentTime + i * 0.035;
+        [base, base * 1.25, base * 1.5].forEach((freq, i) => {
+          const t = this.ctx.currentTime + i * 0.04;
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
-          osc.type = 'sine';
+          osc.type = 'triangle';
           osc.frequency.setValueAtTime(freq, t);
-          gain.gain.setValueAtTime(0.20, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
           osc.connect(gain);
           gain.connect(this.ctx.destination);
           osc.start(t);
-          osc.stop(t + 0.39);
+          osc.stop(t + 0.43);
         });
       }
 
@@ -65853,14 +65852,14 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(400, t);
-        osc.frequency.exponentialRampToValueAtTime(200, t + 0.05);
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.exponentialRampToValueAtTime(220, t + 0.06);
         gain.gain.setValueAtTime(0.08, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(t);
-        osc.stop(t + 0.06);
+        osc.stop(t + 0.07);
       }
 
       playTap() {
@@ -65870,8 +65869,8 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(650, t);
-        gain.gain.setValueAtTime(0.12, t);
+        osc.frequency.setValueAtTime(600, t);
+        gain.gain.setValueAtTime(0.10, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
@@ -65879,34 +65878,17 @@
         osc.stop(t + 0.05);
       }
 
-      playStar(idx) {
-        if (this.muted || !this.ctx) return;
-        this.init();
-        const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
-        const t = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(notes[idx % notes.length], t);
-        gain.gain.setValueAtTime(0.24, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.36);
-      }
-
       playVictory() {
         if (this.muted || !this.ctx) return;
         this.init();
         const melody = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
         melody.forEach((freq, i) => {
-          const t = this.ctx.currentTime + i * 0.07;
+          const t = this.ctx.currentTime + i * 0.08;
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(freq, t);
-          gain.gain.setValueAtTime(0.25, t);
+          gain.gain.setValueAtTime(0.22, t);
           gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
           osc.connect(gain);
           gain.connect(this.ctx.destination);
@@ -65916,37 +65898,25 @@
       }
     }
 
-    // 4. PARTICLE & SHOCKWAVE SYSTEM
+    // 4. PARTICLE SYSTEM
     class ParticleSystem {
       constructor() { this.items = []; }
       clear() { this.items = []; }
 
       addBurst(x, y, color) {
-        // Shockwave Ring
-        this.items.push({
-          type: 'RING',
-          x, y,
-          r: 8,
-          maxR: 38,
-          life: 0.45,
-          maxLife: 0.45,
-          color
-        });
-
-        // Sparkle Stars
-        for (let i = 0; i < 16; i++) {
+        for (let i = 0; i < 12; i++) {
           const a = Math.random() * Math.PI * 2;
-          const speed = 18 + Math.random() * 32;
+          const speed = 15 + Math.random() * 24;
           this.items.push({
             type: 'STAR',
             x, y,
             vx: Math.cos(a) * speed,
             vy: Math.sin(a) * speed - 8,
-            size: 3.0 + Math.random() * 3.5,
+            size: 2.5 + Math.random() * 3,
             rot: Math.random() * Math.PI * 2,
-            vRot: (Math.random() - 0.5) * 4,
-            life: 0.8 + Math.random() * 0.4,
-            maxLife: 1.2,
+            vRot: (Math.random() - 0.5) * 3,
+            life: 0.7 + Math.random() * 0.4,
+            maxLife: 1.1,
             color
           });
         }
@@ -65954,19 +65924,19 @@
 
       addVictoryConfetti(w, h) {
         const colors = PALETTE.map(p => p.hex);
-        for (let i = 0; i < 110; i++) {
+        for (let i = 0; i < 90; i++) {
           const isSprinkle = Math.random() > 0.4;
           this.items.push({
             type: isSprinkle ? 'SPRINKLE' : 'CONFETTI',
             x: Math.random() * w,
-            y: -20 - Math.random() * 140,
-            vx: (Math.random() - 0.5) * 70,
-            vy: 80 + Math.random() * 140,
-            size: isSprinkle ? (4 + Math.random() * 3.5) : (7 + Math.random() * 7),
+            y: -20 - Math.random() * 120,
+            vx: (Math.random() - 0.5) * 60,
+            vy: 70 + Math.random() * 120,
+            size: isSprinkle ? (4 + Math.random() * 3) : (6 + Math.random() * 6),
             rot: Math.random() * Math.PI * 2,
-            vRot: (Math.random() - 0.5) * 5,
-            life: 2.8 + Math.random() * 1.5,
-            maxLife: 4.3,
+            vRot: (Math.random() - 0.5) * 4,
+            life: 2.5 + Math.random() * 1.5,
+            maxLife: 4.0,
             color: colors[Math.floor(Math.random() * colors.length)]
           });
         }
@@ -65975,17 +65945,12 @@
       update(dt) {
         for (let i = this.items.length - 1; i >= 0; i--) {
           const p = this.items[i];
-          if (p.type === 'RING') {
-            p.r += (p.maxR - p.r) * (dt * 10);
-            p.life -= dt;
-          } else {
-            p.x += p.vx * dt;
-            p.y += p.vy * dt;
-            p.rot += p.vRot * dt;
-            p.life -= dt;
-            if (p.type === 'CONFETTI' || p.type === 'SPRINKLE') {
-              p.vx += Math.sin(p.life * 3.5) * 1.2;
-            }
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.rot += p.vRot * dt;
+          p.life -= dt;
+          if (p.type === 'CONFETTI' || p.type === 'SPRINKLE') {
+            p.vx += Math.sin(p.life * 3) * 1.0;
           }
           if (p.life <= 0) this.items.splice(i, 1);
         }
@@ -65996,34 +65961,25 @@
           const k = Math.max(0, p.life / p.maxLife);
           ctx.save();
           ctx.globalAlpha = Math.min(1, k * 1.4);
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.fillStyle = p.color;
 
-          if (p.type === 'RING') {
+          if (p.type === 'CONFETTI') {
+            ctx.fillRect(-p.size * 0.5, -p.size * 0.25, p.size, p.size * 0.5);
+          } else if (p.type === 'SPRINKLE') {
             ctx.beginPath();
-            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-            ctx.strokeStyle = p.color;
-            ctx.lineWidth = 3.0 * k;
-            ctx.stroke();
+            ctx.roundRect(-p.size * 0.8, -p.size * 0.35, p.size * 1.6, p.size * 0.7, p.size * 0.35);
+            ctx.fill();
           } else {
-            ctx.translate(p.x, p.y);
-            ctx.rotate(p.rot);
-            ctx.fillStyle = p.color;
-
-            if (p.type === 'CONFETTI') {
-              ctx.fillRect(-p.size * 0.5, -p.size * 0.25, p.size, p.size * 0.5);
-            } else if (p.type === 'SPRINKLE') {
-              ctx.beginPath();
-              ctx.roundRect(-p.size * 0.8, -p.size * 0.35, p.size * 1.6, p.size * 0.7, p.size * 0.35);
-              ctx.fill();
-            } else {
-              const s = p.size;
-              ctx.beginPath();
-              ctx.moveTo(0, -s);
-              ctx.quadraticCurveTo(0, 0, s, 0);
-              ctx.quadraticCurveTo(0, 0, 0, s);
-              ctx.quadraticCurveTo(0, 0, -s, 0);
-              ctx.quadraticCurveTo(0, 0, 0, -s);
-              ctx.fill();
-            }
+            const s = p.size;
+            ctx.beginPath();
+            ctx.moveTo(0, -s);
+            ctx.quadraticCurveTo(0, 0, s, 0);
+            ctx.quadraticCurveTo(0, 0, 0, s);
+            ctx.quadraticCurveTo(0, 0, -s, 0);
+            ctx.quadraticCurveTo(0, 0, 0, -s);
+            ctx.fill();
           }
           ctx.restore();
         }
@@ -66066,7 +66022,6 @@
 
         this.tutorialSlide = 0;
         this.tutorialAnimT = 0;
-        this.pulseT = 0;
         this.victoryStarTimer = 0;
 
         this.paths = {};
@@ -66081,11 +66036,14 @@
         this.toast = null;
         this.celebrationTimer = 0;
 
+        this.sliderPos = this.difficulty === 'hard' ? 1.0 : (this.difficulty === 'medium' ? 0.5 : 0.0);
+        this.isDraggingSlider = false;
+
         this.initLayout();
         this.bindEvents();
         this.loadPuzzle(this.level, false);
 
-        // ALWAYS START ON THE DIFFICULTY SELECT MODAL SO USER CHOOSES!
+        // Always ask Difficulty on launch!
         this.state = 'DIFF_SELECT';
 
         this.lastTime = performance.now();
@@ -66151,92 +66109,100 @@
         this.canvas.height = Math.round(this.height * dpr);
 
         this.headerY = 24;
-        const availableHeight = this.height - 210;
-        const availableWidth = this.width - 32;
 
-        const maxSide = Math.max(this.gridRows || 5, this.gridCols || 5);
-        this.cellSize = Math.floor(Math.min(availableWidth, availableHeight) / maxSide);
+        const maxBoardW = Math.min(this.width - 24, 400);
+        const maxBoardH = this.height - 230;
+
+        const cellW = maxBoardW / (this.gridCols || 5);
+        const cellH = maxBoardH / (this.gridRows || 5);
+        this.cellSize = Math.min(cellW, cellH);
 
         this.boardW = this.cellSize * (this.gridCols || 5);
         this.boardH = this.cellSize * (this.gridRows || 5);
-        this.boardX = Math.round((this.width - this.boardW) / 2);
-        this.boardY = Math.round(this.headerY + 54 + (availableHeight - this.boardH) / 2);
+        this.boardSize = this.boardW;
+
+        this.boardX = (this.width - this.boardW) / 2;
+        this.boardY = 110 + (maxBoardH - this.boardH) / 2;
 
         this.hudY = this.boardY + this.boardH + 20;
       }
 
       bindEvents() {
-        window.addEventListener('resize', () => {
-          this.initLayout();
-        });
+        window.addEventListener('resize', () => this.initLayout());
+
+        let lastPointerDownTime = 0;
 
         const getPos = (e) => {
           const rect = this.canvas.getBoundingClientRect();
-          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-          return {
-            px: clientX - rect.left,
-            py: clientY - rect.top
-          };
+          let clientX = e.clientX;
+          let clientY = e.clientY;
+
+          if (clientX === undefined && e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+          } else if (clientX === undefined && e.changedTouches && e.changedTouches.length > 0) {
+            clientX = e.changedTouches[0].clientX;
+            clientY = e.changedTouches[0].clientY;
+          }
+
+          if (clientX === undefined) { clientX = 0; clientY = 0; }
+          return { px: clientX - rect.left, py: clientY - rect.top };
         };
 
         const handleDown = (e) => {
           if (e.preventDefault) e.preventDefault();
           if (e.stopPropagation) e.stopPropagation();
 
-          const { px, py } = getPos(e);
+          const now = performance.now();
+          if (now - lastPointerDownTime < 100) return;
+          lastPointerDownTime = now;
+
           this.synth.init();
+          const { px, py } = getPos(e);
 
-          // 1. Difficulty Modal Interaction
+          // 1. Modals Interaction
           if (this.state === 'DIFF_SELECT') {
-            this.handleDifficultyCardClick(px, py);
+            this.handleDifficultyModalDown(px, py);
             return;
           }
-
-          // 2. How To Play Modal Interaction
           if (this.state === 'HOW_TO_PLAY') {
-            this.handleHowToPlayClick(px, py);
+            this.handleHowToPlayModalClick(px, py);
             return;
           }
-
-          // 3. Victory Modal Interaction
           if (this.state === 'VICTORY') {
             this.handleVictoryClick(px, py);
             return;
           }
 
-          if (this.state !== 'PLAYING') return;
-
-          // Header: Difficulty Switcher Pill
-          if (px >= 16 && px <= 146 && py >= this.headerY - 4 && py <= this.headerY + 40) {
+          // 2. Top Header Controls
+          if (px >= 14 && px <= 146 && py >= this.headerY - 4 && py <= this.headerY + 42) {
             this.synth.playTap();
+            this.sliderPos = this.difficulty === 'hard' ? 1.0 : (this.difficulty === 'medium' ? 0.5 : 0.0);
             this.state = 'DIFF_SELECT';
             return;
           }
 
-          // Header: Reset Button
-          if (px >= this.width - 78 && px <= this.width - 44 && py >= this.headerY - 4 && py <= this.headerY + 40) {
+          if (px >= this.width - 78 && px <= this.width - 42 && py >= this.headerY - 4 && py <= this.headerY + 42) {
             this.synth.playTap();
             this.loadPuzzle(this.level);
+            this.showToast('Board Cleared');
             return;
           }
 
-          // Header: Sound Toggle Button
-          if (px >= this.width - 40 && px <= this.width - 6 && py >= this.headerY - 4 && py <= this.headerY + 40) {
+          if (px >= this.width - 40 && px <= this.width - 6 && py >= this.headerY - 4 && py <= this.headerY + 42) {
             this.synth.muted = !this.synth.muted;
             this.synth.playTap();
+            this.showToast(this.synth.muted ? 'Sound Muted' : 'Sound Enabled');
             return;
           }
 
-          // HUD: Hint Button
-          const hintX = this.width - 66;
-          const hintY = this.hudY;
-          if (px >= hintX - 6 && px <= hintX + 56 && py >= hintY - 4 && py <= hintY + 50) {
+          // 3. HUD Hint Button
+          if (px >= this.width - 70 && px <= this.width - 12 && py >= this.hudY - 4 && py <= this.hudY + 52) {
             this.useHint();
             return;
           }
 
-          // Board Touch Start
+          // 4. Board Grid Interaction
           const cell = this.getCellFromPos(px, py);
           if (cell) {
             this.startPath(cell.r, cell.c, px, py);
@@ -66250,6 +66216,11 @@
           const { px, py } = getPos(e);
           this.pointerPos = { px, py };
 
+          if (this.state === 'DIFF_SELECT' && this.isDraggingSlider) {
+            this.updateDifficultySlider(px);
+            return;
+          }
+
           if (this.isDragging && this.state === 'PLAYING') {
             this.processContinuousDrag(px, py);
           }
@@ -66258,6 +66229,12 @@
         const handleUp = (e) => {
           if (e.preventDefault) e.preventDefault();
           if (e.stopPropagation) e.stopPropagation();
+
+          if (this.isDraggingSlider) {
+            this.isDraggingSlider = false;
+            this.snapDifficultySlider();
+            return;
+          }
 
           if (this.isDragging) {
             this.endPath();
@@ -66481,7 +66458,7 @@
 
       startVictoryCelebration() {
         this.state = 'CELEBRATING';
-        this.celebrationTimer = 1.0;
+        this.celebrationTimer = 1.2;
         this.victoryStarTimer = 0;
         this.synth.playVictory();
         this.particles.addVictoryConfetti(this.width, this.height);
@@ -66496,7 +66473,7 @@
 
       useHint() {
         if (this.hintsRemaining <= 0) {
-          this.toast = { text: 'No hints remaining!', t: 2.0 };
+          this.showToast('No hints remaining!');
           this.synth.playTap();
           return;
         }
@@ -66537,34 +66514,32 @@
         }
       }
 
-      // --- MODERN 3-CARD DIFFICULTY SELECTOR INTERACTION ---
-      handleDifficultyCardClick(px, py) {
-        const cardW = Math.min(328, this.width - 32);
-        const cardH = 430;
+      showToast(msg) {
+        this.toast = { text: msg, t: 2.0 };
+      }
+
+      handleDifficultyModalDown(px, py) {
+        const cardW = Math.min(324, this.width - 36);
+        const cardH = 376;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
-        const startY = cardY + 68;
-        const itemH = 76;
-        const itemGap = 12;
+        // 1. Slider Track & Thumb Hit Area
+        const trackX = cardX + 32;
+        const trackW = cardW - 64;
+        const trackY = cardY + 218;
 
-        // Check 3 Difficulty Cards
-        for (let i = 0; i < DIFFICULTIES.length; i++) {
-          const itemY = startY + i * (itemH + itemGap);
-          if (px >= cardX + 16 && px <= cardX + cardW - 16 && py >= itemY && py <= itemY + itemH) {
-            this.synth.playTap();
-            this.difficulty = DIFFICULTIES[i].id;
-            this.saveDifficulty();
-            this.loadPuzzle(this.loadLevel(this.difficulty), true);
-            return;
-          }
+        if (px >= trackX - 16 && px <= trackX + trackW + 16 && py >= trackY - 20 && py <= trackY + 34) {
+          this.isDraggingSlider = true;
+          this.updateDifficultySlider(px);
+          return;
         }
 
-        // Bottom Row: START PLAYING ▶
-        const playBtnY = cardY + 348;
-        const playBtnW = cardW - 88;
-        const playBtnX = cardX + 16;
+        // 2. Big PLAY ▶ Button
+        const playBtnW = cardW - 110;
         const playBtnH = 50;
+        const playBtnX = cardX + 24;
+        const playBtnY = cardY + 282;
 
         if (px >= playBtnX && px <= playBtnX + playBtnW && py >= playBtnY && py <= playBtnY + playBtnH) {
           this.synth.playTap();
@@ -66572,9 +66547,9 @@
           return;
         }
 
-        // Help ? Button
-        const helpBtnX = cardX + cardW - 60;
-        if (px >= helpBtnX && px <= helpBtnX + 44 && py >= playBtnY && py <= playBtnY + playBtnH) {
+        // 3. Purple ? Button (How to Play)
+        const qBtnX = cardX + cardW - 74;
+        if (px >= qBtnX && px <= qBtnX + 50 && py >= playBtnY && py <= playBtnY + playBtnH) {
           this.synth.playTap();
           this.tutorialSlide = 0;
           this.tutorialAnimT = 0;
@@ -66583,16 +66558,43 @@
         }
       }
 
-      // --- SLEEK HOW TO PLAY MODAL INTERACTION ---
-      handleHowToPlayClick(px, py) {
-        const cardW = Math.min(328, this.width - 32);
-        const cardH = 390;
+      updateDifficultySlider(px) {
+        const cardW = Math.min(324, this.width - 36);
+        const cardX = (this.width - cardW) / 2;
+        const trackX = cardX + 32;
+        const trackW = cardW - 64;
+
+        let pos = (px - trackX) / trackW;
+        pos = Math.max(0.0, Math.min(1.0, pos));
+        this.sliderPos = pos;
+
+        let diff = 'easy';
+        if (pos > 0.66) diff = 'hard';
+        else if (pos > 0.33) diff = 'medium';
+
+        if (diff !== this.difficulty) {
+          this.difficulty = diff;
+          this.saveDifficulty();
+          this.synth.playTap();
+          this.haptic(8);
+        }
+      }
+
+      snapDifficultySlider() {
+        if (this.difficulty === 'easy') this.sliderPos = 0.0;
+        else if (this.difficulty === 'medium') this.sliderPos = 0.5;
+        else this.sliderPos = 1.0;
+      }
+
+      handleHowToPlayModalClick(px, py) {
+        const cardW = Math.min(324, this.width - 36);
+        const cardH = 376;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
-        const btnY = cardY + 322;
-        const btnH = 46;
+        const btnY = cardY + 312;
+        const btnH = 44;
 
-        // 1. Back Arrow Button
+        // 1. Sleek Back Arrow Button
         if (px >= cardX + 16 && px <= cardX + 60 && py >= btnY - 4 && py <= btnY + btnH + 4) {
           if (this.tutorialSlide > 0) {
             this.synth.playTap();
@@ -66602,7 +66604,7 @@
           return;
         }
 
-        // 2. Center OK / START Button
+        // 2. Purple OK Button (Center)
         const okX = cardX + 70;
         const okW = cardW - 140;
         if (px >= okX && px <= okX + okW && py >= btnY - 4 && py <= btnY + btnH + 4) {
@@ -66611,7 +66613,7 @@
           return;
         }
 
-        // 3. Next Arrow Button
+        // 3. Sleek Next Arrow Button
         const nextX = cardX + cardW - 60;
         if (px >= nextX && px <= nextX + 44 && py >= btnY - 4 && py <= btnY + btnH + 4) {
           if (this.tutorialSlide < 2) {
@@ -66643,8 +66645,6 @@
       loop(timestamp) {
         const dt = Math.min(0.1, (timestamp - (this.lastTime || timestamp)) / 1000);
         this.lastTime = timestamp;
-
-        this.pulseT += dt;
 
         if (this.toast) {
           this.toast.t -= dt;
@@ -66681,25 +66681,11 @@
         ctx.save();
         ctx.scale(this.dpr, this.dpr);
 
-        // 1. Dynamic Luxury Gradient Background
         const bgGrad = ctx.createLinearGradient(0, 0, 0, this.height);
         bgGrad.addColorStop(0, THEME.bgTop);
         bgGrad.addColorStop(1, THEME.bgBottom);
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, this.width, this.height);
-
-        // 2. Soft Ambient Active Color Glow Behind Board
-        if (this.activeColor !== null) {
-          const colHex = PALETTE[this.activeColor % PALETTE.length].hex;
-          const radial = ctx.createRadialGradient(
-            this.width / 2, this.boardY + this.boardH / 2, 20,
-            this.width / 2, this.boardY + this.boardH / 2, this.boardW * 0.75
-          );
-          radial.addColorStop(0, PALETTE[this.activeColor % PALETTE.length].tint);
-          radial.addColorStop(1, 'rgba(0,0,0,0)');
-          ctx.fillStyle = radial;
-          ctx.fillRect(0, this.boardY - 30, this.width, this.boardH + 60);
-        }
 
         this.renderHeader(ctx);
         this.renderBoard(ctx);
@@ -66707,7 +66693,7 @@
         this.particles.render(ctx);
 
         if (this.toast) this.renderToast(ctx);
-        if (this.state === 'DIFF_SELECT') this.render3CardDifficultyModal(ctx);
+        if (this.state === 'DIFF_SELECT') this.renderSudokuSliderDifficultyModal(ctx);
         if (this.state === 'HOW_TO_PLAY') this.renderHowToPlayModal(ctx);
         if (this.state === 'VICTORY') this.renderVictoryModal(ctx);
 
@@ -66720,11 +66706,11 @@
 
         // 1. Difficulty Pill (Top Left)
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
         ctx.shadowBlur = 10;
         ctx.shadowOffsetY = 2;
         ctx.beginPath();
-        ctx.roundRect(16, y, 130, 38, 19);
+        ctx.roundRect(16, y, 126, 36, 18);
         ctx.fillStyle = THEME.cardBg;
         ctx.fill();
         ctx.strokeStyle = THEME.cardBorder;
@@ -66732,30 +66718,30 @@
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.arc(32, y + 19, 5.5, 0, Math.PI * 2);
+        ctx.arc(32, y + 18, 5, 0, Math.PI * 2);
         ctx.fillStyle = diffObj.color;
         ctx.fill();
 
-        ctx.font = '800 13px Outfit, sans-serif';
+        ctx.font = '800 12.5px Outfit, Fredoka, sans-serif';
         ctx.fillStyle = THEME.textMain;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(diffObj.label + ' ▼', 44, y + 19);
+        ctx.fillText(diffObj.label + ' ▼', 43, y + 18);
         ctx.restore();
 
-        // 2. Clean Level Banner Display
+        // 2. Clean Center Level Display
         ctx.save();
-        ctx.font = '900 16px Outfit, sans-serif';
+        ctx.font = '900 15px Outfit, Fredoka, sans-serif';
         ctx.fillStyle = THEME.textMain;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('LEVEL ' + this.level, this.width / 2, y + 19);
+        ctx.fillText('LEVEL ' + this.level, this.width / 2, y + 18);
         ctx.restore();
 
         // 3. Reset Button (Right-1)
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(this.width - 78, y, 34, 38, 12);
+        ctx.roundRect(this.width - 76, y, 32, 36, 12);
         ctx.fillStyle = THEME.cardBg;
         ctx.fill();
         ctx.strokeStyle = THEME.cardBorder;
@@ -66765,13 +66751,13 @@
         ctx.fillStyle = THEME.textMain;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('↺', this.width - 61, y + 19);
+        ctx.fillText('↺', this.width - 60, y + 18);
         ctx.restore();
 
         // 4. Sound Button (Right)
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(this.width - 38, y, 34, 38, 12);
+        ctx.roundRect(this.width - 38, y, 32, 36, 12);
         ctx.fillStyle = THEME.cardBg;
         ctx.fill();
         ctx.strokeStyle = THEME.cardBorder;
@@ -66780,7 +66766,7 @@
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(this.synth.muted ? '🔇' : '🔊', this.width - 21, y + 19);
+        ctx.fillText(this.synth.muted ? '🔇' : '🔊', this.width - 22, y + 18);
         ctx.restore();
       }
 
@@ -66796,9 +66782,9 @@
         let boardScale = 1.0;
         let boardGlow = 0;
         if (this.state === 'CELEBRATING') {
-          const progress = 1.0 - (this.celebrationTimer / 1.0);
-          boardScale = 1.0 + Math.sin(progress * Math.PI) * 0.035;
-          boardGlow = Math.sin(progress * Math.PI) * 25;
+          const progress = 1.0 - (this.celebrationTimer / 1.2);
+          boardScale = 1.0 + Math.sin(progress * Math.PI) * 0.04;
+          boardGlow = Math.sin(progress * Math.PI) * 20;
         }
 
         ctx.save();
@@ -66810,13 +66796,12 @@
           ctx.translate(-cx, -cy);
         }
 
-        // Board Shadow & Frame
         ctx.save();
-        ctx.shadowColor = boardGlow > 0 ? 'rgba(56, 189, 248, 0.55)' : 'rgba(0, 0, 0, 0.65)';
+        ctx.shadowColor = boardGlow > 0 ? 'rgba(56, 189, 248, 0.45)' : 'rgba(0, 0, 0, 0.55)';
         ctx.shadowBlur = 24 + boardGlow;
         ctx.shadowOffsetY = 8;
         ctx.beginPath();
-        ctx.roundRect(bx - 6, by - 6, bw + 12, bh + 12, 16);
+        ctx.roundRect(bx - 4, by - 4, bw + 8, bh + 8, 14);
         ctx.fillStyle = THEME.boardBg;
         ctx.fill();
         ctx.strokeStyle = boardGlow > 0 ? THEME.accent : THEME.boardBorder;
@@ -66824,15 +66809,15 @@
         ctx.stroke();
         ctx.restore();
 
-        // Cells Grid
+        // 1. Cells Background Grid
         for (let r = 0; r < gr; r++) {
           for (let c = 0; c < gc; c++) {
             const cx = bx + c * cs;
             const cy = by + r * cs;
-            const pad = 2;
+            const pad = 1.5;
 
             ctx.beginPath();
-            ctx.roundRect(cx + pad, cy + pad, cs - pad * 2, cs - pad * 2, 8);
+            ctx.roundRect(cx + pad, cy + pad, cs - pad * 2, cs - pad * 2, 6);
             ctx.fillStyle = THEME.cellDefault;
             ctx.fill();
             ctx.strokeStyle = THEME.cellBorder;
@@ -66841,41 +66826,12 @@
           }
         }
 
-        // --- GLOWING NEON LASER PIPES ---
-        this.renderPipes(ctx, bx, by, cs);
-
-        // --- BREATHING NEON DOTS ---
-        this.renderDots(ctx, bx, by, cs);
-
-        ctx.restore();
-      }
-
-      renderPipes(ctx, bx, by, cs) {
+        // 2. Continuous Clean Paths (Pipes)
         for (const [colIdStr, pathArr] of Object.entries(this.paths)) {
           if (!pathArr || pathArr.length < 2) continue;
           const colId = parseInt(colIdStr);
           const colorObj = PALETTE[colId % PALETTE.length];
-          const isDone = this.completedColors.has(colId);
 
-          // 1. Wide Soft Neon Underglow
-          ctx.save();
-          ctx.beginPath();
-          for (let i = 0; i < pathArr.length; i++) {
-            const px = bx + pathArr[i].c * cs + cs / 2;
-            const py = by + pathArr[i].r * cs + cs / 2;
-            if (i === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
-          }
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          ctx.strokeStyle = colorObj.glow;
-          ctx.lineWidth = cs * 0.44;
-          ctx.shadowColor = colorObj.hex;
-          ctx.shadowBlur = isDone ? 20 : 12;
-          ctx.stroke();
-          ctx.restore();
-
-          // 2. Vibrant Main Pipe Core
           ctx.save();
           ctx.beginPath();
           for (let i = 0; i < pathArr.length; i++) {
@@ -66887,10 +66843,10 @@
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
           ctx.strokeStyle = colorObj.hex;
-          ctx.lineWidth = cs * 0.30;
+          ctx.lineWidth = cs * 0.38;
           ctx.stroke();
 
-          // 3. Crisp Laser White Highlight Line
+          // Smooth inner highlight core
           ctx.beginPath();
           for (let i = 0; i < pathArr.length; i++) {
             const px = bx + pathArr[i].c * cs + cs / 2;
@@ -66900,50 +66856,46 @@
           }
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-          ctx.lineWidth = cs * 0.09;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+          ctx.lineWidth = cs * 0.12;
           ctx.stroke();
           ctx.restore();
         }
-      }
 
-      renderDots(ctx, bx, by, cs) {
+        // 3. Endpoint Dots
         for (const dot of this.dots) {
           const colorObj = PALETTE[dot.color % PALETTE.length];
-          const isConnected = this.completedColors.has(dot.color);
           const pts = [dot.p1, dot.p2];
-
-          // Gentle Breathing Pulse for Unconnected Dots
-          const breathe = isConnected ? 1.0 : (1.0 + Math.sin(this.pulseT * 4 + dot.color) * 0.08);
 
           for (const pt of pts) {
             const dx = bx + pt[1] * cs + cs / 2;
             const dy = by + pt[0] * cs + cs / 2;
-            const baseR = cs * 0.28 * breathe;
+            const r = cs * 0.28;
 
             ctx.save();
-            // Outer Halo Ring
             ctx.shadowColor = colorObj.hex;
-            ctx.shadowBlur = isConnected ? 16 : 10;
+            ctx.shadowBlur = 12;
             ctx.beginPath();
-            ctx.arc(dx, dy, baseR + 2, 0, Math.PI * 2);
+            ctx.arc(dx, dy, r + 1.5, 0, Math.PI * 2);
             ctx.fillStyle = colorObj.hex;
             ctx.fill();
 
-            // Inner Dark Depth
+            // Inner dark core
             ctx.beginPath();
-            ctx.arc(dx, dy, baseR * 0.65, 0, Math.PI * 2);
+            ctx.arc(dx, dy, r * 0.65, 0, Math.PI * 2);
             ctx.fillStyle = colorObj.dark;
             ctx.fill();
 
-            // Specular Reflection Highlight
+            // Specular reflection dot
             ctx.beginPath();
-            ctx.arc(dx - baseR * 0.25, dy - baseR * 0.25, baseR * 0.22, 0, Math.PI * 2);
+            ctx.arc(dx - r * 0.25, dy - r * 0.25, r * 0.22, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
             ctx.fill();
             ctx.restore();
           }
         }
+
+        ctx.restore();
       }
 
       renderHUD(ctx) {
@@ -66952,7 +66904,7 @@
         const flows = this.completedColors.size;
         const fillPct = this.getBoardFillPercentage();
 
-        // 1. Flows Counter Card
+        // 1. Flows Card
         const flowW = (this.width - 32 - 70) * 0.48;
         const fillW = (this.width - 32 - 70) * 0.52;
 
@@ -66978,7 +66930,7 @@
         ctx.fillText(flows + ' / ' + total, 16 + flowW / 2, y + 33);
         ctx.restore();
 
-        // 2. Pipe Fill Percentage Card
+        // 2. Pipe Fill Card
         const fillX = 16 + flowW + 8;
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
@@ -67057,21 +67009,21 @@
         ctx.restore();
       }
 
-      // --- MODERN 3-CARD ARCADE DIFFICULTY SELECTION MODAL ---
-      render3CardDifficultyModal(ctx) {
-        ctx.fillStyle = 'rgba(8, 11, 18, 0.88)';
+      // --- DARK THEMED SUDOKU PRO STYLE DIFFICULTY SLIDER MODAL ---
+      renderSudokuSliderDifficultyModal(ctx) {
+        ctx.fillStyle = 'rgba(10, 13, 20, 0.85)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const cardW = Math.min(328, this.width - 32);
-        const cardH = 430;
+        const cardW = Math.min(324, this.width - 36);
+        const cardH = 376;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
-        ctx.shadowBlur = 40;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.70)';
+        ctx.shadowBlur = 36;
         ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 26);
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
         ctx.fillStyle = THEME.cardBg;
         ctx.fill();
         ctx.strokeStyle = THEME.cardBorder;
@@ -67079,253 +67031,281 @@
         ctx.stroke();
 
         // 1. Header Title: SELECT DIFFICULTY
-        ctx.font = '900 19px Outfit, sans-serif';
+        ctx.font = '900 18px Outfit, sans-serif';
         ctx.fillStyle = THEME.textMain;
         ctx.textAlign = 'center';
-        ctx.fillText('CHOOSE DIFFICULTY', this.width / 2, cardY + 36);
+        ctx.fillText('SELECT DIFFICULTY', this.width / 2, cardY + 36);
 
-        ctx.font = '600 12px Inter, sans-serif';
-        ctx.fillStyle = THEME.textMuted;
-        ctx.fillText('Select a mode to begin playing', this.width / 2, cardY + 54);
+        // 2. Large Circular Emblem with Colored Glow
+        const emblemY = cardY + 98;
+        const diffObj = DIFFICULTIES.find(d => d.id === this.difficulty) || DIFFICULTIES[0];
 
-        // 2. Render 3 Distinct Glow Mode Cards
-        const startY = cardY + 68;
-        const itemH = 76;
-        const itemGap = 12;
+        ctx.shadowColor = diffObj.color;
+        ctx.shadowBlur = 18;
+        ctx.beginPath();
+        ctx.arc(this.width / 2, emblemY, 36, 0, Math.PI * 2);
+        ctx.fillStyle = '#13161F';
+        ctx.fill();
+        ctx.strokeStyle = diffObj.color;
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
 
-        for (let i = 0; i < DIFFICULTIES.length; i++) {
-          const d = DIFFICULTIES[i];
-          const isSelected = (this.difficulty === d.id);
-          const itemY = startY + i * (itemH + itemGap);
-          const itemX = cardX + 16;
-          const itemW = cardW - 32;
+        ctx.font = '32px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(diffObj.icon, this.width / 2, emblemY);
+        ctx.restore();
 
-          ctx.save();
-          if (isSelected) {
-            ctx.shadowColor = d.color;
-            ctx.shadowBlur = 18;
-          }
-          ctx.beginPath();
-          ctx.roundRect(itemX, itemY, itemW, itemH, 18);
-          ctx.fillStyle = isSelected ? '#1E2638' : '#141824';
-          ctx.fill();
-          ctx.strokeStyle = isSelected ? d.color : '#252D3F';
-          ctx.lineWidth = isSelected ? 2.2 : 1.2;
-          ctx.stroke();
-
-          // Left Icon Circle
-          const iconX = itemX + 34;
-          const iconY = itemY + itemH / 2;
-          ctx.beginPath();
-          ctx.arc(iconX, iconY, 22, 0, Math.PI * 2);
-          ctx.fillStyle = isSelected ? d.color : '#1C2333';
-          ctx.fill();
-          ctx.font = '20px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(d.icon, iconX, iconY + 1);
-
-          // Card Title & Subtitle
-          ctx.font = '900 16px Outfit, sans-serif';
-          ctx.fillStyle = isSelected ? d.color : THEME.textMain;
-          ctx.textAlign = 'left';
-          ctx.fillText(d.label, itemX + 66, itemY + 28);
-
-          ctx.font = '600 11.5px Inter, sans-serif';
-          ctx.fillStyle = THEME.textMuted;
-          ctx.fillText(d.subtitle, itemX + 66, itemY + 48);
-
-          // Right Level Status Badge
-          const curLvl = this.loadLevel(d.id);
-          ctx.beginPath();
-          ctx.roundRect(itemX + itemW - 80, itemY + 26, 68, 24, 12);
-          ctx.fillStyle = isSelected ? d.color : '#242C3F';
-          ctx.fill();
-          ctx.font = '800 10.5px Outfit, sans-serif';
-          ctx.fillStyle = isSelected ? '#FFFFFF' : '#CBD5E1';
-          ctx.textAlign = 'center';
-          ctx.fillText('LVL ' + curLvl, itemX + itemW - 46, itemY + 39);
-
-          ctx.restore();
-        }
-
-        // 3. Bottom Row: Big PLAY ▶ Button + Purple ? Help Button
-        const playBtnY = cardY + 348;
-        const playBtnW = cardW - 88;
-        const playBtnX = cardX + 16;
-        const playBtnH = 50;
-        const activeDiff = DIFFICULTIES.find(d => d.id === this.difficulty) || DIFFICULTIES[0];
-
+        // 3. Difficulty Title & Subtitle
         ctx.save();
-        ctx.shadowColor = activeDiff.color;
-        ctx.shadowBlur = 16;
+        ctx.font = '900 21px Outfit, sans-serif';
+        ctx.fillStyle = diffObj.color;
+        ctx.textAlign = 'center';
+        ctx.fillText(diffObj.label, this.width / 2, cardY + 162);
+
+        ctx.font = '700 12.5px Inter, sans-serif';
+        ctx.fillStyle = THEME.textMuted;
+        ctx.fillText(diffObj.subtitle, this.width / 2, cardY + 185);
+
+        // 4. Horizontal Slider Track
+        const trackX = cardX + 32;
+        const trackW = cardW - 64;
+        const trackH = 14;
+        const trackY = cardY + 218;
+
+        ctx.beginPath();
+        ctx.roundRect(trackX, trackY, trackW, trackH, 7);
+        ctx.fillStyle = '#13161F';
+        ctx.fill();
+        ctx.strokeStyle = '#2E3547';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        // Gradient Fill
+        const fillW = Math.max(14, trackW * this.sliderPos);
+        const grad = ctx.createLinearGradient(trackX, trackY, trackX + trackW, trackY);
+        grad.addColorStop(0, '#22C55E');
+        grad.addColorStop(0.5, '#F59E0B');
+        grad.addColorStop(1, '#EF4444');
+
+        ctx.beginPath();
+        ctx.roundRect(trackX, trackY, fillW, trackH, 7);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Slider Thumb Handle
+        const thumbX = trackX + trackW * this.sliderPos;
+        const thumbY = trackY + trackH / 2;
+
+        ctx.shadowColor = diffObj.color;
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(thumbX, thumbY, 13, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.strokeStyle = diffObj.color;
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
+        ctx.restore();
+
+        // 5. Bottom Row: Big PLAY ▶ Button + Purple ? Help Button
+        ctx.save();
+        const playBtnW = cardW - 110;
+        const playBtnH = 50;
+        const playBtnX = cardX + 24;
+        const playBtnY = cardY + 282;
+
+        ctx.shadowColor = diffObj.color;
+        ctx.shadowBlur = 14;
         ctx.beginPath();
         ctx.roundRect(playBtnX, playBtnY, playBtnW, playBtnH, 18);
-        ctx.fillStyle = activeDiff.color;
+        ctx.fillStyle = diffObj.color;
         ctx.fill();
 
         ctx.font = '900 17px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('START PLAYING  ▶', playBtnX + playBtnW / 2, playBtnY + playBtnH / 2 + 1);
+        ctx.fillText('PLAY  ▶', playBtnX + playBtnW / 2, playBtnY + playBtnH / 2 + 1);
 
         // Purple ? Button
-        const qBtnX = cardX + cardW - 60;
+        const qBtnX = cardX + cardW - 74;
         ctx.shadowColor = '#8B5CF6';
         ctx.shadowBlur = 14;
         ctx.beginPath();
-        ctx.roundRect(qBtnX, playBtnY, 44, playBtnH, 18);
+        ctx.roundRect(qBtnX, playBtnY, 50, playBtnH, 18);
         ctx.fillStyle = '#8B5CF6';
         ctx.fill();
 
         ctx.font = '900 20px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText('?', qBtnX + 22, playBtnY + playBtnH / 2 + 1);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('?', qBtnX + 25, playBtnY + playBtnH / 2 + 1);
         ctx.restore();
       }
 
-      // --- SLEEK HOW TO PLAY MODAL WITH ANIMATED DEMO ---
+      // --- SLEEK HOW TO PLAY MODAL (MATCHING SCREENSHOT 4 WITHOUT CLUNKY BORDERS) ---
       renderHowToPlayModal(ctx) {
-        ctx.fillStyle = 'rgba(8, 11, 18, 0.88)';
+        ctx.fillStyle = 'rgba(10, 13, 20, 0.85)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const cardW = Math.min(328, this.width - 32);
-        const cardH = 390;
+        const cardW = Math.min(324, this.width - 36);
+        const cardH = 376;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
-        ctx.shadowBlur = 40;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.70)';
+        ctx.shadowBlur = 36;
         ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 26);
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
         ctx.fillStyle = THEME.cardBg;
         ctx.fill();
         ctx.strokeStyle = THEME.cardBorder;
         ctx.lineWidth = 2.0;
         ctx.stroke();
 
-        // 1. Header: HOW TO PLAY
+        // Title: HOW TO PLAY
         ctx.font = '900 18px Outfit, sans-serif';
         ctx.fillStyle = THEME.textMain;
         ctx.textAlign = 'center';
-        ctx.fillText('HOW TO PLAY', this.width / 2, cardY + 34);
+        ctx.fillText('HOW TO PLAY', this.width / 2, cardY + 30);
 
-        // 2. Mini Animated Demonstration Board
-        const tutGridSize = 3;
-        const tutCellSize = 38;
-        const tutW = tutGridSize * tutCellSize;
-        const tutH = tutGridSize * tutCellSize;
-        const tutX = (this.width - tutW) / 2;
-        const tutY = cardY + 54;
+        // Simulation Grid Container
+        const gridBoxW = cardW - 48;
+        const gridBoxH = 168;
+        const gridBoxX = cardX + 24;
+        const gridBoxY = cardY + 44;
 
         ctx.beginPath();
-        ctx.roundRect(tutX - 4, tutY - 4, tutW + 8, tutH + 8, 12);
-        ctx.fillStyle = '#121622';
+        ctx.roundRect(gridBoxX, gridBoxY, gridBoxW, gridBoxH, 14);
+        ctx.fillStyle = '#13161F';
         ctx.fill();
-        ctx.strokeStyle = '#222B3D';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
 
-        // Grid lines
-        for (let r = 0; r < tutGridSize; r++) {
-          for (let c = 0; c < tutGridSize; c++) {
+        const tRows = 4;
+        const tCols = 4;
+        const tCellSize = gridBoxH / tRows;
+        const gridOffsetX = gridBoxX + (gridBoxW - tCols * tCellSize) / 2;
+
+        for (let r = 0; r < tRows; r++) {
+          for (let c = 0; c < tCols; c++) {
             ctx.beginPath();
-            ctx.roundRect(tutX + c * tutCellSize + 2, tutY + r * tutCellSize + 2, tutCellSize - 4, tutCellSize - 4, 6);
-            ctx.fillStyle = '#1A2130';
+            ctx.roundRect(gridOffsetX + c * tCellSize + 2, gridBoxY + r * tCellSize + 2, tCellSize - 4, tCellSize - 4, 5);
+            ctx.fillStyle = '#1E2330';
             ctx.fill();
           }
         }
 
-        // Animated Hand Drag Demo
-        const animCycle = (this.tutorialAnimT * 0.75) % 3.0; // 0 to 3s loop
-        const yellow = PALETTE[3].hex;
-        const cyan = PALETTE[6].hex;
+        const t = (this.tutorialAnimT % 2.5) / 2.5;
 
-        // Yellow endpoints
-        this.drawTutDot(ctx, tutX, tutY, tutCellSize, 0, 0, yellow);
-        this.drawTutDot(ctx, tutX, tutY, tutCellSize, 2, 2, yellow);
-
-        // Cyan endpoints
-        this.drawTutDot(ctx, tutX, tutY, tutCellSize, 0, 2, cyan);
-        this.drawTutDot(ctx, tutX, tutY, tutCellSize, 2, 0, cyan);
-
-        // Animate path drawing on slide 0
+        // Slide 1: Connect matching colored dots
         if (this.tutorialSlide === 0) {
-          const pathSteps = [{ r: 0, c: 0 }, { r: 0, c: 1 }, { r: 1, c: 1 }, { r: 2, c: 1 }, { r: 2, c: 2 }];
-          const progressStep = Math.min(pathSteps.length - 1, Math.floor(animCycle * 2.0));
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 0, 0, PALETTE[6].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 2, 1, PALETTE[6].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 1, 0, PALETTE[4].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 1, 2, PALETTE[4].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 0, 2, PALETTE[0].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 3, 3, PALETTE[0].hex);
 
           ctx.beginPath();
-          for (let i = 0; i <= progressStep; i++) {
-            const px = tutX + pathSteps[i].c * tutCellSize + tutCellSize / 2;
-            const py = tutY + pathSteps[i].r * tutCellSize + tutCellSize / 2;
-            if (i === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
-          }
-          ctx.strokeStyle = yellow;
-          ctx.lineWidth = 8;
           ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = PALETTE[0].hex;
+          ctx.lineWidth = tCellSize * 0.36;
+          ctx.moveTo(gridOffsetX + 2.5 * tCellSize, gridBoxY + 0.5 * tCellSize);
+          ctx.lineTo(gridOffsetX + 3.5 * tCellSize, gridBoxY + 0.5 * tCellSize);
+          const handY = gridBoxY + (0.5 + t * 2.5) * tCellSize;
+          ctx.lineTo(gridOffsetX + 3.5 * tCellSize, Math.min(gridBoxY + 3.5 * tCellSize, handY));
           ctx.stroke();
 
-          // Animated Finger Hand
-          const curPt = pathSteps[progressStep];
-          const fx = tutX + curPt.c * tutCellSize + tutCellSize / 2;
-          const fy = tutY + curPt.r * tutCellSize + tutCellSize / 2;
           ctx.font = '22px sans-serif';
-          ctx.fillText('👆', fx + 6, fy + 16);
-        } else if (this.tutorialSlide === 1) {
-          // Slide 1: Show full board coverage
-          ctx.strokeStyle = yellow;
-          ctx.lineWidth = 8;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(tutX + tutCellSize / 2, tutY + tutCellSize / 2);
-          ctx.lineTo(tutX + tutCellSize * 1.5, tutY + tutCellSize / 2);
-          ctx.lineTo(tutX + tutCellSize * 1.5, tutY + tutCellSize * 1.5);
-          ctx.lineTo(tutX + tutCellSize * 2.5, tutY + tutCellSize * 1.5);
-          ctx.lineTo(tutX + tutCellSize * 2.5, tutY + tutCellSize * 2.5);
-          ctx.stroke();
-        } else {
-          // Slide 2: No Crossing
-          ctx.strokeStyle = yellow;
-          ctx.lineWidth = 8;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(tutX + tutCellSize / 2, tutY + tutCellSize / 2);
-          ctx.lineTo(tutX + tutCellSize / 2, tutY + tutCellSize * 2.5);
-          ctx.lineTo(tutX + tutCellSize * 2.5, tutY + tutCellSize * 2.5);
-          ctx.stroke();
+          ctx.fillText('👆', gridOffsetX + 3.5 * tCellSize + 4, handY + 10);
+
+          ctx.font = '800 13.5px Outfit, sans-serif';
+          ctx.fillStyle = THEME.textMain;
+          ctx.textAlign = 'center';
+          ctx.fillText('Connect matching colored dots to create', this.width / 2, cardY + 236);
+          ctx.fillText('a continuous flow of lines.', this.width / 2, cardY + 256);
         }
 
-        // Slide Content Texts
-        if (this.tutorialSlide === 0) {
-          ctx.font = '800 15px Outfit, sans-serif';
-          ctx.fillStyle = '#F59E0B';
-          ctx.fillText('1. Connect Matching Colors', this.width / 2, cardY + 205);
+        // Slide 2: All dots need to be connected
+        else if (this.tutorialSlide === 1) {
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 0, 0, PALETTE[6].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 2, 1, PALETTE[6].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 1, 0, PALETTE[4].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 1, 2, PALETTE[4].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 0, 2, PALETTE[0].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 3, 3, PALETTE[0].hex);
 
-          ctx.font = '600 12.5px Inter, sans-serif';
-          ctx.fillStyle = THEME.textMain;
-          ctx.fillText('Drag between matching dots', this.width / 2, cardY + 230);
-          ctx.fillText('to build continuous pipe flows', this.width / 2, cardY + 248);
-        } else if (this.tutorialSlide === 1) {
-          ctx.font = '800 15px Outfit, sans-serif';
-          ctx.fillStyle = '#22C55E';
-          ctx.fillText('2. 100% Board Fill Required', this.width / 2, cardY + 205);
+          ctx.beginPath();
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = PALETTE[0].hex;
+          ctx.lineWidth = tCellSize * 0.36;
+          ctx.moveTo(gridOffsetX + 2.5 * tCellSize, gridBoxY + 0.5 * tCellSize);
+          ctx.lineTo(gridOffsetX + 3.5 * tCellSize, gridBoxY + 0.5 * tCellSize);
+          ctx.lineTo(gridOffsetX + 3.5 * tCellSize, gridBoxY + 3.5 * tCellSize);
+          ctx.stroke();
 
-          ctx.font = '600 12.5px Inter, sans-serif';
-          ctx.fillStyle = THEME.textMain;
-          ctx.fillText('Every single square on the grid', this.width / 2, cardY + 230);
-          ctx.fillText('must be covered to win the level', this.width / 2, cardY + 248);
-        } else {
-          ctx.font = '800 15px Outfit, sans-serif';
-          ctx.fillStyle = '#EC4899';
-          ctx.fillText('3. No Overlapping Paths', this.width / 2, cardY + 205);
+          ctx.beginPath();
+          ctx.strokeStyle = PALETTE[6].hex;
+          ctx.lineWidth = tCellSize * 0.36;
+          ctx.moveTo(gridOffsetX + 0.5 * tCellSize, gridBoxY + 0.5 * tCellSize);
+          ctx.lineTo(gridOffsetX + 1.5 * tCellSize, gridBoxY + 0.5 * tCellSize);
+          ctx.lineTo(gridOffsetX + 1.5 * tCellSize, gridBoxY + 2.5 * tCellSize);
+          ctx.stroke();
 
-          ctx.font = '600 12.5px Inter, sans-serif';
+          ctx.font = '800 15px Outfit, sans-serif';
           ctx.fillStyle = THEME.textMain;
-          ctx.fillText('Pipes cannot cross each other.', this.width / 2, cardY + 230);
-          ctx.fillText('Crossing will cut the older path', this.width / 2, cardY + 248);
+          ctx.textAlign = 'center';
+          ctx.fillText('All dots need to be connected', this.width / 2, cardY + 246);
+        }
+
+        // Slide 3: No overlapping paths
+        else {
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 0, 0, PALETTE[6].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 2, 1, PALETTE[6].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 1, 0, PALETTE[4].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 1, 2, PALETTE[4].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 0, 2, PALETTE[0].hex);
+          this.drawTutDot(ctx, gridOffsetX, gridBoxY, tCellSize, 3, 3, PALETTE[0].hex);
+
+          ctx.beginPath();
+          ctx.strokeStyle = PALETTE[0].hex;
+          ctx.lineWidth = tCellSize * 0.36;
+          ctx.moveTo(gridOffsetX + 2.5 * tCellSize, gridBoxY + 0.5 * tCellSize);
+          ctx.lineTo(gridOffsetX + 3.5 * tCellSize, gridBoxY + 0.5 * tCellSize);
+          ctx.lineTo(gridOffsetX + 3.5 * tCellSize, gridBoxY + 3.5 * tCellSize);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.strokeStyle = PALETTE[6].hex;
+          ctx.lineWidth = tCellSize * 0.36;
+          ctx.moveTo(gridOffsetX + 0.5 * tCellSize, gridBoxY + 0.5 * tCellSize);
+          ctx.lineTo(gridOffsetX + 1.5 * tCellSize, gridBoxY + 0.5 * tCellSize);
+          ctx.lineTo(gridOffsetX + 1.5 * tCellSize, gridBoxY + 2.5 * tCellSize);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.strokeStyle = PALETTE[4].hex;
+          ctx.lineWidth = tCellSize * 0.36;
+          ctx.moveTo(gridOffsetX + 0.5 * tCellSize, gridBoxY + 1.5 * tCellSize);
+          ctx.lineTo(gridOffsetX + 1.5 * tCellSize, gridBoxY + 1.5 * tCellSize);
+          ctx.stroke();
+
+          const crossX = gridOffsetX + 1.5 * tCellSize;
+          const crossY = gridBoxY + 1.5 * tCellSize;
+          ctx.font = '900 28px sans-serif';
+          ctx.fillStyle = '#DC2626';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('✕', crossX, crossY);
+
+          ctx.font = '800 15px Outfit, sans-serif';
+          ctx.fillStyle = THEME.textMain;
+          ctx.textAlign = 'center';
+          ctx.fillText('There must be no overlapping paths', this.width / 2, cardY + 246);
         }
 
         // Pagination Dots
@@ -67334,15 +67314,15 @@
           const isCur = (this.tutorialSlide === i);
           ctx.beginPath();
           ctx.arc(dotX, cardY + 288, isCur ? 4.5 : 3, 0, Math.PI * 2);
-          ctx.fillStyle = isCur ? '#8B5CF6' : '#475569';
+          ctx.fillStyle = isCur ? '#F59E0B' : '#475569';
           ctx.fill();
         }
 
         // Bottom Controls: [ ◀ ]   [ OK ]   [ ▶ ]
-        const btnY = cardY + 322;
-        const btnH = 46;
+        const btnY = cardY + 312;
+        const btnH = 44;
 
-        // 1. Back Button
+        // 1. Sleek Back Button
         ctx.beginPath();
         ctx.roundRect(cardX + 16, btnY, 44, btnH, 14);
         ctx.fillStyle = '#252B3B';
@@ -67353,20 +67333,20 @@
         ctx.textBaseline = 'middle';
         ctx.fillText('◀', cardX + 38, btnY + btnH / 2);
 
-        // 2. Purple OK Button
+        // 2. Sleek Purple OK Button
         const okW = cardW - 140;
         const okX = cardX + 70;
         ctx.shadowColor = '#8B5CF6';
-        ctx.shadowBlur = 14;
+        ctx.shadowBlur = 12;
         ctx.beginPath();
         ctx.roundRect(okX, btnY, okW, btnH, 16);
         ctx.fillStyle = '#8B5CF6';
         ctx.fill();
         ctx.font = '900 16px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText('START PLAYING ▶', okX + okW / 2, btnY + btnH / 2 + 1);
+        ctx.fillText('OK', okX + okW / 2, btnY + btnH / 2 + 1);
 
-        // 3. Next Button
+        // 3. Sleek Next Button
         const nextX = cardX + cardW - 60;
         ctx.beginPath();
         ctx.roundRect(nextX, btnY, 44, btnH, 14);
@@ -67387,38 +67367,37 @@
         ctx.restore();
       }
 
-      // --- SPECTACULAR 3-STAR VICTORY CELEBRATION MODAL ---
+      // --- VICTORY CELEBRATION MODAL WITH STAR DROP ANIMATION ---
       renderVictoryModal(ctx) {
-        ctx.fillStyle = 'rgba(8, 11, 18, 0.82)';
+        ctx.fillStyle = 'rgba(11, 15, 25, 0.75)';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        const cardW = Math.min(324, this.width - 36);
-        const cardH = 310;
+        const cardW = Math.min(320, this.width - 40);
+        const cardH = 290;
         const cardX = (this.width - cardW) / 2;
         const cardY = (this.height - cardH) / 2;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(34, 197, 94, 0.35)';
-        ctx.shadowBlur = 36;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+        ctx.shadowBlur = 32;
         ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 26);
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
         ctx.fillStyle = THEME.cardBg;
         ctx.fill();
         ctx.strokeStyle = THEME.accentGreen;
-        ctx.lineWidth = 2.2;
+        ctx.lineWidth = 2.0;
         ctx.stroke();
 
-        // 1. Victory Heading
-        ctx.font = '900 23px Outfit, sans-serif';
+        ctx.font = '900 22px Outfit, sans-serif';
         ctx.fillStyle = THEME.accentGreen;
         ctx.textAlign = 'center';
-        ctx.fillText('LEVEL COMPLETED! 🎉', this.width / 2, cardY + 44);
+        ctx.fillText('LEVEL COMPLETED! 🎉', this.width / 2, cardY + 42);
 
-        // 2. 3-Star Animated Drop
-        const starY = cardY + 92;
+        // ⭐ ⭐ ⭐ 3-STAR DROP ANIMATION (KEPT AS REQUESTED!)
+        const starY = cardY + 80;
         const starTimes = [0.1, 0.25, 0.4];
         for (let i = 0; i < 3; i++) {
-          const starX = this.width / 2 + (i - 1) * 44;
+          const starX = this.width / 2 + (i - 1) * 40;
           const hasDropped = this.victoryStarTimer >= starTimes[i];
           const scale = hasDropped ? Math.min(1.0, (this.victoryStarTimer - starTimes[i]) * 8) : 0;
 
@@ -67426,7 +67405,7 @@
             ctx.save();
             ctx.translate(starX, starY);
             ctx.scale(scale, scale);
-            ctx.font = '32px sans-serif';
+            ctx.font = '28px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('⭐', 0, 0);
@@ -67434,39 +67413,24 @@
           }
         }
 
-        // 3. Stats Info Badge
-        ctx.font = '800 13.5px Inter, sans-serif';
+        ctx.font = '700 13.5px Inter, sans-serif';
         ctx.fillStyle = THEME.textMuted;
-        ctx.fillText('DIFFICULTY: ' + this.difficulty.toUpperCase(), this.width / 2, cardY + 150);
+        ctx.fillText('Difficulty: ' + this.difficulty.toUpperCase(), this.width / 2, cardY + 130);
+        ctx.fillText('Level: ' + this.level + ' • 100% Pipe Filled', this.width / 2, cardY + 155);
 
-        ctx.font = '700 13px Inter, sans-serif';
-        ctx.fillStyle = THEME.accentGreen;
-        ctx.fillText('LEVEL ' + this.level + ' • 100% PIPE FILL ACHIEVED', this.width / 2, cardY + 174);
+        const btnW = cardW - 60, btnH = 48;
+        const btnX = cardX + 30;
+        const btnY = cardY + 205;
 
-        // 4. Hero Glowing "NEXT LEVEL ▶" Pulsing Button
-        const btnW = cardW - 48, btnH = 52;
-        const btnX = cardX + 24;
-        const btnY = cardY + 224;
-        const btnPulse = 1.0 + Math.sin(this.pulseT * 5) * 0.025;
-
-        ctx.save();
-        ctx.translate(btnX + btnW / 2, btnY + btnH / 2);
-        ctx.scale(btnPulse, btnPulse);
         ctx.shadowColor = THEME.accentGreen;
-        ctx.shadowBlur = 18;
-
+        ctx.shadowBlur = 12;
         ctx.beginPath();
-        ctx.roundRect(-btnW / 2, -btnH / 2, btnW, btnH, 20);
+        ctx.roundRect(btnX, btnY, btnW, btnH, 18);
         ctx.fillStyle = THEME.accentGreen;
         ctx.fill();
-
-        ctx.font = '900 17px Outfit, sans-serif';
+        ctx.font = '900 16px Outfit, sans-serif';
         ctx.fillStyle = '#FFFFFF';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('NEXT LEVEL  ▶', 0, 1);
-        ctx.restore();
-
+        ctx.fillText('NEXT LEVEL ▶', this.width / 2, btnY + 24 + 1);
         ctx.restore();
       }
     }
