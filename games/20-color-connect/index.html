@@ -66252,6 +66252,30 @@
           window.addEventListener('touchend', handleUp, { passive: false });
           window.addEventListener('touchcancel', handleUp, { passive: false });
         }
+
+        // Platform swipe-in / activation handlers
+        const showDiffSelect = () => {
+          this.sliderPos = this.difficulty === 'hard' ? 1.0 : (this.difficulty === 'medium' ? 0.5 : 0.0);
+          this.state = 'DIFF_SELECT';
+        };
+
+        window.addEventListener('message', (e) => {
+          if (!e.data) return;
+          const act = e.data.action || e.data.type || e.data;
+          if (act === 'onGameActive' || act === 'resume' || act === 'active' || act === 'swipe_in' || act === 'show' || act === 'restart') {
+            showDiffSelect();
+          }
+        });
+
+        window.addEventListener('pageshow', () => {
+          showDiffSelect();
+        });
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            this.initLayout();
+          }
+        });
       }
 
       getCellFromPos(px, py) {
