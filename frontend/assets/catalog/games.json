@@ -1,6 +1,6 @@
 {
   "version": 29,
-  "updatedAt": "2026-08-31T13:54:57.290Z",
+  "updatedAt": "2026-09-01T07:26:49.127Z",
   "games": [
     {
       "id": "color-connect",
@@ -443,14 +443,14 @@
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/real-drive/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/real-drive.webp",
-      "sizeBytes": 69565,
+      "sizeBytes": 85963,
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/real-drive/1.0.0/manifest.json",
       "feedOrder": 25,
       "category": "Simulation",
       "description": "Realistic 3D transit bus simulator. Features natural road curves and bridge elevation, traffic AI, traffic lights, passenger bus stops, animated boarding, cockpit interior with rotating steering wheel, multi-camera views with touch free-look, and diesel/pneumatic audio.",
-      "sha256": "e1d8bd7305302f72d6ba6a0b8a5f7f40a0e8e4be9dc78efd670ab3daac08bbc6",
+      "sha256": "aa6b176c5a366fdc8d7228ff220b49ce37e3c869cc47182d0f6f55e37f5eadf9",
       "status": "published",
       "touchZones": [],
       "features": {
@@ -458,8 +458,10 @@
         "vibration": true,
         "cockpit": true,
         "busStops": true,
-        "physics": true,
-        "dayNight": true
+        "passengers": true,
+        "trafficAI": true,
+        "trafficLights": true,
+        "multiCamera": true
       }
     },
     {
