@@ -584,19 +584,20 @@ const WORLD_UNITS_PER_KMH_SECOND = WORLD_UNITS_PER_METER / 3.6;
 const STOP_APPROACH_WORLD = 82 * WORLD_UNITS_PER_METER;
 const STOP_EXIT_WORLD = 38 * WORLD_UNITS_PER_METER;
 const STOP_ALIGNMENT_X = 0.28;
-const STOP_ALIGNMENT_MAX = 0.76;
-const ROAD_EDGE_LIMIT = 0.78;
-const ROAD_RUMBLE_LIMIT = 0.69;
+const STOP_ALIGNMENT_MAX = 0.70;
+const ROAD_EDGE_LIMIT = 0.72;
+const ROAD_RUMBLE_LIMIT = 0.64;
 const TRAFFIC_RESPAWN_GAP = 820;
-const TRACK_CURVE_STEP = 0.05;
+const TRACK_CURVE_STEP = 0.085;
 const MAX_TRACK_TANGENT = 18;
 let trackSegments = [];
 
 const ROUTE_STOPS = [
-  { id: 1, name: "Central Station", segIndex: 85, initialPassengers: 6, passengersWaiting: 6, isVisited: false, readyToDepart: false },
-  { id: 2, name: "Financial Plaza", segIndex: 580, initialPassengers: 6, passengersWaiting: 6, isVisited: false, readyToDepart: false },
-  { id: 3, name: "Downtown Terminal", segIndex: 1460, initialPassengers: 6, passengersWaiting: 6, isVisited: false, readyToDepart: false }
+  { id: 1, name: "Central Station", segIndex: 85, initialPassengers: 6, initialAlighting: 0, passengersWaiting: 6, passengersAlighting: 0, isVisited: false, readyToDepart: false },
+  { id: 2, name: "Financial Plaza", segIndex: 580, initialPassengers: 6, initialAlighting: 2, passengersWaiting: 6, passengersAlighting: 2, isVisited: false, readyToDepart: false },
+  { id: 3, name: "Downtown Terminal", segIndex: 1460, initialPassengers: 6, initialAlighting: 4, passengersWaiting: 6, passengersAlighting: 4, isVisited: false, readyToDepart: false }
 ];
+const PASSENGER_TARGET = ROUTE_STOPS.reduce((total, stop) => total + stop.initialPassengers, 0);
 
 const TRAFFIC_LIGHTS = [
   { id: 1, segIndex: 260, initialState: 'GREEN', initialTimer: 8.0, state: 'GREEN', timer: 8.0, cycleGreen: 12.0, cycleYellow: 3.0, cycleRed: 9.0, violationTriggered: false },
@@ -743,10 +744,12 @@ let boardingActive = false;
 let currentStopIndex = 0;
 let passengersAboard = 0;
 let passengersBoardedTotal = 0;
+let passengersAlightedTotal = 0;
 let totalPassengersDelivered = 0;
 let completedStops = 0;
 
 let animatedBoardingPax = null;
+let animatedAlightingPax = null;
 
 let speed = 0;
 let maxForwardSpeed = 75;
@@ -786,8 +789,8 @@ const CAR_TEMPLATES = [
   { type: 'police', name: 'Highway Patrol', color: '#09090b', accent: '#ffffff', speedBase: 56 }
 ];
 
-const FORWARD_LANES = [0.28, 0.78];
-const ONCOMING_LANES = [-0.28, -0.78];
+const FORWARD_LANES = [0.24, 0.66];
+const ONCOMING_LANES = [-0.24, -0.66];
 
 function initTraffic() {
   trafficVehicles = [];
@@ -875,7 +878,6 @@ function completeBoardingStop(stop) {
     currentStopIndex++;
     showAlert('STOP COMPLETE - NEXT STATION SET', false);
   } else {
-    totalPassengersDelivered = passengersAboard;
     currentStopIndex = ROUTE_STOPS.length;
     showAlert('TERMINAL SERVICED - PROCEED TO ROUTE END', false);
   }
@@ -1182,6 +1184,7 @@ function resetRouteState() {
   syncGearUI('P');
   passengersAboard = 0;
   passengersBoardedTotal = 0;
+  passengersAlightedTotal = 0;
   totalPassengersDelivered = 0;
   completedStops = 0;
   redLightInfractions = 0;
@@ -1189,6 +1192,7 @@ function resetRouteState() {
   routeElapsedSeconds = 0;
   currentStopIndex = 0;
   animatedBoardingPax = null;
+  animatedAlightingPax = null;
   boardingActive = false;
   crashImpactSpeed = 0;
   routeEndWarningShown = false;
@@ -1204,6 +1208,7 @@ function resetRouteState() {
   blinkerLampOn = false;
   ROUTE_STOPS.forEach(s => {
     s.passengersWaiting = s.initialPassengers;
+    s.passengersAlighting = s.initialAlighting;
     s.isVisited = false;
     s.readyToDepart = false;
   });
@@ -1284,7 +1289,12 @@ function updateSimulator(dt) {
   const curSegIdx = Math.floor(playerZ / SEGMENT_LENGTH);
   const curSeg = trackSegments[Math.min(TOTAL_TRACK_SEGMENTS - 1, curSegIdx)];
 
-  if (curSeg) playerX += vehicleHeading * 0.36 * dt;
+  if (curSeg) {
+    // A gentle curve-load asks the driver to make small steering corrections,
+    // while the hard limit keeps the coach inside the painted road boundary.
+    const curveDrift = curSeg.curve * speedRatio * 0.014;
+    playerX += (vehicleHeading * 0.36 - curveDrift) * dt;
+  }
   playerX = Math.max(-ROAD_EDGE_LIMIT, Math.min(ROAD_EDGE_LIMIT, playerX));
 
   // Road edge rumble happens before the hard painted-edge boundary.
@@ -1360,21 +1370,21 @@ function updateSimulator(dt) {
   }
 
   // --- COLLISION HITBOXES ---
-  // Match collision distance to the large exterior chase-camera bus model.
-  // This removes the old invisible impact / early vehicle-respawn failure.
+  // Crossing the centre line is allowed. A crash only happens when the actual
+  // bus/car rectangles overlap and there is meaningful closing speed.
   for (const car of trafficVehicles) {
     const relZ = car.z - playerZ;
     const relX = Math.abs(car.x - playerX);
-    const overlapsLength = car.isOncoming
-      ? relZ > -38 && relZ < 180
-      : relZ > -52 && relZ < 158;
-    const overlapsWidth = relX < 0.43;
+    const carHalfWidth = (car.type === 'van' || car.type === 'suv') ? 0.13 : 0.10;
+    const carHalfLength = car.type === 'van' ? 52 : (car.type === 'suv' ? 47 : 42);
+    const overlapsLength = Math.abs(relZ) < (68 + carHalfLength);
+    const overlapsWidth = relX < (0.15 + carHalfWidth);
+    const closingSpeed = car.isOncoming
+      ? Math.abs(speed) + car.speed
+      : Math.max(0, Math.abs(speed) - car.speed);
 
-    if (overlapsLength && overlapsWidth && Math.abs(speed) > 3) {
-      const closingSpeed = car.isOncoming
-        ? Math.abs(speed) + car.speed
-        : Math.max(0, Math.abs(speed) - car.speed);
-      triggerAccident(car, closingSpeed || Math.abs(speed));
+    if (overlapsLength && overlapsWidth && closingSpeed > 4) {
+      triggerAccident(car, closingSpeed);
       return;
     }
   }
@@ -1462,20 +1472,55 @@ function updateSimulator(dt) {
           boardingProgress.style.display = 'none';
         } else {
           doorPrompt.style.display = 'block';
-          doorPrompt.textContent = 'OPEN DOORS TO BOARD';
+          doorPrompt.textContent = 'OPEN DOORS FOR PASSENGERS';
           boardingProgress.style.display = 'none';
         }
       } else {
         doorPrompt.style.display = 'none';
         boardingProgress.style.display = 'flex';
 
-        // Animate passenger walking from sidewalk into the bus
-        if (nextStop.passengersWaiting > 0) {
+        // Passengers leave first, then waiting passengers board. Counts change
+        // only when an animation reaches the doorway, so interrupted stops
+        // cannot lose or duplicate riders.
+        if (nextStop.passengersAlighting > 0 && passengersAboard === 0) {
+          nextStop.passengersAlighting = 0;
+        }
+
+        if (nextStop.passengersAlighting > 0) {
+          if (!animatedAlightingPax) {
+            animatedAlightingPax = { stopId: nextStop.id, progress: 0, color: ['#f97316','#8b5cf6','#ec4899','#10b981','#3b82f6'][passengersAlightedTotal % 5] };
+          }
+          animatedAlightingPax.progress += dt * 1.7;
+          boardText.textContent = 'Passengers Alighting (' + (passengersAlightedTotal + 1) + ' off)...';
+
+          if (animatedAlightingPax.progress >= 1.0) {
+            animatedAlightingPax = null;
+            nextStop.passengersAlighting--;
+            passengersAboard = Math.max(0, passengersAboard - 1);
+            passengersAlightedTotal++;
+            drivingScore += 35;
+            AudioEngine.doorChime();
+            triggerHaptic('light');
+
+            for (let i = 0; i < 12; i++) {
+              particles.push({
+                x: W * 0.66 + (Math.random() * 18 - 9),
+                y: H * 0.69,
+                vx: (Math.random() - 0.5) * 65,
+                vy: -38 - Math.random() * 55,
+                life: 0.62,
+                max: 0.62,
+                color: '#fbbf24',
+                r: 2 + Math.random() * 2
+              });
+            }
+          }
+        } else if (nextStop.passengersWaiting > 0) {
           if (!animatedBoardingPax) {
             animatedBoardingPax = { stopId: nextStop.id, progress: 0, color: ['#3b82f6','#ec4899','#f97316','#10b981','#8b5cf6'][passengersAboard % 5] };
           }
           animatedBoardingPax.progress += dt * 1.6;
-          boardText.textContent = 'Passengers Boarding (' + (passengersAboard + 1) + ' / 18)...';
+          boardText.textContent = 'Passengers Boarding (' + (passengersBoardedTotal + 1) + ' / ' + PASSENGER_TARGET + ')...';
 
           if (animatedBoardingPax.progress >= 1.0) {
             animatedBoardingPax = null;
@@ -1500,13 +1545,13 @@ function updateSimulator(dt) {
             }
           }
         } else {
-          boardText.textContent = 'All aboard - close doors to depart';
+          boardText.textContent = 'Passenger exchange complete - close doors';
           doorPrompt.style.display = 'block';
           doorPrompt.textContent = 'CLOSE DOORS & PROCEED';
 
           if (!nextStop.readyToDepart) {
             nextStop.readyToDepart = true;
-            showAlert('ALL PASSENGERS BOARDED - CLOSE DOORS', false);
+            showAlert('PASSENGER EXCHANGE COMPLETE - CLOSE DOORS', false);
             triggerHaptic('medium');
           }
         }
@@ -1515,6 +1560,7 @@ function updateSimulator(dt) {
       doorPrompt.style.display = 'none';
       boardingProgress.style.display = 'none';
       animatedBoardingPax = null;
+      animatedAlightingPax = null;
     }
   } else {
     beaconTitle.textContent = 'Route 08 Complete';
@@ -1525,10 +1571,10 @@ function updateSimulator(dt) {
 
   // Exhaust particles for player bus
   if (engineRunning && cameraMode === 0 && Math.random() < 0.4) {
-    const busY = H * 0.78 + chassisPitch;
+    const busY = H * 0.81 + chassisPitch;
     particles.push({
-      x: W / 2 + (freeLookYaw * 60) - 48 + (Math.random() * 8 - 4),
-      y: busY + 68,
+      x: W / 2 + (freeLookYaw * 240) - 42 + (Math.random() * 8 - 4),
+      y: busY + 61,
       vx: (Math.random() - 0.5) * 15,
       vy: 10 + Math.random() * 20,
       life: 0.5,
@@ -1541,7 +1587,7 @@ function updateSimulator(dt) {
   // Route Finished: the terminal has to be serviced before results can open.
   const routeEndZ = (TOTAL_TRACK_SEGMENTS - 80) * SEGMENT_LENGTH;
   if (playerZ >= routeEndZ && gameState === 'DRIVING') {
-    if (completedStops === ROUTE_STOPS.length && passengersAboard === 18) {
+    if (completedStops === ROUTE_STOPS.length && passengersBoardedTotal === PASSENGER_TARGET) {
       completeRouteMission();
     } else {
       playerZ = routeEndZ;
@@ -1568,7 +1614,7 @@ function updateSimulator(dt) {
   }
 
   hudSpeed.textContent = Math.abs(Math.round(speed));
-  hudPassengers.textContent = passengersAboard + ' / 18';
+  hudPassengers.textContent = passengersAboard + ' / ' + PASSENGER_TARGET;
 }
 
 function triggerAccident(hitCar, impactSpeed = Math.abs(speed)) {
@@ -1605,10 +1651,10 @@ function triggerAccident(hitCar, impactSpeed = Math.abs(speed)) {
 }
 
 function completeRouteMission() {
-  if (gameState !== 'DRIVING' || completedStops !== ROUTE_STOPS.length || passengersAboard !== 18) return;
+  if (gameState !== 'DRIVING' || completedStops !== ROUTE_STOPS.length || passengersBoardedTotal !== PASSENGER_TARGET) return;
   gameState = 'COMPLETED';
   speed = 0;
-  totalPassengersDelivered = passengersAboard;
+  totalPassengersDelivered = passengersBoardedTotal;
   selectGear('P');
   AudioEngine.airBrakeRelease();
   Host.post('game_over', { score: drivingScore, passengers: totalPassengersDelivered });
@@ -1622,7 +1668,7 @@ function completeRouteMission() {
   const timeStr = String(mins).padStart(2,'0') + ':' + String(secs).padStart(2,'0');
 
   document.getElementById('res-stars').textContent = stars;
-  document.getElementById('res-passengers').textContent = totalPassengersDelivered + ' / 18';
+  document.getElementById('res-passengers').textContent = totalPassengersDelivered + ' / ' + PASSENGER_TARGET;
   document.getElementById('res-infractions').textContent = redLightInfractions + ' Violations';
   document.getElementById('res-time').textContent = timeStr;
   document.getElementById('res-earnings').textContent = '$' + Math.round(drivingScore * 1.4);
@@ -1883,14 +1929,42 @@ function renderScene() {
       fillProjectedQuad(x1 + w1 * 0.50, y1, x1 + w1 * 0.96, y1, x2 + w2 * 0.96, y2, x2 + w2 * 0.50, y2, isStripe ? 'rgba(16,185,129,0.62)' : 'rgba(56,189,248,0.52)');
     }
 
-    // Stop Line & Crosswalk at Traffic Lights
+    // Stop line and zebra crossing. They are perspective-projected and fade
+    // in only near the junction, so no bright flat stripes hover on the road
+    // from a long distance away.
     TRAFFIC_LIGHTS.forEach(tl => {
-      if (Math.abs(tl.segIndex - segIdx) < 2) {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(x1 - w1, y1 - 2, w1 * 2, 4);
-        for (let zc = -0.8; zc <= 0.8; zc += 0.2) {
-          ctx.fillRect(x1 + w1 * zc, y1, w1 * 0.1, Math.max(3, y2 - y1));
+      if (tl.segIndex === segIdx && relZ1 < 1600 && scale1 > 0.045) {
+        const crossingAlpha = Math.min(0.94, Math.max(0, (1600 - relZ1) / 650));
+        const roadPoint = (side, t) => {
+          const nearX = x1 + (w1 * side);
+          const farX = x2 + (w2 * side);
+          return nearX + ((farX - nearX) * t);
+        };
+        const roadY = t => y1 + ((y2 - y1) * t);
+        ctx.globalAlpha = crossingAlpha;
+
+        const lineNear = 0.08, lineFar = 0.16;
+        fillProjectedQuad(
+          roadPoint(-0.94, lineNear), roadY(lineNear),
+          roadPoint(0.94, lineNear), roadY(lineNear),
+          roadPoint(0.94, lineFar), roadY(lineFar),
+          roadPoint(-0.94, lineFar), roadY(lineFar),
+          '#f8fafc'
+        );
+
+        for (let stripe = 0; stripe < 6; stripe++) {
+          const left = -0.84 + (stripe * 0.29);
+          const right = left + 0.13;
+          const near = 0.24, far = 0.76;
+          fillProjectedQuad(
+            roadPoint(left, near), roadY(near),
+            roadPoint(right, near), roadY(near),
+            roadPoint(right, far), roadY(far),
+            roadPoint(left, far), roadY(far),
+            '#f8fafc'
+          );
         }
+        ctx.globalAlpha = 1;
       }
     });
 
@@ -1978,6 +2052,18 @@ function renderScene() {
         const walkX = s.x - (sw * 0.3) + t * (s.x1 + s.w1 * 0.7 - s.x);
         const walkY = s.y;
         ctx.fillStyle = animatedBoardingPax.color;
+        ctx.fillRect(walkX - 6 * sc, walkY - 34 * sc, 12 * sc, 24 * sc);
+        ctx.fillStyle = '#fbcfe8';
+        ctx.beginPath(); ctx.arc(walkX, walkY - 40 * sc, 7 * sc, 0, Math.PI * 2); ctx.fill();
+      }
+
+      if (animatedAlightingPax && stop && animatedAlightingPax.stopId === stop.id && !stop.isVisited && Math.abs(stop.segIndex - s.segIdx) < 2) {
+        const t = animatedAlightingPax.progress;
+        const doorX = s.x1 + s.w1 * 0.7;
+        const sidewalkX = s.x - (sw * 0.28);
+        const walkX = doorX + t * (sidewalkX - doorX);
+        const walkY = s.y;
+        ctx.fillStyle = animatedAlightingPax.color;
         ctx.fillRect(walkX - 6 * sc, walkY - 34 * sc, 12 * sc, 24 * sc);
         ctx.fillStyle = '#fbcfe8';
         ctx.beginPath(); ctx.arc(walkX, walkY - 40 * sc, 7 * sc, 0, Math.PI * 2); ctx.fill();
