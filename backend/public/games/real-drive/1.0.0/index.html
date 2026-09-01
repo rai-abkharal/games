@@ -12,50 +12,61 @@ body{overscroll-behavior:none}
 canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
 
 /* --- HUD OVERLAYS --- */
-#hud{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:12px 14px;box-sizing:border-box;z-index:10}
+#hud{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:10px 14px;box-sizing:border-box;z-index:10}
 
 /* Top Navigation Bar */
 .top-bar{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;width:100%}
-.hud-pill{background:rgba(15,23,42,0.85);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.14);border-radius:12px;padding:6px 12px;display:flex;flex-direction:column;align-items:center;box-shadow:0 4px 16px rgba(0,0,0,0.4)}
+.hud-pill{background:rgba(15,23,42,0.88);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.14);border-radius:12px;padding:6px 12px;display:flex;flex-direction:column;align-items:center;box-shadow:0 4px 16px rgba(0,0,0,0.4)}
 .pill-label{font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:800}
 .pill-val{font-size:15px;font-weight:900;color:#f8fafc;font-variant-numeric:tabular-nums}
 
 /* Route & Bus Stop Beacon Banner */
-#route-beacon{background:rgba(15,23,42,0.88);border:1px solid rgba(56,189,248,0.4);backdrop-filter:blur(10px);border-radius:12px;padding:6px 14px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(56,189,248,0.25)}
+#route-beacon{background:rgba(15,23,42,0.9);border:1px solid rgba(56,189,248,0.5);backdrop-filter:blur(10px);border-radius:12px;padding:6px 14px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(56,189,248,0.25)}
 .beacon-dot{width:8px;height:8px;border-radius:50%;background:#38bdf8;box-shadow:0 0 8px #38bdf8;animation:pulse 1.4s infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.8)}}
 .beacon-text{font-size:12px;font-weight:800;color:#f8fafc}
-.beacon-sub{font-size:9px;color:#38bdf8;font-weight:700;letter-spacing:0.5px}
+.beacon-sub{font-size:9.5px;color:#38bdf8;font-weight:700;letter-spacing:0.5px}
 
 /* Notification banner */
-#alert-banner{position:absolute;top:68px;left:50%;transform:translateX(-50%);background:rgba(16,185,129,0.92);color:#fff;padding:8px 20px;border-radius:24px;font-size:12px;font-weight:900;letter-spacing:0.5px;box-shadow:0 8px 24px rgba(16,185,129,0.45);opacity:0;transition:all 0.25s cubic-bezier(0.4,0,0.2,1);pointer-events:none;white-space:nowrap;z-index:30}
+#alert-banner{position:absolute;top:66px;left:50%;transform:translateX(-50%);background:rgba(16,185,129,0.94);color:#fff;padding:8px 22px;border-radius:24px;font-size:12.5px;font-weight:900;letter-spacing:0.5px;box-shadow:0 8px 24px rgba(16,185,129,0.45);opacity:0;transition:all 0.25s cubic-bezier(0.4,0,0.2,1);pointer-events:none;white-space:nowrap;z-index:30}
 #alert-banner.show{opacity:1;transform:translateX(-50%) translateY(6px)}
 #alert-banner.warn{background:rgba(239,68,68,0.95);box-shadow:0 8px 24px rgba(239,68,68,0.5)}
 
+/* Traffic Signal HUD Indicator */
+#signal-badge{position:absolute;top:66px;right:14px;background:rgba(15,23,42,0.9);border:1px solid rgba(255,255,255,0.18);backdrop-filter:blur(8px);border-radius:12px;padding:4px 10px;display:none;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,0.5);pointer-events:none}
+.signal-lamp{width:10px;height:10px;border-radius:50%;background:#ef4444;box-shadow:0 0 10px #ef4444}
+.signal-text{font-size:10px;font-weight:900;color:#f8fafc;letter-spacing:0.5px}
+
 /* Quick Accessory Cluster */
 .accessory-bar{position:absolute;top:70px;left:14px;display:flex;flex-direction:column;gap:6px;pointer-events:auto}
-.acc-btn{width:42px;height:38px;border-radius:10px;background:rgba(15,23,42,0.8);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:14px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.12s;box-shadow:0 4px 10px rgba(0,0,0,0.35)}
+.acc-btn{width:42px;height:38px;border-radius:10px;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:14px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.12s;box-shadow:0 4px 10px rgba(0,0,0,0.35)}
 .acc-btn:active{transform:scale(0.92);background:rgba(30,41,59,0.9)}
 .acc-btn.active{background:rgba(56,189,248,0.85);border-color:#38bdf8;box-shadow:0 0 12px rgba(56,189,248,0.6)}
 
 /* Gear Shift Selector */
-.gear-selector{position:absolute;top:70px;right:14px;display:flex;flex-direction:column;gap:4px;background:rgba(15,23,42,0.8);backdrop-filter:blur(8px);padding:4px;border-radius:12px;border:1px solid rgba(255,255,255,0.15);pointer-events:auto}
+.gear-selector{position:absolute;top:110px;right:14px;display:flex;flex-direction:column;gap:4px;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);padding:4px;border-radius:12px;border:1px solid rgba(255,255,255,0.15);pointer-events:auto}
 .gear-btn{width:36px;height:32px;border-radius:8px;border:none;background:transparent;color:#94a3b8;font-size:12px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.12s}
 .gear-btn.selected{background:#38bdf8;color:#0f172a;box-shadow:0 0 10px rgba(56,189,248,0.6)}
 
 /* Turn Indicator & Hazard Bar */
 .turn-bar{position:absolute;bottom:148px;left:18px;display:flex;gap:6px;pointer-events:auto}
-.turn-btn{width:44px;height:36px;border-radius:10px;background:rgba(15,23,42,0.8);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;font-size:16px;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.12s}
+.turn-btn{width:44px;height:36px;border-radius:10px;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;font-size:16px;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.12s}
 .turn-btn.blinking{background:#f59e0b;color:#0f172a;box-shadow:0 0 14px rgba(245,158,11,0.75)}
 
 /* Speedometer & Speed Limit Display */
-.center-speed{position:absolute;top:14px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.center-speed{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none}
 .speed-num{font-size:36px;font-weight:900;color:#f8fafc;letter-spacing:-1px;line-height:1;text-shadow:0 2px 12px rgba(0,0,0,0.85)}
 .speed-unit-text{font-size:9px;font-weight:800;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-top:2px}
-.speed-limit-badge{display:flex;align-items:center;gap:3px;margin-top:4px;background:#ffffff;border:2px solid #ef4444;border-radius:50%;width:26px;height:26px;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.4)}
-.speed-limit-badge span{font-size:10px;font-weight:900;color:#0f172a;line-height:1}
 
-/* --- BOTTOM CONTROLS WITH CRITICAL SAFE-AREA MARGINS --- */
+/* Interactive Door / Boarding Prompts */
+#door-prompt{position:absolute;bottom:145px;right:20px;background:linear-gradient(135deg,#38bdf8,#0284c7);color:#ffffff;font-weight:900;font-size:12px;padding:10px 18px;border-radius:14px;box-shadow:0 8px 24px rgba(56,189,248,0.6);display:none;pointer-events:auto;cursor:pointer;animation:bounce 1.2s infinite;border:1px solid #7dd3fc}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+#boarding-progress{position:absolute;top:115px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.92);border:1.5px solid #10b981;padding:8px 20px;border-radius:16px;box-shadow:0 8px 24px rgba(16,185,129,0.4);display:none;align-items:center;gap:10px;pointer-events:none;z-index:25}
+.board-icon{font-size:18px}
+.board-text{font-size:12px;font-weight:800;color:#f8fafc}
+
+/* --- BOTTOM CONTROLS WITH STRICT SAFE-AREA MARGINS --- */
 .bottom-controls{width:100%;display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px;pointer-events:none;padding:0 6px}
 
 /* Left: Steering Touch Controls */
@@ -71,11 +82,7 @@ canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
 .pedal-gas{background:linear-gradient(180deg,#10b981,#059669);border:2px solid #34d399;box-shadow:0 8px 24px rgba(16,185,129,0.45);color:#fff}
 .pedal-gas:active,.pedal-gas.pressed{background:linear-gradient(180deg,#059669,#047857);box-shadow:0 0 24px rgba(16,185,129,0.8);transform:scale(0.93)}
 
-/* Door Open Action Prompt */
-#door-prompt{position:absolute;bottom:140px;right:20px;background:rgba(56,189,248,0.92);color:#0f172a;font-weight:900;font-size:11px;padding:8px 14px;border-radius:12px;box-shadow:0 6px 18px rgba(56,189,248,0.5);display:none;pointer-events:auto;cursor:pointer;animation:bounce 1.2s infinite}
-@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-
-/* OVERLAY MODALS (Start, Results, Pause) */
+/* OVERLAY MODALS */
 .overlay-modal{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(3,7,18,0.92);backdrop-filter:blur(14px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;z-index:60;transition:opacity 0.25s}
 .overlay-modal.hidden{display:none}
 .modal-card{background:rgba(15,23,42,0.85);border:1px solid rgba(255,255,255,0.15);border-radius:22px;padding:20px;width:100%;max-width:320px;box-shadow:0 16px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;align-items:center;gap:12px}
@@ -119,18 +126,21 @@ canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
       </div>
     </div>
 
-    <!-- Center Speedometer & Speed Limit Badge -->
+    <!-- Center Speedometer -->
     <div class="center-speed">
       <div class="speed-num" id="hud-speed">0</div>
       <div class="speed-unit-text">KM / H</div>
-      <div class="speed-limit-badge" id="hud-speed-limit">
-        <span>50</span>
-      </div>
+    </div>
+
+    <!-- Traffic Signal Approaching Indicator -->
+    <div id="signal-badge">
+      <div class="signal-lamp" id="signal-lamp"></div>
+      <div class="signal-text" id="signal-text">RED - STOP</div>
     </div>
 
     <!-- Left Accessory Controls Cluster -->
     <div class="accessory-bar">
-      <button class="acc-btn" id="btn-cam" title="Camera View (Cockpit / Chase / Door)">🎥</button>
+      <button class="acc-btn" id="btn-cam" title="Toggle Camera (Chase / Cockpit)">🎥</button>
       <button class="acc-btn" id="btn-door" title="Passenger Doors (Open / Close)">🚪</button>
       <button class="acc-btn" id="btn-lights" title="Headlights">💡</button>
       <button class="acc-btn" id="btn-wipers" title="Wipers">🌧️</button>
@@ -153,8 +163,14 @@ canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
       <button class="turn-btn" id="btn-turn-right">⇨</button>
     </div>
 
-    <!-- Door Boarding Notification Prompt -->
+    <!-- Door Boarding Prompt Button -->
     <div id="door-prompt">🚏 OPEN DOORS [🚪]</div>
+
+    <!-- Boarding In-Progress Notification -->
+    <div id="boarding-progress">
+      <span class="board-icon">🚶</span>
+      <span class="board-text" id="board-text">Passengers Boarding (1 / 6)...</span>
+    </div>
 
     <!-- Bottom Controls with Strict Safe-Area Inset -->
     <div class="bottom-controls">
@@ -182,7 +198,7 @@ canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
   <div class="overlay-modal" id="start-modal">
     <div class="modal-card">
       <div class="modal-title">REAL BUS <span>3D</span></div>
-      <div class="modal-desc">Drive Metro Transit Route 08. Obey traffic lights, navigate the highway bridge & incident detour, stop at bus bays, and deliver passengers safely to Downtown Plaza.</div>
+      <div class="modal-desc">Drive Metro Transit Route 08. Obey traffic lights, navigate the sweeping curves & highway bridge, stop at bus bays, and deliver passengers safely to Downtown Plaza.</div>
       
       <div class="stat-row">
         <span class="stat-name">Route</span>
@@ -194,7 +210,7 @@ canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
       </div>
       <div class="stat-row">
         <span class="stat-name">Speed Limit</span>
-        <span class="stat-number">50 km/h (City) / 70 km/h (Hwy)</span>
+        <span class="stat-number">55 km/h (City) / 75 km/h (Hwy)</span>
       </div>
 
       <button class="primary-btn" id="btn-start-route">START BUS ENGINE ▶</button>
@@ -233,7 +249,7 @@ canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
   <div class="overlay-modal hidden" id="pause-modal">
     <div class="modal-card">
       <div class="modal-title">SIMULATOR <span>PAUSED</span></div>
-      <div class="modal-desc">Route 08 is paused. Adjust your mirrors and check the schedule before continuing.</div>
+      <div class="modal-desc">Route 08 is paused. Check the schedule before continuing.</div>
       <button class="primary-btn" id="btn-resume">RESUME DRIVING ▶</button>
       <button class="secondary-btn" id="btn-restart">RESTART ROUTE ↺</button>
     </div>
@@ -243,7 +259,7 @@ canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
 <script>
 (()=>{'use strict';
 /* ==========================================================================
-   1. CANVAS INITIALIZATION & DEVICE PIXEL RATIO
+   1. CANVAS SETUP & DPR
    ========================================================================== */
 const W = 360, H = 640, DPR = Math.min(window.devicePixelRatio || 1, 2);
 const container = document.getElementById('game-container');
@@ -257,7 +273,7 @@ const ctx = canvas.getContext('2d');
 ctx.scale(DPR, DPR);
 
 /* ==========================================================================
-   2. HOST PLATFORM BRIDGE INTEGRATION
+   2. HOST PLATFORM BRIDGE
    ========================================================================== */
 const Host = {
   post(action, payload = {}) {
@@ -291,7 +307,7 @@ function triggerHaptic(type = 'light') {
 }
 
 /* ==========================================================================
-   3. SYNTHESIZED PROCEDURAL WEB AUDIO ENGINE
+   3. PROCEDURAL WEB AUDIO ENGINE
    ========================================================================== */
 const AudioEngine = {
   ctx: null,
@@ -307,7 +323,6 @@ const AudioEngine = {
       const AC = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AC();
 
-      // Dual-Oscillator Diesel Engine (Low rumble + harmonic growl)
       this.engineGain = this.ctx.createGain();
       this.engineGain.gain.setValueAtTime(0, this.ctx.currentTime);
 
@@ -345,8 +360,8 @@ const AudioEngine = {
       if (this.engineGain) this.engineGain.gain.setValueAtTime(0, this.ctx.currentTime);
       return;
     }
-    const targetFreq = 28 + (currentSpeed * 0.95) + (isAccelerating ? 18 : 0);
-    const filterFreq = 140 + (currentSpeed * 6) + (isAccelerating ? 240 : 0);
+    const targetFreq = 26 + (currentSpeed * 0.95) + (isAccelerating ? 18 : 0);
+    const filterFreq = 135 + (currentSpeed * 6.5) + (isAccelerating ? 240 : 0);
     const now = this.ctx.currentTime;
 
     this.engineOsc1.frequency.setTargetAtTime(targetFreq, now, 0.08);
@@ -454,27 +469,22 @@ const AudioEngine = {
 };
 
 /* ==========================================================================
-   4. ROUTE DEFINITION & 3D TRACK GENERATOR
+   4. ROUTE DEFINITION & 3D TRACK GENERATOR WITH REAL DRAMATIC CURVES
    ========================================================================== */
 const TOTAL_TRACK_SEGMENTS = 1600;
 const SEGMENT_LENGTH = 70;
 let trackSegments = [];
 
 const ROUTE_STOPS = [
-  { id: 1, name: "Central Station", segIndex: 80, passengersWaiting: 6, isVisited: false },
-  { id: 2, name: "Financial Plaza", segIndex: 560, passengersWaiting: 7, isVisited: false },
-  { id: 3, name: "Downtown Terminal", segIndex: 1450, passengersWaiting: 5, isVisited: false }
+  { id: 1, name: "Central Station", segIndex: 85, passengersWaiting: 6, isVisited: false },
+  { id: 2, name: "Financial Plaza", segIndex: 580, passengersWaiting: 6, isVisited: false },
+  { id: 3, name: "Downtown Terminal", segIndex: 1460, passengersWaiting: 6, isVisited: false }
 ];
 
 const TRAFFIC_LIGHTS = [
-  { id: 1, segIndex: 260, state: 'GREEN', timer: 8.0, cycleGreen: 12.0, cycleYellow: 3.0, cycleRed: 9.0 },
-  { id: 2, segIndex: 1180, state: 'RED', timer: 4.0, cycleGreen: 12.0, cycleYellow: 3.0, cycleRed: 9.0 }
+  { id: 1, segIndex: 260, state: 'GREEN', timer: 8.0, cycleGreen: 12.0, cycleYellow: 3.0, cycleRed: 9.0, violationTriggered: false },
+  { id: 2, segIndex: 1180, state: 'RED', timer: 4.0, cycleGreen: 12.0, cycleYellow: 3.0, cycleRed: 9.0, violationTriggered: false }
 ];
-
-const INCIDENT_ZONE = {
-  startSeg: 860,
-  endSeg: 940
-};
 
 function generateTrack() {
   trackSegments = [];
@@ -482,46 +492,66 @@ function generateTrack() {
     let curve = 0;
     let elevation = 0;
     let sectionType = 'city';
-    let roadWidth = 1450;
+    let roadWidth = 1400;
     let sceneryLeft = [];
     let sceneryRight = [];
 
-    if (i < 200) {
+    // Section 1: Central Station Boulevard (0 - 180) - Straight
+    if (i < 180) {
       sectionType = 'city';
+      curve = 0;
+      elevation = 0;
       if (i % 8 === 0) sceneryLeft.push({ type: 'building', h: 90 + (i%5)*25, color: '#334155' });
       if (i % 8 === 0) sceneryRight.push({ type: 'building', h: 100 + (i%4)*30, color: '#1e293b' });
       if (i % 14 === 0) { sceneryLeft.push({ type: 'lamp' }); sceneryRight.push({ type: 'lamp' }); }
-    } else if (i < 450) {
+    }
+    // Section 2: Deep Sweeping Right Curve & Commercial Avenue (180 - 450)
+    else if (i < 450) {
       sectionType = 'curve_city';
-      curve = Math.sin((i - 200) * 0.02) * 1.8;
-      elevation = Math.sin((i - 200) * 0.015) * 40;
+      // Real dramatic right curve
+      curve = Math.sin((i - 180) * 0.02) * 2.8;
+      elevation = Math.sin((i - 180) * 0.015) * 45;
       if (i % 10 === 0) sceneryLeft.push({ type: 'tree' });
-      if (i % 12 === 0) sceneryRight.push({ type: 'building', h: 80, color: '#0f766e' });
+      if (i % 12 === 0) sceneryRight.push({ type: 'building', h: 85, color: '#0f766e' });
       if (i % 16 === 0) sceneryLeft.push({ type: 'lamp' });
-    } else if (i < 650) {
+    }
+    // Section 3: Financial Plaza & Left Bend (450 - 650)
+    else if (i < 650) {
       sectionType = 'financial';
-      curve = -0.4;
+      // Real dramatic left curve
+      curve = -Math.sin((i - 450) * 0.025) * 2.5;
       elevation = 15;
       if (i % 7 === 0) sceneryLeft.push({ type: 'skyscraper', h: 160 + (i%3)*40, color: '#1e1b4b' });
       if (i % 7 === 0) sceneryRight.push({ type: 'skyscraper', h: 180 + (i%4)*30, color: '#0f172a' });
-    } else if (i < 850) {
+    }
+    // Section 4: Grand River Suspension Bridge (650 - 850)
+    else if (i < 850) {
       sectionType = 'bridge';
-      curve = Math.sin((i - 650) * 0.015) * 0.8;
-      elevation = Math.sin((i - 650) * (Math.PI / 200)) * 110;
-    } else if (i < 1050) {
+      curve = Math.sin((i - 650) * 0.015) * 1.2;
+      elevation = Math.sin((i - 650) * (Math.PI / 200)) * 120;
+    }
+    // Section 5: Winding Highway S-Curves (850 - 1050)
+    else if (i < 1050) {
       sectionType = 'highway';
-      curve = Math.sin((i - 850) * 0.025) * 2.2;
+      curve = Math.sin((i - 850) * 0.035) * 3.4; // Sharp S-curve!
       elevation = -10;
       if (i % 14 === 0) sceneryLeft.push({ type: 'tree' });
-    } else if (i < 1350) {
+      if (i % 14 === 0) sceneryRight.push({ type: 'tree' });
+    }
+    // Section 6: Boulevard & Light 2 (1050 - 1350)
+    else if (i < 1350) {
       sectionType = 'boulevard';
-      curve = -Math.sin((i - 1050) * 0.02) * 1.5;
+      curve = -Math.sin((i - 1050) * 0.02) * 2.0;
       elevation = 0;
       if (i % 10 === 0) sceneryLeft.push({ type: 'tree' });
       if (i % 10 === 0) sceneryRight.push({ type: 'tree' });
       if (i % 14 === 0) { sceneryLeft.push({ type: 'lamp' }); sceneryRight.push({ type: 'lamp' }); }
-    } else {
+    }
+    // Section 7: Downtown Terminal Plaza (1350 - 1600)
+    else {
       sectionType = 'terminal';
+      curve = 0;
+      elevation = 0;
       if (i % 6 === 0) sceneryLeft.push({ type: 'building', h: 120, color: '#1e293b' });
     }
 
@@ -551,7 +581,7 @@ generateTrack();
    5. GAME STATE & SIMULATOR VARIABLES
    ========================================================================== */
 let gameState = 'START';
-let cameraMode = 0; // 0: Chase, 1: Cockpit, 2: Door
+let cameraMode = 0; // 0: 3rd Person Chase, 1: Cockpit Interior (No mirrors!)
 let freeLookYaw = 0;
 let freeLookPitch = 0;
 let isDraggingFreeLook = false;
@@ -579,9 +609,12 @@ let currentStopIndex = 0;
 let passengersAboard = 0;
 let totalPassengersDelivered = 0;
 
+// Animated Boarding Passenger Object
+let animatedBoardingPax = null; // { progress: 0..1, color: '#...' }
+
 let speed = 0;
 let maxForwardSpeed = 75;
-let playerX = 0;
+let playerX = 0.2; // Driving on right/center lane
 let playerZ = 0;
 let steerDir = 0;
 let steerAngle = 0;
@@ -600,25 +633,49 @@ let drivingScore = 1000;
 let particles = [];
 
 /* ==========================================================================
-   6. AUTONOMOUS TRAFFIC SIMULATION
+   6. REALISTIC DUAL-DIRECTION TRAFFIC SIMULATION
    ========================================================================== */
-const ROAD_LANES = [-0.60, 0.0, 0.60];
+// Lane -0.6 = Left (Oncoming!), Lane 0.0 = Center (Forward), Lane 0.6 = Right (Forward)
 let trafficVehicles = [];
 
 function initTraffic() {
   trafficVehicles = [];
-  const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#e2e8f0'];
-  for (let i = 0; i < 14; i++) {
-    const lane = ROAD_LANES[i % 3];
+  const carTypes = [
+    { type: 'taxi', color: '#facc15' },
+    { type: 'sedan', color: '#3b82f6' },
+    { type: 'van', color: '#ffffff' },
+    { type: 'coupe', color: '#ef4444' },
+    { type: 'suv', color: '#10b981' },
+    { type: 'police', color: '#1e293b' }
+  ];
+
+  // 1. ONCOMING TRAFFIC (Left Lane: Driving TOWARDS the player!)
+  for (let i = 0; i < 6; i++) {
+    const carModel = carTypes[i % carTypes.length];
     trafficVehicles.push({
-      id: i,
+      id: 'oncoming_' + i,
+      isOncoming: true,
+      x: -0.58,
+      z: 400 + i * 320,
+      speed: 48 + Math.random() * 15,
+      type: carModel.type,
+      color: carModel.color,
+      isBraking: false
+    });
+  }
+
+  // 2. FORWARD TRAFFIC (Center & Right Lanes: Driving AHEAD of player!)
+  for (let i = 0; i < 7; i++) {
+    const carModel = carTypes[(i + 2) % carTypes.length];
+    const lane = (i % 2 === 0 ? 0.0 : 0.58);
+    trafficVehicles.push({
+      id: 'forward_' + i,
+      isOncoming: false,
       x: lane,
-      targetX: lane,
-      z: 300 + i * 280 + Math.random() * 120,
-      speed: 38 + Math.random() * 22,
-      targetSpeed: 42 + Math.random() * 18,
-      type: i === 7 ? 'police' : (i % 4 === 0 ? 'van' : (i % 3 === 0 ? 'suv' : 'sedan')),
-      color: colors[i % colors.length],
+      z: 220 + i * 260,
+      speed: 42 + Math.random() * 16,
+      type: carModel.type,
+      color: carModel.color,
       isBraking: false
     });
   }
@@ -633,6 +690,11 @@ const resultsModal = document.getElementById('results-modal');
 const pauseModal = document.getElementById('pause-modal');
 const alertBanner = document.getElementById('alert-banner');
 const doorPrompt = document.getElementById('door-prompt');
+const boardingProgress = document.getElementById('boarding-progress');
+const boardText = document.getElementById('board-text');
+const signalBadge = document.getElementById('signal-badge');
+const signalLamp = document.getElementById('signal-lamp');
+const signalText = document.getElementById('signal-text');
 
 const hudSpeed = document.getElementById('hud-speed');
 const hudPassengers = document.getElementById('hud-passengers');
@@ -755,12 +817,12 @@ bindTouch(btnSteerRight,
   () => { steerRightPressed = false; btnSteerRight.classList.remove('pressed'); }
 );
 
+// Toggle cleanly between Chase View and Cockpit View (Mirror view removed per user request)
 btnCam.onclick = () => {
-  cameraMode = (cameraMode + 1) % 3;
+  cameraMode = (cameraMode === 0 ? 1 : 0);
   AudioEngine.blinkerClick();
   triggerHaptic('light');
-  const names = ['CHASE VIEW', 'COCKPIT VIEW', 'DOOR VIEW'];
-  showAlert(`🎥 ${names[cameraMode]}`, false);
+  showAlert(cameraMode === 0 ? "🎥 CHASE VIEW" : "🎥 COCKPIT VIEW", false);
 };
 
 function toggleDoors() {
@@ -832,7 +894,7 @@ window.addEventListener('pointermove', (e) => {
     lastTouchX = e.clientX;
     lastTouchY = e.clientY;
     freeLookYaw += dx * 0.006;
-    freeLookPitch = Math.max(-0.4, Math.min(0.4, freeLookPitch - dy * 0.005));
+    freeLookPitch = Math.max(-0.35, Math.min(0.35, freeLookPitch - dy * 0.005));
   }
 });
 window.addEventListener('pointerup', () => { isDraggingFreeLook = false; });
@@ -856,13 +918,14 @@ window.addEventListener('keyup', (e) => {
 
 function resetRouteState() {
   playerZ = 0;
-  playerX = 0;
+  playerX = 0.2;
   speed = 0;
   passengersAboard = 0;
   totalPassengersDelivered = 0;
   redLightInfractions = 0;
   drivingScore = 1000;
   currentStopIndex = 0;
+  animatedBoardingPax = null;
   ROUTE_STOPS.forEach(s => s.isVisited = false);
   doorsOpen = false;
   initTraffic();
@@ -878,14 +941,15 @@ function updateSimulator(dt) {
 
   routeElapsedSeconds = (performance.now() - routeStartTime) / 1000;
 
+  // Steering
   let targetSteer = 0;
   if (steerLeftPressed) targetSteer -= 1;
   if (steerRightPressed) targetSteer += 1;
-  steerDir += (targetSteer - steerDir) * dt * 8.0;
-  steerAngle = steerDir * 35;
+  steerDir += (targetSteer - steerDir) * dt * 7.5;
+  steerAngle = steerDir * 32;
 
   chassisRoll = -steerDir * (speed / maxForwardSpeed) * 4.5;
-  chassisPitch = (isBrakePressed ? 4.0 : (isGasPressed ? -2.5 : 0));
+  chassisPitch = (isBrakePressed ? 3.5 : (isGasPressed ? -2.2 : 0));
 
   doorOpenAmount += ((doorsOpen ? 1 : 0) - doorOpenAmount) * dt * 4.0;
 
@@ -896,27 +960,33 @@ function updateSimulator(dt) {
     if (doorsOpen) {
       speed = Math.max(0, speed - dt * 25);
     } else if (isGasPressed && isDrive) {
-      speed = Math.min(maxForwardSpeed, speed + dt * 14.5);
+      speed = Math.min(maxForwardSpeed, speed + dt * 14.0);
     } else if (isGasPressed && isReverse) {
-      speed = Math.max(-20, speed - dt * 10);
+      speed = Math.max(-18, speed - dt * 9.5);
     } else if (isBrakePressed) {
-      if (speed > 0) speed = Math.max(0, speed - dt * 38);
-      else if (speed < 0) speed = Math.min(0, speed + dt * 38);
+      if (speed > 0) speed = Math.max(0, speed - dt * 36);
+      else if (speed < 0) speed = Math.min(0, speed + dt * 36);
     } else {
-      if (speed > 0) speed = Math.max(0, speed - dt * 6.5);
-      else if (speed < 0) speed = Math.min(0, speed + dt * 6.5);
+      if (speed > 0) speed = Math.max(0, speed - dt * 6.0);
+      else if (speed < 0) speed = Math.min(0, speed + dt * 6.0);
     }
   } else {
     speed = Math.max(0, speed - dt * 30);
   }
 
+  // Move player forward along track
   playerZ += (speed * 0.28) * dt * 42;
-  playerX += steerDir * (speed / 50) * dt * 1.8;
-  playerX = Math.max(-1.1, Math.min(1.1, playerX));
+  // Natural drift if player doesn't steer with current road curve
+  const curSegIdx = Math.floor(playerZ / SEGMENT_LENGTH);
+  const curSeg = trackSegments[Math.min(TOTAL_TRACK_SEGMENTS - 1, curSegIdx)];
+  if (curSeg) {
+    playerX += (steerDir * (speed / 48) - curSeg.curve * (speed / 180) * 0.15) * dt * 1.8;
+  }
+  playerX = Math.max(-1.15, Math.min(1.15, playerX));
 
   if (!isDraggingFreeLook) {
-    freeLookYaw += (0 - freeLookYaw) * dt * 3.5;
-    freeLookPitch += (0 - freeLookPitch) * dt * 3.5;
+    freeLookYaw += (0 - freeLookYaw) * dt * 4.0;
+    freeLookPitch += (0 - freeLookPitch) * dt * 4.0;
   }
 
   blinkerTimer += dt;
@@ -936,6 +1006,9 @@ function updateSimulator(dt) {
 
   AudioEngine.updateEngine(Math.abs(speed), isGasPressed && !doorsOpen, engineRunning);
 
+  // Traffic Lights Logic
+  let nearestLight = null;
+  let nearestLightDist = 9999;
   TRAFFIC_LIGHTS.forEach(tl => {
     tl.timer -= dt;
     if (tl.timer <= 0) {
@@ -945,7 +1018,14 @@ function updateSimulator(dt) {
     }
 
     const tlWorldZ = tl.segIndex * SEGMENT_LENGTH;
-    if (playerZ > tlWorldZ - 20 && playerZ < tlWorldZ + 30 && tl.state === 'RED' && Math.abs(speed) > 10) {
+    const dist = tlWorldZ - playerZ;
+    if (dist > -20 && dist < 350 && dist < nearestLightDist) {
+      nearestLight = tl;
+      nearestLightDist = dist;
+    }
+
+    // Red light violation check
+    if (playerZ > tlWorldZ - 15 && playerZ < tlWorldZ + 35 && tl.state === 'RED' && Math.abs(speed) > 10) {
       if (!tl.violationTriggered) {
         tl.violationTriggered = true;
         redLightInfractions++;
@@ -957,35 +1037,38 @@ function updateSimulator(dt) {
     }
   });
 
+  // Display Traffic Signal Indicator in HUD
+  if (nearestLight && nearestLightDist > 0 && nearestLightDist < 260) {
+    signalBadge.style.display = 'flex';
+    signalLamp.style.background = nearestLight.state === 'RED' ? '#ef4444' : (nearestLight.state === 'YELLOW' ? '#f59e0b' : '#10b981');
+    signalLamp.style.boxShadow = `0 0 10px ${signalLamp.style.background}`;
+    signalText.textContent = `${nearestLight.state} • ${Math.round(nearestLightDist * 0.2)}m`;
+  } else {
+    signalBadge.style.display = 'none';
+  }
+
+  // Traffic AI Movement
   trafficVehicles.forEach(car => {
-    let stopForLight = false;
-    TRAFFIC_LIGHTS.forEach(tl => {
-      const tlZ = tl.segIndex * SEGMENT_LENGTH;
-      if (car.z < tlZ && car.z > tlZ - 100 && tl.state !== 'GREEN') {
-        stopForLight = true;
+    if (car.isOncoming) {
+      // Drives TOWARDS the player!
+      car.z -= (car.speed + Math.max(0, speed)) * dt * 5.0;
+      // Respawn ahead when it passes the camera
+      if (car.z < playerZ - 120) {
+        car.z = playerZ + 1400 + Math.random() * 600;
       }
-    });
-
-    if (car.z > INCIDENT_ZONE.startSeg * SEGMENT_LENGTH && car.z < INCIDENT_ZONE.endSeg * SEGMENT_LENGTH) {
-      if (car.targetX > 0.3) car.targetX = -0.15;
-    }
-
-    if (stopForLight) {
-      car.speed = Math.max(0, car.speed - dt * 25);
     } else {
-      car.speed += (car.targetSpeed - car.speed) * dt * 2.0;
-    }
-
-    car.x += (car.targetX - car.x) * dt * 3.0;
-    car.z += (car.speed * 0.28) * dt * 42;
-
-    if (car.z < playerZ - 300) {
-      car.z = playerZ + 900 + Math.random() * 400;
-      car.targetX = ROAD_LANES[Math.floor(Math.random() * 3)];
-      car.speed = 35 + Math.random() * 25;
+      // Forward traffic driving ahead
+      car.z += (car.speed - Math.max(0, speed)) * dt * 5.0;
+      if (car.z < playerZ + 80) {
+        car.z = playerZ + 1100 + Math.random() * 500;
+      }
+      if (car.z > playerZ + 1600) {
+        car.z = playerZ + 180 + Math.random() * 300;
+      }
     }
   });
 
+  // Bus Stop & Visible Passenger Boarding System
   const nextStop = ROUTE_STOPS[currentStopIndex];
   if (nextStop) {
     const stopWorldZ = nextStop.segIndex * SEGMENT_LENGTH;
@@ -995,57 +1078,76 @@ function updateSimulator(dt) {
     beaconDist.textContent = `Next Stop • ${Math.max(0, Math.round(distToStop * 0.2))}m`;
 
     const inBayZone = (distToStop > -30 && distToStop < 45);
-    const isStoppedInBay = (inBayZone && Math.abs(speed) < 5 && playerX > 0.25);
+    const isStoppedInBay = (inBayZone && Math.abs(speed) < 6 && playerX > 0.18);
 
     if (isStoppedInBay && !nextStop.isVisited) {
-      doorPrompt.style.display = doorsOpen ? 'none' : 'block';
+      if (!doorsOpen) {
+        doorPrompt.style.display = 'block';
+        doorPrompt.textContent = "👉 TAP TO OPEN DOORS [🚪]";
+        boardingProgress.style.display = 'none';
+      } else {
+        doorPrompt.style.display = 'none';
+        boardingProgress.style.display = 'flex';
 
-      if (doorsOpen) {
-        boardingActive = true;
-        boardingTimer += dt;
-        if (boardingTimer >= 0.85 && nextStop.passengersWaiting > 0) {
-          boardingTimer = 0;
-          nextStop.passengersWaiting--;
-          passengersAboard++;
-          drivingScore += 50;
-          AudioEngine.doorChime();
-          triggerHaptic('light');
-          showAlert(`👥 Passenger Boarded (${passengersAboard}/18)`, false);
-
-          for (let i = 0; i < 10; i++) {
-            particles.push({
-              x: W * 0.6 + (Math.random() * 20 - 10),
-              y: H * 0.65,
-              vx: (Math.random() - 0.5) * 80,
-              vy: -40 - Math.random() * 70,
-              life: 0.7,
-              max: 0.7,
-              color: '#38bdf8',
-              r: 3 + Math.random() * 2
-            });
+        // Animate passenger walking across sidewalk into the bus
+        if (nextStop.passengersWaiting > 0) {
+          if (!animatedBoardingPax) {
+            animatedBoardingPax = { progress: 0, color: ['#3b82f6','#ec4899','#f97316','#10b981'][passengersAboard % 4] };
           }
-        }
+          animatedBoardingPax.progress += dt * 1.5;
+          boardText.textContent = `Passengers Boarding (${passengersAboard + 1} / 18)...`;
 
-        if (nextStop.passengersWaiting === 0 && !nextStop.isVisited) {
-          nextStop.isVisited = true;
-          totalPassengersDelivered += passengersAboard;
-          showAlert("✅ STOP COMPLETE! Close Doors & Proceed", false);
-          triggerHaptic('medium');
-          if (currentStopIndex < ROUTE_STOPS.length - 1) {
-            currentStopIndex++;
+          if (animatedBoardingPax.progress >= 1.0) {
+            animatedBoardingPax = null;
+            nextStop.passengersWaiting--;
+            passengersAboard++;
+            drivingScore += 50;
+            AudioEngine.doorChime();
+            triggerHaptic('light');
+
+            // Sparkles
+            for (let i = 0; i < 12; i++) {
+              particles.push({
+                x: W * 0.65 + (Math.random() * 20 - 10),
+                y: H * 0.68,
+                vx: (Math.random() - 0.5) * 80,
+                vy: -50 - Math.random() * 70,
+                life: 0.75,
+                max: 0.75,
+                color: '#38bdf8',
+                r: 3 + Math.random() * 2
+              });
+            }
+          }
+        } else {
+          boardText.textContent = "✅ All Aboard! Tap to Close Doors [🚪]";
+          doorPrompt.style.display = 'block';
+          doorPrompt.textContent = "TAP TO CLOSE DOORS [🚪]";
+
+          if (!nextStop.isVisited) {
+            nextStop.isVisited = true;
+            totalPassengersDelivered += passengersAboard;
+            showAlert("✅ STOP COMPLETE! Close Doors & Proceed", false);
+            triggerHaptic('medium');
+            if (currentStopIndex < ROUTE_STOPS.length - 1) {
+              currentStopIndex++;
+            }
           }
         }
       }
     } else {
       doorPrompt.style.display = 'none';
-      boardingActive = false;
+      boardingProgress.style.display = 'none';
+      animatedBoardingPax = null;
     }
   }
 
+  // Route Finished
   if (playerZ >= (TOTAL_TRACK_SEGMENTS - 80) * SEGMENT_LENGTH && gameState === 'DRIVING') {
     completeRouteMission();
   }
 
+  // Update Particles
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.x += p.vx * dt;
@@ -1083,12 +1185,14 @@ function completeRouteMission() {
 }
 
 /* ==========================================================================
-   9. 3D PROJECTION ENGINE & MASTER RASTERIZER
+   9. 3D PROJECTION ENGINE WITH DRAMATIC CURVES & VISIBLE TRAFFIC
    ========================================================================== */
 function renderScene() {
   ctx.clearRect(0, 0, W, H);
 
   const horizonY = H * 0.44 + (freeLookPitch * 140);
+
+  // Skybox
   const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
   skyGrad.addColorStop(0, '#0f172a');
   skyGrad.addColorStop(0.5, '#1e293b');
@@ -1096,6 +1200,7 @@ function renderScene() {
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, W, horizonY);
 
+  // Glowing Sun
   const sunX = W * 0.72 + (freeLookYaw * 80);
   const sunGrad = ctx.createRadialGradient(sunX, horizonY * 0.4, 4, sunX, horizonY * 0.4, 55);
   sunGrad.addColorStop(0, '#ffffff');
@@ -1106,55 +1211,68 @@ function renderScene() {
   ctx.arc(sunX, horizonY * 0.4, 55, 0, Math.PI * 2);
   ctx.fill();
 
+  // Distant Skyline
   ctx.fillStyle = '#1e293b';
   for (let b = 0; b < 12; b++) {
     const bx = ((b * 38 - playerZ * 0.005 + freeLookYaw * 60) % (W + 40) + (W + 40)) % (W + 40) - 20;
-    const bw = 32;
-    const bh = 30 + (b % 4) * 20;
+    const bw = 32, bh = 30 + (b % 4) * 20;
     ctx.fillRect(bx, horizonY - bh, bw, bh);
   }
 
+  // Terrain Ground
   const groundGrad = ctx.createLinearGradient(0, horizonY, 0, H);
   groundGrad.addColorStop(0, '#064e3b');
   groundGrad.addColorStop(1, '#022c22');
   ctx.fillStyle = groundGrad;
   ctx.fillRect(0, horizonY, W, H - horizonY);
 
-  const camHeight = (cameraMode === 1 ? 720 : 920);
+  // 3D Road Projection with Realistic Camera Height (120 units)
+  const camHeight = (cameraMode === 1 ? 95 : 120);
   const startSegIndex = Math.floor(playerZ / SEGMENT_LENGTH);
-  const DRAW_DISTANCE = 110;
+  const DRAW_DISTANCE = 85;
 
   let maxRenderY = H;
   let sceneryToDraw = [];
+  let roadPoints = [];
+
+  // Cumulative Curvature Tracking for Deep Realistic Turns!
+  let curX = 0;
+  let curDX = 0;
 
   for (let n = 0; n < DRAW_DISTANCE; n++) {
     const segIdx = startSegIndex + n;
     if (segIdx >= TOTAL_TRACK_SEGMENTS) break;
 
     const seg = trackSegments[segIdx];
-    const relZ1 = (segIdx * SEGMENT_LENGTH) - playerZ;
-    const relZ2 = ((segIdx + 1) * SEGMENT_LENGTH) - playerZ;
-    if (relZ1 <= 15) continue;
+    const relZ1 = Math.max(10, (segIdx * SEGMENT_LENGTH) - playerZ);
+    const relZ2 = Math.max(10, ((segIdx + 1) * SEGMENT_LENGTH) - playerZ);
 
     const scale1 = 280 / relZ1;
     const scale2 = 280 / relZ2;
 
-    const curveOffset1 = (seg.curve * 120 * scale1) + (freeLookYaw * 240);
-    const curveOffset2 = (seg.curve * 120 * scale2) + (freeLookYaw * 240);
+    curDX += seg.curve * 0.75;
+    curX += curDX;
 
-    const x1 = (W / 2) - (playerX * 360 * scale1) + curveOffset1;
+    const curveOffset1 = (curX * scale1) + (freeLookYaw * 240);
+    const curveOffset2 = ((curX + curDX) * scale2) + (freeLookYaw * 240);
+
+    const x1 = (W / 2) - (playerX * 700 * scale1) + curveOffset1;
     const y1 = horizonY + ((camHeight - seg.worldY) * scale1);
     const w1 = seg.roadWidth * scale1;
 
-    const x2 = (W / 2) - (playerX * 360 * scale2) + curveOffset2;
+    const x2 = (W / 2) - (playerX * 700 * scale2) + curveOffset2;
     const y2 = horizonY + ((camHeight - seg.worldY) * scale2);
     const w2 = seg.roadWidth * scale2;
 
+    roadPoints[n] = { x1, y1, w1, scale1, relZ1 };
+
     if (y1 >= maxRenderY) continue;
 
+    // Asphalt Color
     const isStripe = Math.floor(segIdx / 3) % 2 === 0;
     ctx.fillStyle = isStripe ? '#334155' : '#1e293b';
 
+    // Draw Road Polygon
     ctx.beginPath();
     ctx.moveTo(x1 - w1, y1);
     ctx.lineTo(x1 + w1, y1);
@@ -1163,6 +1281,7 @@ function renderScene() {
     ctx.closePath();
     ctx.fill();
 
+    // Curbs
     const isStopBay = ROUTE_STOPS.some(s => Math.abs(s.segIndex - segIdx) < 8);
     const curbCol = isStopBay ? '#f59e0b' : (isStripe ? '#ef4444' : '#f8fafc');
     const curbW1 = w1 * 0.08, curbW2 = w2 * 0.08;
@@ -1178,42 +1297,51 @@ function renderScene() {
     ctx.lineTo(x2 + w2 + curbW2, y2); ctx.lineTo(x2 + w2, y2);
     ctx.closePath(); ctx.fill();
 
+    // Center Double Yellow Line
     ctx.fillStyle = '#facc15';
-    const cw1 = Math.max(1.5, 4 * scale1);
+    const cw1 = Math.max(1.5, 3.5 * scale1);
     ctx.fillRect(x1 - cw1 * 1.5, y1, cw1, Math.max(1.5, y2 - y1));
     ctx.fillRect(x1 + cw1 * 0.5, y1, cw1, Math.max(1.5, y2 - y1));
 
+    // Dashed White Lane Dividers
     if (isStripe) {
       ctx.fillStyle = '#f8fafc';
       [-0.45, 0.45].forEach(lane => {
         const lx1 = x1 + w1 * lane;
-        const lw = Math.max(1.2, 3.5 * scale1);
+        const lw = Math.max(1.2, 3.0 * scale1);
         ctx.fillRect(lx1 - lw / 2, y1, lw, Math.max(1.5, y2 - y1));
       });
     }
 
+    // Bus Stop Bay Yellow Chevron Hatching
     if (isStopBay && isStripe) {
-      ctx.fillStyle = 'rgba(245,158,11,0.5)';
+      ctx.fillStyle = 'rgba(245,158,11,0.55)';
       ctx.fillRect(x1 + w1 * 0.55, y1, w1 * 0.45, Math.max(2, y2 - y1));
     }
 
+    // Stop Line & Zebra Crosswalk at Traffic Lights
     TRAFFIC_LIGHTS.forEach(tl => {
       if (Math.abs(tl.segIndex - segIdx) < 2) {
+        // Bold White Stop Line
         ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x1 - w1, y1 - 2, w1 * 2, 4);
+        // Zebra Stripes
         for (let zc = -0.8; zc <= 0.8; zc += 0.2) {
           ctx.fillRect(x1 + w1 * zc, y1, w1 * 0.1, Math.max(3, y2 - y1));
         }
       }
     });
 
+    // Collect Scenery
     seg.sceneryLeft.forEach(sc => {
-      sceneryToDraw.push({ side: 'left', x: x1 - w1 * 1.25, y: y1, scale: scale1, obj: sc, relZ: relZ1 });
+      sceneryToDraw.push({ side: 'left', x: x1 - w1 * 1.28, y: y1, scale: scale1, obj: sc, relZ: relZ1, segIdx });
     });
     seg.sceneryRight.forEach(sc => {
-      sceneryToDraw.push({ side: 'right', x: x1 + w1 * 1.25, y: y1, scale: scale1, obj: sc, relZ: relZ1 });
+      sceneryToDraw.push({ side: 'right', x: x1 + w1 * 1.28, y: y1, scale: scale1, obj: sc, relZ: relZ1, segIdx, x1, w1 });
     });
   }
 
+  // Draw Scenery Sorted
   sceneryToDraw.sort((a, b) => b.relZ - a.relZ);
   sceneryToDraw.forEach(s => {
     const sc = s.scale;
@@ -1236,85 +1364,177 @@ function renderScene() {
       ctx.fillStyle = '#16a34a';
       ctx.beginPath(); ctx.arc(s.x, s.y - 65 * sc, 16 * sc, 0, Math.PI * 2); ctx.fill();
     } else if (s.obj.type === 'bus_shelter') {
-      const sw = 90 * sc, sh = 65 * sc;
-      ctx.fillStyle = 'rgba(56,189,248,0.35)';
+      const sw = 100 * sc, sh = 70 * sc;
+      // Glass Shelter Canopy
+      ctx.fillStyle = 'rgba(56,189,248,0.4)';
       ctx.fillRect(s.x - sw / 2, s.y - sh, sw, sh);
       ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = Math.max(1, 2 * sc);
+      ctx.lineWidth = Math.max(1, 2.5 * sc);
       ctx.strokeRect(s.x - sw / 2, s.y - sh, sw, sh);
+
+      // Bus Stop Pole & Large Yellow Round Sign
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(s.x - sw * 0.6 - 2 * sc, s.y - sh - 18 * sc, 4 * sc, sh + 18 * sc);
       ctx.fillStyle = '#facc15';
-      ctx.beginPath(); ctx.arc(s.x - sw * 0.6, s.y - sh - 10 * sc, 9 * sc, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(s.x - sw * 0.6, s.y - sh - 18 * sc, 12 * sc, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#000';
-      ctx.font = `bold ${Math.max(6, 8 * sc)}px sans-serif`;
+      ctx.font = `bold ${Math.max(6, 10 * sc)}px sans-serif`;
       ctx.textAlign = 'center';
-      ctx.fillText('BUS', s.x - sw * 0.6, s.y - sh - 7 * sc);
+      ctx.fillText('BUS', s.x - sw * 0.6, s.y - sh - 15 * sc);
+
+      // Large Prominent 3D Waiting Passengers on Sidewalk!
       const stop = ROUTE_STOPS.find(st => st.id === s.obj.stopId);
-      const count = stop ? stop.passengersWaiting : 3;
+      const count = stop ? stop.passengersWaiting : 4;
       for (let p = 0; p < count; p++) {
-        const px = s.x - sw * 0.35 + p * (14 * sc);
+        const px = s.x - sw * 0.35 + p * (18 * sc);
         const py = s.y;
+        // Torso / Jacket
         ctx.fillStyle = ['#3b82f6', '#ec4899', '#f97316', '#10b981'][p % 4];
-        ctx.fillRect(px - 3 * sc, py - 24 * sc, 6 * sc, 16 * sc);
+        ctx.fillRect(px - 5 * sc, py - 32 * sc, 10 * sc, 22 * sc);
+        // Head
         ctx.fillStyle = '#fbcfe8';
-        ctx.beginPath(); ctx.arc(px, py - 28 * sc, 4 * sc, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px, py - 38 * sc, 6 * sc, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Animated Passenger Walking across sidewalk into the bus door!
+      if (animatedBoardingPax && stop && !stop.isVisited && Math.abs(stop.segIndex - s.segIdx) < 2) {
+        const t = animatedBoardingPax.progress; // 0 to 1
+        const walkX = s.x - (sw * 0.3) + t * (s.x1 + s.w1 * 0.7 - s.x);
+        const walkY = s.y;
+        ctx.fillStyle = animatedBoardingPax.color;
+        ctx.fillRect(walkX - 6 * sc, walkY - 34 * sc, 12 * sc, 24 * sc);
+        ctx.fillStyle = '#fbcfe8';
+        ctx.beginPath(); ctx.arc(walkX, walkY - 40 * sc, 7 * sc, 0, Math.PI * 2); ctx.fill();
       }
     } else if (s.obj.type === 'traffic_gantry') {
+      // MASSIVE OVERHEAD SIGNAL GANTRY SPANNING ACROSS THE ENTIRE ROAD!
       const tl = TRAFFIC_LIGHTS.find(t => t.id === s.obj.tlId);
-      const gh = 95 * sc;
+      const gh = 110 * sc;
+      const roadLeftX = s.x - 220 * sc;
+      const roadRightX = s.x;
+
+      // Steel Support Pillars (Left & Right)
       ctx.fillStyle = '#475569';
-      ctx.fillRect(s.x - 4 * sc, s.y - gh, 8 * sc, gh);
-      const boxW = 16 * sc, boxH = 44 * sc;
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(s.x - boxW / 2, s.y - gh - 8 * sc, boxW, boxH);
+      ctx.fillRect(roadLeftX, s.y - gh, 8 * sc, gh);
+      ctx.fillRect(roadRightX, s.y - gh, 8 * sc, gh);
+
+      // Overhead Horizontal Truss Beam
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(roadLeftX, s.y - gh - 6 * sc, (roadRightX - roadLeftX) + 8 * sc, 12 * sc);
+
+      // 3 Overhead Signal Housings Hanging over each lane!
       const isRed = tl && tl.state === 'RED';
       const isYel = tl && tl.state === 'YELLOW';
       const isGrn = tl && tl.state === 'GREEN';
-      ctx.fillStyle = isRed ? '#ef4444' : '#450a0a';
-      ctx.beginPath(); ctx.arc(s.x, s.y - gh + 2 * sc, 4 * sc, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = isYel ? '#f59e0b' : '#451a03';
-      ctx.beginPath(); ctx.arc(s.x, s.y - gh + 14 * sc, 4 * sc, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = isGrn ? '#10b981' : '#022c22';
-      ctx.beginPath(); ctx.arc(s.x, s.y - gh + 26 * sc, 4 * sc, 0, Math.PI * 2); ctx.fill();
+
+      [-0.55, 0.0, 0.55].forEach(laneOffset => {
+        const boxX = (roadLeftX + roadRightX) / 2 + (laneOffset * 90 * sc);
+        const boxY = s.y - gh + 6 * sc;
+        const bw = 16 * sc, bh = 42 * sc;
+
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(boxX - bw / 2, boxY, bw, bh);
+
+        // Bulbs
+        ctx.save();
+        // Red Bulb
+        ctx.fillStyle = isRed ? '#ff0033' : '#450a0a';
+        if (isRed) { ctx.shadowColor = '#ff0033'; ctx.shadowBlur = 16; }
+        ctx.beginPath(); ctx.arc(boxX, boxY + 7 * sc, 4.5 * sc, 0, Math.PI * 2); ctx.fill();
+
+        // Yellow Bulb
+        ctx.fillStyle = isYel ? '#ffbb00' : '#451a03';
+        if (isYel) { ctx.shadowColor = '#ffbb00'; ctx.shadowBlur = 16; }
+        ctx.beginPath(); ctx.arc(boxX, boxY + 20 * sc, 4.5 * sc, 0, Math.PI * 2); ctx.fill();
+
+        // Green Bulb
+        ctx.fillStyle = isGrn ? '#00ff66' : '#022c22';
+        if (isGrn) { ctx.shadowColor = '#00ff66'; ctx.shadowBlur = 16; }
+        ctx.beginPath(); ctx.arc(boxX, boxY + 33 * sc, 4.5 * sc, 0, Math.PI * 2); ctx.fill();
+
+        ctx.restore();
+      });
     }
   });
 
+  // 10. REALISTIC TRAFFIC CARS (ONCOMING & FORWARD)
   trafficVehicles.forEach(car => {
     const relZ = car.z - playerZ;
-    if (relZ > 20 && relZ < 850) {
+    if (relZ > 35 && relZ < 1400) {
       const sc = 280 / relZ;
-      const segIdx = Math.floor(car.z / SEGMENT_LENGTH);
-      const seg = trackSegments[Math.min(TOTAL_TRACK_SEGMENTS - 1, segIdx)];
-      const curveOff = (seg ? seg.curve * 120 * sc : 0) + (freeLookYaw * 240);
-      const cx = (W / 2) - (playerX * 360 * sc) + (car.x * 700 * sc) + curveOff;
-      const cy = horizonY + ((camHeight - (seg ? seg.worldY : 0)) * sc);
-      const cw = (car.type === 'van' ? 95 : 82) * sc;
-      const ch = (car.type === 'van' ? 70 : 50) * sc;
+      // Get road curvature at car's position
+      const segIdx = Math.max(0, Math.min(TOTAL_TRACK_SEGMENTS - 1, Math.floor(car.z / SEGMENT_LENGTH)));
+      const seg = trackSegments[segIdx];
+      const curveOff = (seg ? seg.curve * 80 * sc : 0) + (freeLookYaw * 240);
 
-      if (cy > horizonY && cy < H) {
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      const cx = (W / 2) - (playerX * 700 * sc) + (car.x * 700 * sc) + curveOff;
+      const cy = horizonY + ((camHeight - (seg ? seg.worldY : 0)) * sc);
+      const cw = (car.type === 'van' ? 96 : (car.type === 'suv' ? 90 : 82)) * sc;
+      const ch = (car.type === 'van' ? 68 : 50) * sc;
+
+      if (cy > horizonY && cy < H + 50) {
+        // Ground Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
         ctx.fillRect(cx - cw / 2, cy, cw, 6 * sc);
 
+        // Vehicle Body
         ctx.fillStyle = car.color;
         ctx.beginPath();
         ctx.roundRect(cx - cw / 2, cy - ch, cw, ch, [6 * sc, 6 * sc, 2, 2]);
         ctx.fill();
 
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(cx - cw * 0.35, cy - ch * 0.85, cw * 0.7, ch * 0.35);
+        if (car.isOncoming) {
+          // === ONCOMING CAR (FRONT VIEW FACING PLAYER) ===
+          // Front Windshield
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(cx - cw * 0.35, cy - ch * 0.9, cw * 0.7, ch * 0.4);
 
+          // Front Grille
+          ctx.fillStyle = '#09090b';
+          ctx.fillRect(cx - cw * 0.25, cy - ch * 0.35, cw * 0.5, ch * 0.22);
+
+          // Bright Glowing Headlights!
+          ctx.save();
+          ctx.fillStyle = '#ffffff';
+          ctx.shadowColor = '#fef08a';
+          ctx.shadowBlur = 14;
+          ctx.beginPath(); ctx.arc(cx - cw * 0.36, cy - ch * 0.28, 5.5 * sc, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(cx + cw * 0.36, cy - ch * 0.28, 5.5 * sc, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+
+        } else {
+          // === FORWARD CAR (REAR VIEW DRIVING AHEAD) ===
+          // Rear Windshield
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(cx - cw * 0.35, cy - ch * 0.85, cw * 0.7, ch * 0.35);
+
+          // Glowing Red Taillights!
+          ctx.save();
+          ctx.fillStyle = '#ff1111';
+          ctx.shadowColor = '#ff0000';
+          ctx.shadowBlur = 10;
+          ctx.fillRect(cx - cw * 0.45, cy - ch * 0.35, cw * 0.22, ch * 0.25);
+          ctx.fillRect(cx + cw * 0.23, cy - ch * 0.35, cw * 0.22, ch * 0.25);
+          ctx.restore();
+        }
+
+        // Police Roof Light Bar
         if (car.type === 'police') {
           const flash = Math.floor(performance.now() * 0.01) % 2 === 0;
           ctx.fillStyle = flash ? '#3b82f6' : '#ef4444';
           ctx.fillRect(cx - cw * 0.25, cy - ch - 8 * sc, cw * 0.5, 6 * sc);
         }
 
-        ctx.fillStyle = (car.isBraking || isBrakePressed) ? '#ff0000' : '#b91c1c';
-        ctx.fillRect(cx - cw * 0.45, cy - ch * 0.35, cw * 0.2, ch * 0.25);
-        ctx.fillRect(cx + cw * 0.25, cy - ch * 0.35, cw * 0.2, ch * 0.25);
+        // Taxi Roof Sign
+        if (car.type === 'taxi') {
+          ctx.fillStyle = '#fef08a';
+          ctx.fillRect(cx - 10 * sc, cy - ch - 6 * sc, 20 * sc, 6 * sc);
+        }
       }
     }
   });
 
+  // Particles (Exhaust Smoke, Boarding Sparkles)
   particles.forEach(p => {
     ctx.fillStyle = p.color;
     ctx.beginPath();
@@ -1322,7 +1542,8 @@ function renderScene() {
     ctx.fill();
   });
 
-  if (cameraMode === 0) {
+  // 11. PLAYER BUS RENDERING
+  if (cameraMode === 0) { // CHASE VIEW
     const busY = H * 0.75 + chassisPitch;
     const bw = 146, bh = 152;
 
@@ -1330,21 +1551,25 @@ function renderScene() {
     ctx.translate(W / 2 + (freeLookYaw * 60), busY);
     ctx.rotate((chassisRoll * Math.PI) / 180);
 
+    // Ground Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.beginPath();
     ctx.ellipse(0, bh * 0.46, bw * 0.56, 12, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    // Main Bus Body (City Blue Livery)
     ctx.fillStyle = '#0284c7';
     ctx.beginPath();
     ctx.roundRect(-bw / 2, -bh / 2, bw, bh, [18, 18, 6, 6]);
     ctx.fill();
 
+    // Upper White Aerodynamic Roof Cap
     ctx.fillStyle = '#f8fafc';
     ctx.beginPath();
     ctx.roundRect(-bw / 2 + 4, -bh / 2 + 4, bw - 8, 32, [12, 12, 0, 0]);
     ctx.fill();
 
+    // LED Electronic Destination Board ("42 METRO EXPRESS")
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(-bw * 0.38, -bh / 2 + 10, bw * 0.76, 18);
     ctx.fillStyle = '#f59e0b';
@@ -1352,11 +1577,13 @@ function renderScene() {
     ctx.textAlign = 'center';
     ctx.fillText('42 METRO EXP - DOWNTOWN', 0, -bh / 2 + 23);
 
+    // Big Rear Windshield Glass with Tint
     ctx.fillStyle = '#0f172a';
     ctx.beginPath();
     ctx.roundRect(-bw * 0.42, -bh / 2 + 42, bw * 0.84, 52, 10);
     ctx.fill();
 
+    // Glass Reflection Sheen
     ctx.fillStyle = 'rgba(255,255,255,0.12)';
     ctx.beginPath();
     ctx.moveTo(-bw * 0.36, -bh / 2 + 46);
@@ -1365,15 +1592,17 @@ function renderScene() {
     ctx.closePath();
     ctx.fill();
 
-    for (let pi = 0; pi < Math.min(6, passengersAboard); pi++) {
-      const px = -bw * 0.3 + (pi % 3) * 24;
-      const py = -bh / 2 + 75 + Math.floor(pi / 3) * 8;
-      ctx.fillStyle = ['#3b82f6', '#ec4899', '#10b981'][pi % 3];
+    // Interior Passengers visibly seated inside the bus!
+    for (let pi = 0; pi < Math.min(8, passengersAboard); pi++) {
+      const px = -bw * 0.32 + (pi % 4) * 22;
+      const py = -bh / 2 + 75 + Math.floor(pi / 4) * 8;
+      ctx.fillStyle = ['#3b82f6', '#ec4899', '#f97316', '#10b981'][pi % 4];
       ctx.fillRect(px - 4, py, 8, 10);
       ctx.fillStyle = '#fbcfe8';
       ctx.beginPath(); ctx.arc(px, py - 4, 3.5, 0, Math.PI * 2); ctx.fill();
     }
 
+    // Front-Right Passenger Doors (Animated Swing)
     if (doorOpenAmount > 0.05) {
       ctx.fillStyle = '#38bdf8';
       ctx.fillRect(bw / 2 - 14, -bh / 2 + 46, 8 * (1 - doorOpenAmount * 0.7), 64);
@@ -1381,6 +1610,7 @@ function renderScene() {
       ctx.fillRect(bw / 2 - 6, -bh / 2 + 50, 6, 56);
     }
 
+    // Taillights Strip
     const isBraking = isBrakePressed || parkingBrake;
     ctx.fillStyle = isBraking ? '#ff0000' : '#b91c1c';
     ctx.shadowColor = isBraking ? '#ff0000' : 'transparent';
@@ -1389,6 +1619,7 @@ function renderScene() {
     ctx.fillRect(bw / 2 - 26, bh * 0.22, 18, 30);
     ctx.shadowBlur = 0;
 
+    // Amber Turn Signals
     if ((blinkerLeft || hazardActive) && blinkerLampOn) {
       ctx.fillStyle = '#f59e0b';
       ctx.fillRect(-bw / 2 + 8, bh * 0.12, 18, 12);
@@ -1398,6 +1629,7 @@ function renderScene() {
       ctx.fillRect(bw / 2 - 26, bh * 0.12, 18, 12);
     }
 
+    // License Plate & Heavy Bumper
     ctx.fillStyle = '#1e293b';
     ctx.fillRect(-bw / 2 + 6, bh * 0.38, bw - 12, 16);
     ctx.fillStyle = '#fbbf24';
@@ -1406,6 +1638,7 @@ function renderScene() {
     ctx.font = 'bold 7.5px sans-serif';
     ctx.fillText('BUS-08', 0, bh * 0.49);
 
+    // Wheels with Turning Ackermann Angle
     const wheelAngle = (steerAngle * Math.PI) / 180;
     ctx.save();
     ctx.translate(-bw / 2 + 16, bh * 0.44);
@@ -1423,16 +1656,19 @@ function renderScene() {
 
     ctx.restore();
 
-  } else if (cameraMode === 1) {
+  } else { // COCKPIT INTERIOR VIEW (Clean Panoramic View - MIRRORS REMOVED PER USER REQUEST)
     const dashY = H * 0.72 + (freeLookPitch * 140);
 
+    // Windshield A-Pillar (Left)
     ctx.fillStyle = '#0f172a';
     ctx.beginPath();
-    ctx.moveTo(0, 0); ctx.lineTo(44, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+    ctx.moveTo(0, 0); ctx.lineTo(38, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
 
+    // Windshield A-Pillar (Right)
     ctx.beginPath();
-    ctx.moveTo(W, 0); ctx.lineTo(W - 44, H); ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+    ctx.moveTo(W, 0); ctx.lineTo(W - 38, H); ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
 
+    // Windshield Wiper Blade
     ctx.save();
     ctx.translate(W * 0.5, dashY - 4);
     ctx.rotate((wiperAngle * Math.PI) / 180);
@@ -1441,21 +1677,17 @@ function renderScene() {
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-70, -110); ctx.stroke();
     ctx.restore();
 
-    ctx.fillStyle = '#0284c7';
-    ctx.fillRect(4, H * 0.28, 38, 76);
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(7, H * 0.28 + 3, 32, 70);
-    ctx.fillStyle = '#38bdf8';
-    ctx.fillRect(10, H * 0.28 + 20, 26, 3);
-
+    // Dashboard Console Base
     ctx.fillStyle = '#1e293b';
     ctx.fillRect(0, dashY, W, H - dashY);
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, dashY, W, 8);
 
+    // Instrument Cluster (Dials)
     const dialX = W * 0.70;
     const dialY = dashY + 45;
 
+    // Speedometer Dial
     ctx.fillStyle = '#0f172a';
     ctx.beginPath(); ctx.arc(dialX - 32, dialY, 26, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.stroke();
@@ -1466,6 +1698,7 @@ function renderScene() {
     ctx.lineTo(dialX - 32 + Math.cos(speedAngle) * 20, dialY + Math.sin(speedAngle) * 20);
     ctx.stroke();
 
+    // RPM Gauge Dial
     ctx.fillStyle = '#0f172a';
     ctx.beginPath(); ctx.arc(dialX + 32, dialY, 22, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#10b981'; ctx.lineWidth = 2; ctx.stroke();
@@ -1476,6 +1709,7 @@ function renderScene() {
     ctx.lineTo(dialX + 32 + Math.cos(rpmAngle) * 16, dialY + Math.sin(rpmAngle) * 16);
     ctx.stroke();
 
+    // Green Glowing Turn Indicator Dashboard Arrows
     if ((blinkerLeft || hazardActive) && blinkerLampOn) {
       ctx.fillStyle = '#10b981';
       ctx.font = 'bold 16px sans-serif';
@@ -1487,6 +1721,7 @@ function renderScene() {
       ctx.fillText('⇨', dialX + 60, dialY - 14);
     }
 
+    // Rotating 3D Leather Bus Steering Wheel
     const wheelCenterY = dashY + 48;
     ctx.save();
     ctx.translate(W * 0.32, wheelCenterY);
@@ -1510,25 +1745,11 @@ function renderScene() {
     ctx.fillText('METRO', 0, 3);
 
     ctx.restore();
-
-  } else {
-    const doorX = W * 0.72;
-    const doorY = H * 0.48;
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(doorX - 45, doorY, 90, H - doorY);
-    ctx.fillStyle = '#facc15';
-    ctx.fillRect(doorX - 45, H * 0.72, 90, 8);
-    ctx.fillStyle = '#facc15';
-    ctx.fillRect(doorX - 35, doorY, 6, H - doorY);
-    ctx.fillStyle = '#0369a1';
-    for (let r = 0; r < 3; r++) {
-      ctx.fillRect(10, H * 0.55 + r * 35, 75, 24);
-    }
   }
 }
 
 /* ==========================================================================
-   10. MAIN HIGH-PERFORMANCE ANIMATION LOOP
+   10. MAIN ANIMATION LOOP
    ========================================================================== */
 function mainLoop(timestamp) {
   const dt = Math.min((timestamp - lastFrameTime) / 1000, 0.08);
