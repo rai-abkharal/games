@@ -41,7 +41,6 @@ import java.util.concurrent.TimeUnit
 
 enum class FeedTab {
     ALL,
-    TRENDING,
     FAVORITES
 }
 
@@ -114,7 +113,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
         applyTheme()
         setupViewPager()
-        setupInGameHud()
+        setupLikeControl()
         setupBottomNav()
         loadCatalog()
         fetchRemoteAdsConfig()
@@ -124,21 +123,40 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         val colors = themeManager.getColors()
 
         binding.rootLayout.setBackgroundColor(colors.bgColor)
-        binding.tvPlayerName.setTextColor(colors.textColorPrimary)
-        binding.tvGameTitle.setTextColor(colors.textColorPrimary)
-        binding.tvGameMeta.setTextColor(colors.textColorSecondary)
+        // The HUD floats above active games, so its labels stay crisp over both
+        // light and dark game scenes instead of inheriting a page background.
+        binding.tvPlayerName.setTextColor(Color.parseColor("#F8FAFC"))
+        binding.tvGameTitle.setTextColor(Color.parseColor("#F8FAFC"))
+        binding.tvGameMeta.setTextColor(Color.parseColor("#BFDBFE"))
 
         // Seamless Banner Ad Container matching theme
         val bannerDrawable = GradientDrawable().apply {
             cornerRadius = 16f
-            setColor(colors.bannerBg)
+            setColor(Color.argb(
+                if (colors.isDark) 82 else 64,
+                Color.red(colors.bannerBg),
+                Color.green(colors.bannerBg),
+                Color.blue(colors.bannerBg)
+            ))
+            setStroke(1, Color.argb(110, 191, 227, 255))
         }
         binding.bannerAdContainer.background = bannerDrawable
 
-        // Solid Docked Bottom Navigation Bar
-        binding.bottomNavBar.setBackgroundColor(colors.navBg)
+        binding.topBar.setBackgroundResource(
+            if (colors.isDark) R.drawable.bg_top_bar_glass_dark else R.drawable.bg_top_bar_glass
+        )
+
+        // The game continues below this translucent floating dock.
+        binding.bottomNavBar.setBackgroundResource(
+            if (colors.isDark) R.drawable.bg_nav_bar_dark else R.drawable.bg_nav_bar
+        )
 
         updateNavTabVisuals()
+        if (::adapter.isInitialized) {
+            adapter.getGame(binding.viewPager.currentItem)?.let { game ->
+                updateFavoriteButton(progressManager.isFavorite(game.id))
+            }
+        }
         updateCoinsDisplay()
     }
 
@@ -179,9 +197,9 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         }
     }
 
-    private fun setupInGameHud() {
-        // 1. Favorite / Like Button
-        binding.btnFavorite.setOnClickListener {
+    private fun setupLikeControl() {
+        // The Like control lives inside the floating bottom dock.
+        binding.navLike.setOnClickListener {
             val currentPos = binding.viewPager.currentItem
             val game = this@MainActivity.adapter.getGame(currentPos) ?: return@setOnClickListener
             val isFav = progressManager.toggleFavorite(game.id)
@@ -200,10 +218,6 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             filterGamesByTab(FeedTab.ALL)
         }
 
-        binding.navTrending.setOnClickListener {
-            filterGamesByTab(FeedTab.TRENDING)
-        }
-
         binding.navFavorites.setOnClickListener {
             filterGamesByTab(FeedTab.FAVORITES)
         }
@@ -220,7 +234,6 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
         displayedGameList = when (tab) {
             FeedTab.ALL -> fullGameList
-            FeedTab.TRENDING -> fullGameList.sortedByDescending { it.feedOrder }
             FeedTab.FAVORITES -> {
                 val favIds = progressManager.getFavoriteGameIds()
                 val favs = fullGameList.filter { favIds.contains(it.id) }
@@ -241,27 +254,29 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     private fun updateNavTabVisuals() {
         val colors = themeManager.getColors()
         val activeColor = colors.accentColor
-        val inactiveColor = if (colors.isDark) Color.parseColor("#64748B") else Color.parseColor("#94A3B8")
+        val inactiveColor = if (colors.isDark) Color.parseColor("#BFDBFE") else Color.parseColor("#D6E9FF")
 
         binding.ivNavAll.imageTintList = ColorStateList.valueOf(if (currentTab == FeedTab.ALL) activeColor else inactiveColor)
         binding.tvNavAll.setTextColor(if (currentTab == FeedTab.ALL) activeColor else inactiveColor)
 
-        binding.ivNavTrending.imageTintList = ColorStateList.valueOf(if (currentTab == FeedTab.TRENDING) activeColor else inactiveColor)
-        binding.tvNavTrending.setTextColor(if (currentTab == FeedTab.TRENDING) activeColor else inactiveColor)
-
         binding.ivNavFav.imageTintList = ColorStateList.valueOf(if (currentTab == FeedTab.FAVORITES) activeColor else inactiveColor)
         binding.tvNavFav.setTextColor(if (currentTab == FeedTab.FAVORITES) activeColor else inactiveColor)
+
+        binding.ivNavSettings.imageTintList = ColorStateList.valueOf(inactiveColor)
+        binding.tvNavSettings.setTextColor(inactiveColor)
     }
 
     private fun updateFavoriteButton(isFavorite: Boolean) {
         if (isFavorite) {
             binding.btnFavorite.setImageResource(R.drawable.ic_heart_filled)
             binding.btnFavorite.imageTintList = null
+            binding.tvNavLike.setTextColor(Color.parseColor("#EF4444"))
         } else {
             binding.btnFavorite.setImageResource(R.drawable.ic_heart)
             val colors = themeManager.getColors()
-            val tint = if (colors.isDark) Color.parseColor("#94A3B8") else Color.parseColor("#64748B")
+            val tint = if (colors.isDark) Color.parseColor("#BFDBFE") else Color.parseColor("#D6E9FF")
             binding.btnFavorite.imageTintList = ColorStateList.valueOf(tint)
+            binding.tvNavLike.setTextColor(tint)
         }
     }
 

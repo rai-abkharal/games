@@ -326,7 +326,7 @@ const Host = {
     } catch(e){}
   }
 };
-Host.post('ready', { gameId: 'real-drive', version: '1.0.8' });
+Host.post('ready', { gameId: 'real-drive', version: '1.0.7' });
 
 function triggerHaptic(type = 'light') {
   Host.post('haptic', { type });
@@ -723,6 +723,12 @@ let parkingBrake = true;
 let wipersActive = false;
 let wiperAngle = 0;
 
+let blinkerLeft = false;
+let blinkerRight = false;
+let hazardActive = false;
+let blinkerTimer = 0;
+let blinkerLampOn = false;
+
 let doorsOpen = false;
 let doorOpenAmount = 0;
 let boardingActive = false;
@@ -917,6 +923,10 @@ const btnHorn = document.getElementById('btn-horn');
 const btnPause = document.getElementById('btn-pause');
 
 let alertTimer = 0;
+
+function syncIndicatorUI() {
+  // Indicator controls were intentionally removed from the driving HUD.
+}
 
 function getStopStatus(stop = ROUTE_STOPS[currentStopIndex]) {
   if (!stop) return null;
@@ -1182,6 +1192,10 @@ function resetRouteState() {
   steerLeftPressed = false;
   steerRightPressed = false;
   wipersActive = false;
+  blinkerLeft = false;
+  blinkerRight = false;
+  hazardActive = false;
+  blinkerLampOn = false;
   ROUTE_STOPS.forEach(s => {
     s.passengersWaiting = s.initialPassengers;
     s.passengersAlighting = s.initialAlighting;
@@ -1197,6 +1211,7 @@ function resetRouteState() {
   doorOpenAmount = 0;
   btnDoor.classList.remove('active');
   btnWipers.classList.remove('active');
+  syncIndicatorUI();
   doorPrompt.style.display = 'none';
   boardingProgress.style.display = 'none';
   signalBadge.style.display = 'none';
@@ -1331,6 +1346,16 @@ function updateSimulator(dt) {
   if (!isDraggingFreeLook) {
     freeLookYaw += (0 - freeLookYaw) * dt * 4.0;
     freeLookPitch += (0 - freeLookPitch) * dt * 4.0;
+  }
+
+  // Blinker pulse
+  blinkerTimer += dt;
+  if (blinkerTimer > 0.42) {
+    blinkerTimer = 0;
+    blinkerLampOn = !blinkerLampOn;
+    if ((blinkerLeft || blinkerRight || hazardActive) && blinkerLampOn) {
+      AudioEngine.blinkerClick();
+    }
   }
 
   if (wipersActive) {
@@ -2565,6 +2590,15 @@ function renderScene() {
     ctx.fillRect(leftLightX + 3, lightY + 3, lightW - 6, lightH - 6);
     ctx.restore();
 
+    if ((blinkerLeft || hazardActive) && blinkerLampOn) {
+      ctx.save();
+      ctx.fillStyle = '#f59e0b';
+      ctx.shadowColor = '#f59e0b';
+      ctx.shadowBlur = 16;
+      ctx.fillRect(leftLightX + 3, lightY + 4, lightW - 6, 12);
+      ctx.restore();
+    }
+
     if (currentGear === 'R') {
       ctx.save();
       ctx.fillStyle = '#ffffff';
@@ -2587,6 +2621,15 @@ function renderScene() {
     ctx.shadowBlur = isBraking ? 24 : 10;
     ctx.fillRect(rightLightX + 3, lightY + 3, lightW - 6, lightH - 6);
     ctx.restore();
+
+    if ((blinkerRight || hazardActive) && blinkerLampOn) {
+      ctx.save();
+      ctx.fillStyle = '#f59e0b';
+      ctx.shadowColor = '#f59e0b';
+      ctx.shadowBlur = 16;
+      ctx.fillRect(rightLightX + 3, lightY + 4, lightW - 6, 12);
+      ctx.restore();
+    }
 
     if (currentGear === 'R') {
       ctx.save();
@@ -2705,6 +2748,17 @@ function renderScene() {
     ctx.moveTo(dialX + 32, dialY);
     ctx.lineTo(dialX + 32 + Math.cos(rpmAngle) * 16, dialY + Math.sin(rpmAngle) * 16);
     ctx.stroke();
+
+    if ((blinkerLeft || hazardActive) && blinkerLampOn) {
+      ctx.fillStyle = '#10b981';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillText('⇦', dialX - 70, dialY - 14);
+    }
+    if ((blinkerRight || hazardActive) && blinkerLampOn) {
+      ctx.fillStyle = '#10b981';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillText('⇨', dialX + 60, dialY - 14);
+    }
 
     // Proper three-spoke bus steering wheel. It rotates only with the actual
     // steering state, not with freelook, so the cockpit stays believable.

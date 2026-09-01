@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">androidnative</string>
+    <string name="like_current_game">Like current game</string>
 </resources>
