@@ -264,14 +264,14 @@
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/water-sort/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/water-sort.webp",
-      "sizeBytes": 82175,
+      "sizeBytes": 82271,
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/water-sort/1.0.0/manifest.json",
       "feedOrder": 12,
       "category": "Puzzle",
       "description": "AAA luxury 3D Liquid Sorting Puzzle with realistic fluid physics, procedural audio synthesis, and guaranteed solvable levels.",
-      "sha256": "89bffc7886fcbea8c9bd42e2869e43679bff810f428d09ac43697faf4fcb89b6",
+      "sha256": "6a7553607e93059e855b47376e869b879bc2c3e9eef0fc21fe70645ee178dcdd",
       "status": "published",
       "touchZones": [],
       "features": {
@@ -293,7 +293,7 @@
       "feedOrder": 13,
       "category": "Arcade",
       "description": "Weave through three lanes of traffic, scoop up coins and push your speed as far as the road lets you.",
-      "sha256": "026fc1ccb9bc491e6ae8b5518bcd40758b65c9eeda2a01e1acd88ad14879d98c",
+      "sha256": "bdc893edf4e378a4b7f314bc352a95ceb8ca695c22b07ecd450a8621c9bda74a",
       "status": "published",
       "touchZones": [],
       "features": {
@@ -439,18 +439,18 @@
     },
     {
       "id": "real-drive",
-      "title": "Real Drive: 3D Simulator",
+      "title": "Real Drive: 3D Bus Simulator",
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/real-drive/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/real-drive.webp",
-      "sizeBytes": 43242,
+      "sizeBytes": 60699,
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/real-drive/1.0.0/manifest.json",
       "feedOrder": 25,
       "category": "Simulation",
-      "description": "High-graphics 3D vehicle and transit bus simulator. Features realistic engine start/stop ignition, pneumatic air brakes, realistic suspension & drift physics, interactive cockpit controls, bus stop passenger pickup routes, day/night lighting, and dual vehicle modes (Transit Bus & GT Supercar).",
-      "sha256": "1e6b5acd188696d388dd0f3c8f500ad052ababaac2470b6240c765d9375f7b20",
+      "description": "Realistic 3D transit bus simulator. Features natural road curves and bridge elevation, traffic AI, traffic lights, passenger bus stops, animated boarding, cockpit interior with rotating steering wheel, multi-camera views with touch free-look, and diesel/pneumatic audio.",
+      "sha256": "ac514f32a353b4d9491a7e464cf68765b9df1e35f9f2b86d1b71cf676f2b2d57",
       "status": "published",
       "touchZones": [],
       "features": {
@@ -461,28 +461,6 @@
         "physics": true,
         "dayNight": true
       }
-    },
-    {
-      "id": "neon-breaker",
-      "title": "Neon Breaker",
-      "version": "1.0.0",
-      "entryUrl": "http://localhost:8080/games/neon-breaker/1.0.0/index.html",
-      "thumbnailUrl": "http://localhost:8080/thumbnails/neon-breaker.webp",
-      "sizeBytes": 34500,
-      "orientation": "portrait",
-      "engine": "canvas2d",
-      "manifestUrl": "http://localhost:8080/games/neon-breaker/1.0.0/manifest.json",
-      "feedOrder": 28,
-      "category": "Arcade",
-      "description": "Futuristic dark neon arcade ball-breaker game! Aim with precision, launch streams of glowing energy balls, destroy multi-HP glass neon blocks and polygon triangles, collect ball pickups, and activate lightning and multi-ball powerups.",
-      "touchZones": [],
-      "features": {
-        "sound": true,
-        "vibration": true,
-        "powerups": true,
-        "stages": true
-      },
-      "status": "published"
     },
     {
       "id": "quantum-maze",

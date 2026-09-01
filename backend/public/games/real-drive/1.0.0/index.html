@@ -3,265 +3,325 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Real Drive: 3D Simulator</title>
+<title>Real Drive: 3D Bus Simulator</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;touch-action:none;user-select:none;-webkit-user-select:none}
-html,body{width:100%;height:100%;overflow:hidden;background:#05070e;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+html,body{width:100%;height:100%;overflow:hidden;background:#030712;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 body{overscroll-behavior:none}
 #game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:relative}
-canvas{display:block;background:#05070e;box-shadow:0 0 40px rgba(0,0,0,0.8)}
+canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
 
-/* HUD Overlays */
-#hud{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:12px;box-sizing:border-box}
-.hud-btn{pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;background:rgba(15,23,42,0.75);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.18);border-radius:12px;color:#fff;font-weight:700;transition:all 0.1s cubic-bezier(0.4,0,0.2,1);box-shadow:0 4px 12px rgba(0,0,0,0.4);font-size:12px}
-.hud-btn:active{transform:scale(0.93);background:rgba(30,41,59,0.9);border-color:rgba(59,130,246,0.6)}
-.hud-btn.active{background:rgba(59,130,246,0.85);border-color:#60a5fa;box-shadow:0 0 14px rgba(59,130,246,0.7)}
+/* --- HUD OVERLAYS --- */
+#hud{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:12px 14px;box-sizing:border-box;z-index:10}
 
-/* Top bar */
+/* Top Navigation Bar */
 .top-bar{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;width:100%}
-.stat-pill{background:rgba(15,23,42,0.8);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);padding:6px 12px;border-radius:10px;display:flex;flex-direction:column;align-items:center}
-.stat-label{font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:700}
-.stat-val{font-size:15px;font-weight:800;color:#f8fafc;font-variant-numeric:tabular-nums}
+.hud-pill{background:rgba(15,23,42,0.85);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.14);border-radius:12px;padding:6px 12px;display:flex;flex-direction:column;align-items:center;box-shadow:0 4px 16px rgba(0,0,0,0.4)}
+.pill-label{font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:800}
+.pill-val{font-size:15px;font-weight:900;color:#f8fafc;font-variant-numeric:tabular-nums}
+
+/* Route & Bus Stop Beacon Banner */
+#route-beacon{background:rgba(15,23,42,0.88);border:1px solid rgba(56,189,248,0.4);backdrop-filter:blur(10px);border-radius:12px;padding:6px 14px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(56,189,248,0.25)}
+.beacon-dot{width:8px;height:8px;border-radius:50%;background:#38bdf8;box-shadow:0 0 8px #38bdf8;animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.8)}}
+.beacon-text{font-size:12px;font-weight:800;color:#f8fafc}
+.beacon-sub{font-size:9px;color:#38bdf8;font-weight:700;letter-spacing:0.5px}
 
 /* Notification banner */
-#banner{position:absolute;top:70px;left:50%;transform:translateX(-50%);background:rgba(16,185,129,0.9);color:#fff;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:800;letter-spacing:0.5px;box-shadow:0 6px 20px rgba(16,185,129,0.5);opacity:0;transition:opacity 0.25s,transform 0.25s;pointer-events:none;white-space:nowrap;z-index:20}
-#banner.show{opacity:1;transform:translateX(-50%) translateY(4px)}
+#alert-banner{position:absolute;top:68px;left:50%;transform:translateX(-50%);background:rgba(16,185,129,0.92);color:#fff;padding:8px 20px;border-radius:24px;font-size:12px;font-weight:900;letter-spacing:0.5px;box-shadow:0 8px 24px rgba(16,185,129,0.45);opacity:0;transition:all 0.25s cubic-bezier(0.4,0,0.2,1);pointer-events:none;white-space:nowrap;z-index:30}
+#alert-banner.show{opacity:1;transform:translateX(-50%) translateY(6px)}
+#alert-banner.warn{background:rgba(239,68,68,0.95);box-shadow:0 8px 24px rgba(239,68,68,0.5)}
 
-/* Speedometer & Gear Center Display */
-.center-cluster{position:absolute;bottom:130px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none}
-.speed-text{font-size:38px;font-weight:900;color:#f8fafc;letter-spacing:-1px;text-shadow:0 2px 10px rgba(0,0,0,0.8);line-height:1}
-.speed-unit{font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-top:2px}
-.gear-badge{margin-top:4px;background:rgba(15,23,42,0.8);border:1px solid rgba(255,255,255,0.2);padding:2px 10px;border-radius:6px;font-size:12px;font-weight:800;color:#38bdf8}
+/* Quick Accessory Cluster */
+.accessory-bar{position:absolute;top:70px;left:14px;display:flex;flex-direction:column;gap:6px;pointer-events:auto}
+.acc-btn{width:42px;height:38px;border-radius:10px;background:rgba(15,23,42,0.8);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:14px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.12s;box-shadow:0 4px 10px rgba(0,0,0,0.35)}
+.acc-btn:active{transform:scale(0.92);background:rgba(30,41,59,0.9)}
+.acc-btn.active{background:rgba(56,189,248,0.85);border-color:#38bdf8;box-shadow:0 0 12px rgba(56,189,248,0.6)}
 
-/* Bottom Controls */
-.bottom-controls{width:100%;display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
-.pedal-box{display:flex;gap:8px}
-.pedal{width:56px;height:90px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:900;letter-spacing:0.5px}
-.pedal-gas{background:linear-gradient(180deg,#10b981,#059669);border:2px solid #34d399;box-shadow:0 6px 18px rgba(16,185,129,0.4)}
-.pedal-gas:active,.pedal-gas.pressed{background:linear-gradient(180deg,#059669,#047857);box-shadow:0 0 20px rgba(16,185,129,0.8);transform:scale(0.94)}
-.pedal-brake{background:linear-gradient(180deg,#ef4444,#dc2626);border:2px solid #f87171;box-shadow:0 6px 18px rgba(239,68,68,0.4)}
-.pedal-brake:active,.pedal-brake.pressed{background:linear-gradient(180deg,#dc2626,#b91c1c);box-shadow:0 0 20px rgba(239,68,68,0.8);transform:scale(0.94)}
+/* Gear Shift Selector */
+.gear-selector{position:absolute;top:70px;right:14px;display:flex;flex-direction:column;gap:4px;background:rgba(15,23,42,0.8);backdrop-filter:blur(8px);padding:4px;border-radius:12px;border:1px solid rgba(255,255,255,0.15);pointer-events:auto}
+.gear-btn{width:36px;height:32px;border-radius:8px;border:none;background:transparent;color:#94a3b8;font-size:12px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.12s}
+.gear-btn.selected{background:#38bdf8;color:#0f172a;box-shadow:0 0 10px rgba(56,189,248,0.6)}
 
-.steer-box{display:flex;gap:8px}
-.steer-btn{width:60px;height:60px;border-radius:16px;font-size:20px}
+/* Turn Indicator & Hazard Bar */
+.turn-bar{position:absolute;bottom:148px;left:18px;display:flex;gap:6px;pointer-events:auto}
+.turn-btn{width:44px;height:36px;border-radius:10px;background:rgba(15,23,42,0.8);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;font-size:16px;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.12s}
+.turn-btn.blinking{background:#f59e0b;color:#0f172a;box-shadow:0 0 14px rgba(245,158,11,0.75)}
 
-/* Side Action Bars */
-.side-actions{display:flex;flex-direction:column;gap:6px}
-.action-btn{width:46px;height:42px;border-radius:10px}
+/* Speedometer & Speed Limit Display */
+.center-speed{position:absolute;top:14px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.speed-num{font-size:36px;font-weight:900;color:#f8fafc;letter-spacing:-1px;line-height:1;text-shadow:0 2px 12px rgba(0,0,0,0.85)}
+.speed-unit-text{font-size:9px;font-weight:800;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-top:2px}
+.speed-limit-badge{display:flex;align-items:center;gap:3px;margin-top:4px;background:#ffffff;border:2px solid #ef4444;border-radius:50%;width:26px;height:26px;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.4)}
+.speed-limit-badge span{font-size:10px;font-weight:900;color:#0f172a;line-height:1}
 
-/* Start/Stop Button */
-.engine-btn{background:radial-gradient(circle,#ef4444,#991b1b);border:2px solid #fca5a5;width:52px;height:52px;border-radius:50%;box-shadow:0 0 16px rgba(239,68,68,0.6);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:8px;text-align:center;line-height:1.1}
-.engine-btn.on{background:radial-gradient(circle,#10b981,#065f46);border-color:#6ee7b7;box-shadow:0 0 16px rgba(16,185,129,0.7)}
+/* --- BOTTOM CONTROLS WITH CRITICAL SAFE-AREA MARGINS --- */
+.bottom-controls{width:100%;display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px;pointer-events:none;padding:0 6px}
 
-/* Overlay Screen */
-.overlay-screen{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(5,7,14,0.88);backdrop-filter:blur(10px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;z-index:50}
-.overlay-screen.hidden{display:none}
-.game-title{font-size:28px;font-weight:900;color:#f8fafc;letter-spacing:-0.5px;margin-bottom:6px;text-transform:uppercase}
-.game-title span{background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.game-desc{font-size:12px;color:#94a3b8;line-height:1.4;margin-bottom:20px;max-width:280px}
-.start-card{background:rgba(30,41,59,0.7);border:1px solid rgba(255,255,255,0.15);border-radius:16px;padding:16px;width:100%;max-width:280px;margin-bottom:20px;display:flex;flex-direction:column;gap:8px}
-.veh-select{display:flex;gap:8px}
-.veh-opt{flex:1;padding:10px 4px;border-radius:10px;background:rgba(15,23,42,0.8);border:1px solid rgba(255,255,255,0.1);color:#cbd5e1;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.15s}
-.veh-opt.selected{background:#3b82f6;color:#fff;border-color:#93c5fd;box-shadow:0 0 14px rgba(59,130,246,0.6)}
-.main-play-btn{width:100%;max-width:280px;padding:14px;border-radius:14px;background:linear-gradient(135deg,#3b82f6,#6366f1);border:none;color:#fff;font-size:16px;font-weight:900;letter-spacing:0.5px;cursor:pointer;box-shadow:0 8px 24px rgba(99,102,241,0.5);transition:transform 0.1s}
-.main-play-btn:active{transform:scale(0.96)}
+/* Left: Steering Touch Controls */
+.steer-zone{display:flex;gap:10px;pointer-events:auto}
+.steer-touch{width:68px;height:68px;border-radius:20px;background:rgba(15,23,42,0.85);backdrop-filter:blur(10px);border:1.5px solid rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;font-size:24px;color:#f8fafc;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,0.45);transition:all 0.1s}
+.steer-touch:active,.steer-touch.pressed{background:rgba(56,189,248,0.8);border-color:#38bdf8;box-shadow:0 0 18px rgba(56,189,248,0.7);transform:scale(0.93)}
+
+/* Right: Pedals with Safe Distance from Bottom-Right Corner */
+.pedals-zone{display:flex;gap:12px;margin-right:8px;pointer-events:auto}
+.pedal-btn{width:62px;height:98px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:10px;font-weight:900;letter-spacing:0.5px;cursor:pointer;transition:all 0.1s}
+.pedal-brake{background:linear-gradient(180deg,#ef4444,#dc2626);border:2px solid #f87171;box-shadow:0 8px 24px rgba(239,68,68,0.45);color:#fff}
+.pedal-brake:active,.pedal-brake.pressed{background:linear-gradient(180deg,#dc2626,#991b1b);box-shadow:0 0 24px rgba(239,68,68,0.8);transform:scale(0.93)}
+.pedal-gas{background:linear-gradient(180deg,#10b981,#059669);border:2px solid #34d399;box-shadow:0 8px 24px rgba(16,185,129,0.45);color:#fff}
+.pedal-gas:active,.pedal-gas.pressed{background:linear-gradient(180deg,#059669,#047857);box-shadow:0 0 24px rgba(16,185,129,0.8);transform:scale(0.93)}
+
+/* Door Open Action Prompt */
+#door-prompt{position:absolute;bottom:140px;right:20px;background:rgba(56,189,248,0.92);color:#0f172a;font-weight:900;font-size:11px;padding:8px 14px;border-radius:12px;box-shadow:0 6px 18px rgba(56,189,248,0.5);display:none;pointer-events:auto;cursor:pointer;animation:bounce 1.2s infinite}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+
+/* OVERLAY MODALS (Start, Results, Pause) */
+.overlay-modal{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(3,7,18,0.92);backdrop-filter:blur(14px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;z-index:60;transition:opacity 0.25s}
+.overlay-modal.hidden{display:none}
+.modal-card{background:rgba(15,23,42,0.85);border:1px solid rgba(255,255,255,0.15);border-radius:22px;padding:20px;width:100%;max-width:320px;box-shadow:0 16px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;align-items:center;gap:12px}
+.modal-title{font-size:22px;font-weight:900;color:#f8fafc;letter-spacing:-0.5px;text-transform:uppercase}
+.modal-title span{background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.modal-desc{font-size:11.5px;color:#94a3b8;line-height:1.45}
+.stat-row{width:100%;display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);font-size:12px}
+.stat-name{color:#94a3b8;font-weight:700}
+.stat-number{color:#f8fafc;font-weight:900}
+.stars-display{font-size:28px;letter-spacing:6px;color:#fbbf24;margin:4px 0}
+.primary-btn{width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,#38bdf8,#3b82f6);border:none;color:#fff;font-size:15px;font-weight:900;letter-spacing:0.5px;cursor:pointer;box-shadow:0 8px 24px rgba(56,189,248,0.4);transition:transform 0.1s}
+.primary-btn:active{transform:scale(0.96)}
+.secondary-btn{width:100%;padding:10px;border-radius:12px;background:rgba(30,41,59,0.8);border:1px solid rgba(255,255,255,0.12);color:#cbd5e1;font-size:13px;font-weight:800;cursor:pointer;margin-top:6px}
 </style>
 </head>
 <body>
 <div id="game-container">
-  <div id="banner">🚏 PASSENGERS BOARDED! +250</div>
-  
-  <!-- HUD INTERACTIVE UI -->
+  <div id="alert-banner">🚏 PASSENGERS BOARDED! +300 PTS</div>
+
+  <!-- HUD INTERACTIVE USER INTERFACE -->
   <div id="hud">
     <!-- Top Row -->
     <div class="top-bar">
-      <div class="stat-pill">
-        <span class="stat-label">Score</span>
-        <span class="stat-val" id="score-val">0</span>
+      <div class="hud-pill">
+        <span class="pill-label">Route</span>
+        <span class="pill-val">08 EXP</span>
       </div>
 
-      <div style="display:flex;gap:6px">
-        <button class="hud-btn action-btn" id="btn-cam" title="Toggle Camera">🎥</button>
-        <button class="hud-btn action-btn" id="btn-night" title="Toggle Day/Night">🌙</button>
-        <button class="hud-btn action-btn" id="btn-horn" title="Horn">📢</button>
-        <button class="hud-btn action-btn" id="btn-veh" title="Switch Vehicle">🔄</button>
+      <!-- Route Beacon / Next Stop -->
+      <div id="route-beacon">
+        <div class="beacon-dot"></div>
+        <div>
+          <div class="beacon-text" id="beacon-title">Central Station</div>
+          <div class="beacon-sub" id="beacon-dist">Next Stop • 180m</div>
+        </div>
       </div>
 
-      <div class="stat-pill">
-        <span class="stat-label" id="obj-label">Next Stop</span>
-        <span class="stat-val" id="dist-val">250m</span>
+      <div class="hud-pill">
+        <span class="pill-label">Passengers</span>
+        <span class="pill-val" id="hud-passengers">0 / 18</span>
       </div>
     </div>
 
-    <!-- Center Cluster -->
-    <div class="center-cluster">
-      <div class="speed-text" id="speed-val">0</div>
-      <div class="speed-unit">KM / H</div>
-      <div class="gear-badge" id="gear-val">P (PARK)</div>
+    <!-- Center Speedometer & Speed Limit Badge -->
+    <div class="center-speed">
+      <div class="speed-num" id="hud-speed">0</div>
+      <div class="speed-unit-text">KM / H</div>
+      <div class="speed-limit-badge" id="hud-speed-limit">
+        <span>50</span>
+      </div>
     </div>
 
-    <!-- Bottom Controls -->
+    <!-- Left Accessory Controls Cluster -->
+    <div class="accessory-bar">
+      <button class="acc-btn" id="btn-cam" title="Camera View (Cockpit / Chase / Door)">🎥</button>
+      <button class="acc-btn" id="btn-door" title="Passenger Doors (Open / Close)">🚪</button>
+      <button class="acc-btn" id="btn-lights" title="Headlights">💡</button>
+      <button class="acc-btn" id="btn-wipers" title="Wipers">🌧️</button>
+      <button class="acc-btn" id="btn-horn" title="Air Horn">📢</button>
+      <button class="acc-btn" id="btn-pause" title="Pause Game">⏸️</button>
+    </div>
+
+    <!-- Right Gear Shift Lever Pill -->
+    <div class="gear-selector">
+      <button class="gear-btn selected" id="gear-p">P</button>
+      <button class="gear-btn" id="gear-r">R</button>
+      <button class="gear-btn" id="gear-n">N</button>
+      <button class="gear-btn" id="gear-d">D</button>
+    </div>
+
+    <!-- Left Turn Signal & Hazard Bar -->
+    <div class="turn-bar">
+      <button class="turn-btn" id="btn-turn-left">⇦</button>
+      <button class="turn-btn" id="btn-hazard">⚠️</button>
+      <button class="turn-btn" id="btn-turn-right">⇨</button>
+    </div>
+
+    <!-- Door Boarding Notification Prompt -->
+    <div id="door-prompt">🚏 OPEN DOORS [🚪]</div>
+
+    <!-- Bottom Controls with Strict Safe-Area Inset -->
     <div class="bottom-controls">
-      <!-- Steering Left/Right & Turn signals -->
-      <div class="steer-box">
-        <button class="hud-btn steer-btn" id="btn-steer-left">◀</button>
-        <button class="hud-btn steer-btn" id="btn-steer-right">▶</button>
+      <!-- Steering Left / Right Buttons -->
+      <div class="steer-zone">
+        <div class="steer-touch" id="btn-steer-left">◀</div>
+        <div class="steer-touch" id="btn-steer-right">▶</div>
       </div>
 
-      <!-- Action Cluster -->
-      <div class="side-actions">
-        <button class="hud-btn engine-btn" id="btn-engine">
-          <span style="font-size:12px">⚡</span>
-          <span id="engine-text">START</span>
-        </button>
-        <button class="hud-btn action-btn" id="btn-door" style="display:none;width:52px;font-size:10px" title="Doors">🚪 OPEN</button>
-        <button class="hud-btn action-btn" id="btn-airbrake" style="width:52px;font-size:10px" title="Air Brake">🅿️ PARK</button>
-      </div>
-
-      <!-- Pedals (Brake & Gas) -->
-      <div class="pedal-box">
-        <div class="hud-btn pedal pedal-brake" id="btn-brake">
-          <span>🛑</span>
+      <!-- Pedals (Brake & Gas) strictly inset from right/bottom -->
+      <div class="pedals-zone">
+        <div class="pedal-btn pedal-brake" id="btn-brake">
+          <span style="font-size:18px">🛑</span>
           <span>BRAKE</span>
         </div>
-        <div class="hud-btn pedal pedal-gas" id="btn-gas">
-          <span>🏎️</span>
-          <span>GAS</span>
+        <div class="pedal-btn pedal-gas" id="btn-gas">
+          <span style="font-size:18px">⚡</span>
+          <span>DRIVE</span>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- START / TITLE MODAL -->
-  <div class="overlay-screen" id="start-screen">
-    <div class="game-title">REAL DRIVE <span>3D</span></div>
-    <div class="game-desc">Experience ultra-realistic vehicle & bus physics with engine ignition, pneumatic air brakes, and passenger transit routes.</div>
-    
-    <div class="start-card">
-      <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px">Select Your Vehicle</div>
-      <div class="veh-select">
-        <button class="veh-opt selected" id="sel-bus">🚍 City Bus</button>
-        <button class="veh-opt" id="sel-car">🏎️ GT Supercar</button>
+  <!-- START ROUTE BRIEFING MODAL -->
+  <div class="overlay-modal" id="start-modal">
+    <div class="modal-card">
+      <div class="modal-title">REAL BUS <span>3D</span></div>
+      <div class="modal-desc">Drive Metro Transit Route 08. Obey traffic lights, navigate the highway bridge & incident detour, stop at bus bays, and deliver passengers safely to Downtown Plaza.</div>
+      
+      <div class="stat-row">
+        <span class="stat-name">Route</span>
+        <span class="stat-number">Route 08 (Express)</span>
       </div>
-      <div id="veh-desc" style="font-size:11px;color:#cbd5e1;line-height:1.3;margin-top:4px">
-        Heavy transit bus with realistic air brakes and passenger pickup routes.
+      <div class="stat-row">
+        <span class="stat-name">Length</span>
+        <span class="stat-number">3.2 km • 3 Bus Stops</span>
       </div>
-    </div>
+      <div class="stat-row">
+        <span class="stat-name">Speed Limit</span>
+        <span class="stat-number">50 km/h (City) / 70 km/h (Hwy)</span>
+      </div>
 
-    <button class="main-play-btn" id="btn-play">START ENGINE & DRIVE</button>
+      <button class="primary-btn" id="btn-start-route">START BUS ENGINE ▶</button>
+    </div>
+  </div>
+
+  <!-- MISSION COMPLETED RESULTS MODAL -->
+  <div class="overlay-modal hidden" id="results-modal">
+    <div class="modal-card">
+      <div class="modal-title">ROUTE <span>COMPLETE</span></div>
+      <div class="stars-display" id="res-stars">★★★</div>
+      <div class="modal-desc" id="res-subtitle">Exceptional transit driving! Schedule met and passengers safely delivered.</div>
+
+      <div class="stat-row">
+        <span class="stat-name">Passengers Transported</span>
+        <span class="stat-number" id="res-passengers">18 / 18</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">Red Light Infractions</span>
+        <span class="stat-number" id="res-infractions">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">Schedule Time</span>
+        <span class="stat-number" id="res-time">02:45</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">Total Fare Earnings</span>
+        <span class="stat-number" style="color:#10b981" id="res-earnings">$1,450</span>
+      </div>
+
+      <button class="primary-btn" id="btn-replay-route">DRIVE ROUTE AGAIN 🔄</button>
+    </div>
+  </div>
+
+  <!-- PAUSE MODAL -->
+  <div class="overlay-modal hidden" id="pause-modal">
+    <div class="modal-card">
+      <div class="modal-title">SIMULATOR <span>PAUSED</span></div>
+      <div class="modal-desc">Route 08 is paused. Adjust your mirrors and check the schedule before continuing.</div>
+      <button class="primary-btn" id="btn-resume">RESUME DRIVING ▶</button>
+      <button class="secondary-btn" id="btn-restart">RESTART ROUTE ↺</button>
+    </div>
   </div>
 </div>
 
 <script>
 (()=>{'use strict';
 /* ==========================================================================
-   3D CANVAS SETUP & VIEWPORT SIZING
+   1. CANVAS INITIALIZATION & DEVICE PIXEL RATIO
    ========================================================================== */
-const W=360, H=640, D=Math.min(window.devicePixelRatio||1,2);
-const container=document.getElementById('game-container');
-const canvas=document.createElement('canvas');
-canvas.width=W*D; canvas.height=H*D;
-canvas.style.width='min(100vw, 56.25vh)';
-canvas.style.height='min(177.78vw, 100vh)';
+const W = 360, H = 640, DPR = Math.min(window.devicePixelRatio || 1, 2);
+const container = document.getElementById('game-container');
+const canvas = document.createElement('canvas');
+canvas.width = Math.round(W * DPR);
+canvas.height = Math.round(H * DPR);
+canvas.style.width = 'min(100vw, 56.25vh)';
+canvas.style.height = 'min(177.78vw, 100vh)';
 container.prepend(canvas);
-const ctx=canvas.getContext('2d');
-ctx.scale(D,D);
+const ctx = canvas.getContext('2d');
+ctx.scale(DPR, DPR);
 
 /* ==========================================================================
-   GAME STATE & CONFIGURATION
+   2. HOST PLATFORM BRIDGE INTEGRATION
    ========================================================================== */
-const ROAD_LANES = [-0.65, 0, 0.65]; // Normalized lane offsets
-let isNight = false;
-let cameraMode = 0; // 0: 3rd-Person Chase, 1: Cockpit/Interior, 2: Low Hood
-let selectedVehicleType = 'bus'; // 'bus' | 'car'
+const Host = {
+  post(action, payload = {}) {
+    const msg = JSON.stringify({ source: 'GameBridge', action, payload });
+    try {
+      if (window.flutter_inappwebview?.callHandler) {
+        window.flutter_inappwebview.callHandler('GameBridgeChannel', msg);
+      }
+    } catch(e){}
+    try {
+      if (window.FlutterGameBridge?.postMessage) {
+        window.FlutterGameBridge.postMessage(msg);
+      }
+    } catch(e){}
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ source: 'GameBridge', action, payload }, '*');
+      }
+    } catch(e){}
+  }
+};
+Host.post('ready', { gameId: 'real-drive', version: '1.0.0' });
 
-let score = 0;
-let distanceTraveled = 0;
-let nextBusStopDist = 300;
-let busStopActive = false;
-let busDoorsOpen = false;
-let busStopScoreAwarded = false;
-
-let engineRunning = false;
-let engineStarting = false;
-let parkingBrake = true;
-let currentGear = 'P'; // P, R, N, D
-
-let speed = 0; // km/h
-let maxSpeed = 120;
-let acceleration = 0;
-let steeringAngle = 0;
-let playerX = 0; // -1 (left shoulder) to +1 (right shoulder)
-let playerZ = 0;
-
-let roadCurve = 0;
-let targetRoadCurve = 0;
-let curveTimer = 0;
-let roadPitch = 0;
-
-let isGasPressed = false;
-let isBrakePressed = false;
-let steerDir = 0; // -1: left, 1: right
-
-let particles = [];
-let trafficCars = [];
-let roadSegments = [];
-const TOTAL_SEGMENTS = 200;
-const SEGMENT_LENGTH = 150;
-
-let lastTime = performance.now();
-let isPaused = false;
-window.__GAME_PAUSED__ = false;
-
-/* ==========================================================================
-   BRIDGE & HAPTICS
-   ========================================================================== */
-function bridge(name,...args){
-  try{window.parent.postMessage({type:'GAME_BRIDGE',event:name,args},'*');if(window.GameBridge?.[name])window.GameBridge[name](...args)}catch(e){}
-}
-bridge('sendReady');
-
-function triggerHaptic(type='light'){
-  bridge('haptic',type);
-  if(navigator.vibrate){
-    if(type==='heavy') navigator.vibrate(50);
-    else if(type==='medium') navigator.vibrate(25);
+function triggerHaptic(type = 'light') {
+  Host.post('haptic', { type });
+  if (navigator.vibrate) {
+    if (type === 'heavy') navigator.vibrate(45);
+    else if (type === 'medium') navigator.vibrate(22);
     else navigator.vibrate(10);
   }
 }
 
 /* ==========================================================================
-   SYNTHESIZED PROCEDURAL WEB AUDIO ENGINE
+   3. SYNTHESIZED PROCEDURAL WEB AUDIO ENGINE
    ========================================================================== */
-const Sound = {
+const AudioEngine = {
   ctx: null,
   engineOsc1: null,
   engineOsc2: null,
   engineGain: null,
   engineFilter: null,
-  rpm: 800,
+  isInitialized: false,
 
-  init(){
-    if(this.ctx) return;
-    try{
+  init() {
+    if (this.isInitialized) return;
+    try {
       const AC = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AC();
-      
-      // Engine continuous drone
+
+      // Dual-Oscillator Diesel Engine (Low rumble + harmonic growl)
       this.engineGain = this.ctx.createGain();
       this.engineGain.gain.setValueAtTime(0, this.ctx.currentTime);
 
       this.engineFilter = this.ctx.createBiquadFilter();
       this.engineFilter.type = 'lowpass';
-      this.engineFilter.frequency.setValueAtTime(180, this.ctx.currentTime);
+      this.engineFilter.frequency.setValueAtTime(160, this.ctx.currentTime);
 
       this.engineOsc1 = this.ctx.createOscillator();
       this.engineOsc1.type = 'sawtooth';
-      this.engineOsc1.frequency.setValueAtTime(45, this.ctx.currentTime);
+      this.engineOsc1.frequency.setValueAtTime(32, this.ctx.currentTime);
 
       this.engineOsc2 = this.ctx.createOscillator();
       this.engineOsc2.type = 'triangle';
-      this.engineOsc2.frequency.setValueAtTime(22.5, this.ctx.currentTime);
+      this.engineOsc2.frequency.setValueAtTime(16, this.ctx.currentTime);
 
       this.engineOsc1.connect(this.engineFilter);
       this.engineOsc2.connect(this.engineFilter);
@@ -270,660 +330,831 @@ const Sound = {
 
       this.engineOsc1.start();
       this.engineOsc2.start();
-    }catch(e){}
+      this.isInitialized = true;
+    } catch(e){}
   },
 
-  resume(){
-    if(this.ctx && this.ctx.state === 'suspended'){
-      try{ this.ctx.resume(); }catch(e){}
+  resume() {
+    if (this.ctx && this.ctx.state === 'suspended') {
+      try { this.ctx.resume(); } catch(e){}
     }
   },
 
-  updateEngine(currentSpeed, isAccelerating){
-    if(!this.ctx || !engineRunning) {
-      if(this.engineGain) this.engineGain.gain.setValueAtTime(0, this.ctx.currentTime);
+  updateEngine(currentSpeed, isAccelerating, engineRunning) {
+    if (!this.ctx || !engineRunning) {
+      if (this.engineGain) this.engineGain.gain.setValueAtTime(0, this.ctx.currentTime);
       return;
     }
-    const baseFreq = selectedVehicleType==='bus' ? 32 : 48;
-    const targetFreq = baseFreq + (currentSpeed * 1.3) + (isAccelerating ? 20 : 0);
-    const filterFreq = 160 + (currentSpeed * 8) + (isAccelerating ? 300 : 0);
-
+    const targetFreq = 28 + (currentSpeed * 0.95) + (isAccelerating ? 18 : 0);
+    const filterFreq = 140 + (currentSpeed * 6) + (isAccelerating ? 240 : 0);
     const now = this.ctx.currentTime;
+
     this.engineOsc1.frequency.setTargetAtTime(targetFreq, now, 0.08);
-    this.engineOsc2.frequency.setTargetAtTime(targetFreq*0.5, now, 0.08);
+    this.engineOsc2.frequency.setTargetAtTime(targetFreq * 0.5, now, 0.08);
     this.engineFilter.frequency.setTargetAtTime(filterFreq, now, 0.08);
-    this.engineGain.gain.setTargetAtTime(0.08 + (isAccelerating ? 0.05 : 0), now, 0.05);
+    this.engineGain.gain.setTargetAtTime(0.08 + (isAccelerating ? 0.04 : 0), now, 0.06);
   },
 
-  starterCrank(callback){
+  starterCrank(cb) {
     this.init(); this.resume();
-    if(!this.ctx) { if(callback) callback(); return; }
-    
-    // Cranking sound bursts
+    if (!this.ctx) { if (cb) cb(); return; }
     const now = this.ctx.currentTime;
-    for(let i=0; i<3; i++){
+    for (let i = 0; i < 3; i++) {
       const osc = this.ctx.createOscillator();
       const g = this.ctx.createGain();
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(60, now + i*0.14);
-      osc.frequency.exponentialRampToValueAtTime(30, now + i*0.14 + 0.09);
-      g.gain.setValueAtTime(0.12, now + i*0.14);
-      g.gain.exponentialRampToValueAtTime(0.001, now + i*0.14 + 0.09);
+      osc.frequency.setValueAtTime(54, now + i * 0.15);
+      osc.frequency.exponentialRampToValueAtTime(26, now + i * 0.15 + 0.10);
+      g.gain.setValueAtTime(0.12, now + i * 0.15);
+      g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.10);
       osc.connect(g); g.connect(this.ctx.destination);
-      osc.start(now + i*0.14);
-      osc.stop(now + i*0.14 + 0.1);
+      osc.start(now + i * 0.15);
+      osc.stop(now + i * 0.15 + 0.11);
     }
-
-    // Engine ignition burst
-    setTimeout(()=>{
-      if(!this.ctx) return;
-      const ignOsc = this.ctx.createOscillator();
-      const ignG = this.ctx.createGain();
-      ignOsc.type = 'sawtooth';
-      ignOsc.frequency.setValueAtTime(140, this.ctx.currentTime);
-      ignOsc.frequency.exponentialRampToValueAtTime(selectedVehicleType==='bus'?40:60, this.ctx.currentTime + 0.4);
-      ignG.gain.setValueAtTime(0.2, this.ctx.currentTime);
-      ignG.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
-      ignOsc.connect(ignG); ignG.connect(this.ctx.destination);
-      ignOsc.start(); ignOsc.stop(this.ctx.currentTime + 0.4);
-      if(callback) callback();
-    }, 450);
+    setTimeout(() => { if (cb) cb(); }, 500);
   },
 
-  airBrake(){
+  airBrakeRelease() {
     this.init(); this.resume();
-    if(!this.ctx) return;
-    // White noise pneumatic air hiss
-    const bufferSize = this.ctx.sampleRate * 0.35;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
-    }
+    if (!this.ctx) return;
+    const len = Math.round(this.ctx.sampleRate * 0.38);
+    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.4));
     const noise = this.ctx.createBufferSource();
-    noise.buffer = buffer;
-    
+    noise.buffer = buf;
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(1800, this.ctx.currentTime);
-    filter.Q.setValueAtTime(3, this.ctx.currentTime);
-
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.32);
-
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.ctx.destination);
+    filter.frequency.setValueAtTime(1600, this.ctx.currentTime);
+    filter.Q.setValueAtTime(2.5, this.ctx.currentTime);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.16, this.ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.36);
+    noise.connect(filter); filter.connect(g); g.connect(this.ctx.destination);
     noise.start();
   },
 
-  skid(){
+  doorChime() {
     this.init(); this.resume();
-    if(!this.ctx) return;
-    const osc = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(600 + Math.random()*200, this.ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(300, this.ctx.currentTime + 0.15);
-    g.gain.setValueAtTime(0.06, this.ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.15);
-    osc.connect(g); g.connect(this.ctx.destination);
-    osc.start(); osc.stop(this.ctx.currentTime + 0.15);
-  },
-
-  horn(){
-    this.init(); this.resume();
-    if(!this.ctx) return;
-    const f1 = selectedVehicleType==='bus' ? 240 : 380;
-    const f2 = selectedVehicleType==='bus' ? 300 : 460;
-    [f1, f2].forEach(freq => {
-      const osc = this.ctx.createOscillator();
-      const g = this.ctx.createGain();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-      g.gain.setValueAtTime(0.08, this.ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
-      osc.connect(g); g.connect(this.ctx.destination);
-      osc.start(); osc.stop(this.ctx.currentTime + 0.3);
-    });
-  },
-
-  doorChime(){
-    this.init(); this.resume();
-    if(!this.ctx) return;
+    if (!this.ctx) return;
     const now = this.ctx.currentTime;
     [660, 880].forEach((freq, idx) => {
       const osc = this.ctx.createOscillator();
       const g = this.ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now + idx*0.14);
-      g.gain.setValueAtTime(0.12, now + idx*0.14);
-      g.gain.exponentialRampToValueAtTime(0.001, now + idx*0.14 + 0.35);
+      osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+      g.gain.setValueAtTime(0.12, now + idx * 0.12);
+      g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.32);
       osc.connect(g); g.connect(this.ctx.destination);
-      osc.start(now + idx*0.14);
-      osc.stop(now + idx*0.14 + 0.35);
+      osc.start(now + idx * 0.12);
+      osc.stop(now + idx * 0.12 + 0.33);
     });
   },
 
-  click(){
+  blinkerClick() {
     this.init(); this.resume();
-    if(!this.ctx) return;
+    if (!this.ctx) return;
     const osc = this.ctx.createOscillator();
     const g = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
-    g.gain.setValueAtTime(0.05, this.ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.03);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1400, this.ctx.currentTime);
+    g.gain.setValueAtTime(0.06, this.ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
     osc.connect(g); g.connect(this.ctx.destination);
-    osc.start(); osc.stop(this.ctx.currentTime + 0.03);
+    osc.start(); osc.stop(this.ctx.currentTime + 0.035);
+  },
+
+  horn() {
+    this.init(); this.resume();
+    if (!this.ctx) return;
+    [240, 310].forEach(freq => {
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      g.gain.setValueAtTime(0.09, this.ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
+      osc.connect(g); g.connect(this.ctx.destination);
+      osc.start(); osc.stop(this.ctx.currentTime + 0.36);
+    });
+  },
+
+  buzzerViolation() {
+    this.init(); this.resume();
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+    g.gain.setValueAtTime(0.18, this.ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.45);
+    osc.connect(g); g.connect(this.ctx.destination);
+    osc.start(); osc.stop(this.ctx.currentTime + 0.46);
   }
 };
 
 /* ==========================================================================
-   ROAD & 3D ENVIRONMENT INITIALIZATION
+   4. ROUTE DEFINITION & 3D TRACK GENERATOR
    ========================================================================== */
-function initRoad(){
-  roadSegments = [];
-  for(let i=0; i<TOTAL_SEGMENTS; i++){
-    roadSegments.push({
-      p1: { world: { z: i * SEGMENT_LENGTH, y: Math.sin(i*0.08)*60 } },
-      p2: { world: { z: (i+1) * SEGMENT_LENGTH, y: Math.sin((i+1)*0.08)*60 } },
-      curve: 0,
-      color: Math.floor(i/3)%2===0 ? 'light' : 'dark'
+const TOTAL_TRACK_SEGMENTS = 1600;
+const SEGMENT_LENGTH = 70;
+let trackSegments = [];
+
+const ROUTE_STOPS = [
+  { id: 1, name: "Central Station", segIndex: 80, passengersWaiting: 6, isVisited: false },
+  { id: 2, name: "Financial Plaza", segIndex: 560, passengersWaiting: 7, isVisited: false },
+  { id: 3, name: "Downtown Terminal", segIndex: 1450, passengersWaiting: 5, isVisited: false }
+];
+
+const TRAFFIC_LIGHTS = [
+  { id: 1, segIndex: 260, state: 'GREEN', timer: 8.0, cycleGreen: 12.0, cycleYellow: 3.0, cycleRed: 9.0 },
+  { id: 2, segIndex: 1180, state: 'RED', timer: 4.0, cycleGreen: 12.0, cycleYellow: 3.0, cycleRed: 9.0 }
+];
+
+const INCIDENT_ZONE = {
+  startSeg: 860,
+  endSeg: 940
+};
+
+function generateTrack() {
+  trackSegments = [];
+  for (let i = 0; i < TOTAL_TRACK_SEGMENTS; i++) {
+    let curve = 0;
+    let elevation = 0;
+    let sectionType = 'city';
+    let roadWidth = 1450;
+    let sceneryLeft = [];
+    let sceneryRight = [];
+
+    if (i < 200) {
+      sectionType = 'city';
+      if (i % 8 === 0) sceneryLeft.push({ type: 'building', h: 90 + (i%5)*25, color: '#334155' });
+      if (i % 8 === 0) sceneryRight.push({ type: 'building', h: 100 + (i%4)*30, color: '#1e293b' });
+      if (i % 14 === 0) { sceneryLeft.push({ type: 'lamp' }); sceneryRight.push({ type: 'lamp' }); }
+    } else if (i < 450) {
+      sectionType = 'curve_city';
+      curve = Math.sin((i - 200) * 0.02) * 1.8;
+      elevation = Math.sin((i - 200) * 0.015) * 40;
+      if (i % 10 === 0) sceneryLeft.push({ type: 'tree' });
+      if (i % 12 === 0) sceneryRight.push({ type: 'building', h: 80, color: '#0f766e' });
+      if (i % 16 === 0) sceneryLeft.push({ type: 'lamp' });
+    } else if (i < 650) {
+      sectionType = 'financial';
+      curve = -0.4;
+      elevation = 15;
+      if (i % 7 === 0) sceneryLeft.push({ type: 'skyscraper', h: 160 + (i%3)*40, color: '#1e1b4b' });
+      if (i % 7 === 0) sceneryRight.push({ type: 'skyscraper', h: 180 + (i%4)*30, color: '#0f172a' });
+    } else if (i < 850) {
+      sectionType = 'bridge';
+      curve = Math.sin((i - 650) * 0.015) * 0.8;
+      elevation = Math.sin((i - 650) * (Math.PI / 200)) * 110;
+    } else if (i < 1050) {
+      sectionType = 'highway';
+      curve = Math.sin((i - 850) * 0.025) * 2.2;
+      elevation = -10;
+      if (i % 14 === 0) sceneryLeft.push({ type: 'tree' });
+    } else if (i < 1350) {
+      sectionType = 'boulevard';
+      curve = -Math.sin((i - 1050) * 0.02) * 1.5;
+      elevation = 0;
+      if (i % 10 === 0) sceneryLeft.push({ type: 'tree' });
+      if (i % 10 === 0) sceneryRight.push({ type: 'tree' });
+      if (i % 14 === 0) { sceneryLeft.push({ type: 'lamp' }); sceneryRight.push({ type: 'lamp' }); }
+    } else {
+      sectionType = 'terminal';
+      if (i % 6 === 0) sceneryLeft.push({ type: 'building', h: 120, color: '#1e293b' });
+    }
+
+    ROUTE_STOPS.forEach(stop => {
+      if (i === stop.segIndex) sceneryRight.push({ type: 'bus_shelter', stopId: stop.id });
     });
-  }
-  
-  // Traffic cars init
-  trafficCars = [];
-  for(let i=0; i<6; i++){
-    trafficCars.push({
-      x: ROAD_LANES[Math.floor(Math.random()*3)],
-      z: 500 + i * 450 + Math.random()*200,
-      speed: 35 + Math.random()*30,
-      color: ['#ef4444','#3b82f6','#fbbf24','#10b981','#8b5cf6'][i%5],
-      type: Math.random()>0.5 ? 'sedan' : 'van'
+
+    TRAFFIC_LIGHTS.forEach(tl => {
+      if (i === tl.segIndex) sceneryRight.push({ type: 'traffic_gantry', tlId: tl.id });
+    });
+
+    trackSegments.push({
+      index: i,
+      worldZ: i * SEGMENT_LENGTH,
+      worldY: elevation,
+      curve: curve,
+      roadWidth: roadWidth,
+      sectionType: sectionType,
+      sceneryLeft: sceneryLeft,
+      sceneryRight: sceneryRight
     });
   }
 }
-initRoad();
+generateTrack();
 
 /* ==========================================================================
-   USER INTERFACE & CONTROLS BINDING
+   5. GAME STATE & SIMULATOR VARIABLES
    ========================================================================== */
-const startScreen = document.getElementById('start-screen');
-const btnPlay = document.getElementById('btn-play');
-const selBus = document.getElementById('sel-bus');
-const selCar = document.getElementById('sel-car');
-const vehDesc = document.getElementById('veh-desc');
+let gameState = 'START';
+let cameraMode = 0; // 0: Chase, 1: Cockpit, 2: Door
+let freeLookYaw = 0;
+let freeLookPitch = 0;
+let isDraggingFreeLook = false;
+let lastTouchX = 0, lastTouchY = 0;
 
-const btnEngine = document.getElementById('btn-engine');
-const engineText = document.getElementById('engine-text');
+let engineRunning = false;
+let engineStarting = false;
+let currentGear = 'P';
+let parkingBrake = true;
+let headlightsOn = false;
+let wipersActive = false;
+let wiperAngle = 0;
+
+let blinkerLeft = false;
+let blinkerRight = false;
+let hazardActive = false;
+let blinkerTimer = 0;
+let blinkerLampOn = false;
+
+let doorsOpen = false;
+let doorOpenAmount = 0;
+let boardingActive = false;
+let boardingTimer = 0;
+let currentStopIndex = 0;
+let passengersAboard = 0;
+let totalPassengersDelivered = 0;
+
+let speed = 0;
+let maxForwardSpeed = 75;
+let playerX = 0;
+let playerZ = 0;
+let steerDir = 0;
+let steerAngle = 0;
+let chassisRoll = 0;
+let chassisPitch = 0;
+
+let isGasPressed = false;
+let isBrakePressed = false;
+let steerLeftPressed = false;
+let steerRightPressed = false;
+
+let redLightInfractions = 0;
+let routeStartTime = 0;
+let routeElapsedSeconds = 0;
+let drivingScore = 1000;
+let particles = [];
+
+/* ==========================================================================
+   6. AUTONOMOUS TRAFFIC SIMULATION
+   ========================================================================== */
+const ROAD_LANES = [-0.60, 0.0, 0.60];
+let trafficVehicles = [];
+
+function initTraffic() {
+  trafficVehicles = [];
+  const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#e2e8f0'];
+  for (let i = 0; i < 14; i++) {
+    const lane = ROAD_LANES[i % 3];
+    trafficVehicles.push({
+      id: i,
+      x: lane,
+      targetX: lane,
+      z: 300 + i * 280 + Math.random() * 120,
+      speed: 38 + Math.random() * 22,
+      targetSpeed: 42 + Math.random() * 18,
+      type: i === 7 ? 'police' : (i % 4 === 0 ? 'van' : (i % 3 === 0 ? 'suv' : 'sedan')),
+      color: colors[i % colors.length],
+      isBraking: false
+    });
+  }
+}
+initTraffic();
+
+/* ==========================================================================
+   7. CONTROLS, TOUCH BINDING & SAFE-AREA EVENT LISTENERS
+   ========================================================================== */
+const startModal = document.getElementById('start-modal');
+const resultsModal = document.getElementById('results-modal');
+const pauseModal = document.getElementById('pause-modal');
+const alertBanner = document.getElementById('alert-banner');
+const doorPrompt = document.getElementById('door-prompt');
+
+const hudSpeed = document.getElementById('hud-speed');
+const hudPassengers = document.getElementById('hud-passengers');
+const beaconTitle = document.getElementById('beacon-title');
+const beaconDist = document.getElementById('beacon-dist');
+
 const btnGas = document.getElementById('btn-gas');
 const btnBrake = document.getElementById('btn-brake');
 const btnSteerLeft = document.getElementById('btn-steer-left');
 const btnSteerRight = document.getElementById('btn-steer-right');
-const btnAirBrake = document.getElementById('btn-airbrake');
-const btnDoor = document.getElementById('btn-door');
+
+const gearP = document.getElementById('gear-p');
+const gearR = document.getElementById('gear-r');
+const gearN = document.getElementById('gear-n');
+const gearD = document.getElementById('gear-d');
+
 const btnCam = document.getElementById('btn-cam');
-const btnNight = document.getElementById('btn-night');
+const btnDoor = document.getElementById('btn-door');
+const btnLights = document.getElementById('btn-lights');
+const btnWipers = document.getElementById('btn-wipers');
 const btnHorn = document.getElementById('btn-horn');
-const btnVeh = document.getElementById('btn-veh');
+const btnPause = document.getElementById('btn-pause');
 
-const speedVal = document.getElementById('speed-val');
-const gearVal = document.getElementById('gear-val');
-const scoreVal = document.getElementById('score-val');
-const distVal = document.getElementById('dist-val');
-const objLabel = document.getElementById('obj-label');
-const banner = document.getElementById('banner');
+const btnTurnLeft = document.getElementById('btn-turn-left');
+const btnTurnRight = document.getElementById('btn-turn-right');
+const btnHazard = document.getElementById('btn-hazard');
 
-function showBanner(text, bg='#10b981'){
-  banner.textContent = text;
-  banner.style.background = bg;
-  banner.classList.add('show');
-  setTimeout(()=>banner.classList.remove('show'), 2200);
+function showAlert(text, isWarn = false) {
+  alertBanner.textContent = text;
+  alertBanner.className = isWarn ? 'warn show' : 'show';
+  setTimeout(() => { alertBanner.classList.remove('show'); }, 2600);
 }
 
-// Vehicle Selection
-function setVehicle(type){
-  selectedVehicleType = type;
-  if(type === 'bus'){
-    selBus.classList.add('selected');
-    selCar.classList.remove('selected');
-    vehDesc.textContent = "Heavy transit bus with realistic air brakes and passenger pickup routes.";
-    maxSpeed = 95;
-    btnDoor.style.display = 'inline-flex';
-    objLabel.textContent = "Next Stop";
-  }else{
-    selCar.classList.add('selected');
-    selBus.classList.remove('selected');
-    vehDesc.textContent = "Fast GT Supercar with responsive handling, drift physics, and high top speeds.";
-    maxSpeed = 185;
-    btnDoor.style.display = 'none';
-    objLabel.textContent = "Overtake / Goal";
-  }
+function selectGear(gear) {
+  AudioEngine.blinkerClick();
+  triggerHaptic('light');
+  currentGear = gear;
+  [gearP, gearR, gearN, gearD].forEach(b => b.classList.remove('selected'));
+  if (gear === 'P') { gearP.classList.add('selected'); parkingBrake = true; }
+  else if (gear === 'R') { gearR.classList.add('selected'); parkingBrake = false; }
+  else if (gear === 'N') { gearN.classList.add('selected'); parkingBrake = false; }
+  else if (gear === 'D') { gearD.classList.add('selected'); parkingBrake = false; }
 }
-selBus.onclick = () => { Sound.click(); setVehicle('bus'); };
-selCar.onclick = () => { Sound.click(); setVehicle('car'); };
+gearP.onclick = () => selectGear('P');
+gearR.onclick = () => selectGear('R');
+gearN.onclick = () => selectGear('N');
+gearD.onclick = () => selectGear('D');
 
-// Engine Start/Stop
-function toggleEngine(){
-  if(engineStarting) return;
-  if(engineRunning){
-    engineRunning = false;
-    btnEngine.classList.remove('on');
-    engineText.textContent = "START";
-    Sound.updateEngine(0, false);
+function startBusEngine() {
+  if (engineRunning || engineStarting) return;
+  engineStarting = true;
+  AudioEngine.starterCrank(() => {
+    engineStarting = false;
+    engineRunning = true;
+    selectGear('D');
+    showAlert("⚡ BUS DIESEL ENGINE RUNNING", false);
     triggerHaptic('medium');
-  }else{
-    engineStarting = true;
-    engineText.textContent = "CRANK";
-    triggerHaptic('heavy');
-    Sound.starterCrank(()=>{
-      engineStarting = false;
-      engineRunning = true;
-      btnEngine.classList.add('on');
-      engineText.textContent = "RUN";
-      triggerHaptic('medium');
-      if(parkingBrake){
-        toggleParkingBrake(false);
-      }
-    });
-  }
+  });
 }
-btnEngine.onclick = toggleEngine;
 
-// Parking / Air Brake
-function toggleParkingBrake(forceState){
-  parkingBrake = typeof forceState === 'boolean' ? forceState : !parkingBrake;
-  if(parkingBrake){
-    btnAirBrake.classList.add('active');
-    btnAirBrake.textContent = "🅿️ PARK";
-    currentGear = 'P';
-    gearVal.textContent = "P (PARK)";
-    Sound.airBrake();
-    triggerHaptic('medium');
-  }else{
-    btnAirBrake.classList.remove('active');
-    btnAirBrake.textContent = "🅿️ DRIVE";
-    currentGear = 'D';
-    gearVal.textContent = "D (DRIVE)";
-    Sound.airBrake();
-    triggerHaptic('light');
-  }
-}
-btnAirBrake.onclick = () => toggleParkingBrake();
+document.getElementById('btn-start-route').onclick = () => {
+  AudioEngine.init();
+  startModal.classList.add('hidden');
+  gameState = 'DRIVING';
+  routeStartTime = performance.now();
+  startBusEngine();
+};
+document.getElementById('btn-replay-route').onclick = () => {
+  resultsModal.classList.add('hidden');
+  resetRouteState();
+  gameState = 'DRIVING';
+  routeStartTime = performance.now();
+  startBusEngine();
+};
+btnPause.onclick = () => {
+  if (gameState !== 'DRIVING') return;
+  gameState = 'PAUSED';
+  pauseModal.classList.remove('hidden');
+  AudioEngine.blinkerClick();
+};
+document.getElementById('btn-resume').onclick = () => {
+  pauseModal.classList.add('hidden');
+  gameState = 'DRIVING';
+  AudioEngine.blinkerClick();
+};
+document.getElementById('btn-restart').onclick = () => {
+  pauseModal.classList.add('hidden');
+  resetRouteState();
+  gameState = 'DRIVING';
+  routeStartTime = performance.now();
+  startBusEngine();
+};
 
-// Bus Door Open/Close
-function toggleBusDoors(){
-  if(selectedVehicleType !== 'bus') return;
-  busDoorsOpen = !busDoorsOpen;
-  Sound.doorChime();
-  triggerHaptic('medium');
-  if(busDoorsOpen){
-    btnDoor.textContent = "🚪 CLOSE";
-    btnDoor.classList.add('active');
-    
-    // Check if stopped in bus bay
-    if(speed < 5 && nextBusStopDist < 40 && !busStopScoreAwarded){
-      busStopScoreAwarded = true;
-      score += 250;
-      scoreVal.textContent = score;
-      bridge('scoreUpdate', score);
-      showBanner("🚏 PASSENGERS BOARDED! +250 PTS", "#10b981");
-      
-      // Spawn passenger boarding sparkle particles
-      for(let i=0; i<25; i++){
-        particles.push({
-          x: W/2 + (Math.random()*40-20),
-          y: H*0.65 + (Math.random()*20-10),
-          vx: (Math.random()-0.5)*120,
-          vy: -60 - Math.random()*100,
-          life: 0.8,
-          max: 0.8,
-          color: '#fbbf24',
-          r: 3 + Math.random()*3
-        });
-      }
+const bindTouch = (el, onDown, onUp) => {
+  el.addEventListener('pointerdown', (e) => { e.preventDefault(); onDown(); });
+  el.addEventListener('pointerup', (e) => { e.preventDefault(); onUp(); });
+  el.addEventListener('pointercancel', (e) => { e.preventDefault(); onUp(); });
+  el.addEventListener('pointerleave', (e) => { e.preventDefault(); onUp(); });
+};
 
-      setTimeout(()=>{
-        nextBusStopDist = 350 + Math.random()*250;
-        busStopScoreAwarded = false;
-      }, 3000);
-    }
-  }else{
-    btnDoor.textContent = "🚪 OPEN";
-    btnDoor.classList.remove('active');
-  }
-}
-btnDoor.onclick = toggleBusDoors;
+bindTouch(btnGas, 
+  () => { isGasPressed = true; if (!engineRunning) startBusEngine(); btnGas.classList.add('pressed'); }, 
+  () => { isGasPressed = false; btnGas.classList.remove('pressed'); }
+);
+bindTouch(btnBrake, 
+  () => { 
+    isBrakePressed = true; 
+    btnBrake.classList.add('pressed'); 
+    if (speed > 15) AudioEngine.airBrakeRelease(); 
+  }, 
+  () => { isBrakePressed = false; btnBrake.classList.remove('pressed'); }
+);
 
-// Camera Toggle
+bindTouch(btnSteerLeft, 
+  () => { steerLeftPressed = true; btnSteerLeft.classList.add('pressed'); }, 
+  () => { steerLeftPressed = false; btnSteerLeft.classList.remove('pressed'); }
+);
+bindTouch(btnSteerRight, 
+  () => { steerRightPressed = true; btnSteerRight.classList.add('pressed'); }, 
+  () => { steerRightPressed = false; btnSteerRight.classList.remove('pressed'); }
+);
+
 btnCam.onclick = () => {
   cameraMode = (cameraMode + 1) % 3;
-  Sound.click();
+  AudioEngine.blinkerClick();
+  triggerHaptic('light');
+  const names = ['CHASE VIEW', 'COCKPIT VIEW', 'DOOR VIEW'];
+  showAlert(`🎥 ${names[cameraMode]}`, false);
+};
+
+function toggleDoors() {
+  doorsOpen = !doorsOpen;
+  AudioEngine.doorChime();
+  triggerHaptic('medium');
+  btnDoor.classList.toggle('active', doorsOpen);
+  showAlert(doorsOpen ? "🚪 DOORS OPENED" : "🚪 DOORS CLOSED", false);
+}
+btnDoor.onclick = toggleDoors;
+doorPrompt.onclick = toggleDoors;
+
+btnLights.onclick = () => {
+  headlightsOn = !headlightsOn;
+  btnLights.classList.toggle('active', headlightsOn);
+  AudioEngine.blinkerClick();
   triggerHaptic('light');
 };
 
-// Day/Night Toggle
-btnNight.onclick = () => {
-  isNight = !isNight;
-  btnNight.textContent = isNight ? "☀️" : "🌙";
-  btnNight.classList.toggle('active', isNight);
-  Sound.click();
+btnWipers.onclick = () => {
+  wipersActive = !wipersActive;
+  btnWipers.classList.toggle('active', wipersActive);
+  AudioEngine.blinkerClick();
   triggerHaptic('light');
 };
 
-// Horn
 btnHorn.onclick = () => {
-  Sound.horn();
-  triggerHaptic('medium');
+  AudioEngine.horn();
+  triggerHaptic('heavy');
 };
 
-// Switch vehicle directly during play
-btnVeh.onclick = () => {
-  setVehicle(selectedVehicleType==='bus' ? 'car' : 'bus');
-  Sound.click();
-  triggerHaptic('medium');
-  showBanner(selectedVehicleType==='bus' ? "🚍 TRANSIT BUS ACTIVE" : "🏎️ GT SUPERCAR ACTIVE", "#3b82f6");
+btnTurnLeft.onclick = () => {
+  blinkerLeft = !blinkerLeft;
+  blinkerRight = false;
+  hazardActive = false;
+  btnTurnRight.classList.remove('blinking');
+  btnHazard.classList.remove('blinking');
+  AudioEngine.blinkerClick();
+};
+btnTurnRight.onclick = () => {
+  blinkerRight = !blinkerRight;
+  blinkerLeft = false;
+  hazardActive = false;
+  btnTurnLeft.classList.remove('blinking');
+  btnHazard.classList.remove('blinking');
+  AudioEngine.blinkerClick();
+};
+btnHazard.onclick = () => {
+  hazardActive = !hazardActive;
+  blinkerLeft = hazardActive;
+  blinkerRight = hazardActive;
+  btnHazard.classList.toggle('blinking', hazardActive);
+  AudioEngine.blinkerClick();
 };
 
-// Pedals & Touch binding
-const bindPedal = (elem, onPress, onRelease) => {
-  const start = (e) => { e.preventDefault(); elem.classList.add('pressed'); onPress(); };
-  const end = (e) => { e.preventDefault(); elem.classList.remove('pressed'); onRelease(); };
-  elem.addEventListener('pointerdown', start);
-  elem.addEventListener('pointerup', end);
-  elem.addEventListener('pointercancel', end);
-  elem.addEventListener('pointerleave', end);
-};
-
-bindPedal(btnGas, 
-  ()=>{ isGasPressed = true; if(!engineRunning) toggleEngine(); }, 
-  ()=>{ isGasPressed = false; }
-);
-
-bindPedal(btnBrake, 
-  ()=>{ isBrakePressed = true; if(selectedVehicleType==='bus' && speed>20) Sound.airBrake(); }, 
-  ()=>{ isBrakePressed = false; }
-);
-
-bindPedal(btnSteerLeft, 
-  ()=>{ steerDir = -1; btnSteerLeft.classList.add('active'); }, 
-  ()=>{ if(steerDir === -1) steerDir = 0; btnSteerLeft.classList.remove('active'); }
-);
-
-bindPedal(btnSteerRight, 
-  ()=>{ steerDir = 1; btnSteerRight.classList.add('active'); }, 
-  ()=>{ if(steerDir === 1) steerDir = 0; btnSteerRight.classList.remove('active'); }
-);
-
-// Keyboard Controls
-window.addEventListener('keydown', (e)=>{
-  if(e.repeat) return;
-  const k = e.key.toLowerCase();
-  if(k==='w'||k==='arrowup'){ isGasPressed = true; if(!engineRunning) toggleEngine(); }
-  if(k==='s'||k==='arrowdown'){ isBrakePressed = true; }
-  if(k==='a'||k==='arrowleft'){ steerDir = -1; }
-  if(k==='d'||k==='arrowright'){ steerDir = 1; }
-  if(k===' '){ toggleParkingBrake(); }
-  if(k==='e'){ toggleEngine(); }
-  if(k==='c'){ cameraMode = (cameraMode+1)%3; }
-  if(k==='h'){ Sound.horn(); }
-  if(k==='o'){ toggleBusDoors(); }
-  if(k==='l'){ isNight = !isNight; }
-});
-window.addEventListener('keyup', (e)=>{
-  const k = e.key.toLowerCase();
-  if(k==='w'||k==='arrowup') isGasPressed = false;
-  if(k==='s'||k==='arrowdown') isBrakePressed = false;
-  if((k==='a'||k==='arrowleft') && steerDir===-1) steerDir = 0;
-  if((k==='d'||k==='arrowright') && steerDir===1) steerDir = 0;
-});
-
-// Start button
-btnPlay.onclick = () => {
-  Sound.init(); Sound.resume();
-  startScreen.classList.add('hidden');
-  bridge('gameStarted');
-  toggleEngine();
-};
-
-// Pause / Resume lifecycle
-function pauseGame(){
-  isPaused = true;
-  if(Sound.ctx && Sound.ctx.state==='running'){ try{ Sound.ctx.suspend(); }catch(e){} }
-}
-function resumeGame(){
-  if(isPaused || window.__GAME_PAUSED__){
-    isPaused = false;
-    window.__GAME_PAUSED__ = false;
-    lastTime = performance.now();
-    Sound.resume();
-    requestAnimationFrame(gameLoop);
+window.addEventListener('pointerdown', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const cy = (e.clientY - rect.top) / rect.height;
+  if (cy < 0.65 && !e.target.closest('#hud')) {
+    isDraggingFreeLook = true;
+    lastTouchX = e.clientX;
+    lastTouchY = e.clientY;
   }
+});
+window.addEventListener('pointermove', (e) => {
+  if (isDraggingFreeLook) {
+    const dx = e.clientX - lastTouchX;
+    const dy = e.clientY - lastTouchY;
+    lastTouchX = e.clientX;
+    lastTouchY = e.clientY;
+    freeLookYaw += dx * 0.006;
+    freeLookPitch = Math.max(-0.4, Math.min(0.4, freeLookPitch - dy * 0.005));
+  }
+});
+window.addEventListener('pointerup', () => { isDraggingFreeLook = false; });
+window.addEventListener('pointercancel', () => { isDraggingFreeLook = false; });
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowUp' || e.key === 'w') isGasPressed = true;
+  if (e.key === 'ArrowDown' || e.key === 's') isBrakePressed = true;
+  if (e.key === 'ArrowLeft' || e.key === 'a') steerLeftPressed = true;
+  if (e.key === 'ArrowRight' || e.key === 'd') steerRightPressed = true;
+  if (e.key === 'c') btnCam.click();
+  if (e.key === 'e') toggleDoors();
+  if (e.key === 'h') AudioEngine.horn();
+});
+window.addEventListener('keyup', (e) => {
+  if (e.key === 'ArrowUp' || e.key === 'w') isGasPressed = false;
+  if (e.key === 'ArrowDown' || e.key === 's') isBrakePressed = false;
+  if (e.key === 'ArrowLeft' || e.key === 'a') steerLeftPressed = false;
+  if (e.key === 'ArrowRight' || e.key === 'd') steerRightPressed = false;
+});
+
+function resetRouteState() {
+  playerZ = 0;
+  playerX = 0;
+  speed = 0;
+  passengersAboard = 0;
+  totalPassengersDelivered = 0;
+  redLightInfractions = 0;
+  drivingScore = 1000;
+  currentStopIndex = 0;
+  ROUTE_STOPS.forEach(s => s.isVisited = false);
+  doorsOpen = false;
+  initTraffic();
 }
-window.addEventListener('blur', pauseGame);
-window.addEventListener('focus', resumeGame);
-window.addEventListener('pause', pauseGame);
-window.addEventListener('resume', resumeGame);
 
 /* ==========================================================================
-   PHYSICS SIMULATION & UPDATE
+   8. BUS SIMULATOR PHYSICS & LOGIC LOOP
    ========================================================================== */
-function updatePhysics(dt){
-  // Road curve oscillation
-  curveTimer += dt;
-  if(curveTimer > 4.5){
-    curveTimer = 0;
-    targetRoadCurve = (Math.random() - 0.5) * 1.8;
-  }
-  roadCurve += (targetRoadCurve - roadCurve) * dt * 0.8;
+let lastFrameTime = performance.now();
 
-  // Engine & Acceleration
-  const accelPower = selectedVehicleType==='bus' ? 24 : 52;
-  const brakePower = selectedVehicleType==='bus' ? 75 : 90;
-  const drag = 12;
+function updateSimulator(dt) {
+  if (gameState !== 'DRIVING') return;
 
-  if(engineRunning && !parkingBrake && !busDoorsOpen){
-    if(isGasPressed){
-      acceleration = accelPower;
-    }else if(isBrakePressed){
-      acceleration = -brakePower;
-    }else{
-      acceleration = -drag;
+  routeElapsedSeconds = (performance.now() - routeStartTime) / 1000;
+
+  let targetSteer = 0;
+  if (steerLeftPressed) targetSteer -= 1;
+  if (steerRightPressed) targetSteer += 1;
+  steerDir += (targetSteer - steerDir) * dt * 8.0;
+  steerAngle = steerDir * 35;
+
+  chassisRoll = -steerDir * (speed / maxForwardSpeed) * 4.5;
+  chassisPitch = (isBrakePressed ? 4.0 : (isGasPressed ? -2.5 : 0));
+
+  doorOpenAmount += ((doorsOpen ? 1 : 0) - doorOpenAmount) * dt * 4.0;
+
+  const isReverse = (currentGear === 'R');
+  const isDrive = (currentGear === 'D');
+
+  if (engineRunning && !parkingBrake) {
+    if (doorsOpen) {
+      speed = Math.max(0, speed - dt * 25);
+    } else if (isGasPressed && isDrive) {
+      speed = Math.min(maxForwardSpeed, speed + dt * 14.5);
+    } else if (isGasPressed && isReverse) {
+      speed = Math.max(-20, speed - dt * 10);
+    } else if (isBrakePressed) {
+      if (speed > 0) speed = Math.max(0, speed - dt * 38);
+      else if (speed < 0) speed = Math.min(0, speed + dt * 38);
+    } else {
+      if (speed > 0) speed = Math.max(0, speed - dt * 6.5);
+      else if (speed < 0) speed = Math.min(0, speed + dt * 6.5);
     }
-  }else{
-    // Engine off or parked
-    acceleration = parkingBrake ? -120 : -drag;
+  } else {
+    speed = Math.max(0, speed - dt * 30);
   }
 
-  speed += acceleration * dt;
-  if(speed < 0) speed = 0;
-  if(speed > maxSpeed) speed = maxSpeed;
+  playerZ += (speed * 0.28) * dt * 42;
+  playerX += steerDir * (speed / 50) * dt * 1.8;
+  playerX = Math.max(-1.1, Math.min(1.1, playerX));
 
-  // Steering physics
-  const steerSpeed = (selectedVehicleType==='bus' ? 1.2 : 2.0) * (Math.min(speed, 60)/60);
-  playerX += steerDir * steerSpeed * dt;
-  
-  // Centrifugal curve drift
-  playerX -= roadCurve * (speed/maxSpeed) * 0.5 * dt;
-  playerX = Math.max(-1.3, Math.min(1.3, playerX));
-
-  // Audio update
-  Sound.updateEngine(speed, isGasPressed);
-
-  // Distance & Bus Stop Navigation
-  const distDelta = (speed * (1000/3600)) * dt;
-  distanceTraveled += distDelta;
-  playerZ += speed * dt * 15;
-
-  if(selectedVehicleType === 'bus'){
-    nextBusStopDist -= distDelta;
-    if(nextBusStopDist <= 0){
-      nextBusStopDist = 0;
-      busStopActive = true;
-    }
-    distVal.textContent = Math.round(Math.max(0, nextBusStopDist)) + "m";
-  }else{
-    distVal.textContent = Math.round(distanceTraveled) + "m";
+  if (!isDraggingFreeLook) {
+    freeLookYaw += (0 - freeLookYaw) * dt * 3.5;
+    freeLookPitch += (0 - freeLookPitch) * dt * 3.5;
   }
 
-  // Skid particles on high speed turn or hard brake
-  if(speed > 40 && (isBrakePressed || Math.abs(steerDir) > 0.8)){
-    if(Math.random()<0.4) Sound.skid();
-    for(let i=0; i<2; i++){
-      particles.push({
-        x: W/2 + (selectedVehicleType==='bus'?40:32)*(i===0?-1:1),
-        y: H*0.82,
-        vx: (Math.random()-0.5)*40,
-        vy: -10 - Math.random()*20,
-        life: 0.35,
-        max: 0.35,
-        color: 'rgba(200,200,200,0.4)',
-        r: 6 + Math.random()*6
-      });
+  blinkerTimer += dt;
+  if (blinkerTimer > 0.45) {
+    blinkerTimer = 0;
+    blinkerLampOn = !blinkerLampOn;
+    if ((blinkerLeft || blinkerRight || hazardActive) && blinkerLampOn) {
+      AudioEngine.blinkerClick();
     }
   }
 
-  // Update particles
-  for(let i=particles.length-1; i>=0; i--){
+  if (wipersActive) {
+    wiperAngle = Math.sin(performance.now() * 0.005) * 48;
+  } else {
+    wiperAngle += (0 - wiperAngle) * dt * 6.0;
+  }
+
+  AudioEngine.updateEngine(Math.abs(speed), isGasPressed && !doorsOpen, engineRunning);
+
+  TRAFFIC_LIGHTS.forEach(tl => {
+    tl.timer -= dt;
+    if (tl.timer <= 0) {
+      if (tl.state === 'GREEN') { tl.state = 'YELLOW'; tl.timer = tl.cycleYellow; }
+      else if (tl.state === 'YELLOW') { tl.state = 'RED'; tl.timer = tl.cycleRed; }
+      else { tl.state = 'GREEN'; tl.timer = tl.cycleGreen; }
+    }
+
+    const tlWorldZ = tl.segIndex * SEGMENT_LENGTH;
+    if (playerZ > tlWorldZ - 20 && playerZ < tlWorldZ + 30 && tl.state === 'RED' && Math.abs(speed) > 10) {
+      if (!tl.violationTriggered) {
+        tl.violationTriggered = true;
+        redLightInfractions++;
+        drivingScore = Math.max(0, drivingScore - 150);
+        AudioEngine.buzzerViolation();
+        triggerHaptic('heavy');
+        showAlert("⚠️ RED LIGHT VIOLATION! (-150 PTS)", true);
+      }
+    }
+  });
+
+  trafficVehicles.forEach(car => {
+    let stopForLight = false;
+    TRAFFIC_LIGHTS.forEach(tl => {
+      const tlZ = tl.segIndex * SEGMENT_LENGTH;
+      if (car.z < tlZ && car.z > tlZ - 100 && tl.state !== 'GREEN') {
+        stopForLight = true;
+      }
+    });
+
+    if (car.z > INCIDENT_ZONE.startSeg * SEGMENT_LENGTH && car.z < INCIDENT_ZONE.endSeg * SEGMENT_LENGTH) {
+      if (car.targetX > 0.3) car.targetX = -0.15;
+    }
+
+    if (stopForLight) {
+      car.speed = Math.max(0, car.speed - dt * 25);
+    } else {
+      car.speed += (car.targetSpeed - car.speed) * dt * 2.0;
+    }
+
+    car.x += (car.targetX - car.x) * dt * 3.0;
+    car.z += (car.speed * 0.28) * dt * 42;
+
+    if (car.z < playerZ - 300) {
+      car.z = playerZ + 900 + Math.random() * 400;
+      car.targetX = ROAD_LANES[Math.floor(Math.random() * 3)];
+      car.speed = 35 + Math.random() * 25;
+    }
+  });
+
+  const nextStop = ROUTE_STOPS[currentStopIndex];
+  if (nextStop) {
+    const stopWorldZ = nextStop.segIndex * SEGMENT_LENGTH;
+    const distToStop = stopWorldZ - playerZ;
+
+    beaconTitle.textContent = nextStop.name;
+    beaconDist.textContent = `Next Stop • ${Math.max(0, Math.round(distToStop * 0.2))}m`;
+
+    const inBayZone = (distToStop > -30 && distToStop < 45);
+    const isStoppedInBay = (inBayZone && Math.abs(speed) < 5 && playerX > 0.25);
+
+    if (isStoppedInBay && !nextStop.isVisited) {
+      doorPrompt.style.display = doorsOpen ? 'none' : 'block';
+
+      if (doorsOpen) {
+        boardingActive = true;
+        boardingTimer += dt;
+        if (boardingTimer >= 0.85 && nextStop.passengersWaiting > 0) {
+          boardingTimer = 0;
+          nextStop.passengersWaiting--;
+          passengersAboard++;
+          drivingScore += 50;
+          AudioEngine.doorChime();
+          triggerHaptic('light');
+          showAlert(`👥 Passenger Boarded (${passengersAboard}/18)`, false);
+
+          for (let i = 0; i < 10; i++) {
+            particles.push({
+              x: W * 0.6 + (Math.random() * 20 - 10),
+              y: H * 0.65,
+              vx: (Math.random() - 0.5) * 80,
+              vy: -40 - Math.random() * 70,
+              life: 0.7,
+              max: 0.7,
+              color: '#38bdf8',
+              r: 3 + Math.random() * 2
+            });
+          }
+        }
+
+        if (nextStop.passengersWaiting === 0 && !nextStop.isVisited) {
+          nextStop.isVisited = true;
+          totalPassengersDelivered += passengersAboard;
+          showAlert("✅ STOP COMPLETE! Close Doors & Proceed", false);
+          triggerHaptic('medium');
+          if (currentStopIndex < ROUTE_STOPS.length - 1) {
+            currentStopIndex++;
+          }
+        }
+      }
+    } else {
+      doorPrompt.style.display = 'none';
+      boardingActive = false;
+    }
+  }
+
+  if (playerZ >= (TOTAL_TRACK_SEGMENTS - 80) * SEGMENT_LENGTH && gameState === 'DRIVING') {
+    completeRouteMission();
+  }
+
+  for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.x += p.vx * dt;
     p.y += p.vy * dt;
     p.life -= dt;
-    if(p.life <= 0) particles.splice(i,1);
+    if (p.life <= 0) particles.splice(i, 1);
   }
 
-  // Traffic Cars update
-  trafficCars.forEach(car => {
-    car.z -= (speed - car.speed) * dt * 12;
-    if(car.z < -200){
-      car.z = 1200 + Math.random()*400;
-      car.x = ROAD_LANES[Math.floor(Math.random()*3)];
-      car.speed = 30 + Math.random()*35;
-      score += 50;
-      scoreVal.textContent = score;
-    }
-  });
+  hudSpeed.textContent = Math.abs(Math.round(speed));
+  hudPassengers.textContent = `${passengersAboard} / 18`;
+}
 
-  // UI Updates
-  speedVal.textContent = Math.round(speed);
-  if(parkingBrake){
-    gearVal.textContent = "P (PARK)";
-  }else if(speed > 1){
-    gearVal.textContent = "D" + Math.min(6, Math.max(1, Math.ceil(speed/25)));
-  }else{
-    gearVal.textContent = "N (IDLE)";
-  }
+function completeRouteMission() {
+  gameState = 'COMPLETED';
+  speed = 0;
+  selectGear('P');
+  AudioEngine.airBrakeRelease();
+  Host.post('game_over', { score: drivingScore, passengers: totalPassengersDelivered });
+
+  let stars = '★★★';
+  if (redLightInfractions > 1 || drivingScore < 600) stars = '★☆☆';
+  else if (redLightInfractions === 1 || drivingScore < 850) stars = '★★☆';
+
+  const mins = Math.floor(routeElapsedSeconds / 60);
+  const secs = Math.floor(routeElapsedSeconds % 60);
+  const timeStr = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+
+  document.getElementById('res-stars').textContent = stars;
+  document.getElementById('res-passengers').textContent = `${passengersAboard} Passengers`;
+  document.getElementById('res-infractions').textContent = `${redLightInfractions} Violations`;
+  document.getElementById('res-time').textContent = timeStr;
+  document.getElementById('res-earnings').textContent = `$${Math.round(drivingScore * 1.4)}`;
+
+  resultsModal.classList.remove('hidden');
 }
 
 /* ==========================================================================
-   3D PERSPECTIVE RENDERING PIPELINE
+   9. 3D PROJECTION ENGINE & MASTER RASTERIZER
    ========================================================================== */
-function render3DScene(){
-  ctx.clearRect(0,0,W,H);
+function renderScene() {
+  ctx.clearRect(0, 0, W, H);
 
-  // 1. SKY & HORIZON
-  const horizonY = H * 0.45;
-  const skyGrad = ctx.createLinearGradient(0,0,0,horizonY);
-  if(isNight){
-    skyGrad.addColorStop(0, '#030712');
-    skyGrad.addColorStop(0.7, '#0b1329');
-    skyGrad.addColorStop(1, '#1e1b4b');
-  }else{
-    skyGrad.addColorStop(0, '#0284c7');
-    skyGrad.addColorStop(0.6, '#38bdf8');
-    skyGrad.addColorStop(1, '#fed7aa');
-  }
+  const horizonY = H * 0.44 + (freeLookPitch * 140);
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+  skyGrad.addColorStop(0, '#0f172a');
+  skyGrad.addColorStop(0.5, '#1e293b');
+  skyGrad.addColorStop(1, '#38bdf8');
   ctx.fillStyle = skyGrad;
-  ctx.fillRect(0,0,W,horizonY);
+  ctx.fillRect(0, 0, W, horizonY);
 
-  // Stars & Moon / Sun
-  if(isNight){
-    ctx.fillStyle = '#ffffff';
-    for(let i=0; i<30; i++){
-      const sx = (i*47)%W, sy = (i*29)%(horizonY*0.7);
-      ctx.fillRect(sx, sy, 1.5, 1.5);
-    }
-    // Glowing Moon
-    ctx.fillStyle = '#fef08a';
-    ctx.beginPath(); ctx.arc(W*0.8, horizonY*0.3, 14, 0, Math.PI*2); ctx.fill();
-  }else{
-    // Sun Flare
-    const sunGrad = ctx.createRadialGradient(W*0.75, horizonY*0.35, 4, W*0.75, horizonY*0.35, 40);
-    sunGrad.addColorStop(0, '#ffffff');
-    sunGrad.addColorStop(0.4, 'rgba(253,224,71,0.6)');
-    sunGrad.addColorStop(1, 'rgba(253,224,71,0)');
-    ctx.fillStyle = sunGrad;
-    ctx.beginPath(); ctx.arc(W*0.75, horizonY*0.35, 40, 0, Math.PI*2); ctx.fill();
-  }
-
-  // Parallax Mountains & City Skyline
-  ctx.fillStyle = isNight ? '#090d1f' : '#334155';
+  const sunX = W * 0.72 + (freeLookYaw * 80);
+  const sunGrad = ctx.createRadialGradient(sunX, horizonY * 0.4, 4, sunX, horizonY * 0.4, 55);
+  sunGrad.addColorStop(0, '#ffffff');
+  sunGrad.addColorStop(0.3, 'rgba(253,224,71,0.5)');
+  sunGrad.addColorStop(1, 'rgba(253,224,71,0)');
+  ctx.fillStyle = sunGrad;
   ctx.beginPath();
-  ctx.moveTo(0, horizonY);
-  for(let x=0; x<=W; x+=40){
-    const h = Math.sin((x+playerZ*0.02)*0.03)*25 + 30;
-    ctx.lineTo(x, horizonY - h);
-  }
-  ctx.lineTo(W, horizonY); ctx.closePath(); ctx.fill();
+  ctx.arc(sunX, horizonY * 0.4, 55, 0, Math.PI * 2);
+  ctx.fill();
 
-  // Skyscrapers Skyline
-  ctx.fillStyle = isNight ? '#0f172a' : '#475569';
-  for(let i=0; i<8; i++){
-    const bx = ((i*50 - playerX*20)%W + W)%W;
-    const bw = 38, bh = 50 + (i%4)*20;
+  ctx.fillStyle = '#1e293b';
+  for (let b = 0; b < 12; b++) {
+    const bx = ((b * 38 - playerZ * 0.005 + freeLookYaw * 60) % (W + 40) + (W + 40)) % (W + 40) - 20;
+    const bw = 32;
+    const bh = 30 + (b % 4) * 20;
     ctx.fillRect(bx, horizonY - bh, bw, bh);
-    
-    if(isNight){
-      ctx.fillStyle = '#fef08a';
-      for(let r=0; r<4; r++){
-        for(let c=0; c<3; c++){
-          if((i+r+c)%3===0) ctx.fillRect(bx+5+c*10, horizonY-bh+6+r*10, 4, 5);
-        }
-      }
-      ctx.fillStyle = '#0f172a';
-    }
   }
 
-  // 2. 3D ROAD PROJECTION
   const groundGrad = ctx.createLinearGradient(0, horizonY, 0, H);
-  groundGrad.addColorStop(0, isNight ? '#052e16' : '#15803d');
-  groundGrad.addColorStop(1, isNight ? '#022c22' : '#166534');
+  groundGrad.addColorStop(0, '#064e3b');
+  groundGrad.addColorStop(1, '#022c22');
   ctx.fillStyle = groundGrad;
-  ctx.fillRect(0, horizonY, W, H-horizonY);
+  ctx.fillRect(0, horizonY, W, H - horizonY);
 
-  const cameraHeight = 1000;
-  const roadWidth = 1400;
+  const camHeight = (cameraMode === 1 ? 720 : 920);
+  const startSegIndex = Math.floor(playerZ / SEGMENT_LENGTH);
+  const DRAW_DISTANCE = 110;
 
-  // Project road segments
-  let maxy = H;
-  for(let n=0; n<120; n++){
-    const z1 = n * 40 + 10;
-    const z2 = (n+1) * 40 + 10;
+  let maxRenderY = H;
+  let sceneryToDraw = [];
 
-    const scale1 = 300 / z1;
-    const scale2 = 300 / z2;
+  for (let n = 0; n < DRAW_DISTANCE; n++) {
+    const segIdx = startSegIndex + n;
+    if (segIdx >= TOTAL_TRACK_SEGMENTS) break;
 
-    const curveOffset1 = Math.pow(n*0.02, 2) * roadCurve * 300;
-    const curveOffset2 = Math.pow((n+1)*0.02, 2) * roadCurve * 300;
+    const seg = trackSegments[segIdx];
+    const relZ1 = (segIdx * SEGMENT_LENGTH) - playerZ;
+    const relZ2 = ((segIdx + 1) * SEGMENT_LENGTH) - playerZ;
+    if (relZ1 <= 15) continue;
 
-    const x1 = (W/2) - (playerX * 180 * scale1) + curveOffset1;
-    const y1 = horizonY + (cameraHeight * scale1);
-    const w1 = roadWidth * scale1;
+    const scale1 = 280 / relZ1;
+    const scale2 = 280 / relZ2;
 
-    const x2 = (W/2) - (playerX * 180 * scale2) + curveOffset2;
-    const y2 = horizonY + (cameraHeight * scale2);
-    const w2 = roadWidth * scale2;
+    const curveOffset1 = (seg.curve * 120 * scale1) + (freeLookYaw * 240);
+    const curveOffset2 = (seg.curve * 120 * scale2) + (freeLookYaw * 240);
 
-    if(y1 >= maxy || y2 >= maxy) continue;
+    const x1 = (W / 2) - (playerX * 360 * scale1) + curveOffset1;
+    const y1 = horizonY + ((camHeight - seg.worldY) * scale1);
+    const w1 = seg.roadWidth * scale1;
 
-    // Asphalt Color
-    const isDark = Math.floor((playerZ*0.05 + n)/4)%2 === 0;
-    ctx.fillStyle = isNight ? (isDark ? '#0f172a' : '#1e293b') : (isDark ? '#334155' : '#475569');
-    
-    // Draw Road polygon
+    const x2 = (W / 2) - (playerX * 360 * scale2) + curveOffset2;
+    const y2 = horizonY + ((camHeight - seg.worldY) * scale2);
+    const w2 = seg.roadWidth * scale2;
+
+    if (y1 >= maxRenderY) continue;
+
+    const isStripe = Math.floor(segIdx / 3) % 2 === 0;
+    ctx.fillStyle = isStripe ? '#334155' : '#1e293b';
+
     ctx.beginPath();
     ctx.moveTo(x1 - w1, y1);
     ctx.lineTo(x1 + w1, y1);
@@ -932,266 +1163,383 @@ function render3DScene(){
     ctx.closePath();
     ctx.fill();
 
-    // Road Shoulders & Curbs
-    const curbColor = isDark ? '#ef4444' : '#f8fafc';
-    ctx.fillStyle = curbColor;
+    const isStopBay = ROUTE_STOPS.some(s => Math.abs(s.segIndex - segIdx) < 8);
+    const curbCol = isStopBay ? '#f59e0b' : (isStripe ? '#ef4444' : '#f8fafc');
     const curbW1 = w1 * 0.08, curbW2 = w2 * 0.08;
-    // Left curb
+
+    ctx.fillStyle = curbCol;
     ctx.beginPath();
     ctx.moveTo(x1 - w1 - curbW1, y1); ctx.lineTo(x1 - w1, y1);
     ctx.lineTo(x2 - w2, y2); ctx.lineTo(x2 - w2 - curbW2, y2);
     ctx.closePath(); ctx.fill();
-    // Right curb
+
     ctx.beginPath();
     ctx.moveTo(x1 + w1, y1); ctx.lineTo(x1 + w1 + curbW1, y1);
     ctx.lineTo(x2 + w2 + curbW2, y2); ctx.lineTo(x2 + w2, y2);
     ctx.closePath(); ctx.fill();
 
-    // White Lane Dashes
-    if(isDark){
-      ctx.fillStyle = '#ffffff';
-      [-0.33, 0.33].forEach(laneOffset => {
-        const lx1 = x1 + w1 * laneOffset, lx2 = x2 + w2 * laneOffset;
-        const lw1 = Math.max(1.5, 4 * scale1);
-        ctx.fillRect(lx1 - lw1/2, y1, lw1, Math.max(1, y2 - y1));
+    ctx.fillStyle = '#facc15';
+    const cw1 = Math.max(1.5, 4 * scale1);
+    ctx.fillRect(x1 - cw1 * 1.5, y1, cw1, Math.max(1.5, y2 - y1));
+    ctx.fillRect(x1 + cw1 * 0.5, y1, cw1, Math.max(1.5, y2 - y1));
+
+    if (isStripe) {
+      ctx.fillStyle = '#f8fafc';
+      [-0.45, 0.45].forEach(lane => {
+        const lx1 = x1 + w1 * lane;
+        const lw = Math.max(1.2, 3.5 * scale1);
+        ctx.fillRect(lx1 - lw / 2, y1, lw, Math.max(1.5, y2 - y1));
       });
     }
 
-    // Bus Stop Bay on Right Side
-    if(selectedVehicleType === 'bus' && nextBusStopDist < 80 && n > 20 && n < 35){
-      ctx.fillStyle = 'rgba(16,185,129,0.7)';
-      ctx.fillRect(x1 + w1 + curbW1, y1, 30*scale1, Math.max(2, y2 - y1));
+    if (isStopBay && isStripe) {
+      ctx.fillStyle = 'rgba(245,158,11,0.5)';
+      ctx.fillRect(x1 + w1 * 0.55, y1, w1 * 0.45, Math.max(2, y2 - y1));
     }
+
+    TRAFFIC_LIGHTS.forEach(tl => {
+      if (Math.abs(tl.segIndex - segIdx) < 2) {
+        ctx.fillStyle = '#ffffff';
+        for (let zc = -0.8; zc <= 0.8; zc += 0.2) {
+          ctx.fillRect(x1 + w1 * zc, y1, w1 * 0.1, Math.max(3, y2 - y1));
+        }
+      }
+    });
+
+    seg.sceneryLeft.forEach(sc => {
+      sceneryToDraw.push({ side: 'left', x: x1 - w1 * 1.25, y: y1, scale: scale1, obj: sc, relZ: relZ1 });
+    });
+    seg.sceneryRight.forEach(sc => {
+      sceneryToDraw.push({ side: 'right', x: x1 + w1 * 1.25, y: y1, scale: scale1, obj: sc, relZ: relZ1 });
+    });
   }
 
-  // 3. HEADLIGHT BEAMS (NIGHT MODE)
-  if(isNight){
-    const beamGrad = ctx.createRadialGradient(W/2, H*0.8, 20, W/2, H*0.5, 180);
-    beamGrad.addColorStop(0, 'rgba(254,240,138,0.45)');
-    beamGrad.addColorStop(0.6, 'rgba(254,240,138,0.15)');
-    beamGrad.addColorStop(1, 'rgba(254,240,138,0)');
-    ctx.fillStyle = beamGrad;
-    ctx.beginPath();
-    ctx.moveTo(W/2 - 50, H*0.8);
-    ctx.lineTo(W/2 - 130, H*0.48);
-    ctx.lineTo(W/2 + 130, H*0.48);
-    ctx.lineTo(W/2 + 50, H*0.8);
-    ctx.closePath();
-    ctx.fill();
-  }
+  sceneryToDraw.sort((a, b) => b.relZ - a.relZ);
+  sceneryToDraw.forEach(s => {
+    const sc = s.scale;
+    if (s.obj.type === 'building' || s.obj.type === 'skyscraper') {
+      const bw = (s.obj.type === 'skyscraper' ? 140 : 100) * sc;
+      const bh = s.obj.h * sc * 2.8;
+      ctx.fillStyle = s.obj.color;
+      ctx.fillRect(s.x - bw / 2, s.y - bh, bw, bh);
+      ctx.fillStyle = '#fef08a';
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 3; c++) {
+          if ((r + c) % 2 === 0) ctx.fillRect(s.x - bw * 0.35 + c * (bw * 0.3), s.y - bh + 8 * sc + r * (bh * 0.22), bw * 0.18, bh * 0.12);
+        }
+      }
+    } else if (s.obj.type === 'tree') {
+      ctx.fillStyle = '#78350f';
+      ctx.fillRect(s.x - 4 * sc, s.y - 45 * sc, 8 * sc, 45 * sc);
+      ctx.fillStyle = '#15803d';
+      ctx.beginPath(); ctx.arc(s.x, s.y - 50 * sc, 22 * sc, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#16a34a';
+      ctx.beginPath(); ctx.arc(s.x, s.y - 65 * sc, 16 * sc, 0, Math.PI * 2); ctx.fill();
+    } else if (s.obj.type === 'bus_shelter') {
+      const sw = 90 * sc, sh = 65 * sc;
+      ctx.fillStyle = 'rgba(56,189,248,0.35)';
+      ctx.fillRect(s.x - sw / 2, s.y - sh, sw, sh);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = Math.max(1, 2 * sc);
+      ctx.strokeRect(s.x - sw / 2, s.y - sh, sw, sh);
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath(); ctx.arc(s.x - sw * 0.6, s.y - sh - 10 * sc, 9 * sc, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.font = `bold ${Math.max(6, 8 * sc)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('BUS', s.x - sw * 0.6, s.y - sh - 7 * sc);
+      const stop = ROUTE_STOPS.find(st => st.id === s.obj.stopId);
+      const count = stop ? stop.passengersWaiting : 3;
+      for (let p = 0; p < count; p++) {
+        const px = s.x - sw * 0.35 + p * (14 * sc);
+        const py = s.y;
+        ctx.fillStyle = ['#3b82f6', '#ec4899', '#f97316', '#10b981'][p % 4];
+        ctx.fillRect(px - 3 * sc, py - 24 * sc, 6 * sc, 16 * sc);
+        ctx.fillStyle = '#fbcfe8';
+        ctx.beginPath(); ctx.arc(px, py - 28 * sc, 4 * sc, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (s.obj.type === 'traffic_gantry') {
+      const tl = TRAFFIC_LIGHTS.find(t => t.id === s.obj.tlId);
+      const gh = 95 * sc;
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(s.x - 4 * sc, s.y - gh, 8 * sc, gh);
+      const boxW = 16 * sc, boxH = 44 * sc;
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(s.x - boxW / 2, s.y - gh - 8 * sc, boxW, boxH);
+      const isRed = tl && tl.state === 'RED';
+      const isYel = tl && tl.state === 'YELLOW';
+      const isGrn = tl && tl.state === 'GREEN';
+      ctx.fillStyle = isRed ? '#ef4444' : '#450a0a';
+      ctx.beginPath(); ctx.arc(s.x, s.y - gh + 2 * sc, 4 * sc, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = isYel ? '#f59e0b' : '#451a03';
+      ctx.beginPath(); ctx.arc(s.x, s.y - gh + 14 * sc, 4 * sc, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = isGrn ? '#10b981' : '#022c22';
+      ctx.beginPath(); ctx.arc(s.x, s.y - gh + 26 * sc, 4 * sc, 0, Math.PI * 2); ctx.fill();
+    }
+  });
 
-  // 4. TRAFFIC CARS RENDERING
-  trafficCars.forEach(car => {
-    if(car.z > 0 && car.z < 1000){
-      const scale = 300 / car.z;
-      const cx = (W/2) - (playerX * 180 * scale) + (car.x * roadWidth * scale * 0.5);
-      const cy = horizonY + (cameraHeight * scale);
-      const cw = 110 * scale;
-      const ch = (car.type==='van' ? 90 : 60) * scale;
+  trafficVehicles.forEach(car => {
+    const relZ = car.z - playerZ;
+    if (relZ > 20 && relZ < 850) {
+      const sc = 280 / relZ;
+      const segIdx = Math.floor(car.z / SEGMENT_LENGTH);
+      const seg = trackSegments[Math.min(TOTAL_TRACK_SEGMENTS - 1, segIdx)];
+      const curveOff = (seg ? seg.curve * 120 * sc : 0) + (freeLookYaw * 240);
+      const cx = (W / 2) - (playerX * 360 * sc) + (car.x * 700 * sc) + curveOff;
+      const cy = horizonY + ((camHeight - (seg ? seg.worldY : 0)) * sc);
+      const cw = (car.type === 'van' ? 95 : 82) * sc;
+      const ch = (car.type === 'van' ? 70 : 50) * sc;
 
-      if(cy < H && cy > horizonY){
-        // Vehicle Shadow
+      if (cy > horizonY && cy < H) {
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(cx - cw/2, cy, cw, 6*scale);
+        ctx.fillRect(cx - cw / 2, cy, cw, 6 * sc);
 
-        // Vehicle Body
         ctx.fillStyle = car.color;
-        ctx.fillRect(cx - cw/2, cy - ch, cw, ch);
+        ctx.beginPath();
+        ctx.roundRect(cx - cw / 2, cy - ch, cw, ch, [6 * sc, 6 * sc, 2, 2]);
+        ctx.fill();
 
-        // Rear Windshield
         ctx.fillStyle = '#0f172a';
-        ctx.fillRect(cx - cw*0.35, cy - ch*0.85, cw*0.7, ch*0.35);
+        ctx.fillRect(cx - cw * 0.35, cy - ch * 0.85, cw * 0.7, ch * 0.35);
 
-        // Taillights
-        ctx.fillStyle = '#ef4444';
-        ctx.fillRect(cx - cw*0.45, cy - ch*0.3, cw*0.2, ch*0.2);
-        ctx.fillRect(cx + cw*0.25, cy - ch*0.3, cw*0.2, ch*0.2);
+        if (car.type === 'police') {
+          const flash = Math.floor(performance.now() * 0.01) % 2 === 0;
+          ctx.fillStyle = flash ? '#3b82f6' : '#ef4444';
+          ctx.fillRect(cx - cw * 0.25, cy - ch - 8 * sc, cw * 0.5, 6 * sc);
+        }
+
+        ctx.fillStyle = (car.isBraking || isBrakePressed) ? '#ff0000' : '#b91c1c';
+        ctx.fillRect(cx - cw * 0.45, cy - ch * 0.35, cw * 0.2, ch * 0.25);
+        ctx.fillRect(cx + cw * 0.25, cy - ch * 0.35, cw * 0.2, ch * 0.25);
       }
     }
   });
 
-  // 5. PARTICLES (Smoke, Sparkles)
   particles.forEach(p => {
     ctx.fillStyle = p.color;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.r * (p.life/p.max), 0, Math.PI*2);
+    ctx.arc(p.x, p.y, p.r * (p.life / p.max), 0, Math.PI * 2);
     ctx.fill();
   });
 
-  // 6. PLAYER VEHICLE RENDERING
-  if(cameraMode === 0){ // 3rd Person View
-    const carY = H * 0.76;
-    const bodyTilt = steerDir * 3;
-    const pitchOffset = (isBrakePressed ? 6 : (isGasPressed ? -4 : 0));
+  if (cameraMode === 0) {
+    const busY = H * 0.75 + chassisPitch;
+    const bw = 146, bh = 152;
 
     ctx.save();
-    ctx.translate(W/2, carY + pitchOffset);
-    ctx.rotate((bodyTilt * Math.PI)/180);
+    ctx.translate(W / 2 + (freeLookYaw * 60), busY);
+    ctx.rotate((chassisRoll * Math.PI) / 180);
 
-    if(selectedVehicleType === 'bus'){
-      // === CITY TRANSIT BUS ===
-      const bw = 140, bh = 150;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.beginPath();
+    ctx.ellipse(0, bh * 0.46, bw * 0.56, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
 
-      // Shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.55)';
-      ctx.fillRect(-bw/2, bh*0.45, bw, 14);
+    ctx.fillStyle = '#0284c7';
+    ctx.beginPath();
+    ctx.roundRect(-bw / 2, -bh / 2, bw, bh, [18, 18, 6, 6]);
+    ctx.fill();
 
-      // Main Bus Body (Cyan & White Modern Transit)
-      ctx.fillStyle = '#0284c7';
-      ctx.beginPath();
-      ctx.roundRect(-bw/2, -bh/2, bw, bh, [16, 16, 6, 6]);
-      ctx.fill();
+    ctx.fillStyle = '#f8fafc';
+    ctx.beginPath();
+    ctx.roundRect(-bw / 2 + 4, -bh / 2 + 4, bw - 8, 32, [12, 12, 0, 0]);
+    ctx.fill();
 
-      // Top White Roof Cap
-      ctx.fillStyle = '#f8fafc';
-      ctx.beginPath();
-      ctx.roundRect(-bw/2+4, -bh/2+4, bw-8, 30, [10, 10, 0, 0]);
-      ctx.fill();
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(-bw * 0.38, -bh / 2 + 10, bw * 0.76, 18);
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('42 METRO EXP - DOWNTOWN', 0, -bh / 2 + 23);
 
-      // LED Route Display Banner
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(-bw*0.35, -bh/2+10, bw*0.7, 16);
-      ctx.fillStyle = '#f59e0b';
-      ctx.font = 'bold 9px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('42 EXPRESS - DOWNTOWN', 0, -bh/2+22);
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.roundRect(-bw * 0.42, -bh / 2 + 42, bw * 0.84, 52, 10);
+    ctx.fill();
 
-      // Big Rear Windshield
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.roundRect(-bw*0.4, -bh/2+38, bw*0.8, 48, 8);
-      ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath();
+    ctx.moveTo(-bw * 0.36, -bh / 2 + 46);
+    ctx.lineTo(-bw * 0.12, -bh / 2 + 46);
+    ctx.lineTo(-bw * 0.32, -bh / 2 + 88);
+    ctx.closePath();
+    ctx.fill();
 
-      // Glass Reflections
-      ctx.fillStyle = 'rgba(255,255,255,0.15)';
-      ctx.beginPath();
-      ctx.moveTo(-bw*0.35, -bh/2+42);
-      ctx.lineTo(-bw*0.1, -bh/2+42);
-      ctx.lineTo(-bw*0.3, -bh/2+80);
-      ctx.closePath(); ctx.fill();
-
-      // Animated Passenger Doors (Right Side)
-      if(busDoorsOpen){
-        ctx.fillStyle = '#38bdf8';
-        ctx.fillRect(bw/2 - 18, -bh/2+45, 8, 70);
-      }
-
-      // Rear Heavy Taillights
-      const brakeGlow = isBrakePressed ? 1 : 0.6;
-      ctx.fillStyle = `rgba(239,68,68,${brakeGlow})`;
-      ctx.fillRect(-bw/2 + 8, bh*0.25, 16, 28);
-      ctx.fillRect(bw/2 - 24, bh*0.25, 16, 28);
-
-      // License Plate & Bumper
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(-bw/2+6, bh*0.38, bw-12, 16);
-      ctx.fillStyle = '#fbbf24';
-      ctx.fillRect(-18, bh*0.40, 36, 12);
-      ctx.fillStyle = '#000';
-      ctx.font = 'bold 7px sans-serif';
-      ctx.fillText('BUS-42', 0, bh*0.48);
-
-      // Heavy Tires
-      ctx.fillStyle = '#09090b';
-      ctx.fillRect(-bw/2+8, bh*0.42, 22, 16);
-      ctx.fillRect(bw/2-30, bh*0.42, 22, 16);
-
-    }else{
-      // === GT SUPERCAR ===
-      const cw = 110, ch = 75;
-
-      // Shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(-cw/2, ch*0.4, cw, 12);
-
-      // Aerodynamic Sportscar Body (Ruby Red metallic)
-      const carGrad = ctx.createLinearGradient(0, -ch/2, 0, ch/2);
-      carGrad.addColorStop(0, '#dc2626');
-      carGrad.addColorStop(0.5, '#ef4444');
-      carGrad.addColorStop(1, '#991b1b');
-      ctx.fillStyle = carGrad;
-      ctx.beginPath();
-      ctx.roundRect(-cw/2, -ch/2 + 10, cw, ch - 10, [20, 20, 8, 8]);
-      ctx.fill();
-
-      // Sleek Rear Cabin Glass
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.roundRect(-cw*0.32, -ch/2+14, cw*0.64, 30, 8);
-      ctx.fill();
-
-      // Carbon Fiber Rear Wing Spoiler
-      ctx.fillStyle = '#18181b';
-      ctx.fillRect(-cw/2 - 4, -ch/2 + 2, cw + 8, 8);
-      ctx.fillRect(-cw*0.3, -ch/2 + 8, 6, 8);
-      ctx.fillRect(cw*0.3 - 6, -ch/2 + 8, 6, 8);
-
-      // Luminous LED Taillight Strip
-      ctx.fillStyle = isBrakePressed ? '#ff0000' : '#ef4444';
-      ctx.shadowColor = '#ff0000';
-      ctx.shadowBlur = isBrakePressed ? 18 : 6;
-      ctx.fillRect(-cw*0.42, ch*0.15, cw*0.84, 8);
-      ctx.shadowBlur = 0;
-
-      // Dual Exhaust Flames on high speed
-      if(speed > 100 && isGasPressed && Math.random()<0.6){
-        ctx.fillStyle = '#38bdf8';
-        ctx.beginPath(); ctx.arc(-22, ch*0.42, 6+Math.random()*4, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(22, ch*0.42, 6+Math.random()*4, 0, Math.PI*2); ctx.fill();
-      }
-
-      // Wide Sport Tires
-      ctx.fillStyle = '#09090b';
-      ctx.fillRect(-cw/2+4, ch*0.25, 18, 22);
-      ctx.fillRect(cw/2-22, ch*0.25, 18, 22);
+    for (let pi = 0; pi < Math.min(6, passengersAboard); pi++) {
+      const px = -bw * 0.3 + (pi % 3) * 24;
+      const py = -bh / 2 + 75 + Math.floor(pi / 3) * 8;
+      ctx.fillStyle = ['#3b82f6', '#ec4899', '#10b981'][pi % 3];
+      ctx.fillRect(px - 4, py, 8, 10);
+      ctx.fillStyle = '#fbcfe8';
+      ctx.beginPath(); ctx.arc(px, py - 4, 3.5, 0, Math.PI * 2); ctx.fill();
     }
+
+    if (doorOpenAmount > 0.05) {
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(bw / 2 - 14, -bh / 2 + 46, 8 * (1 - doorOpenAmount * 0.7), 64);
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(bw / 2 - 6, -bh / 2 + 50, 6, 56);
+    }
+
+    const isBraking = isBrakePressed || parkingBrake;
+    ctx.fillStyle = isBraking ? '#ff0000' : '#b91c1c';
+    ctx.shadowColor = isBraking ? '#ff0000' : 'transparent';
+    ctx.shadowBlur = isBraking ? 18 : 0;
+    ctx.fillRect(-bw / 2 + 8, bh * 0.22, 18, 30);
+    ctx.fillRect(bw / 2 - 26, bh * 0.22, 18, 30);
+    ctx.shadowBlur = 0;
+
+    if ((blinkerLeft || hazardActive) && blinkerLampOn) {
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(-bw / 2 + 8, bh * 0.12, 18, 12);
+    }
+    if ((blinkerRight || hazardActive) && blinkerLampOn) {
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(bw / 2 - 26, bh * 0.12, 18, 12);
+    }
+
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(-bw / 2 + 6, bh * 0.38, bw - 12, 16);
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillRect(-18, bh * 0.40, 36, 12);
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 7.5px sans-serif';
+    ctx.fillText('BUS-08', 0, bh * 0.49);
+
+    const wheelAngle = (steerAngle * Math.PI) / 180;
+    ctx.save();
+    ctx.translate(-bw / 2 + 16, bh * 0.44);
+    ctx.rotate(wheelAngle * 0.5);
+    ctx.fillStyle = '#09090b';
+    ctx.fillRect(-8, -12, 16, 24);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(bw / 2 - 16, bh * 0.44);
+    ctx.rotate(wheelAngle * 0.5);
+    ctx.fillStyle = '#09090b';
+    ctx.fillRect(-8, -12, 16, 24);
+    ctx.restore();
 
     ctx.restore();
 
-  }else if(cameraMode === 1){ // Cockpit / Dashboard View
-    // Windshield Pillars (A-Pillars)
+  } else if (cameraMode === 1) {
+    const dashY = H * 0.72 + (freeLookPitch * 140);
+
     ctx.fillStyle = '#0f172a';
     ctx.beginPath();
-    ctx.moveTo(0,0); ctx.lineTo(40, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+    ctx.moveTo(0, 0); ctx.lineTo(44, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+
     ctx.beginPath();
-    ctx.moveTo(W,0); ctx.lineTo(W-40, H); ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+    ctx.moveTo(W, 0); ctx.lineTo(W - 44, H); ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
 
-    // Dashboard Base
-    const dashY = H * 0.78;
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(0, dashY, W, H-dashY);
-
-    // Dashboard texture & steering wheel
     ctx.save();
-    ctx.translate(W*0.32, dashY + 40);
-    ctx.rotate((steerDir * 45 * Math.PI)/180);
+    ctx.translate(W * 0.5, dashY - 4);
+    ctx.rotate((wiperAngle * Math.PI) / 180);
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-70, -110); ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = '#0284c7';
+    ctx.fillRect(4, H * 0.28, 38, 76);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(7, H * 0.28 + 3, 32, 70);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(10, H * 0.28 + 20, 26, 3);
+
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, dashY, W, H - dashY);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, dashY, W, 8);
+
+    const dialX = W * 0.70;
+    const dialY = dashY + 45;
+
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath(); ctx.arc(dialX - 32, dialY, 26, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.stroke();
+    const speedAngle = -Math.PI * 0.75 + (Math.abs(speed) / maxForwardSpeed) * Math.PI * 1.5;
+    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(dialX - 32, dialY);
+    ctx.lineTo(dialX - 32 + Math.cos(speedAngle) * 20, dialY + Math.sin(speedAngle) * 20);
+    ctx.stroke();
+
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath(); ctx.arc(dialX + 32, dialY, 22, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#10b981'; ctx.lineWidth = 2; ctx.stroke();
+    const rpmAngle = -Math.PI * 0.75 + (isGasPressed ? 0.7 : 0.25) * Math.PI * 1.5;
+    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(dialX + 32, dialY);
+    ctx.lineTo(dialX + 32 + Math.cos(rpmAngle) * 16, dialY + Math.sin(rpmAngle) * 16);
+    ctx.stroke();
+
+    if ((blinkerLeft || hazardActive) && blinkerLampOn) {
+      ctx.fillStyle = '#10b981';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillText('⇦', dialX - 70, dialY - 14);
+    }
+    if ((blinkerRight || hazardActive) && blinkerLampOn) {
+      ctx.fillStyle = '#10b981';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillText('⇨', dialX + 60, dialY - 14);
+    }
+
+    const wheelCenterY = dashY + 48;
+    ctx.save();
+    ctx.translate(W * 0.32, wheelCenterY);
+    ctx.rotate(((steerAngle + freeLookYaw * 10) * Math.PI) / 180);
+
     ctx.strokeStyle = '#09090b';
     ctx.lineWidth = 14;
     ctx.beginPath();
-    ctx.arc(0, 0, 48, 0, Math.PI*2);
+    ctx.arc(0, 0, 52, 0, Math.PI * 2);
     ctx.stroke();
+
     ctx.fillStyle = '#334155';
-    ctx.fillRect(-45, -6, 90, 12);
-    ctx.fillRect(-6, -45, 12, 90);
+    ctx.fillRect(-50, -6, 100, 12);
+    ctx.fillRect(-6, 0, 12, 50);
+
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('METRO', 0, 3);
+
     ctx.restore();
+
+  } else {
+    const doorX = W * 0.72;
+    const doorY = H * 0.48;
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(doorX - 45, doorY, 90, H - doorY);
+    ctx.fillStyle = '#facc15';
+    ctx.fillRect(doorX - 45, H * 0.72, 90, 8);
+    ctx.fillStyle = '#facc15';
+    ctx.fillRect(doorX - 35, doorY, 6, H - doorY);
+    ctx.fillStyle = '#0369a1';
+    for (let r = 0; r < 3; r++) {
+      ctx.fillRect(10, H * 0.55 + r * 35, 75, 24);
+    }
   }
 }
 
 /* ==========================================================================
-   MAIN GAME LOOP
+   10. MAIN HIGH-PERFORMANCE ANIMATION LOOP
    ========================================================================== */
-function gameLoop(now){
-  if(isPaused || window.__GAME_PAUSED__) return;
+function mainLoop(timestamp) {
+  const dt = Math.min((timestamp - lastFrameTime) / 1000, 0.08);
+  lastFrameTime = timestamp;
 
-  const dt = Math.min((now - lastTime)/1000, 0.1);
-  lastTime = now;
+  updateSimulator(dt);
+  renderScene();
 
-  updatePhysics(dt);
-  render3DScene();
-
-  requestAnimationFrame(gameLoop);
+  requestAnimationFrame(mainLoop);
 }
-requestAnimationFrame(gameLoop);
+requestAnimationFrame(mainLoop);
 
 })();
 </script>
