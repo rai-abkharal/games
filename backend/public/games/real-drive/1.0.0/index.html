@@ -216,7 +216,7 @@ canvas{display:block;background:#38bdf8;box-shadow:0 0 50px rgba(0,0,0,0.6)}
   <div class="overlay-modal hidden" id="crash-modal">
     <div class="modal-card">
       <div class="modal-title crash">💥 BUS <span>ACCIDENT!</span></div>
-      <div class="modal-desc">You crashed into traffic! Drive safely, maintain distance, and obey road rules to complete Route 08.</div>
+      <div class="modal-desc">You collided with traffic! Drive carefully, keep safe distances, and obey road lanes to finish Route 08.</div>
 
       <div class="stat-row">
         <span class="stat-name">Impact Speed</span>
@@ -516,7 +516,7 @@ const AudioEngine = {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
 
-    // 1. Heavy Low Impact Thud
+    // Heavy Impact Low Thud
     const osc = this.ctx.createOscillator();
     const g = this.ctx.createGain();
     osc.type = 'sawtooth';
@@ -527,7 +527,7 @@ const AudioEngine = {
     osc.connect(g); g.connect(this.ctx.destination);
     osc.start(now); osc.stop(now + 0.62);
 
-    // 2. Metal Crunch & Glass Shatter Noise Burst
+    // Metal Crunch & Glass Noise Burst
     const len = Math.round(this.ctx.sampleRate * 0.65);
     const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
     const data = buf.getChannelData(0);
@@ -577,14 +577,14 @@ function generateTrack() {
     let sceneryLeft = [];
     let sceneryRight = [];
 
-    // Section 1: Central Station Boulevard (0 - 180) - Straight
+    // Section 1: Central Station Boulevard (0 - 180)
     if (i < 180) {
       sectionType = 'city';
       curve = 0;
       elevation = 0;
-      if (i % 6 === 0) sceneryLeft.push({ type: 'tree' });
+      if (i % 5 === 0) sceneryLeft.push({ type: 'tree' });
       if (i % 8 === 0) sceneryLeft.push({ type: 'building', h: 90 + (i%5)*25, color: '#3b82f6' });
-      if (i % 6 === 0) sceneryRight.push({ type: 'tree' });
+      if (i % 5 === 0) sceneryRight.push({ type: 'tree' });
       if (i % 8 === 0) sceneryRight.push({ type: 'building', h: 100 + (i%4)*30, color: '#0284c7' });
       if (i % 14 === 0) { sceneryLeft.push({ type: 'lamp' }); sceneryRight.push({ type: 'lamp' }); }
     }
@@ -593,9 +593,9 @@ function generateTrack() {
       sectionType = 'curve_city';
       curve = Math.sin((i - 180) * 0.02) * 2.8;
       elevation = Math.sin((i - 180) * 0.015) * 45;
-      if (i % 5 === 0) sceneryLeft.push({ type: 'tree' });
+      if (i % 4 === 0) sceneryLeft.push({ type: 'tree' });
       if (i % 7 === 0) sceneryLeft.push({ type: 'palm' });
-      if (i % 6 === 0) sceneryRight.push({ type: 'tree' });
+      if (i % 5 === 0) sceneryRight.push({ type: 'tree' });
       if (i % 10 === 0) sceneryRight.push({ type: 'building', h: 95, color: '#059669' });
       if (i % 16 === 0) sceneryLeft.push({ type: 'lamp' });
     }
@@ -604,9 +604,9 @@ function generateTrack() {
       sectionType = 'financial';
       curve = -Math.sin((i - 450) * 0.025) * 2.5;
       elevation = 15;
-      if (i % 6 === 0) sceneryLeft.push({ type: 'tree' });
+      if (i % 5 === 0) sceneryLeft.push({ type: 'tree' });
       if (i % 7 === 0) sceneryLeft.push({ type: 'skyscraper', h: 170 + (i%3)*40, color: '#1e40af' });
-      if (i % 6 === 0) sceneryRight.push({ type: 'tree' });
+      if (i % 5 === 0) sceneryRight.push({ type: 'tree' });
       if (i % 7 === 0) sceneryRight.push({ type: 'skyscraper', h: 190 + (i%4)*30, color: '#0369a1' });
     }
     // Section 4: Grand River Suspension Bridge (650 - 850)
@@ -674,7 +674,7 @@ generateTrack();
 /* ==========================================================================
    5. GAME STATE & SIMULATOR VARIABLES
    ========================================================================== */
-let gameState = 'START'; // 'START' | 'DRIVING' | 'PAUSED' | 'CRASHED' | 'COMPLETED'
+let gameState = 'START';
 let cameraMode = 0; // 0: 3rd Person Chase, 1: Cockpit Interior
 let freeLookYaw = 0;
 let freeLookPitch = 0;
@@ -751,7 +751,7 @@ function initTraffic() {
       isOncoming: true,
       lane: -0.65,
       x: -0.65,
-      z: 460 + i * 290,
+      z: 550 + i * 320,
       speed: tpl.speedBase + (Math.random() * 6 - 3),
       baseSpeed: tpl.speedBase,
       type: tpl.type,
@@ -772,7 +772,7 @@ function initTraffic() {
       isOncoming: false,
       lane: lane,
       x: lane,
-      z: 240 + i * 220,
+      z: 320 + i * 240,
       speed: tpl.speedBase + (Math.random() * 5 - 2.5),
       baseSpeed: tpl.speedBase,
       type: tpl.type,
@@ -1045,7 +1045,7 @@ function resetRouteState() {
 
 /* ==========================================================================
    8. BUS SIMULATOR PHYSICS & TRAFFIC AI UPDATE LOOP
-   ========================================================================= */
+   ========================================================================== */
 let lastFrameTime = performance.now();
 
 function updateSimulator(dt) {
@@ -1169,16 +1169,25 @@ function updateSimulator(dt) {
     signalBadge.style.display = 'none';
   }
 
-  // --- REAL-TIME ACCIDENT COLLISION DETECTION ---
+  // --- BULLETPROOF ACCIDENT COLLISION DETECTION ---
+  // Collision triggers ONLY when a vehicle physically overlaps with the bus in front/side!
   for (let i = 0; i < trafficVehicles.length; i++) {
     const car = trafficVehicles[i];
-    const zDiff = Math.abs(car.z - playerZ);
-    const xDiff = Math.abs(car.x - playerX);
+    const relZ = car.z - playerZ;
+    const relX = Math.abs(car.x - playerX);
 
-    // Hitbox check
-    if (zDiff < 38 && xDiff < 0.44 && Math.abs(speed) > 4) {
-      triggerAccident(car);
-      return;
+    if (car.isOncoming) {
+      // Oncoming car driving towards front of bus
+      if (relZ > -5 && relZ < 36 && relX < 0.32 && Math.abs(speed) > 3) {
+        triggerAccident(car);
+        return;
+      }
+    } else {
+      // Forward car driving in same direction
+      if (relZ > -8 && relZ < 38 && relX < 0.30 && Math.abs(speed) > 3) {
+        triggerAccident(car);
+        return;
+      }
     }
   }
 
@@ -1190,11 +1199,11 @@ function updateSimulator(dt) {
       car.z -= (car.speed + Math.max(0, speed)) * dt * 5.0;
 
       if (car.z < playerZ - 140) {
-        let maxOncomingZ = playerZ + 1000;
+        let maxOncomingZ = playerZ + 1200;
         trafficVehicles.forEach(c => {
           if (c.isOncoming && c.z > maxOncomingZ) maxOncomingZ = c.z;
         });
-        car.z = maxOncomingZ + 240 + Math.random() * 120;
+        car.z = maxOncomingZ + 280 + Math.random() * 120;
       }
     } else {
       // Check for vehicle ahead
@@ -1254,18 +1263,18 @@ function updateSimulator(dt) {
 
       car.z += (car.speed - Math.max(0, speed)) * dt * 5.0;
 
-      // Smart Respawn
-      if (car.z < playerZ + 75) {
-        let maxForwardZ = playerZ + 1100;
+      // Smart Respawn well ahead
+      if (car.z < playerZ + 60) {
+        let maxForwardZ = playerZ + 1200;
         trafficVehicles.forEach(c => {
           if (!c.isOncoming && c.z > maxForwardZ) maxForwardZ = c.z;
         });
-        car.z = maxForwardZ + 220 + Math.random() * 100;
+        car.z = maxForwardZ + 240 + Math.random() * 100;
         car.lane = (Math.random() > 0.5 ? 0.0 : 0.65);
         car.x = car.lane;
       }
-      if (car.z > playerZ + 1700) {
-        car.z = playerZ + 190 + Math.random() * 180;
+      if (car.z > playerZ + 2000) {
+        car.z = playerZ + 260 + Math.random() * 180;
         car.lane = (Math.random() > 0.5 ? 0.0 : 0.65);
         car.x = car.lane;
       }
@@ -1348,7 +1357,7 @@ function updateSimulator(dt) {
 
   // Exhaust particles for player bus
   if (engineRunning && cameraMode === 0 && Math.random() < 0.4) {
-    const busY = H * 0.75 + chassisPitch;
+    const busY = H * 0.78 + chassisPitch;
     particles.push({
       x: W / 2 + (freeLookYaw * 60) - 48 + (Math.random() * 8 - 4),
       y: busY + 68,
@@ -1391,7 +1400,6 @@ function triggerAccident(hitCar) {
   triggerHaptic('heavy');
   screenShake = 24;
 
-  // Spawn crash debris & fire/smoke particles
   for (let i = 0; i < 35; i++) {
     particles.push({
       x: W / 2 + (Math.random() * 60 - 30),
@@ -1439,12 +1447,11 @@ function completeRouteMission() {
 }
 
 /* ==========================================================================
-   9. 3D PROJECTION RENDERING ENGINE (BRIGHT DAY THEME, GREENERY & ROAD LOCK)
+   9. 3D PROJECTION RENDERING ENGINE (ELEVATED LEVEL VIEW & LONG DRAW DISTANCE)
    ========================================================================== */
 function renderScene() {
   ctx.save();
 
-  // Screen Shake Offset on Crash / Rumble
   if (screenShake > 0) {
     const shakeX = (Math.random() - 0.5) * screenShake;
     const shakeY = (Math.random() - 0.5) * screenShake;
@@ -1453,9 +1460,10 @@ function renderScene() {
 
   ctx.clearRect(0, 0, W, H);
 
-  const horizonY = H * 0.44 + (freeLookPitch * 140);
+  // Elevated, Level, Well-Balanced Horizon
+  const horizonY = H * 0.48 + (freeLookPitch * 140);
 
-  // 1. BRIGHT SUNNY DAY SKY (Clear Radiant Blue Atmosphere)
+  // 1. BRIGHT SUNNY DAY SKY
   const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
   skyGrad.addColorStop(0, '#0284c7');
   skyGrad.addColorStop(0.55, '#38bdf8');
@@ -1464,23 +1472,23 @@ function renderScene() {
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, W, horizonY);
 
-  // 2. RADIANT DAYTIME SUN & SOFT CLOUDS
+  // 2. RADIANT SUN & SOFT CLOUDS
   const sunX = W * 0.72 + (freeLookYaw * 80);
-  const sunGrad = ctx.createRadialGradient(sunX, horizonY * 0.40, 4, sunX, horizonY * 0.40, 65);
+  const sunGrad = ctx.createRadialGradient(sunX, horizonY * 0.38, 4, sunX, horizonY * 0.38, 65);
   sunGrad.addColorStop(0, '#ffffff');
   sunGrad.addColorStop(0.30, 'rgba(254,240,138,0.85)');
   sunGrad.addColorStop(0.70, 'rgba(253,224,71,0.25)');
   sunGrad.addColorStop(1, 'rgba(253,224,71,0)');
   ctx.fillStyle = sunGrad;
   ctx.beginPath();
-  ctx.arc(sunX, horizonY * 0.40, 65, 0, Math.PI * 2);
+  ctx.arc(sunX, horizonY * 0.38, 65, 0, Math.PI * 2);
   ctx.fill();
 
   // Fluffy Daytime Clouds
   ctx.fillStyle = 'rgba(255,255,255,0.75)';
   for (let c = 0; c < 5; c++) {
     const cx = ((c * 85 - playerZ * 0.003 + freeLookYaw * 40) % (W + 80) + (W + 80)) % (W + 80) - 40;
-    const cy = horizonY * 0.25 + (c % 3) * 14;
+    const cy = horizonY * 0.22 + (c % 3) * 14;
     ctx.beginPath();
     ctx.arc(cx, cy, 18, 0, Math.PI * 2);
     ctx.arc(cx + 14, cy - 6, 14, 0, Math.PI * 2);
@@ -1500,24 +1508,26 @@ function renderScene() {
   ctx.closePath();
   ctx.fill();
 
-  // 3. LUSH GREEN TERRAIN & COUNTRYSIDE HILLS
+  // 3. LUSH GREEN TERRAIN
   const groundGrad = ctx.createLinearGradient(0, horizonY, 0, H);
-  groundGrad.addColorStop(0, '#15803d'); // Fresh grass green
+  groundGrad.addColorStop(0, '#15803d');
   groundGrad.addColorStop(0.35, '#16a34a');
   groundGrad.addColorStop(1, '#14532d');
   ctx.fillStyle = groundGrad;
   ctx.fillRect(0, horizonY, W, H - horizonY);
 
-  // 3D Road Projection with Exact Mathematical Curve Tracking
-  const camHeight = (cameraMode === 1 ? 95 : 120);
+  // 4. LONG DRAW DISTANCE 3D ROAD PROJECTION (180 Segments!)
+  // Elevated, Level Camera View (165 units)
+  const camHeight = (cameraMode === 1 ? 95 : 165);
   const startSegIndex = Math.floor(playerZ / SEGMENT_LENGTH);
   const startSeg = trackSegments[Math.min(TOTAL_TRACK_SEGMENTS - 1, startSegIndex)];
   const baseCumCurve = startSeg ? startSeg.cumCurve : 0;
-  const DRAW_DISTANCE = 90;
+  const DRAW_DISTANCE = 180; // Vast sightline into the distance!
 
   let maxRenderY = H;
   let sceneryToDraw = [];
 
+  // Seamless Road Projection: loop from 0 to DRAW_DISTANCE
   for (let n = 0; n < DRAW_DISTANCE; n++) {
     const segIdx = startSegIndex + n;
     if (segIdx >= TOTAL_TRACK_SEGMENTS - 1) break;
@@ -1525,30 +1535,39 @@ function renderScene() {
     const seg1 = trackSegments[segIdx];
     const seg2 = trackSegments[segIdx + 1];
 
-    const relZ1 = Math.max(10, (segIdx * SEGMENT_LENGTH) - playerZ);
-    const relZ2 = Math.max(10, ((segIdx + 1) * SEGMENT_LENGTH) - playerZ);
+    // Distance from player camera
+    const rawZ1 = (segIdx * SEGMENT_LENGTH) - playerZ;
+    const rawZ2 = ((segIdx + 1) * SEGMENT_LENGTH) - playerZ;
 
-    const scale1 = 280 / relZ1;
-    const scale2 = 280 / relZ2;
+    const relZ1 = Math.max(1, rawZ1);
+    const relZ2 = Math.max(1, rawZ2);
+
+    const scale1 = 300 / relZ1;
+    const scale2 = 300 / relZ2;
 
     const curveOffset1 = ((seg1.cumCurve - baseCumCurve) * scale1) + (freeLookYaw * 240);
     const curveOffset2 = ((seg2.cumCurve - baseCumCurve) * scale2) + (freeLookYaw * 240);
 
     const x1 = (W / 2) - (playerX * 700 * scale1) + curveOffset1;
-    const y1 = horizonY + ((camHeight - seg1.worldY) * scale1);
+    let y1 = horizonY + ((camHeight - seg1.worldY) * scale1);
     const w1 = seg1.roadWidth * scale1 * 0.5;
 
     const x2 = (W / 2) - (playerX * 700 * scale2) + curveOffset2;
     const y2 = horizonY + ((camHeight - seg2.worldY) * scale2);
     const w2 = seg2.roadWidth * scale2 * 0.5;
 
-    if (y1 >= maxRenderY) continue;
+    // Extend closest segment completely past the bottom of canvas so road fills under bus!
+    if (n === 0 && y1 < H + 120) {
+      y1 = H + 120;
+    }
 
-    // Atmospheric Distance Fade for Road Polygons
-    const distFade = Math.min(1, Math.max(0, (1450 - relZ1) / 300));
+    if (y2 >= maxRenderY) continue;
+
+    // Atmospheric Distance Fade for far horizon
+    const distFade = Math.min(1, Math.max(0, (2200 - relZ1) / 500));
     ctx.globalAlpha = distFade;
 
-    // 4. METALLIC CRISP ASPHALT ROAD SURFACE
+    // METALLIC CRISP ASPHALT ROAD SURFACE
     const isStripe = Math.floor(segIdx / 3) % 2 === 0;
     ctx.fillStyle = isStripe ? '#334155' : '#1e293b';
 
@@ -1560,7 +1579,7 @@ function renderScene() {
     ctx.closePath();
     ctx.fill();
 
-    // 5. METALLIC CHROME GUARDRAILS & 3D CURBS
+    // 3D BEVELED CURBS
     const isStopBay = ROUTE_STOPS.some(s => Math.abs(s.segIndex - segIdx) < 7);
     const curbCol = isStopBay ? '#10b981' : (isStripe ? '#ef4444' : '#f8fafc');
     const curbW1 = w1 * 0.07, curbW2 = w2 * 0.07;
@@ -1578,13 +1597,13 @@ function renderScene() {
     ctx.lineTo(x2 + w2 + curbW2, y2); ctx.lineTo(x2 + w2, y2);
     ctx.closePath(); ctx.fill();
 
-    // Metallic Chrome Guardrail Beam (Left & Right)
+    // Metallic Chrome Guardrails
     ctx.fillStyle = '#cbd5e1';
     const railH1 = Math.max(1.5, 6 * scale1);
     ctx.fillRect(x1 - w1 - curbW1 - 3 * scale1, y1 - railH1, 3 * scale1, railH1);
     ctx.fillRect(x1 + w1 + curbW1, y1 - railH1, 3 * scale1, railH1);
 
-    // Lush Green Roadside Verge (Grass strip)
+    // Lush Green Verge
     ctx.fillStyle = '#22c55e';
     ctx.beginPath();
     ctx.moveTo(x1 - w1 - curbW1 * 3, y1); ctx.lineTo(x1 - w1 - curbW1, y1);
@@ -1596,8 +1615,7 @@ function renderScene() {
     ctx.lineTo(x2 + w2 + curbW2 * 3, y2); ctx.lineTo(x2 + w2 + curbW2, y2);
     ctx.closePath(); ctx.fill();
 
-    // 6. CLEAR CRISP ROAD MARKINGS
-    // Center Double Yellow Line with Reflective Road Studs (Cat-Eyes)
+    // Center Double Yellow Lines & Cat-Eyes
     ctx.fillStyle = '#facc15';
     const cw1 = Math.max(1.4, 3.2 * scale1);
     ctx.fillRect(x1 - cw1 * 1.6, y1, cw1, Math.max(1.5, y2 - y1));
@@ -1620,7 +1638,7 @@ function renderScene() {
       });
     }
 
-    // Glowing Green Bus Stop Bay Surface Marking
+    // Green Bus Stop Bay Surface Marking
     if (isStopBay) {
       ctx.fillStyle = isStripe ? 'rgba(16,185,129,0.55)' : 'rgba(56,189,248,0.45)';
       ctx.fillRect(x1 + w1 * 0.48, y1, w1 * 0.52, Math.max(2, y2 - y1));
@@ -1648,11 +1666,11 @@ function renderScene() {
 
   ctx.globalAlpha = 1.0;
 
-  // 7. DRAW SORTED SCENERY WITH DAYTIME GREENERY
+  // 5. DRAW SORTED SCENERY WITH DAYTIME GREENERY
   sceneryToDraw.sort((a, b) => b.relZ - a.relZ);
   sceneryToDraw.forEach(s => {
     const sc = s.scale;
-    const alpha = Math.min(1, Math.max(0, (1450 - s.relZ) / 300));
+    const alpha = Math.min(1, Math.max(0, (2000 - s.relZ) / 450));
     ctx.globalAlpha = alpha;
 
     if (s.obj.type === 'building' || s.obj.type === 'skyscraper') {
@@ -1660,7 +1678,6 @@ function renderScene() {
       const bh = s.obj.h * sc * 2.8;
       ctx.fillStyle = s.obj.color;
       ctx.fillRect(s.x - bw / 2, s.y - bh, bw, bh);
-      // Bright Sunny Glass Windows
       ctx.fillStyle = '#bae6fd';
       for (let r = 0; r < 5; r++) {
         for (let c = 0; c < 3; c++) {
@@ -1668,7 +1685,6 @@ function renderScene() {
         }
       }
     } else if (s.obj.type === 'tree') {
-      // Lush Oak Tree
       ctx.fillStyle = '#78350f';
       ctx.fillRect(s.x - 4 * sc, s.y - 42 * sc, 8 * sc, 42 * sc);
       ctx.fillStyle = '#15803d';
@@ -1678,7 +1694,6 @@ function renderScene() {
       ctx.fillStyle = '#86efac';
       ctx.beginPath(); ctx.arc(s.x + 6 * sc, s.y - 54 * sc, 14 * sc, 0, Math.PI * 2); ctx.fill();
     } else if (s.obj.type === 'palm') {
-      // Tropical Palm Tree
       ctx.fillStyle = '#854d0e';
       ctx.fillRect(s.x - 3 * sc, s.y - 55 * sc, 6 * sc, 55 * sc);
       ctx.fillStyle = '#16a34a';
@@ -1690,7 +1705,6 @@ function renderScene() {
       }
     } else if (s.obj.type === 'bus_shelter') {
       const sw = 100 * sc, sh = 70 * sc;
-      // Modern Glass Shelter
       ctx.fillStyle = 'rgba(56,189,248,0.45)';
       ctx.fillRect(s.x - sw / 2, s.y - sh, sw, sh);
       ctx.strokeStyle = '#0284c7';
@@ -1717,7 +1731,6 @@ function renderScene() {
         ctx.beginPath(); ctx.arc(px, py - 38 * sc, 6 * sc, 0, Math.PI * 2); ctx.fill();
       }
 
-      // Animated Passenger Walking into Bus
       if (animatedBoardingPax && stop && !stop.isVisited && Math.abs(stop.segIndex - s.segIdx) < 2) {
         const t = animatedBoardingPax.progress;
         const walkX = s.x - (sw * 0.3) + t * (s.x1 + s.w1 * 0.7 - s.x);
@@ -1772,16 +1785,15 @@ function renderScene() {
   ctx.globalAlpha = 1.0;
 
   // =========================================================================
-  // 10. 100% ROAD-LOCKED 3D TRAFFIC CARS RENDERING
+  // 6. 100% ROAD-LOCKED 3D TRAFFIC CARS (LONG DISTANCE & FOG FADE)
   // =========================================================================
   trafficVehicles.forEach(car => {
     const relZ = car.z - playerZ;
-    if (relZ > 20 && relZ < 1450) {
-      const sc = 280 / relZ;
+    if (relZ > 5 && relZ < 2000) {
+      const sc = 300 / relZ;
       const segIdx = Math.max(0, Math.min(TOTAL_TRACK_SEGMENTS - 1, Math.floor(car.z / SEGMENT_LENGTH)));
       const seg = trackSegments[segIdx];
 
-      // Exact unified curve offset matching the road polygon perfectly!
       const segCurveOff = seg ? (seg.cumCurve - baseCumCurve) : 0;
       const roadCenterX = (W / 2) - (playerX * 700 * sc) + (segCurveOff * sc) + (freeLookYaw * 240);
       const roadHalfW = (seg ? seg.roadWidth : 1400) * sc * 0.5;
@@ -1796,9 +1808,8 @@ function renderScene() {
       else if (car.type === 'taxi') { cw = 84 * sc; ch = 52 * sc; }
       else if (car.type === 'police') { cw = 86 * sc; ch = 52 * sc; }
 
-      if (cy > horizonY && cy < H + 80) {
-        // Atmospheric Distance Fade
-        const alpha = Math.min(1, Math.max(0, (1450 - relZ) / 300));
+      if (cy > horizonY && cy < H + 120) {
+        const alpha = Math.min(1, Math.max(0, (2000 - relZ) / 450));
         ctx.globalAlpha = alpha;
 
         // Ground Contact Shadow
@@ -1984,7 +1995,6 @@ function renderScene() {
 
   ctx.globalAlpha = 1.0;
 
-  // Draw Particles
   particles.forEach(p => {
     ctx.fillStyle = p.color;
     ctx.beginPath();
@@ -1993,11 +2003,11 @@ function renderScene() {
   });
 
   // =========================================================================
-  // 11. REDESIGNED ULTRA-DETAILED 3D PLAYER BUS (CHASE VIEW)
+  // 7. REDESIGNED ULTRA-DETAILED 3D PLAYER BUS (CHASE VIEW)
   // =========================================================================
   if (cameraMode === 0) { // CHASE VIEW
-    const busY = H * 0.75 + chassisPitch;
-    const bw = 148, bh = 172;
+    const busY = H * 0.78 + chassisPitch;
+    const bw = 140, bh = 158;
 
     ctx.save();
     ctx.translate(W / 2 + (freeLookYaw * 60), busY);
@@ -2099,8 +2109,8 @@ function renderScene() {
     ctx.restore();
 
     // 7. Large Panoramic Tinted Rear Windshield Glass
-    const glassW = bw * 0.86, glassH = 58;
-    const glassY = -bh / 2 + 38;
+    const glassW = bw * 0.86, glassH = 54;
+    const glassY = -bh / 2 + 36;
     const glassGrad = ctx.createLinearGradient(0, glassY, 0, glassY + glassH);
     glassGrad.addColorStop(0, '#09090b');
     glassGrad.addColorStop(1, '#1e293b');
@@ -2124,7 +2134,7 @@ function renderScene() {
     // Realistic Passengers Visibly Seated Inside Bus
     for (let pi = 0; pi < Math.min(8, passengersAboard); pi++) {
       const px = -glassW * 0.36 + (pi % 4) * 26;
-      const py = glassY + 36 + Math.floor(pi / 4) * 10;
+      const py = glassY + 34 + Math.floor(pi / 4) * 10;
       ctx.fillStyle = '#334155';
       ctx.fillRect(px - 6, py - 18, 12, 20);
       ctx.fillStyle = ['#3b82f6', '#ec4899', '#f97316', '#10b981', '#8b5cf6'][pi % 5];
@@ -2149,12 +2159,12 @@ function renderScene() {
     }
 
     // 9. Rear Engine Hatch, Cooling Vents & Transit Fleet Decal
-    const hatchY = bh * 0.08;
+    const hatchY = bh * 0.06;
     ctx.fillStyle = '#0284c7';
-    ctx.fillRect(-bw * 0.42, hatchY, bw * 0.84, 46);
+    ctx.fillRect(-bw * 0.42, hatchY, bw * 0.84, 44);
     ctx.strokeStyle = '#0369a1';
     ctx.lineWidth = 1.5;
-    ctx.strokeRect(-bw * 0.42, hatchY, bw * 0.84, 46);
+    ctx.strokeRect(-bw * 0.42, hatchY, bw * 0.84, 44);
 
     ctx.fillStyle = '#09090b';
     for (let v = 0; v < 4; v++) {
@@ -2164,14 +2174,14 @@ function renderScene() {
     ctx.fillStyle = '#e2e8f0';
     ctx.font = 'bold 8px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('FLEET #8042', 0, hatchY + 42);
+    ctx.fillText('FLEET #8042', 0, hatchY + 40);
 
     // 10. Futuristic Multi-Segment LED Taillight Assemblies
     const isBraking = isBrakePressed || parkingBrake;
 
     // LEFT TAILLIGHT CLUSTER
     const leftLightX = -bw / 2 + 8;
-    const lightY = bh * 0.12;
+    const lightY = bh * 0.10;
     const lightW = 20, lightH = 46;
 
     ctx.fillStyle = '#09090b';
@@ -2242,12 +2252,12 @@ function renderScene() {
       ctx.fillStyle = '#ff0000';
       ctx.shadowColor = '#ff0000';
       ctx.shadowBlur = 20;
-      ctx.fillRect(-22, -bh / 2 + 34, 44, 4);
+      ctx.fillRect(-22, -bh / 2 + 32, 44, 4);
       ctx.restore();
     }
 
     // 12. Heavy-Duty Rear Bumper & Illuminated License Plate
-    const bumperY = bh * 0.38;
+    const bumperY = bh * 0.36;
     ctx.fillStyle = '#0f172a';
     ctx.beginPath();
     ctx.roundRect(-bw / 2 + 4, bumperY, bw - 8, 18, 6);
