@@ -6,75 +6,72 @@
 <title>Real Drive: 3D Bus Simulator</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;touch-action:none;user-select:none;-webkit-user-select:none}
-html,body{width:100%;height:100%;overflow:hidden;background:#030712;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+html,body{width:100%;height:100%;overflow:hidden;background:#0284c7;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 body{overscroll-behavior:none}
 #game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:relative}
-canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
+canvas{display:block;background:#38bdf8;box-shadow:0 0 50px rgba(0,0,0,0.6)}
 
 /* --- HUD OVERLAYS --- */
 #hud{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:10px 14px;box-sizing:border-box;z-index:10}
 
 /* Top Navigation Bar */
 .top-bar{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;width:100%}
-.hud-pill{background:rgba(15,23,42,0.88);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.14);border-radius:12px;padding:6px 12px;display:flex;flex-direction:column;align-items:center;box-shadow:0 4px 16px rgba(0,0,0,0.4)}
+.hud-pill{background:rgba(15,23,42,0.85);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:6px 12px;display:flex;flex-direction:column;align-items:center;box-shadow:0 4px 16px rgba(0,0,0,0.35)}
 .pill-label{font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:800}
 .pill-val{font-size:15px;font-weight:900;color:#f8fafc;font-variant-numeric:tabular-nums}
 
 /* Route & Bus Stop Beacon Banner */
-#route-beacon{background:rgba(15,23,42,0.9);border:1px solid rgba(56,189,248,0.5);backdrop-filter:blur(10px);border-radius:12px;padding:6px 14px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(56,189,248,0.25)}
-.beacon-dot{width:8px;height:8px;border-radius:50%;background:#38bdf8;box-shadow:0 0 8px #38bdf8;animation:pulse 1.4s infinite}
+#route-beacon{background:rgba(15,23,42,0.88);border:1.5px solid #38bdf8;backdrop-filter:blur(10px);border-radius:12px;padding:6px 14px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(56,189,248,0.35)}
+.beacon-dot{width:9px;height:9px;border-radius:50%;background:#38bdf8;box-shadow:0 0 10px #38bdf8;animation:pulse 1.4s infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.8)}}
 .beacon-text{font-size:12px;font-weight:800;color:#f8fafc}
 .beacon-sub{font-size:9.5px;color:#38bdf8;font-weight:700;letter-spacing:0.5px}
 
 /* Notification banner */
-#alert-banner{position:absolute;top:66px;left:50%;transform:translateX(-50%);background:rgba(16,185,129,0.94);color:#fff;padding:8px 22px;border-radius:24px;font-size:12.5px;font-weight:900;letter-spacing:0.5px;box-shadow:0 8px 24px rgba(16,185,129,0.45);opacity:0;transition:all 0.25s cubic-bezier(0.4,0,0.2,1);pointer-events:none;white-space:nowrap;z-index:30}
+#alert-banner{position:absolute;top:66px;left:50%;transform:translateX(-50%);background:rgba(16,185,129,0.95);color:#fff;padding:8px 24px;border-radius:24px;font-size:13px;font-weight:900;letter-spacing:0.5px;box-shadow:0 8px 24px rgba(16,185,129,0.45);opacity:0;transition:all 0.25s cubic-bezier(0.4,0,0.2,1);pointer-events:none;white-space:nowrap;z-index:30}
 #alert-banner.show{opacity:1;transform:translateX(-50%) translateY(6px)}
 #alert-banner.warn{background:rgba(239,68,68,0.95);box-shadow:0 8px 24px rgba(239,68,68,0.5)}
 
 /* Traffic Signal HUD Indicator */
-#signal-badge{position:absolute;top:66px;right:14px;background:rgba(15,23,42,0.9);border:1px solid rgba(255,255,255,0.18);backdrop-filter:blur(8px);border-radius:12px;padding:4px 10px;display:none;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,0.5);pointer-events:none}
-.signal-lamp{width:10px;height:10px;border-radius:50%;background:#ef4444;box-shadow:0 0 10px #ef4444}
+#signal-badge{position:absolute;top:66px;right:14px;background:rgba(15,23,42,0.9);border:1px solid rgba(255,255,255,0.2);backdrop-filter:blur(8px);border-radius:12px;padding:5px 12px;display:none;align-items:center;gap:7px;box-shadow:0 4px 14px rgba(0,0,0,0.4);pointer-events:none}
+.signal-lamp{width:11px;height:11px;border-radius:50%;background:#ef4444;box-shadow:0 0 10px #ef4444}
 .signal-text{font-size:10px;font-weight:900;color:#f8fafc;letter-spacing:0.5px}
 
 /* Quick Accessory Cluster */
 .accessory-bar{position:absolute;top:70px;left:14px;display:flex;flex-direction:column;gap:6px;pointer-events:auto}
-.acc-btn{width:42px;height:38px;border-radius:10px;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:14px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.12s;box-shadow:0 4px 10px rgba(0,0,0,0.35)}
+.acc-btn{width:42px;height:38px;border-radius:10px;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.18);color:#fff;font-size:14px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.12s;box-shadow:0 4px 10px rgba(0,0,0,0.3)}
 .acc-btn:active{transform:scale(0.92);background:rgba(30,41,59,0.9)}
-.acc-btn.active{background:rgba(56,189,248,0.85);border-color:#38bdf8;box-shadow:0 0 12px rgba(56,189,248,0.6)}
+.acc-btn.active{background:rgba(56,189,248,0.88);border-color:#38bdf8;box-shadow:0 0 12px rgba(56,189,248,0.6)}
 
 /* Gear Shift Selector */
-.gear-selector{position:absolute;top:110px;right:14px;display:flex;flex-direction:column;gap:4px;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);padding:4px;border-radius:12px;border:1px solid rgba(255,255,255,0.15);pointer-events:auto}
+.gear-selector{position:absolute;top:110px;right:14px;display:flex;flex-direction:column;gap:4px;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);padding:4px;border-radius:12px;border:1px solid rgba(255,255,255,0.18);pointer-events:auto}
 .gear-btn{width:36px;height:32px;border-radius:8px;border:none;background:transparent;color:#94a3b8;font-size:12px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.12s}
 .gear-btn.selected{background:#38bdf8;color:#0f172a;box-shadow:0 0 10px rgba(56,189,248,0.6)}
 
 /* Turn Indicator & Hazard Bar */
 .turn-bar{position:absolute;bottom:148px;left:18px;display:flex;gap:6px;pointer-events:auto}
-.turn-btn{width:44px;height:36px;border-radius:10px;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;font-size:16px;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.12s}
+.turn-btn{width:44px;height:36px;border-radius:10px;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.18);color:#cbd5e1;font-size:16px;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.12s}
 .turn-btn.blinking{background:#f59e0b;color:#0f172a;box-shadow:0 0 14px rgba(245,158,11,0.75)}
 
-/* Speedometer & Speed Limit Display */
+/* Speedometer Display */
 .center-speed{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none}
-.speed-num{font-size:36px;font-weight:900;color:#f8fafc;letter-spacing:-1px;line-height:1;text-shadow:0 2px 12px rgba(0,0,0,0.85)}
-.speed-unit-text{font-size:9px;font-weight:800;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-top:2px}
+.speed-num{font-size:38px;font-weight:900;color:#f8fafc;letter-spacing:-1px;line-height:1;text-shadow:0 2px 14px rgba(0,0,0,0.85)}
+.speed-unit-text{font-size:9.5px;font-weight:800;color:#cbd5e1;letter-spacing:1px;text-transform:uppercase;margin-top:2px;text-shadow:0 1px 4px rgba(0,0,0,0.8)}
 
 /* Interactive Door / Boarding Prompts */
-#door-prompt{position:absolute;bottom:145px;right:20px;background:linear-gradient(135deg,#38bdf8,#0284c7);color:#ffffff;font-weight:900;font-size:12px;padding:10px 18px;border-radius:14px;box-shadow:0 8px 24px rgba(56,189,248,0.6);display:none;pointer-events:auto;cursor:pointer;animation:bounce 1.2s infinite;border:1px solid #7dd3fc}
+#door-prompt{position:absolute;bottom:145px;right:20px;background:linear-gradient(135deg,#10b981,#059669);color:#ffffff;font-weight:900;font-size:12.5px;padding:12px 20px;border-radius:16px;box-shadow:0 8px 24px rgba(16,185,129,0.6);display:none;pointer-events:auto;cursor:pointer;animation:bounce 1.1s infinite;border:1.5px solid #6ee7b7}
 @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 
-#boarding-progress{position:absolute;top:115px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.92);border:1.5px solid #10b981;padding:8px 20px;border-radius:16px;box-shadow:0 8px 24px rgba(16,185,129,0.4);display:none;align-items:center;gap:10px;pointer-events:none;z-index:25}
-.board-icon{font-size:18px}
-.board-text{font-size:12px;font-weight:800;color:#f8fafc}
+#boarding-progress{position:absolute;top:115px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.94);border:1.5px solid #10b981;padding:9px 22px;border-radius:16px;box-shadow:0 8px 24px rgba(16,185,129,0.45);display:none;align-items:center;gap:10px;pointer-events:none;z-index:25}
+.board-icon{font-size:20px}
+.board-text{font-size:12.5px;font-weight:800;color:#f8fafc}
 
-/* --- BOTTOM CONTROLS WITH STRICT SAFE-AREA MARGINS --- */
+/* --- BOTTOM CONTROLS --- */
 .bottom-controls{width:100%;display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px;pointer-events:none;padding:0 6px}
-
-/* Left: Steering Touch Controls */
 .steer-zone{display:flex;gap:10px;pointer-events:auto}
-.steer-touch{width:68px;height:68px;border-radius:20px;background:rgba(15,23,42,0.85);backdrop-filter:blur(10px);border:1.5px solid rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;font-size:24px;color:#f8fafc;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,0.45);transition:all 0.1s}
-.steer-touch:active,.steer-touch.pressed{background:rgba(56,189,248,0.8);border-color:#38bdf8;box-shadow:0 0 18px rgba(56,189,248,0.7);transform:scale(0.93)}
+.steer-touch{width:68px;height:68px;border-radius:20px;background:rgba(15,23,42,0.85);backdrop-filter:blur(10px);border:1.5px solid rgba(255,255,255,0.22);display:flex;align-items:center;justify-content:center;font-size:24px;color:#f8fafc;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,0.4);transition:all 0.1s}
+.steer-touch:active,.steer-touch.pressed{background:rgba(56,189,248,0.85);border-color:#38bdf8;box-shadow:0 0 18px rgba(56,189,248,0.7);transform:scale(0.93)}
 
-/* Right: Pedals with Safe Distance from Bottom-Right Corner */
 .pedals-zone{display:flex;gap:12px;margin-right:8px;pointer-events:auto}
 .pedal-btn{width:62px;height:98px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:10px;font-weight:900;letter-spacing:0.5px;cursor:pointer;transition:all 0.1s}
 .pedal-brake{background:linear-gradient(180deg,#ef4444,#dc2626);border:2px solid #f87171;box-shadow:0 8px 24px rgba(239,68,68,0.45);color:#fff}
@@ -85,9 +82,10 @@ canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
 /* OVERLAY MODALS */
 .overlay-modal{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(3,7,18,0.92);backdrop-filter:blur(14px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;z-index:60;transition:opacity 0.25s}
 .overlay-modal.hidden{display:none}
-.modal-card{background:rgba(15,23,42,0.85);border:1px solid rgba(255,255,255,0.15);border-radius:22px;padding:20px;width:100%;max-width:320px;box-shadow:0 16px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;align-items:center;gap:12px}
+.modal-card{background:rgba(15,23,42,0.88);border:1px solid rgba(255,255,255,0.18);border-radius:22px;padding:22px;width:100%;max-width:320px;box-shadow:0 16px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;align-items:center;gap:12px}
 .modal-title{font-size:22px;font-weight:900;color:#f8fafc;letter-spacing:-0.5px;text-transform:uppercase}
 .modal-title span{background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.modal-title.crash span{background:linear-gradient(135deg,#ef4444,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .modal-desc{font-size:11.5px;color:#94a3b8;line-height:1.45}
 .stat-row{width:100%;display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);font-size:12px}
 .stat-name{color:#94a3b8;font-weight:700}
@@ -95,6 +93,7 @@ canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
 .stars-display{font-size:28px;letter-spacing:6px;color:#fbbf24;margin:4px 0}
 .primary-btn{width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,#38bdf8,#3b82f6);border:none;color:#fff;font-size:15px;font-weight:900;letter-spacing:0.5px;cursor:pointer;box-shadow:0 8px 24px rgba(56,189,248,0.4);transition:transform 0.1s}
 .primary-btn:active{transform:scale(0.96)}
+.primary-btn.danger{background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 8px 24px rgba(239,68,68,0.45)}
 .secondary-btn{width:100%;padding:10px;border-radius:12px;background:rgba(30,41,59,0.8);border:1px solid rgba(255,255,255,0.12);color:#cbd5e1;font-size:13px;font-weight:800;cursor:pointer;margin-top:6px}
 </style>
 </head>
@@ -104,14 +103,12 @@ canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
 
   <!-- HUD INTERACTIVE USER INTERFACE -->
   <div id="hud">
-    <!-- Top Row -->
     <div class="top-bar">
       <div class="hud-pill">
         <span class="pill-label">Route</span>
         <span class="pill-val">08 EXP</span>
       </div>
 
-      <!-- Route Beacon / Next Stop -->
       <div id="route-beacon">
         <div class="beacon-dot"></div>
         <div>
@@ -174,13 +171,11 @@ canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
 
     <!-- Bottom Controls with Strict Safe-Area Inset -->
     <div class="bottom-controls">
-      <!-- Steering Left / Right Buttons -->
       <div class="steer-zone">
         <div class="steer-touch" id="btn-steer-left">◀</div>
         <div class="steer-touch" id="btn-steer-right">▶</div>
       </div>
 
-      <!-- Pedals (Brake & Gas) strictly inset from right/bottom -->
       <div class="pedals-zone">
         <div class="pedal-btn pedal-brake" id="btn-brake">
           <span style="font-size:18px">🛑</span>
@@ -198,7 +193,7 @@ canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
   <div class="overlay-modal" id="start-modal">
     <div class="modal-card">
       <div class="modal-title">REAL BUS <span>3D</span></div>
-      <div class="modal-desc">Drive Metro Transit Route 08. Obey traffic lights, navigate the sweeping curves & highway bridge, stop at bus bays, and deliver passengers safely to Downtown Plaza.</div>
+      <div class="modal-desc">Drive Metro Transit Route 08 in sunny daylight. Obey traffic lights, navigate the sweeping curves & highway bridge, stop at bus bays, avoid collisions, and deliver passengers safely to Downtown Plaza.</div>
       
       <div class="stat-row">
         <span class="stat-name">Route</span>
@@ -214,6 +209,29 @@ canvas{display:block;background:#030712;box-shadow:0 0 50px rgba(0,0,0,0.9)}
       </div>
 
       <button class="primary-btn" id="btn-start-route">START BUS ENGINE ▶</button>
+    </div>
+  </div>
+
+  <!-- CRASH / ACCIDENT MODAL -->
+  <div class="overlay-modal hidden" id="crash-modal">
+    <div class="modal-card">
+      <div class="modal-title crash">💥 BUS <span>ACCIDENT!</span></div>
+      <div class="modal-desc">You crashed into traffic! Drive safely, maintain distance, and obey road rules to complete Route 08.</div>
+
+      <div class="stat-row">
+        <span class="stat-name">Impact Speed</span>
+        <span class="stat-number" id="crash-speed">48 KM/H</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">Passengers Aboard</span>
+        <span class="stat-number" id="crash-passengers">6</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">Red Light Infractions</span>
+        <span class="stat-number" id="crash-infractions">0</span>
+      </div>
+
+      <button class="primary-btn danger" id="btn-restart-crash">RESTART ROUTE ↺</button>
     </div>
   </div>
 
@@ -348,7 +366,7 @@ const AudioEngine = {
       this.engineOsc1.start();
       this.engineOsc2.start();
 
-      // Road Edge Rumble Audio Channel
+      // Road Edge Rumble Channel
       this.rumbleGain = this.ctx.createGain();
       this.rumbleGain.gain.setValueAtTime(0, this.ctx.currentTime);
       this.rumbleOsc = this.ctx.createOscillator();
@@ -491,11 +509,45 @@ const AudioEngine = {
     g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.45);
     osc.connect(g); g.connect(this.ctx.destination);
     osc.start(); osc.stop(this.ctx.currentTime + 0.46);
+  },
+
+  crashSound() {
+    this.init(); this.resume();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    // 1. Heavy Low Impact Thud
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(90, now);
+    osc.frequency.exponentialRampToValueAtTime(24, now + 0.5);
+    g.gain.setValueAtTime(0.4, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    osc.connect(g); g.connect(this.ctx.destination);
+    osc.start(now); osc.stop(now + 0.62);
+
+    // 2. Metal Crunch & Glass Shatter Noise Burst
+    const len = Math.round(this.ctx.sampleRate * 0.65);
+    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.35));
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buf;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(2200, now);
+    filter.Q.setValueAtTime(1.5, now);
+    const ng = this.ctx.createGain();
+    ng.gain.setValueAtTime(0.35, now);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+    noise.connect(filter); filter.connect(ng); ng.connect(this.ctx.destination);
+    noise.start(now);
   }
 };
 
 /* ==========================================================================
-   4. ROUTE DEFINITION & 3D TRACK GENERATOR
+   4. ROUTE DEFINITION & 3D TRACK GENERATOR WITH PRECOMPUTED CURVATURE
    ========================================================================== */
 const TOTAL_TRACK_SEGMENTS = 1600;
 const SEGMENT_LENGTH = 70;
@@ -514,6 +566,9 @@ const TRAFFIC_LIGHTS = [
 
 function generateTrack() {
   trackSegments = [];
+  let cumCurve = 0;
+  let cumDX = 0;
+
   for (let i = 0; i < TOTAL_TRACK_SEGMENTS; i++) {
     let curve = 0;
     let elevation = 0;
@@ -527,17 +582,21 @@ function generateTrack() {
       sectionType = 'city';
       curve = 0;
       elevation = 0;
-      if (i % 8 === 0) sceneryLeft.push({ type: 'building', h: 90 + (i%5)*25, color: '#334155' });
-      if (i % 8 === 0) sceneryRight.push({ type: 'building', h: 100 + (i%4)*30, color: '#1e293b' });
+      if (i % 6 === 0) sceneryLeft.push({ type: 'tree' });
+      if (i % 8 === 0) sceneryLeft.push({ type: 'building', h: 90 + (i%5)*25, color: '#3b82f6' });
+      if (i % 6 === 0) sceneryRight.push({ type: 'tree' });
+      if (i % 8 === 0) sceneryRight.push({ type: 'building', h: 100 + (i%4)*30, color: '#0284c7' });
       if (i % 14 === 0) { sceneryLeft.push({ type: 'lamp' }); sceneryRight.push({ type: 'lamp' }); }
     }
-    // Section 2: Deep Sweeping Right Curve & Commercial Avenue (180 - 450)
+    // Section 2: Deep Sweeping Right Curve & Lush Avenue (180 - 450)
     else if (i < 450) {
       sectionType = 'curve_city';
       curve = Math.sin((i - 180) * 0.02) * 2.8;
       elevation = Math.sin((i - 180) * 0.015) * 45;
-      if (i % 10 === 0) sceneryLeft.push({ type: 'tree' });
-      if (i % 12 === 0) sceneryRight.push({ type: 'building', h: 85, color: '#0f766e' });
+      if (i % 5 === 0) sceneryLeft.push({ type: 'tree' });
+      if (i % 7 === 0) sceneryLeft.push({ type: 'palm' });
+      if (i % 6 === 0) sceneryRight.push({ type: 'tree' });
+      if (i % 10 === 0) sceneryRight.push({ type: 'building', h: 95, color: '#059669' });
       if (i % 16 === 0) sceneryLeft.push({ type: 'lamp' });
     }
     // Section 3: Financial Plaza & Left Bend (450 - 650)
@@ -545,8 +604,10 @@ function generateTrack() {
       sectionType = 'financial';
       curve = -Math.sin((i - 450) * 0.025) * 2.5;
       elevation = 15;
-      if (i % 7 === 0) sceneryLeft.push({ type: 'skyscraper', h: 160 + (i%3)*40, color: '#1e1b4b' });
-      if (i % 7 === 0) sceneryRight.push({ type: 'skyscraper', h: 180 + (i%4)*30, color: '#0f172a' });
+      if (i % 6 === 0) sceneryLeft.push({ type: 'tree' });
+      if (i % 7 === 0) sceneryLeft.push({ type: 'skyscraper', h: 170 + (i%3)*40, color: '#1e40af' });
+      if (i % 6 === 0) sceneryRight.push({ type: 'tree' });
+      if (i % 7 === 0) sceneryRight.push({ type: 'skyscraper', h: 190 + (i%4)*30, color: '#0369a1' });
     }
     // Section 4: Grand River Suspension Bridge (650 - 850)
     else if (i < 850) {
@@ -559,16 +620,18 @@ function generateTrack() {
       sectionType = 'highway';
       curve = Math.sin((i - 850) * 0.035) * 3.4;
       elevation = -10;
-      if (i % 14 === 0) sceneryLeft.push({ type: 'tree' });
-      if (i % 14 === 0) sceneryRight.push({ type: 'tree' });
+      if (i % 4 === 0) sceneryLeft.push({ type: 'tree' });
+      if (i % 6 === 0) sceneryLeft.push({ type: 'palm' });
+      if (i % 4 === 0) sceneryRight.push({ type: 'tree' });
+      if (i % 6 === 0) sceneryRight.push({ type: 'palm' });
     }
     // Section 6: Boulevard & Light 2 (1050 - 1350)
     else if (i < 1350) {
       sectionType = 'boulevard';
       curve = -Math.sin((i - 1050) * 0.02) * 2.0;
       elevation = 0;
-      if (i % 10 === 0) sceneryLeft.push({ type: 'tree' });
-      if (i % 10 === 0) sceneryRight.push({ type: 'tree' });
+      if (i % 5 === 0) sceneryLeft.push({ type: 'tree' });
+      if (i % 5 === 0) sceneryRight.push({ type: 'tree' });
       if (i % 14 === 0) { sceneryLeft.push({ type: 'lamp' }); sceneryRight.push({ type: 'lamp' }); }
     }
     // Section 7: Downtown Terminal Plaza (1350 - 1600)
@@ -576,7 +639,9 @@ function generateTrack() {
       sectionType = 'terminal';
       curve = 0;
       elevation = 0;
-      if (i % 6 === 0) sceneryLeft.push({ type: 'building', h: 120, color: '#1e293b' });
+      if (i % 6 === 0) sceneryLeft.push({ type: 'tree' });
+      if (i % 6 === 0) sceneryLeft.push({ type: 'building', h: 130, color: '#1e3a8a' });
+      if (i % 6 === 0) sceneryRight.push({ type: 'tree' });
     }
 
     ROUTE_STOPS.forEach(stop => {
@@ -587,11 +652,16 @@ function generateTrack() {
       if (i === tl.segIndex) sceneryRight.push({ type: 'traffic_gantry', tlId: tl.id });
     });
 
+    cumDX += curve * 0.75;
+    cumCurve += cumDX;
+
     trackSegments.push({
       index: i,
       worldZ: i * SEGMENT_LENGTH,
       worldY: elevation,
       curve: curve,
+      cumCurve: cumCurve,
+      cumDX: cumDX,
       roadWidth: roadWidth,
       sectionType: sectionType,
       sceneryLeft: sceneryLeft,
@@ -604,12 +674,13 @@ generateTrack();
 /* ==========================================================================
    5. GAME STATE & SIMULATOR VARIABLES
    ========================================================================== */
-let gameState = 'START';
+let gameState = 'START'; // 'START' | 'DRIVING' | 'PAUSED' | 'CRASHED' | 'COMPLETED'
 let cameraMode = 0; // 0: 3rd Person Chase, 1: Cockpit Interior
 let freeLookYaw = 0;
 let freeLookPitch = 0;
 let isDraggingFreeLook = false;
 let lastTouchX = 0, lastTouchY = 0;
+let screenShake = 0;
 
 let engineRunning = false;
 let engineStarting = false;
@@ -656,7 +727,7 @@ let drivingScore = 1000;
 let particles = [];
 
 /* ==========================================================================
-   6. NEXT-GEN SMART TRAFFIC SIMULATION (NO OVERLAP, DISTINCT 3D CARS)
+   6. NEXT-GEN SMART TRAFFIC SIMULATION (NO OVERLAP, 3D ROAD LOCK)
    ========================================================================== */
 let trafficVehicles = [];
 
@@ -665,7 +736,7 @@ const CAR_TEMPLATES = [
   { type: 'suv', name: 'Luxury SUV', color: '#047857', accent: '#f8fafc', speedBase: 46 },
   { type: 'sedan', name: 'Executive Sedan', color: '#1e3a8a', accent: '#94a3b8', speedBase: 50 },
   { type: 'taxi', name: 'Metro Yellow Cab', color: '#eab308', accent: '#0f172a', speedBase: 48 },
-  { type: 'van', name: 'Delivery Van', color: '#e2e8f0', accent: '#ea580c', speedBase: 42 },
+  { type: 'van', name: 'Delivery Van', color: '#f1f5f9', accent: '#ea580c', speedBase: 42 },
   { type: 'police', name: 'Highway Patrol', color: '#09090b', accent: '#ffffff', speedBase: 56 }
 ];
 
@@ -680,14 +751,14 @@ function initTraffic() {
       isOncoming: true,
       lane: -0.65,
       x: -0.65,
-      z: 420 + i * 280,
+      z: 460 + i * 290,
       speed: tpl.speedBase + (Math.random() * 6 - 3),
       baseSpeed: tpl.speedBase,
       type: tpl.type,
       color: tpl.color,
       accent: tpl.accent,
       isBraking: false,
-      turnSignal: 0,
+      steerAngle: 0,
       laneChangeTimer: 0
     });
   }
@@ -701,14 +772,14 @@ function initTraffic() {
       isOncoming: false,
       lane: lane,
       x: lane,
-      z: 220 + i * 210,
+      z: 240 + i * 220,
       speed: tpl.speedBase + (Math.random() * 5 - 2.5),
       baseSpeed: tpl.speedBase,
       type: tpl.type,
       color: tpl.color,
       accent: tpl.accent,
       isBraking: false,
-      turnSignal: 0,
+      steerAngle: 0,
       laneChangeTimer: 0
     });
   }
@@ -721,6 +792,7 @@ initTraffic();
 const startModal = document.getElementById('start-modal');
 const resultsModal = document.getElementById('results-modal');
 const pauseModal = document.getElementById('pause-modal');
+const crashModal = document.getElementById('crash-modal');
 const alertBanner = document.getElementById('alert-banner');
 const doorPrompt = document.getElementById('door-prompt');
 const boardingProgress = document.getElementById('boarding-progress');
@@ -797,6 +869,13 @@ document.getElementById('btn-start-route').onclick = () => {
 };
 document.getElementById('btn-replay-route').onclick = () => {
   resultsModal.classList.add('hidden');
+  resetRouteState();
+  gameState = 'DRIVING';
+  routeStartTime = performance.now();
+  startBusEngine();
+};
+document.getElementById('btn-restart-crash').onclick = () => {
+  crashModal.classList.add('hidden');
   resetRouteState();
   gameState = 'DRIVING';
   routeStartTime = performance.now();
@@ -960,12 +1039,13 @@ function resetRouteState() {
   animatedBoardingPax = null;
   ROUTE_STOPS.forEach(s => s.isVisited = false);
   doorsOpen = false;
+  screenShake = 0;
   initTraffic();
 }
 
 /* ==========================================================================
    8. BUS SIMULATOR PHYSICS & TRAFFIC AI UPDATE LOOP
-   ========================================================================== */
+   ========================================================================= */
 let lastFrameTime = performance.now();
 
 function updateSimulator(dt) {
@@ -1013,15 +1093,13 @@ function updateSimulator(dt) {
   const curSegIdx = Math.floor(playerZ / SEGMENT_LENGTH);
   const curSeg = trackSegments[Math.min(TOTAL_TRACK_SEGMENTS - 1, curSegIdx)];
   
-  // High steer authority even at low speeds (crucial for parking in bus stop bays!)
   const steerSpeedFactor = Math.max(0.48, Math.min(1.0, Math.abs(speed) / 30));
   if (curSeg) {
     playerX += (steerDir * steerSpeedFactor * 1.35 - curSeg.curve * (speed / 180) * 0.12) * dt * 2.2;
   }
-  // Allow full lateral range [-1.38 .. +1.38] to access curbs, sidewalks, and bus bays!
   playerX = Math.max(-1.38, Math.min(1.38, playerX));
 
-  // Check road edge rumble feedback
+  // Road edge rumble feedback
   isRumblingEdge = Math.abs(playerX) > 1.06;
   if (isRumblingEdge && Math.abs(speed) > 12) {
     triggerHaptic('light');
@@ -1091,15 +1169,26 @@ function updateSimulator(dt) {
     signalBadge.style.display = 'none';
   }
 
-  // --- SMART TRAFFIC AI (COLLISION AVOIDANCE & ANTI-BUNCHING) ---
+  // --- REAL-TIME ACCIDENT COLLISION DETECTION ---
+  for (let i = 0; i < trafficVehicles.length; i++) {
+    const car = trafficVehicles[i];
+    const zDiff = Math.abs(car.z - playerZ);
+    const xDiff = Math.abs(car.x - playerX);
+
+    // Hitbox check
+    if (zDiff < 38 && xDiff < 0.44 && Math.abs(speed) > 4) {
+      triggerAccident(car);
+      return;
+    }
+  }
+
+  // --- SMART TRAFFIC AI (COLLISION AVOIDANCE, RED LIGHTS & ANTI-BUNCHING) ---
   for (let i = 0; i < trafficVehicles.length; i++) {
     const car = trafficVehicles[i];
 
     if (car.isOncoming) {
-      // Drives towards player in left oncoming lane
       car.z -= (car.speed + Math.max(0, speed)) * dt * 5.0;
 
-      // Respawn ahead when it passes behind the camera
       if (car.z < playerZ - 140) {
         let maxOncomingZ = playerZ + 1000;
         trafficVehicles.forEach(c => {
@@ -1108,7 +1197,7 @@ function updateSimulator(dt) {
         car.z = maxOncomingZ + 240 + Math.random() * 120;
       }
     } else {
-      // Forward traffic driving ahead of player
+      // Check for vehicle ahead
       let carAhead = null;
       let minGapAhead = 9999;
       for (let j = 0; j < trafficVehicles.length; j++) {
@@ -1123,17 +1212,28 @@ function updateSimulator(dt) {
         }
       }
 
-      // Safe Following Distance AI
-      if (carAhead && minGapAhead < 140) {
+      // Check for approaching RED light
+      let redLightAhead = false;
+      TRAFFIC_LIGHTS.forEach(tl => {
+        const tlZ = tl.segIndex * SEGMENT_LENGTH;
+        if (tl.state === 'RED' && car.z < tlZ && car.z > tlZ - 110) {
+          redLightAhead = true;
+        }
+      });
+
+      if (redLightAhead) {
         car.isBraking = true;
-        car.speed = Math.max(28, carAhead.speed - 3);
+        car.speed = Math.max(0, car.speed - dt * 45);
+      } else if (carAhead && minGapAhead < 140) {
+        car.isBraking = true;
+        car.speed = Math.max(26, carAhead.speed - 4);
 
         car.laneChangeTimer += dt;
-        if (car.laneChangeTimer > 1.8 && minGapAhead < 95) {
+        if (car.laneChangeTimer > 1.6 && minGapAhead < 95) {
           const targetLane = (car.lane > 0.3 ? 0.0 : 0.65);
           let laneClear = true;
           trafficVehicles.forEach(c => {
-            if (!c.isOncoming && Math.abs(c.x - targetLane) < 0.35 && Math.abs(c.z - car.z) < 130) {
+            if (!c.isOncoming && Math.abs(c.x - targetLane) < 0.35 && Math.abs(c.z - car.z) < 140) {
               laneClear = false;
             }
           });
@@ -1147,10 +1247,11 @@ function updateSimulator(dt) {
         car.speed += (car.baseSpeed - car.speed) * dt * 0.6;
       }
 
-      // Smoothly steer car towards assigned lane X
-      car.x += (car.lane - car.x) * dt * 2.2;
+      // Smooth turning angle when changing lanes
+      const laneDelta = car.lane - car.x;
+      car.steerAngle = laneDelta * 28;
+      car.x += laneDelta * dt * 2.4;
 
-      // Advance car along track
       car.z += (car.speed - Math.max(0, speed)) * dt * 5.0;
 
       // Smart Respawn
@@ -1171,7 +1272,7 @@ function updateSimulator(dt) {
     }
   }
 
-  // Bus Stop & Visible Passenger Boarding System
+  // --- BUS STOP & FORGIVING PASSENGER BOARDING SYSTEM ---
   const nextStop = ROUTE_STOPS[currentStopIndex];
   if (nextStop) {
     const stopWorldZ = nextStop.segIndex * SEGMENT_LENGTH;
@@ -1180,24 +1281,25 @@ function updateSimulator(dt) {
     beaconTitle.textContent = nextStop.name;
     beaconDist.textContent = 'Next Stop • ' + Math.max(0, Math.round(distToStop * 0.2)) + 'm';
 
-    const inBayZone = (distToStop > -30 && distToStop < 45);
-    const isStoppedInBay = (inBayZone && Math.abs(speed) < 6 && playerX > 0.18);
+    // Generous and intuitive stopping zone (70m before to 85m after)
+    const inBayZone = (distToStop > -70 && distToStop < 85);
+    const isStoppedInBay = (inBayZone && Math.abs(speed) < 8 && playerX > -0.2);
 
     if (isStoppedInBay && !nextStop.isVisited) {
       if (!doorsOpen) {
         doorPrompt.style.display = 'block';
-        doorPrompt.textContent = "👉 TAP TO OPEN DOORS [🚪]";
+        doorPrompt.textContent = "👉 OPEN DOORS [🚪] TO BOARD";
         boardingProgress.style.display = 'none';
       } else {
         doorPrompt.style.display = 'none';
         boardingProgress.style.display = 'flex';
 
-        // Animate passenger walking across sidewalk into the bus
+        // Animate passenger walking from sidewalk into the bus
         if (nextStop.passengersWaiting > 0) {
           if (!animatedBoardingPax) {
-            animatedBoardingPax = { progress: 0, color: ['#3b82f6','#ec4899','#f97316','#10b981'][passengersAboard % 4] };
+            animatedBoardingPax = { progress: 0, color: ['#3b82f6','#ec4899','#f97316','#10b981','#8b5cf6'][passengersAboard % 5] };
           }
-          animatedBoardingPax.progress += dt * 1.5;
+          animatedBoardingPax.progress += dt * 1.6;
           boardText.textContent = 'Passengers Boarding (' + (passengersAboard + 1) + ' / 18)...';
 
           if (animatedBoardingPax.progress >= 1.0) {
@@ -1208,7 +1310,7 @@ function updateSimulator(dt) {
             AudioEngine.doorChime();
             triggerHaptic('light');
 
-            for (let i = 0; i < 14; i++) {
+            for (let i = 0; i < 16; i++) {
               particles.push({
                 x: W * 0.65 + (Math.random() * 20 - 10),
                 y: H * 0.68,
@@ -1222,14 +1324,14 @@ function updateSimulator(dt) {
             }
           }
         } else {
-          boardText.textContent = "✅ All Aboard! Tap to Close Doors [🚪]";
+          boardText.textContent = "✅ All Aboard! Close Doors [🚪]";
           doorPrompt.style.display = 'block';
-          doorPrompt.textContent = "TAP TO CLOSE DOORS [🚪]";
+          doorPrompt.textContent = "CLOSE DOORS [🚪] & PROCEED";
 
           if (!nextStop.isVisited) {
             nextStop.isVisited = true;
             totalPassengersDelivered += passengersAboard;
-            showAlert("✅ STOP COMPLETE! Close Doors & Proceed", false);
+            showAlert("✅ STOP COMPLETE! Route Progress Saved", false);
             triggerHaptic('medium');
             if (currentStopIndex < ROUTE_STOPS.length - 1) {
               currentStopIndex++;
@@ -1273,8 +1375,43 @@ function updateSimulator(dt) {
     if (p.life <= 0) particles.splice(i, 1);
   }
 
+  if (screenShake > 0) {
+    screenShake = Math.max(0, screenShake - dt * 25);
+  }
+
   hudSpeed.textContent = Math.abs(Math.round(speed));
   hudPassengers.textContent = passengersAboard + ' / 18';
+}
+
+function triggerAccident(hitCar) {
+  gameState = 'CRASHED';
+  speed = 0;
+  selectGear('P');
+  AudioEngine.crashSound();
+  triggerHaptic('heavy');
+  screenShake = 24;
+
+  // Spawn crash debris & fire/smoke particles
+  for (let i = 0; i < 35; i++) {
+    particles.push({
+      x: W / 2 + (Math.random() * 60 - 30),
+      y: H * 0.65 + (Math.random() * 40 - 20),
+      vx: (Math.random() - 0.5) * 220,
+      vy: -60 - Math.random() * 180,
+      life: 1.2,
+      max: 1.2,
+      color: ['#ef4444', '#f97316', '#facc15', '#e2e8f0', '#0f172a'][i % 5],
+      r: 3 + Math.random() * 5
+    });
+  }
+
+  document.getElementById('crash-speed').textContent = Math.round(Math.abs(speed)) + ' KM/H';
+  document.getElementById('crash-passengers').textContent = passengersAboard;
+  document.getElementById('crash-infractions').textContent = redLightInfractions;
+
+  setTimeout(() => {
+    crashModal.classList.remove('hidden');
+  }, 400);
 }
 
 function completeRouteMission() {
@@ -1302,39 +1439,60 @@ function completeRouteMission() {
 }
 
 /* ==========================================================================
-   9. 3D PROJECTION RENDERING ENGINE (BEAUTIFUL ROAD & SCENERY)
+   9. 3D PROJECTION RENDERING ENGINE (BRIGHT DAY THEME, GREENERY & ROAD LOCK)
    ========================================================================== */
 function renderScene() {
+  ctx.save();
+
+  // Screen Shake Offset on Crash / Rumble
+  if (screenShake > 0) {
+    const shakeX = (Math.random() - 0.5) * screenShake;
+    const shakeY = (Math.random() - 0.5) * screenShake;
+    ctx.translate(shakeX, shakeY);
+  }
+
   ctx.clearRect(0, 0, W, H);
 
   const horizonY = H * 0.44 + (freeLookPitch * 140);
 
-  // Dynamic Golden Hour Sky
+  // 1. BRIGHT SUNNY DAY SKY (Clear Radiant Blue Atmosphere)
   const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
-  skyGrad.addColorStop(0, '#0c162c');
-  skyGrad.addColorStop(0.45, '#1e293b');
-  skyGrad.addColorStop(0.85, '#d97706');
-  skyGrad.addColorStop(1, '#fbbf24');
+  skyGrad.addColorStop(0, '#0284c7');
+  skyGrad.addColorStop(0.55, '#38bdf8');
+  skyGrad.addColorStop(0.92, '#bae6fd');
+  skyGrad.addColorStop(1, '#e0f2fe');
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, W, horizonY);
 
-  // Glowing Sun & Horizon Lens Flare
+  // 2. RADIANT DAYTIME SUN & SOFT CLOUDS
   const sunX = W * 0.72 + (freeLookYaw * 80);
-  const sunGrad = ctx.createRadialGradient(sunX, horizonY * 0.52, 4, sunX, horizonY * 0.52, 60);
+  const sunGrad = ctx.createRadialGradient(sunX, horizonY * 0.40, 4, sunX, horizonY * 0.40, 65);
   sunGrad.addColorStop(0, '#ffffff');
-  sunGrad.addColorStop(0.25, 'rgba(254,240,138,0.7)');
-  sunGrad.addColorStop(0.6, 'rgba(245,158,11,0.25)');
-  sunGrad.addColorStop(1, 'rgba(245,158,11,0)');
+  sunGrad.addColorStop(0.30, 'rgba(254,240,138,0.85)');
+  sunGrad.addColorStop(0.70, 'rgba(253,224,71,0.25)');
+  sunGrad.addColorStop(1, 'rgba(253,224,71,0)');
   ctx.fillStyle = sunGrad;
   ctx.beginPath();
-  ctx.arc(sunX, horizonY * 0.52, 60, 0, Math.PI * 2);
+  ctx.arc(sunX, horizonY * 0.40, 65, 0, Math.PI * 2);
   ctx.fill();
 
-  // Distant Mountain Silhouette
-  ctx.fillStyle = '#1e1b4b';
+  // Fluffy Daytime Clouds
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  for (let c = 0; c < 5; c++) {
+    const cx = ((c * 85 - playerZ * 0.003 + freeLookYaw * 40) % (W + 80) + (W + 80)) % (W + 80) - 40;
+    const cy = horizonY * 0.25 + (c % 3) * 14;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+    ctx.arc(cx + 14, cy - 6, 14, 0, Math.PI * 2);
+    ctx.arc(cx + 26, cy, 16, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Distant Sunny Mountain Ridge
+  ctx.fillStyle = '#0284c7';
   ctx.beginPath();
   ctx.moveTo(0, horizonY);
-  for (let m = 0; m <= W; m += 30) {
+  for (let m = 0; m <= W; m += 25) {
     const mh = Math.sin((m + playerZ * 0.003) * 0.03) * 18 + Math.cos(m * 0.05) * 10 + 22;
     ctx.lineTo(m, horizonY - mh);
   }
@@ -1342,75 +1500,58 @@ function renderScene() {
   ctx.closePath();
   ctx.fill();
 
-  // Distant Skyline Buildings with Window Lights
-  for (let b = 0; b < 14; b++) {
-    const bx = ((b * 34 - playerZ * 0.005 + freeLookYaw * 60) % (W + 40) + (W + 40)) % (W + 40) - 20;
-    const bw = 28, bh = 32 + (b % 5) * 22;
-    ctx.fillStyle = (b % 2 === 0 ? '#1e293b' : '#0f172a');
-    ctx.fillRect(bx, horizonY - bh, bw, bh);
-    ctx.fillStyle = '#fde047';
-    for (let r = 4; r < bh - 6; r += 8) {
-      if ((b + r) % 3 === 0) {
-        ctx.fillRect(bx + 4, horizonY - bh + r, 4, 3);
-        ctx.fillRect(bx + 14, horizonY - bh + r, 4, 3);
-      }
-    }
-  }
-
-  // Terrain Ground with Atmospheric Gradient
+  // 3. LUSH GREEN TERRAIN & COUNTRYSIDE HILLS
   const groundGrad = ctx.createLinearGradient(0, horizonY, 0, H);
-  groundGrad.addColorStop(0, '#064e3b');
-  groundGrad.addColorStop(0.35, '#022c22');
-  groundGrad.addColorStop(1, '#011c16');
+  groundGrad.addColorStop(0, '#15803d'); // Fresh grass green
+  groundGrad.addColorStop(0.35, '#16a34a');
+  groundGrad.addColorStop(1, '#14532d');
   ctx.fillStyle = groundGrad;
   ctx.fillRect(0, horizonY, W, H - horizonY);
 
-  // 3D Road Projection
+  // 3D Road Projection with Exact Mathematical Curve Tracking
   const camHeight = (cameraMode === 1 ? 95 : 120);
   const startSegIndex = Math.floor(playerZ / SEGMENT_LENGTH);
-  const DRAW_DISTANCE = 88;
+  const startSeg = trackSegments[Math.min(TOTAL_TRACK_SEGMENTS - 1, startSegIndex)];
+  const baseCumCurve = startSeg ? startSeg.cumCurve : 0;
+  const DRAW_DISTANCE = 90;
 
   let maxRenderY = H;
   let sceneryToDraw = [];
-  let roadPoints = [];
-
-  let curX = 0;
-  let curDX = 0;
 
   for (let n = 0; n < DRAW_DISTANCE; n++) {
     const segIdx = startSegIndex + n;
-    if (segIdx >= TOTAL_TRACK_SEGMENTS) break;
+    if (segIdx >= TOTAL_TRACK_SEGMENTS - 1) break;
 
-    const seg = trackSegments[segIdx];
+    const seg1 = trackSegments[segIdx];
+    const seg2 = trackSegments[segIdx + 1];
+
     const relZ1 = Math.max(10, (segIdx * SEGMENT_LENGTH) - playerZ);
     const relZ2 = Math.max(10, ((segIdx + 1) * SEGMENT_LENGTH) - playerZ);
 
     const scale1 = 280 / relZ1;
     const scale2 = 280 / relZ2;
 
-    curDX += seg.curve * 0.75;
-    curX += curDX;
-
-    const curveOffset1 = (curX * scale1) + (freeLookYaw * 240);
-    const curveOffset2 = ((curX + curDX) * scale2) + (freeLookYaw * 240);
+    const curveOffset1 = ((seg1.cumCurve - baseCumCurve) * scale1) + (freeLookYaw * 240);
+    const curveOffset2 = ((seg2.cumCurve - baseCumCurve) * scale2) + (freeLookYaw * 240);
 
     const x1 = (W / 2) - (playerX * 700 * scale1) + curveOffset1;
-    const y1 = horizonY + ((camHeight - seg.worldY) * scale1);
-    const w1 = seg.roadWidth * scale1;
+    const y1 = horizonY + ((camHeight - seg1.worldY) * scale1);
+    const w1 = seg1.roadWidth * scale1 * 0.5;
 
     const x2 = (W / 2) - (playerX * 700 * scale2) + curveOffset2;
-    const y2 = horizonY + ((camHeight - seg.worldY) * scale2);
-    const w2 = seg.roadWidth * scale2;
-
-    roadPoints[n] = { x1, y1, w1, scale1, relZ1 };
+    const y2 = horizonY + ((camHeight - seg2.worldY) * scale2);
+    const w2 = seg2.roadWidth * scale2 * 0.5;
 
     if (y1 >= maxRenderY) continue;
 
-    // Asphalt Color with Rich Depth
+    // Atmospheric Distance Fade for Road Polygons
+    const distFade = Math.min(1, Math.max(0, (1450 - relZ1) / 300));
+    ctx.globalAlpha = distFade;
+
+    // 4. METALLIC CRISP ASPHALT ROAD SURFACE
     const isStripe = Math.floor(segIdx / 3) % 2 === 0;
     ctx.fillStyle = isStripe ? '#334155' : '#1e293b';
 
-    // Draw Main Road Surface
     ctx.beginPath();
     ctx.moveTo(x1 - w1, y1);
     ctx.lineTo(x1 + w1, y1);
@@ -1419,10 +1560,10 @@ function renderScene() {
     ctx.closePath();
     ctx.fill();
 
-    // 3D Beveled Curbs
-    const isStopBay = ROUTE_STOPS.some(s => Math.abs(s.segIndex - segIdx) < 8);
-    const curbCol = isStopBay ? '#f59e0b' : (isStripe ? '#dc2626' : '#f8fafc');
-    const curbW1 = w1 * 0.08, curbW2 = w2 * 0.08;
+    // 5. METALLIC CHROME GUARDRAILS & 3D CURBS
+    const isStopBay = ROUTE_STOPS.some(s => Math.abs(s.segIndex - segIdx) < 7);
+    const curbCol = isStopBay ? '#10b981' : (isStripe ? '#ef4444' : '#f8fafc');
+    const curbW1 = w1 * 0.07, curbW2 = w2 * 0.07;
 
     // Left Curb
     ctx.fillStyle = curbCol;
@@ -1437,8 +1578,14 @@ function renderScene() {
     ctx.lineTo(x2 + w2 + curbW2, y2); ctx.lineTo(x2 + w2, y2);
     ctx.closePath(); ctx.fill();
 
-    // Sidewalk Pavement Outside Curbs
-    ctx.fillStyle = '#475569';
+    // Metallic Chrome Guardrail Beam (Left & Right)
+    ctx.fillStyle = '#cbd5e1';
+    const railH1 = Math.max(1.5, 6 * scale1);
+    ctx.fillRect(x1 - w1 - curbW1 - 3 * scale1, y1 - railH1, 3 * scale1, railH1);
+    ctx.fillRect(x1 + w1 + curbW1, y1 - railH1, 3 * scale1, railH1);
+
+    // Lush Green Roadside Verge (Grass strip)
+    ctx.fillStyle = '#22c55e';
     ctx.beginPath();
     ctx.moveTo(x1 - w1 - curbW1 * 3, y1); ctx.lineTo(x1 - w1 - curbW1, y1);
     ctx.lineTo(x2 - w2 - curbW2, y2); ctx.lineTo(x2 - w2 - curbW2 * 3, y2);
@@ -1449,14 +1596,15 @@ function renderScene() {
     ctx.lineTo(x2 + w2 + curbW2 * 3, y2); ctx.lineTo(x2 + w2 + curbW2, y2);
     ctx.closePath(); ctx.fill();
 
+    // 6. CLEAR CRISP ROAD MARKINGS
     // Center Double Yellow Line with Reflective Road Studs (Cat-Eyes)
     ctx.fillStyle = '#facc15';
-    const cw1 = Math.max(1.5, 3.2 * scale1);
+    const cw1 = Math.max(1.4, 3.2 * scale1);
     ctx.fillRect(x1 - cw1 * 1.6, y1, cw1, Math.max(1.5, y2 - y1));
     ctx.fillRect(x1 + cw1 * 0.6, y1, cw1, Math.max(1.5, y2 - y1));
 
     if (segIdx % 4 === 0) {
-      ctx.fillStyle = '#fbbf24';
+      ctx.fillStyle = '#fef08a';
       ctx.beginPath();
       ctx.arc(x1, y1, Math.max(1, 2.5 * scale1), 0, Math.PI * 2);
       ctx.fill();
@@ -1465,17 +1613,17 @@ function renderScene() {
     // Dashed White Lane Dividers
     if (isStripe) {
       ctx.fillStyle = '#f8fafc';
-      [-0.45, 0.45].forEach(lane => {
+      [-0.48, 0.48].forEach(lane => {
         const lx1 = x1 + w1 * lane;
         const lw = Math.max(1.4, 3.0 * scale1);
         ctx.fillRect(lx1 - lw / 2, y1, lw, Math.max(1.5, y2 - y1));
       });
     }
 
-    // Bus Stop Bay Yellow Chevron Hatching
-    if (isStopBay && isStripe) {
-      ctx.fillStyle = 'rgba(245,158,11,0.6)';
-      ctx.fillRect(x1 + w1 * 0.52, y1, w1 * 0.48, Math.max(2, y2 - y1));
+    // Glowing Green Bus Stop Bay Surface Marking
+    if (isStopBay) {
+      ctx.fillStyle = isStripe ? 'rgba(16,185,129,0.55)' : 'rgba(56,189,248,0.45)';
+      ctx.fillRect(x1 + w1 * 0.48, y1, w1 * 0.52, Math.max(2, y2 - y1));
     }
 
     // Stop Line & Crosswalk at Traffic Lights
@@ -1490,41 +1638,62 @@ function renderScene() {
     });
 
     // Collect Scenery
-    seg.sceneryLeft.forEach(sc => {
-      sceneryToDraw.push({ side: 'left', x: x1 - w1 * 1.35, y: y1, scale: scale1, obj: sc, relZ: relZ1, segIdx });
+    seg1.sceneryLeft.forEach(sc => {
+      sceneryToDraw.push({ side: 'left', x: x1 - w1 * 1.32, y: y1, scale: scale1, obj: sc, relZ: relZ1, segIdx });
     });
-    seg.sceneryRight.forEach(sc => {
-      sceneryToDraw.push({ side: 'right', x: x1 + w1 * 1.35, y: y1, scale: scale1, obj: sc, relZ: relZ1, segIdx, x1, w1 });
+    seg1.sceneryRight.forEach(sc => {
+      sceneryToDraw.push({ side: 'right', x: x1 + w1 * 1.32, y: y1, scale: scale1, obj: sc, relZ: relZ1, segIdx, x1, w1 });
     });
   }
 
-  // Draw Sorted Scenery
+  ctx.globalAlpha = 1.0;
+
+  // 7. DRAW SORTED SCENERY WITH DAYTIME GREENERY
   sceneryToDraw.sort((a, b) => b.relZ - a.relZ);
   sceneryToDraw.forEach(s => {
     const sc = s.scale;
+    const alpha = Math.min(1, Math.max(0, (1450 - s.relZ) / 300));
+    ctx.globalAlpha = alpha;
+
     if (s.obj.type === 'building' || s.obj.type === 'skyscraper') {
-      const bw = (s.obj.type === 'skyscraper' ? 140 : 100) * sc;
+      const bw = (s.obj.type === 'skyscraper' ? 130 : 95) * sc;
       const bh = s.obj.h * sc * 2.8;
       ctx.fillStyle = s.obj.color;
       ctx.fillRect(s.x - bw / 2, s.y - bh, bw, bh);
-      ctx.fillStyle = '#fef08a';
+      // Bright Sunny Glass Windows
+      ctx.fillStyle = '#bae6fd';
       for (let r = 0; r < 5; r++) {
         for (let c = 0; c < 3; c++) {
           if ((r + c) % 2 === 0) ctx.fillRect(s.x - bw * 0.35 + c * (bw * 0.3), s.y - bh + 8 * sc + r * (bh * 0.18), bw * 0.18, bh * 0.10);
         }
       }
     } else if (s.obj.type === 'tree') {
+      // Lush Oak Tree
       ctx.fillStyle = '#78350f';
-      ctx.fillRect(s.x - 4 * sc, s.y - 45 * sc, 8 * sc, 45 * sc);
+      ctx.fillRect(s.x - 4 * sc, s.y - 42 * sc, 8 * sc, 42 * sc);
       ctx.fillStyle = '#15803d';
-      ctx.beginPath(); ctx.arc(s.x, s.y - 50 * sc, 22 * sc, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(s.x, s.y - 48 * sc, 24 * sc, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath(); ctx.arc(s.x - 4 * sc, s.y - 58 * sc, 18 * sc, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#86efac';
+      ctx.beginPath(); ctx.arc(s.x + 6 * sc, s.y - 54 * sc, 14 * sc, 0, Math.PI * 2); ctx.fill();
+    } else if (s.obj.type === 'palm') {
+      // Tropical Palm Tree
+      ctx.fillStyle = '#854d0e';
+      ctx.fillRect(s.x - 3 * sc, s.y - 55 * sc, 6 * sc, 55 * sc);
       ctx.fillStyle = '#16a34a';
-      ctx.beginPath(); ctx.arc(s.x, s.y - 65 * sc, 16 * sc, 0, Math.PI * 2); ctx.fill();
+      for (let p = 0; p < 5; p++) {
+        const pa = (p * Math.PI * 2) / 5;
+        ctx.beginPath();
+        ctx.ellipse(s.x + Math.cos(pa) * 16 * sc, s.y - 55 * sc + Math.sin(pa) * 8 * sc, 16 * sc, 6 * sc, pa, 0, Math.PI * 2);
+        ctx.fill();
+      }
     } else if (s.obj.type === 'bus_shelter') {
       const sw = 100 * sc, sh = 70 * sc;
-      ctx.fillStyle = 'rgba(56,189,248,0.35)';
+      // Modern Glass Shelter
+      ctx.fillStyle = 'rgba(56,189,248,0.45)';
       ctx.fillRect(s.x - sw / 2, s.y - sh, sw, sh);
-      ctx.strokeStyle = '#38bdf8';
+      ctx.strokeStyle = '#0284c7';
       ctx.lineWidth = Math.max(1, 2.5 * sc);
       ctx.strokeRect(s.x - sw / 2, s.y - sh, sw, sh);
 
@@ -1542,12 +1711,13 @@ function renderScene() {
       for (let p = 0; p < count; p++) {
         const px = s.x - sw * 0.35 + p * (18 * sc);
         const py = s.y;
-        ctx.fillStyle = ['#3b82f6', '#ec4899', '#f97316', '#10b981'][p % 4];
+        ctx.fillStyle = ['#3b82f6', '#ec4899', '#f97316', '#10b981', '#8b5cf6'][p % 5];
         ctx.fillRect(px - 5 * sc, py - 32 * sc, 10 * sc, 22 * sc);
         ctx.fillStyle = '#fbcfe8';
         ctx.beginPath(); ctx.arc(px, py - 38 * sc, 6 * sc, 0, Math.PI * 2); ctx.fill();
       }
 
+      // Animated Passenger Walking into Bus
       if (animatedBoardingPax && stop && !stop.isVisited && Math.abs(stop.segIndex - s.segIdx) < 2) {
         const t = animatedBoardingPax.progress;
         const walkX = s.x - (sw * 0.3) + t * (s.x1 + s.w1 * 0.7 - s.x);
@@ -1599,18 +1769,24 @@ function renderScene() {
     }
   });
 
+  ctx.globalAlpha = 1.0;
+
   // =========================================================================
-  // 10. ULTRA EYE-CATCHING 3D TRAFFIC CARS (6 DISTINCT MODELS)
+  // 10. 100% ROAD-LOCKED 3D TRAFFIC CARS RENDERING
   // =========================================================================
   trafficVehicles.forEach(car => {
     const relZ = car.z - playerZ;
-    if (relZ > 35 && relZ < 1400) {
+    if (relZ > 20 && relZ < 1450) {
       const sc = 280 / relZ;
       const segIdx = Math.max(0, Math.min(TOTAL_TRACK_SEGMENTS - 1, Math.floor(car.z / SEGMENT_LENGTH)));
       const seg = trackSegments[segIdx];
-      const curveOff = (seg ? seg.curve * 80 * sc : 0) + (freeLookYaw * 240);
 
-      const cx = (W / 2) - (playerX * 700 * sc) + (car.x * 700 * sc) + curveOff;
+      // Exact unified curve offset matching the road polygon perfectly!
+      const segCurveOff = seg ? (seg.cumCurve - baseCumCurve) : 0;
+      const roadCenterX = (W / 2) - (playerX * 700 * sc) + (segCurveOff * sc) + (freeLookYaw * 240);
+      const roadHalfW = (seg ? seg.roadWidth : 1400) * sc * 0.5;
+
+      const cx = roadCenterX + (car.x * roadHalfW);
       const cy = horizonY + ((camHeight - (seg ? seg.worldY : 0)) * sc);
 
       let cw = 84 * sc, ch = 52 * sc;
@@ -1620,9 +1796,13 @@ function renderScene() {
       else if (car.type === 'taxi') { cw = 84 * sc; ch = 52 * sc; }
       else if (car.type === 'police') { cw = 86 * sc; ch = 52 * sc; }
 
-      if (cy > horizonY && cy < H + 60) {
-        // Soft Ambient Ground Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      if (cy > horizonY && cy < H + 80) {
+        // Atmospheric Distance Fade
+        const alpha = Math.min(1, Math.max(0, (1450 - relZ) / 300));
+        ctx.globalAlpha = alpha;
+
+        // Ground Contact Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
         ctx.beginPath();
         ctx.ellipse(cx, cy, cw * 0.58, 6 * sc, 0, 0, Math.PI * 2);
         ctx.fill();
@@ -1633,7 +1813,7 @@ function renderScene() {
         ctx.fillRect(cx + cw * 0.48 - 10 * sc, cy - 8 * sc, 10 * sc, 9 * sc);
 
         if (car.isOncoming) {
-          // ONCOMING CAR (FRONT 3D VIEW FACING PLAYER)
+          // ONCOMING CAR (FRONT 3D VIEW)
           const bodyGrad = ctx.createLinearGradient(cx, cy - ch, cx, cy);
           bodyGrad.addColorStop(0, car.accent);
           bodyGrad.addColorStop(0.35, car.color);
@@ -1649,7 +1829,7 @@ function renderScene() {
           ctx.roundRect(cx - cabinW / 2, cy - ch * 0.94, cabinW, cabinH, [6 * sc, 6 * sc, 0, 0]);
           ctx.fill();
 
-          ctx.fillStyle = 'rgba(255,255,255,0.18)';
+          ctx.fillStyle = 'rgba(255,255,255,0.22)';
           ctx.beginPath();
           ctx.moveTo(cx - cabinW * 0.4, cy - ch * 0.92);
           ctx.lineTo(cx - cabinW * 0.1, cy - ch * 0.92);
@@ -1676,7 +1856,7 @@ function renderScene() {
           ctx.restore();
 
         } else {
-          // FORWARD CAR (REAR 3D VIEW DRIVING AHEAD)
+          // FORWARD CAR (REAR 3D VIEW)
           const bodyGrad = ctx.createLinearGradient(cx, cy - ch, cx, cy);
           bodyGrad.addColorStop(0, car.accent);
           bodyGrad.addColorStop(0.3, car.color);
@@ -1802,6 +1982,9 @@ function renderScene() {
     }
   });
 
+  ctx.globalAlpha = 1.0;
+
+  // Draw Particles
   particles.forEach(p => {
     ctx.fillStyle = p.color;
     ctx.beginPath();
@@ -1821,7 +2004,7 @@ function renderScene() {
     ctx.rotate((chassisRoll * Math.PI) / 180);
 
     // 1. Dual Soft Ground Contact Shadows
-    ctx.fillStyle = 'rgba(0,0,0,0.62)';
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.beginPath();
     ctx.ellipse(0, bh * 0.48, bw * 0.58, 14, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -1944,7 +2127,7 @@ function renderScene() {
       const py = glassY + 36 + Math.floor(pi / 4) * 10;
       ctx.fillStyle = '#334155';
       ctx.fillRect(px - 6, py - 18, 12, 20);
-      ctx.fillStyle = ['#3b82f6', '#ec4899', '#f97316', '#10b981'][pi % 4];
+      ctx.fillStyle = ['#3b82f6', '#ec4899', '#f97316', '#10b981', '#8b5cf6'][pi % 5];
       ctx.fillRect(px - 5, py - 4, 10, 12);
       ctx.fillStyle = '#fbcfe8';
       ctx.beginPath(); ctx.arc(px, py - 8, 4, 0, Math.PI * 2); ctx.fill();
@@ -2169,6 +2352,8 @@ function renderScene() {
 
     ctx.restore();
   }
+
+  ctx.restore();
 }
 
 /* ==========================================================================
