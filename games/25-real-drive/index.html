@@ -340,7 +340,7 @@ const Host = {
     } catch(e){}
   }
 };
-Host.post('ready', { gameId: 'real-drive', version: '1.0.5' });
+Host.post('ready', { gameId: 'real-drive', version: '1.0.6' });
 
 function triggerHaptic(type = 'light') {
   Host.post('haptic', { type });
@@ -792,8 +792,15 @@ const CAR_TEMPLATES = [
   { type: 'police', name: 'Highway Patrol', color: '#09090b', accent: '#ffffff', speedBase: 56 }
 ];
 
-const FORWARD_LANES = [0.24, 0.66];
-const ONCOMING_LANES = [-0.24, -0.66];
+// Lane centres match the painted dividers (-.48 / .48) and leave a clear,
+// visible gap between the two cars travelling in the same direction.
+const FORWARD_LANES = [0.24, 0.72];
+const ONCOMING_LANES = [-0.24, -0.72];
+
+// These are deliberately smaller than the visual lane width. A collision is
+// reserved for bumper/body contact, never merely entering a neighbouring lane.
+const BUS_CONTACT_HALF_WIDTH = 0.065;
+const BUS_CONTACT_HALF_LENGTH = 54;
 
 function initTraffic() {
   trafficVehicles = [];
@@ -853,6 +860,10 @@ function farthestTrafficZ(isOncoming) {
 function findClearTrafficLane(car, lanes, clearance = 780) {
   const candidates = lanes.filter(lane => Math.abs(lane - car.lane) > 0.2);
   for (const lane of candidates.sort(() => Math.random() - 0.5)) {
+    // Traffic must not merge into the bus's occupied lane while it is nearby.
+    // This prevents an AI lane change from creating a surprise side impact.
+    const busOccupiesCandidate = Math.abs(car.z - playerZ) < 1100 && Math.abs(lane - playerX) < 0.22;
+    if (busOccupiesCandidate) continue;
     const clear = trafficVehicles.every(other => other === car || other.isOncoming !== car.isOncoming ||
       Math.abs(other.x - lane) > 0.22 || Math.abs(other.z - car.z) > clearance);
     if (clear) return lane;
@@ -1244,7 +1255,55 @@ function resetRouteState() {
   initTraffic();
 }
 
-/* ==========================================================================
+function getTrafficRenderSize(car, scale) {
+  let width = 84 * scale;
+  let height = 52 * scale;
+  if (car.type === 'sports') { width = 86 * scale; height = 44 * scale; }
+  else if (car.type === 'suv') { width = 92 * scale; height = 64 * scale; }
+  else if (car.type === 'van') { width = 96 * scale; height = 76 * scale; }
+  else if (car.type === 'taxi') { width = 84 * scale; height = 52 * scale; }
+  else if (car.type === 'police') { width = 86 * scale; height = 52 * scale; }
+  return { width, height };
+}
+
+function hasVisibleChaseContact(car, relZ) {
+  if (cameraMode !== 0 || relZ <= 8) return false;
+
+  // Project the car using the exact same road/camera formula as the renderer.
+  // This ties the accident decision to what the player can actually see.
+  const scale = 300 / relZ;
+  const segIdx = Math.max(0, Math.min(TOTAL_TRACK_SEGMENTS - 1, Math.floor(car.z / SEGMENT_LENGTH)));
+  const seg = trackSegments[segIdx];
+  const startSegIndex = Math.floor(playerZ / SEGMENT_LENGTH);
+  const startSeg = trackSegments[Math.min(TOTAL_TRACK_SEGMENTS - 1, startSegIndex)];
+  const nextSeg = trackSegments[Math.min(TOTAL_TRACK_SEGMENTS - 1, startSegIndex + 1)] || startSeg;
+  const progress = (playerZ / SEGMENT_LENGTH) - startSegIndex;
+  const cameraCurve = startSeg.cumCurve + ((nextSeg.cumCurve - startSeg.cumCurve) * progress);
+  const cameraTangent = startSeg.cumDX + ((nextSeg.cumDX - startSeg.cumDX) * progress);
+  const segCurveOffset = (seg.cumCurve - cameraCurve) - (cameraTangent * (relZ / SEGMENT_LENGTH));
+  const roadCenterX = (W / 2) - (playerX * 700 * scale) + (segCurveOffset * scale) + (freeLookYaw * 240);
+  const roadHalfWidth = seg.roadWidth * scale * 0.5;
+  const carX = roadCenterX + (car.x * roadHalfWidth);
+  const horizonY = H * 0.48 + (freeLookPitch * 140);
+  const carY = horizonY + ((165 - seg.worldY) * scale);
+  const carSize = getTrafficRenderSize(car, scale);
+
+  // The lower central part of the rendered coach is its visible contact area.
+  // A car must overlap this area on screen, not simply share a loose route box.
+  const busY = H * 0.81 + chassisPitch;
+  const busLeft = W / 2 + (freeLookYaw * 240) - 48;
+  const busRight = W / 2 + (freeLookYaw * 240) + 48;
+  const busTop = busY + 4;
+  const busBottom = busY + 70;
+  const carLeft = carX - (carSize.width * 0.46);
+  const carRight = carX + (carSize.width * 0.46);
+  const carTop = carY - carSize.height;
+  const carBottom = carY;
+
+  return carRight > busLeft && carLeft < busRight && carBottom > busTop && carTop < busBottom;
+}
+
+/* ===========================================================================
    8. BUS SIMULATOR PHYSICS & TRAFFIC AI UPDATE LOOP
    ========================================================================== */
 let lastFrameTime = performance.now();
@@ -1383,23 +1442,29 @@ function updateSimulator(dt) {
 
   // --- COLLISION HITBOXES ---
   // Crossing the centre line is allowed. A crash only happens when the actual
-  // bus/car rectangles overlap and there is meaningful closing speed.
+  // bus/car bodies meet directly in front of the bus. In particular, do not
+  // turn a vehicle that has already passed, or a nearby parallel-lane car,
+  // into a retroactive "accident".
   for (const car of trafficVehicles) {
     const relZ = car.z - playerZ;
-    const relX = Math.abs(car.x - playerX);
-    const carHalfWidth = (car.type === 'van' || car.type === 'suv') ? 0.13 : 0.10;
-    const carHalfLength = car.type === 'van' ? 52 : (car.type === 'suv' ? 47 : 42);
-    const overlapsLength = Math.abs(relZ) < (68 + carHalfLength);
-    const overlapsWidth = relX < (0.15 + carHalfWidth);
-    // Use the true closing velocity on the route axis. This catches a real
-    // rear-end impact too, while still allowing a car in another lane to pass
-    // safely without any centre-line penalty.
-    const carRouteSpeed = car.isOncoming ? -car.speed : car.speed;
-    const closingSpeed = relZ >= 0
-      ? Math.max(0, speed - carRouteSpeed)
-      : Math.max(0, carRouteSpeed - speed);
+    // The renderer only shows an approaching vehicle from relZ > 8. Ignore
+    // anything at/behind that point so a car cannot cause an invisible crash
+    // after it has passed under the chase camera.
+    if (relZ <= 8) continue;
 
-    if (overlapsLength && overlapsWidth && closingSpeed > 4) {
+    const relX = Math.abs(car.x - playerX);
+    const carHalfWidth = (car.type === 'van' || car.type === 'suv') ? 0.07 : 0.05;
+    const carHalfLength = car.type === 'van' ? 38 : (car.type === 'suv' ? 34 : 30);
+    const directBumperContact = cameraMode === 0
+      ? hasVisibleChaseContact(car, relZ)
+      : relZ < (BUS_CONTACT_HALF_LENGTH + carHalfLength);
+    const directBodyContact = cameraMode === 0
+      ? directBumperContact
+      : relX < (BUS_CONTACT_HALF_WIDTH + carHalfWidth);
+    const carRouteSpeed = car.isOncoming ? -car.speed : car.speed;
+    const closingSpeed = Math.max(0, speed - carRouteSpeed);
+
+    if (directBumperContact && directBodyContact && closingSpeed > 4) {
       triggerAccident(car, closingSpeed);
       return;
     }
@@ -2147,12 +2212,9 @@ function renderScene() {
       const cx = roadCenterX + (car.x * roadHalfW);
       const cy = horizonY + ((camHeight - (seg ? seg.worldY : 0)) * sc);
 
-      let cw = 84 * sc, ch = 52 * sc;
-      if (car.type === 'sports') { cw = 86 * sc; ch = 44 * sc; }
-      else if (car.type === 'suv') { cw = 92 * sc; ch = 64 * sc; }
-      else if (car.type === 'van') { cw = 96 * sc; ch = 76 * sc; }
-      else if (car.type === 'taxi') { cw = 84 * sc; ch = 52 * sc; }
-      else if (car.type === 'police') { cw = 86 * sc; ch = 52 * sc; }
+      const carSize = getTrafficRenderSize(car, sc);
+      const cw = carSize.width;
+      const ch = carSize.height;
 
       if (cy > horizonY && cy < H + 120) {
         const alpha = Math.min(1, Math.max(0, (4000 - relZ) / 700));

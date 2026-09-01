@@ -1,6 +1,6 @@
 {
   "version": 29,
-  "updatedAt": "2026-09-01T11:59:36.347Z",
+  "updatedAt": "2026-09-01T12:33:33.312Z",
   "games": [
     {
       "id": "color-connect",
@@ -440,17 +440,17 @@
     {
       "id": "real-drive",
       "title": "Real Drive: 3D Bus Simulator",
-      "version": "1.0.5",
-      "entryUrl": "http://localhost:8080/games/real-drive/1.0.5/index.html",
+      "version": "1.0.6",
+      "entryUrl": "http://localhost:8080/games/real-drive/1.0.6/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/real-drive.webp",
-      "sizeBytes": 118702,
+      "sizeBytes": 121899,
       "orientation": "portrait",
       "engine": "canvas2d",
-      "manifestUrl": "http://localhost:8080/games/real-drive/1.0.5/manifest.json",
+      "manifestUrl": "http://localhost:8080/games/real-drive/1.0.6/manifest.json",
       "feedOrder": 25,
       "category": "Simulation",
-      "description": "Polished 3D transit bus simulator with responsive curve driving, road-locked traffic, accurate collision reporting, traffic lights, and passenger exchanges across three stations.",
-      "sha256": "626d3dd7274b05be5485548ee082879f2ef0b2d2f0013b2567ee6ca8badde8c8",
+      "description": "Polished 3D transit bus simulator with responsive curve driving, screen-accurate collision reporting, traffic lights, and passenger exchanges across three stations.",
+      "sha256": "9e1b406430b010b862eaf444320ceac792f04b259795b97c2bc51ab4a04df615",
       "status": "published",
       "touchZones": [],
       "features": {

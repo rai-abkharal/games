@@ -1,0 +1,22 @@
+{
+  "id": "real-drive",
+  "title": "Real Drive: 3D Bus Simulator",
+  "version": "1.0.6",
+  "description": "Polished 3D transit bus simulator with responsive curve driving, screen-accurate collision reporting, traffic lights, and passenger exchanges across three stations.",
+  "orientation": "portrait",
+  "engine": "canvas2d",
+  "category": "Simulation",
+  "feedOrder": 25,
+  "status": "published",
+  "touchZones": [],
+  "features": {
+    "sound": true,
+    "vibration": true,
+    "cockpit": true,
+    "busStops": true,
+    "passengers": true,
+    "trafficAI": true,
+    "trafficLights": true,
+    "multiCamera": true
+  }
+}
