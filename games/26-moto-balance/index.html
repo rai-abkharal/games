@@ -43,27 +43,27 @@
       return;
     }
 
-    // High Definition 720x1280 Native Resolution (Eliminates all blur, pixelation, and zoom degradation!)
+    // High Definition 720x1280 Native Resolution
     const W = 720;
     const H = 1280;
     const GAME_ID = 'moto-balance';
-    const VERSION = '2.0.0';
+    const VERSION = '2.1.0';
 
-    // 280px High-Res Bike Size (scaled from 1254x1254 original bike.png)
+    // 280px High-Res Bike Size (scaled from 1254x1254 bike.png)
     const BIKE_DISPLAY_SIZE = 280;
-    const SCALE = BIKE_DISPLAY_SIZE / 1254; // ~0.2233
+    const SCALE = BIKE_DISPLAY_SIZE / 1254;
     const REAR_AXLE_OFFSET_X = -371.9 * SCALE; // -83.04px from center
     const REAR_AXLE_OFFSET_Y = 302.8 * SCALE;  // +67.61px from center
     const FRONT_AXLE_OFFSET_X = 443.1 * SCALE; // +98.94px from center
     const FRONT_AXLE_OFFSET_Y = 306.9 * SCALE; // +68.53px from center
 
-    // Exact Hub Center for tyre.png (597x600, center at 303.5, 319.0)
+    // Exact Hub Center for tyre.png (597x600, non-transparent bbox center 303.5, 319.0)
     const TYRE_ORIGIN_X = 303.5 / 597; // 0.508375
     const TYRE_ORIGIN_Y = 319.0 / 600; // 0.531667
     const TYRE_DISPLAY_SIZE = 98;
     const TYRE_RADIUS = 48;
-    const ROAD_SURFACE_Y = 730;
-    const REAR_AXLE_Y = ROAD_SURFACE_Y - TYRE_RADIUS; // 682px
+    const ROAD_SURFACE_Y = 740;
+    const REAR_AXLE_Y = ROAD_SURFACE_Y - TYRE_RADIUS; // 692px
 
     const Host = {
       post(action, payload = {}) {
@@ -145,7 +145,7 @@
     function hex(color) { return '#' + color.toString(16).padStart(6, '0'); }
 
     class BestScores {
-      constructor() { this.key = 'moto-wheelie-run-hd-v1'; }
+      constructor() { this.key = 'moto-wheelie-run-hd-v2'; }
       read() {
         let scores = { allTime: 0, maxWheelie: 0 };
         try { scores = Object.assign(scores, JSON.parse(localStorage.getItem(this.key) || '{}')); } catch (_) {}
@@ -164,7 +164,7 @@
       constructor() { super({ key: 'MotoBalanceScene' }); }
 
       preload() {
-        // Fast instant load: only load the 2 required lightweight images (no heavy unused 2.2MB spritesheet!)
+        // Fast instant load: only load the 2 lightweight required images
         this.load.image('moto-bike-body', 'assets/bike.png');
         this.load.image('moto-tyre', 'assets/tyre.png');
       }
@@ -178,7 +178,10 @@
         this.g.setDepth(2);
         this.textPool = [];
         this.textIndex = 0;
-        this.state = 'home';
+
+        // Auto-start immediately with countdown (No Start Button required!)
+        this.state = 'countdown';
+        this.countdown = 2.0;
         this.pausedByHost = false;
         this.pointerControls = new Map();
         this.keyLeft = false; this.keyRight = false;
@@ -190,15 +193,14 @@
         this.score = 0;
         this.finalScore = 0;
         this.timeLeft = 60;
-        this.countdown = 0;
         this.crashTimer = 0;
 
-        // Kinematic Motion (Rock-solid, zero vibration, 100% smooth)
-        this.worldX = 260; // Rear axle world position
+        // Kinematic Motion Variables
+        this.worldX = 260;
         this.speed = 0;
         this.tyreAngle = 0;
 
-        // Smooth Wheelie (starts at 0° and lifts smoothly on race)
+        // Fast & Snappy Wheelie Physics (Quick, exciting lift directly on Race!)
         this.wheelieAngle = 0;
         this.wheelieAngleVelocity = 0;
         this.wheelieActive = false;
@@ -217,10 +219,19 @@
 
         this.cameraX = 0;
 
+        // Generate drifting clouds
+        this.clouds = [
+          { x: 100, y: 140, scale: 1.2, speed: 0.18 },
+          { x: 380, y: 220, scale: 0.85, speed: 0.28 },
+          { x: 620, y: 120, scale: 1.4, speed: 0.14 },
+          { x: 920, y: 180, scale: 1.0, speed: 0.22 }
+        ];
+
         this.createBikeVisuals();
         this.installInput();
         this.resetWorld();
         this.installHostBridge();
+        this.audio.beep(510, 0.08, 'triangle', 0.10);
         Host.post('ready', { gameId: GAME_ID, version: VERSION });
       }
 
@@ -266,8 +277,7 @@
           if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') { this.keyLeft = true; event.preventDefault(); }
           if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd' || event.key.toLowerCase() === 'w') { this.keyRight = true; event.preventDefault(); }
           if (event.key === ' ' || event.key === 'Enter') {
-            if (this.state === 'home') this.startRun();
-            else if (this.state === 'gameover') this.startRun();
+            if (this.state === 'gameover') this.startRun();
             event.preventDefault();
           }
         });
@@ -279,8 +289,8 @@
 
       handlePress(pointerId, x, y) {
         if (this.state === 'playing') {
-          // Controls zone: y between 900 and 1160 (Generous bottom margin!)
-          if (y >= 900 && y <= 1160) {
+          // Controls zone: y between 920 and 1180 (Generous 160px bottom margin)
+          if (y >= 920 && y <= 1180) {
             this.pointerControls.set(pointerId, x < W / 2 ? 'left' : 'right');
             this.refreshHeldButtons();
             Host.haptic('light');
@@ -288,14 +298,9 @@
           }
           return;
         }
-        if (this.state === 'home') {
-          if (y >= 880 && y <= 1040) {
-            this.startRun();
-            return;
-          }
-        }
         if (this.state === 'gameover') {
-          if (y >= 920 && y <= 1060) {
+          // Light Theme Play Again button
+          if (y >= 910 && y <= 1040 && x >= 90 && x <= 630) {
             this.startRun();
             return;
           }
@@ -325,7 +330,7 @@
         this.rearTyreSprite = makeTyre();
         this.frontTyreSprite = makeTyre();
 
-        // 280px High-Definition Bike + Rider illustrated sprite (NO fallback stickman!)
+        // 280px High-Definition Bike + Rider illustrated sprite
         this.bikeBodySprite = this.add.image(0, 0, 'moto-bike-body')
           .setOrigin(0.5, 0.5)
           .setDisplaySize(BIKE_DISPLAY_SIZE, BIKE_DISPLAY_SIZE)
@@ -379,13 +384,13 @@
         const { bikeX, bikeY } = this.computeBikePose();
         this.spawnImpact(bikeX, bikeY);
         this.state = 'crashing';
-        this.crashTimer = 0.55; // Quick 0.55s tumble, then instant respawn!
+        this.crashTimer = 0.55;
 
         // Initialize tumble physics
         this.crashX = bikeX;
         this.crashY = bikeY;
         this.crashVx = this.speed * 0.4;
-        this.crashVy = -8.0;
+        this.crashVy = -8.5;
         this.crashAngle = -this.wheelieAngle;
         this.crashSpin = -8.0;
 
@@ -464,34 +469,34 @@
       updateKinematics(dt) {
         // 1. FORWARD ACCELERATION & BRAKING
         if (this.rightHeld) {
-          this.speed = Math.min(16.5, this.speed + 11.5 * dt);
+          this.speed = Math.min(17.5, this.speed + 12.5 * dt);
         } else if (this.leftHeld) {
           // Brake firmly to a stop (STRICTLY NEVER REVERSES!)
-          this.speed = Math.max(0, this.speed - 19.0 * dt);
+          this.speed = Math.max(0, this.speed - 22.0 * dt);
         } else {
           // Gentle natural coasting
-          this.speed = Math.max(0, this.speed - 3.2 * dt);
+          this.speed = Math.max(0, this.speed - 3.4 * dt);
         }
 
         // Advance world X position smoothly
         this.worldX += this.speed * 60 * dt;
         this.tyreAngle += this.speed * 0.08;
 
-        // 2. SMOOTH PROGRESSIVE WHEELIE FROM 0° DIRECTLY ON RACE
+        // 2. SPEEDIER, SNAPPY PROGRESSIVE WHEELIE FROM 0° DIRECTLY ON RACE
         if (this.rightHeld) {
-          // As soon as Race is pressed, front tyre smoothly lifts up starting from 0°!
-          const liftPower = 4.4;
+          // Fast, responsive wheelie pop (Snappy initial lift starting at 0°!)
+          const liftPower = 8.5;
           this.wheelieAngleVelocity += liftPower * dt;
         } else if (this.leftHeld) {
-          // Tapping brake pulls front wheel down fast
-          this.wheelieAngleVelocity -= 8.2 * dt;
+          // Tapping brake snaps front wheel down rapidly
+          this.wheelieAngleVelocity -= 12.0 * dt;
         } else {
-          // Releasing throttle allows gravity to bring front wheel smoothly down
-          this.wheelieAngleVelocity -= 4.2 * dt;
+          // Releasing throttle allows gravity to bring front wheel down smoothly
+          this.wheelieAngleVelocity -= 5.5 * dt;
         }
 
         // Apply angular damping for butter-smooth motion
-        this.wheelieAngleVelocity *= Math.pow(0.86, dt * 60);
+        this.wheelieAngleVelocity *= Math.pow(0.88, dt * 60);
         this.wheelieAngle += this.wheelieAngleVelocity * dt;
 
         // Clamp to ground (cannot penetrate road below 0°)
@@ -591,8 +596,14 @@
           }
         }
 
-        // Camera smoothly tracks bike (zero micro-jitter!)
+        // Camera smoothly tracks bike (zero jitter!)
         this.cameraX = this.worldX - 200;
+
+        // Update clouds position
+        for (const c of this.clouds) {
+          c.x += c.speed * (this.speed * 0.3 + 1.0);
+          if (c.x > W + 200) c.x = -200;
+        }
 
         this.updateParticles(dt);
         this.audio.setEngine(this.speed, this.rightHeld, this.wheelieActive);
@@ -624,31 +635,49 @@
       }
 
       renderSky(g) {
-        // Radiant Vibrant Horizon Gradient (Sunset / Skyline)
+        // Radiant Vibrant Daytime / Sunset Skyline Gradient
         const bands = [
-          0x091428, // Deep Midnight Navy
-          0x0c274c, // Royal Sapphire
-          0x0284c7, // Electric Cyan
-          0x0369a1, // Azure Horizon
-          0xf59e0b, // Radiant Amber Sunset
-          0xfbbf24  // Golden Dawn
+          0x0c4a6e, // Deep Azure Ocean
+          0x0284c7, // Vivid Sky Blue
+          0x38bdf8, // Electric Cyan
+          0x7dd3fc, // Soft Cyan Sky
+          0xfed7aa, // Warm Horizon Peach
+          0xfef08a  // Golden Sunlight
         ];
-        const bandH = 560 / bands.length;
+        const bandH = 580 / bands.length;
         bands.forEach((color, i) => { g.fillStyle(color, 1); g.fillRect(0, i * bandH, W, bandH + 2); });
 
-        // Glowing Sun with Warm Halos
-        g.fillStyle(0xfde047, 0.20); g.fillCircle(560, 200, 95);
-        g.fillStyle(0xfde047, 0.40); g.fillCircle(560, 200, 68);
-        g.fillStyle(0xfffbeb, 0.96); g.fillCircle(560, 200, 48);
+        // Glowing Sun with Warm Atmosphere
+        g.fillStyle(0xfde047, 0.22); g.fillCircle(580, 180, 110);
+        g.fillStyle(0xfde047, 0.45); g.fillCircle(580, 180, 75);
+        g.fillStyle(0xfffbeb, 0.98); g.fillCircle(580, 180, 50);
 
-        // Distant Mountain Ranges (Procedural Parallax)
-        this.drawMountainRidge(g, 0.03, 560, 160, 0x071b33, 0.90);
-        this.drawMountainRidge(g, 0.08, 620, 120, 0x0c2e4e, 0.95);
-        this.drawMountainRidge(g, 0.16, 680, 80, 0x0d3859, 1.0);
+        // Fluffy Procedural White Clouds
+        for (const c of this.clouds) {
+          this.drawFluffyCloud(g, c.x, c.y, c.scale);
+        }
+
+        // Distant Mountain Ranges (Parallax Layer 1)
+        this.drawMountainRidge(g, 0.04, 580, 180, 0x075985, 0.85);
+        // Distant Mountain Ranges (Parallax Layer 2)
+        this.drawMountainRidge(g, 0.09, 640, 130, 0x0369a1, 0.92);
+        // Rolling Green Foothills (Parallax Layer 3)
+        this.drawRollingHills(g, 0.18, 700, 70, 0x15803d, 0.98);
+      }
+
+      drawFluffyCloud(g, cx, cy, scale) {
+        g.fillStyle(0xffffff, 0.88);
+        const r = 26 * scale;
+        g.fillCircle(cx, cy, r);
+        g.fillCircle(cx - 24 * scale, cy + 6 * scale, r * 0.75);
+        g.fillCircle(cx + 24 * scale, cy + 6 * scale, r * 0.80);
+        g.fillCircle(cx - 44 * scale, cy + 12 * scale, r * 0.60);
+        g.fillCircle(cx + 44 * scale, cy + 12 * scale, r * 0.65);
+        g.fillRoundedRect(cx - 50 * scale, cy + 4 * scale, 100 * scale, 24 * scale, 12 * scale);
       }
 
       drawMountainRidge(g, factor, base, height, color, alpha) {
-        const span = 280;
+        const span = 320;
         const offset = (this.cameraX * factor) % span;
         g.fillStyle(color, alpha);
         for (let x = -span - offset; x < W + span; x += span) {
@@ -662,12 +691,44 @@
         }
       }
 
-      renderWorld(g) {
-        // Continuous, straight, pixel-perfect asphalt highway (zero vibration!)
-        g.fillStyle(0x0f172a, 1); g.fillRect(0, ROAD_SURFACE_Y, W, H - ROAD_SURFACE_Y);
+      drawRollingHills(g, factor, base, height, color, alpha) {
+        const span = 240;
+        const offset = (this.cameraX * factor) % span;
+        g.fillStyle(color, alpha);
+        for (let x = -span - offset; x < W + span; x += span) {
+          g.beginPath();
+          g.moveTo(x, base + 40);
+          g.lineTo(x + span * 0.5, base - height);
+          g.lineTo(x + span, base + 40);
+          g.closePath();
+          g.fillPath();
+        }
+      }
 
-        // Crisp White Curb Line
-        g.fillStyle(0xf8fafc, 1); g.fillRect(0, ROAD_SURFACE_Y, W, 7);
+      renderWorld(g) {
+        // 1. Lush Green Grass Shoulder (Above the road)
+        g.fillStyle(0x16a34a, 1); g.fillRect(0, ROAD_SURFACE_Y - 32, W, 32);
+        g.fillStyle(0x22c55e, 0.8); g.fillRect(0, ROAD_SURFACE_Y - 32, W, 6);
+
+        // Roadside Flowers & Grass Tufts
+        const tuftSpan = 64;
+        const tuftStart = Math.floor(this.cameraX / tuftSpan) * tuftSpan - tuftSpan;
+        for (let wx = tuftStart; wx < this.cameraX + W + 80; wx += tuftSpan) {
+          const sx = this.sx(wx);
+          g.fillStyle(0x4ade80, 0.9);
+          g.fillRect(sx, ROAD_SURFACE_Y - 18, 5, 14);
+          g.fillRect(sx + 4, ROAD_SURFACE_Y - 14, 4, 10);
+          // Flower dot
+          const isYellow = Math.floor(wx / tuftSpan) % 2 === 0;
+          g.fillStyle(isYellow ? 0xfacc15 : 0xf43f5e, 0.95);
+          g.fillCircle(sx + 2, ROAD_SURFACE_Y - 20, 3.5);
+        }
+
+        // 2. High-Grade Asphalt Highway (y = 740 to 920)
+        g.fillStyle(0x0f172a, 1); g.fillRect(0, ROAD_SURFACE_Y, W, 170);
+
+        // Crisp White Top Curb Line
+        g.fillStyle(0xf8fafc, 1); g.fillRect(0, ROAD_SURFACE_Y, W, 6);
 
         // Red & White Safety Curb Rumble Strips
         const curbSpan = 48;
@@ -675,7 +736,7 @@
         for (let wx = curbStart; wx < this.cameraX + W + 60; wx += curbSpan) {
           const isRed = Math.floor(wx / curbSpan) % 2 === 0;
           g.fillStyle(isRed ? 0xef4444 : 0xffffff, 0.95);
-          g.fillRect(this.sx(wx), ROAD_SURFACE_Y + 7, curbSpan, 9);
+          g.fillRect(this.sx(wx), ROAD_SURFACE_Y + 6, curbSpan, 8);
         }
 
         // Glowing Neon Amber Center Dashed Lane Markings
@@ -683,17 +744,15 @@
         for (let wx = startWorld; wx < this.cameraX + W + 150; wx += 140) {
           const x = this.sx(wx);
           g.fillStyle(0xfbbf24, 0.98);
-          g.fillRoundedRect(x, ROAD_SURFACE_Y + 48, 88, 9, 4);
+          g.fillRoundedRect(x, ROAD_SURFACE_Y + 70, 88, 10, 5);
         }
 
-        // Modern Reflective Guardrail
-        const railStart = Math.floor(this.cameraX / 100) * 100 - 100;
-        for (let wx = railStart; wx < this.cameraX + W + 120; wx += 100) {
-          const x = this.sx(wx);
-          g.fillStyle(0x334155, 0.85); g.fillRect(x, ROAD_SURFACE_Y - 58, 8, 58);
-          g.fillStyle(0xe2e8f0, 0.96); g.fillRect(x - 8, ROAD_SURFACE_Y - 56, 116, 6);
-          g.fillStyle(0x64748b, 0.85); g.fillRect(x - 8, ROAD_SURFACE_Y - 48, 116, 4);
-        }
+        // Crisp White Bottom Edge Line
+        g.fillStyle(0xf8fafc, 0.9); g.fillRect(0, ROAD_SURFACE_Y + 164, W, 6);
+
+        // 3. Lush Green Roadside Verge (Below the road)
+        g.fillStyle(0x15803d, 1); g.fillRect(0, ROAD_SURFACE_Y + 170, W, H - (ROAD_SURFACE_Y + 170));
+        g.fillStyle(0x166534, 0.8); g.fillRect(0, ROAD_SURFACE_Y + 170, W, 10);
       }
 
       renderParticles(g) {
@@ -723,7 +782,7 @@
       }
 
       renderHud(g) {
-        // 1. Center Timer Pill (Large, glowing, high-contrast)
+        // 1. Center Timer Pill
         const timeSec = Math.max(0, Math.ceil(this.timeLeft));
         const timerPillColor = timeSec <= 10 ? 0xf43f5e : 0x0f2942;
         g.fillStyle(timerPillColor, 0.92); g.fillRoundedRect(280, 44, 160, 92, 28);
@@ -737,7 +796,7 @@
         this.fillText(String(this.score), 583, 80, 36, 0xffffff, '900');
         this.fillText('★ SCORE', 583, 112, 15, 0xfbbf24, '800');
 
-        // 3. Dynamic High-Impact Wheelie Banner
+        // 3. Dynamic Wheelie Banner
         if (this.wheelieActive && this.wheelieTime > 0.2) {
           const comboColor = this.wheelieCombo >= 4 ? 0xf43f5e : this.wheelieCombo >= 3 ? 0xf97316 : 0x10b981;
           g.fillStyle(0x0a1c2e, 0.95); g.fillRoundedRect(100, 168, 520, 94, 28);
@@ -748,105 +807,102 @@
       }
 
       renderControls(g) {
-        // Raised controls: y = 960, h = 160, leaving 160px of comfortable bottom spacing!
-        const y = 960, h = 160, gap = 36, w = (W - gap * 3) / 2; // w = 306px
+        // Clean Minimalist Arrow-Only Buttons (NO text, NO labels, generous 160px bottom margin!)
+        const y = 980, h = 135, gap = 44, w = (W - gap * 3) / 2; // w = 294px
         const buttons = [
-          { left: true, x: gap, held: this.leftHeld, label: 'BRAKE', sub: 'STOP · DROP FRONT', color: 0xf43f5e, icon: '◀ 🛑' },
-          { left: false, x: gap * 2 + w, held: this.rightHeld, label: 'GAS / RACE', sub: 'HOLD TO WHEELIE', color: 0x10b981, icon: '⚡ ▶' }
+          { left: true, x: gap, held: this.leftHeld, color: 0xf43f5e, icon: '◀' },
+          { left: false, x: gap * 2 + w, held: this.rightHeld, color: 0x10b981, icon: '▶' }
         ];
 
         for (const button of buttons) {
-          const bgAlpha = button.held ? 0.98 : 0.84;
-          g.fillStyle(0x0b1c2d, bgAlpha); g.fillRoundedRect(button.x, y, w, h, 34);
+          const bgAlpha = button.held ? 0.96 : 0.82;
+          g.fillStyle(0x071524, bgAlpha);
+          g.fillRoundedRect(button.x, y, w, h, 36);
           g.lineStyle(button.held ? 6 : 3.5, button.color, button.held ? 1 : 0.85);
-          g.strokeRoundedRect(button.x, y, w, h, 34);
+          g.strokeRoundedRect(button.x, y, w, h, 36);
 
           if (button.held) {
-            g.fillStyle(button.color, 0.25); g.fillRoundedRect(button.x, y, w, h, 34);
+            g.fillStyle(button.color, 0.28);
+            g.fillRoundedRect(button.x, y, w, h, 36);
           }
 
           const cx = button.x + w / 2;
-          this.fillText(button.icon, cx, y + 46, 34, 0xffffff, '900');
-          this.fillText(button.label, cx, y + 92, 26, button.held ? 0xffffff : button.color, '900');
-          this.fillText(button.sub, cx, y + 128, 15, button.held ? 0xffffff : 0x94a3b8, '800');
+          const cy = y + h / 2;
+          // Clean large arrow icon only!
+          this.fillText(button.icon, cx, cy, 54, button.held ? 0xffffff : button.color, '900');
         }
       }
 
-      renderHome(g) {
-        g.fillStyle(0x06111d, 0.72); g.fillRect(0, 0, W, H);
-        g.fillStyle(0x0a1e32, 0.96); g.fillRoundedRect(44, 110, 632, 1020, 48);
-        g.lineStyle(3.5, 0x10b981, 0.85); g.strokeRoundedRect(44, 110, 632, 1020, 48);
-
-        // Title Header
-        g.fillStyle(0x10b981, 0.22); g.fillCircle(360, 220, 85);
-        this.fillText('MOTO WHEELIE', 360, 200, 52, 0xffffff, '900');
-        this.fillText('SKYLINE RUN', 360, 260, 26, 0xfbbf24, '900');
-        this.fillText('60 SECONDS · POP WHEELIES · SCORE BIG', 360, 310, 18, 0x38bdf8, '800');
-
-        // Instructions Card
-        g.fillStyle(0x0e2840, 0.90); g.fillRoundedRect(76, 360, 568, 480, 32);
-        g.lineStyle(2.5, 0x38bdf8, 0.6); g.strokeRoundedRect(76, 360, 568, 480, 32);
-
-        this.fillText('HOW TO PLAY', 360, 408, 24, 0xffffff, '900');
-
-        const tips = [
-          { icon: '⚡', title: 'HOLD RACE (RIGHT)', desc: 'Smoothly moves & lifts front wheel from 0°' },
-          { icon: '🛑', title: 'HOLD BRAKE (LEFT)', desc: 'Stops bike & drops front wheel (No reverse!)' },
-          { icon: '🔥', title: 'HOLD A WHEELIE', desc: 'Score rapid points & climb multipliers!' },
-          { icon: '⚠️', title: 'DON’T OVER-TILT', desc: 'Tilt > 72° flips backward! Auto-respawns!' }
-        ];
-
-        tips.forEach((tip, i) => {
-          const rowY = 480 + i * 88;
-          this.fillText(tip.icon, 120, rowY, 28, 0xffffff, '900');
-          this.fillText(tip.title, 160, rowY - 12, 20, 0xfbbf24, '900', 'left');
-          this.fillText(tip.desc, 160, rowY + 18, 16, 0xe2e8f0, '600', 'left');
-        });
-
-        // Start Button
-        g.fillStyle(0x10b981, 1); g.fillRoundedRect(80, 890, 560, 120, 36);
-        g.lineStyle(3, 0xffffff, 0.85); g.strokeRoundedRect(80, 890, 560, 120, 36);
-        this.fillText('START RUN  ▶', 360, 940, 38, 0xffffff, '900');
-        this.fillText('PRESS SPACE OR TAP TO PLAY', 360, 982, 18, 0x064e3b, '800');
-      }
-
       renderCountdown(g) {
-        g.fillStyle(0x06111d, 0.40); g.fillRect(0, 0, W, H);
+        g.fillStyle(0x06111d, 0.35); g.fillRect(0, 0, W, H);
         const value = this.countdown > 1.3 ? '3' : this.countdown > 0.65 ? '2' : this.countdown > 0.1 ? '1' : 'GO!';
-        g.fillStyle(0x0a1e32, 0.92); g.fillCircle(360, 480, 130);
+        g.fillStyle(0x0a1e32, 0.94); g.fillCircle(360, 480, 130);
         g.lineStyle(6, 0x10b981, 1); g.strokeCircle(360, 480, 130);
         this.fillText(value, 360, 485, value === 'GO!' ? 70 : 120, 0xffffff, '900');
         this.fillText('GET READY TO WHEELIE!', 360, 650, 22, 0xfbbf24, '900');
       }
 
       renderGameOver(g) {
-        g.fillStyle(0x050d18, 0.82); g.fillRect(0, 0, W, H);
+        // Semi-transparent darkened backdrop
+        g.fillStyle(0x050d18, 0.65); g.fillRect(0, 0, W, H);
+
         const best = this.best || this.bestScores.read();
-        g.fillStyle(0x091b2c, 0.98); g.fillRoundedRect(50, 220, 620, 860, 48);
-        g.lineStyle(4, 0x10b981, 0.95); g.strokeRoundedRect(50, 220, 620, 860, 48);
+        const isNewBest = this.finalScore >= best.allTime && this.finalScore > 0;
 
-        this.fillText(this.finalScore >= best.allTime && this.finalScore > 0 ? '🏆 NEW BEST RUN!' : 'RUN COMPLETE', 360, 290, 24, 0xfbbf24, '900');
-        this.fillText('TIME’S UP!', 360, 350, 52, 0xffffff, '900');
+        // Elegant Light-Theme Pearl Card (Clean, modern, crisp, NOT dark!)
+        g.fillStyle(0xffffff, 0.98);
+        g.fillRoundedRect(60, 200, 600, 860, 40);
+        g.lineStyle(3, 0xe2e8f0, 1);
+        g.strokeRoundedRect(60, 200, 600, 860, 40);
 
-        g.fillStyle(0x10b981, 0.20); g.fillCircle(360, 490, 100);
-        g.lineStyle(4, 0x10b981, 0.9); g.strokeCircle(360, 490, 100);
-        this.fillText(String(this.finalScore), 360, 480, 72, 0xffffff, '900');
-        this.fillText('FINAL SCORE', 360, 545, 18, 0xfbbf24, '900');
+        // Header Accent Banner
+        g.fillStyle(isNewBest ? 0xfef3c7 : 0xf0fdf4, 1);
+        g.fillRoundedRect(60, 200, 600, 140, { tl: 40, tr: 40, bl: 0, br: 0 });
 
+        // Trophy Circle Badge
+        g.fillStyle(isNewBest ? 0xf59e0b : 0x10b981, 0.18);
+        g.fillCircle(360, 270, 48);
+        this.fillText(isNewBest ? '🏆' : '🏁', 360, 270, 46, 0xffffff, '900');
+
+        // Titles in Slate Navy
+        this.fillText(isNewBest ? 'NEW HIGH SCORE!' : 'RUN COMPLETE!', 360, 365, 28, isNewBest ? 0xd97706 : 0x059669, '900');
+        this.fillText('TIME’S UP', 360, 412, 44, 0x0f172a, '900');
+
+        // Score Highlight Box (Emerald Light Card)
+        g.fillStyle(0xf0fdf4, 1);
+        g.fillRoundedRect(100, 460, 520, 135, 24);
+        g.lineStyle(2, 0x86efac, 1);
+        g.strokeRoundedRect(100, 460, 520, 135, 24);
+
+        this.fillText('★ FINAL SCORE ★', 360, 492, 16, 0x059669, '800');
+        this.fillText(String(this.finalScore), 360, 545, 64, 0x0f172a, '900');
+
+        // Stats in Sleek Frosted Light-Gray Pills
         const rows = [
-          ['LONGEST WHEELIE', `${this.maxWheelie.toFixed(1)}s`],
-          ['ALL-TIME BEST SCORE', String(best.allTime || 0)]
+          { label: '⏱️ LONGEST WHEELIE', value: `${this.maxWheelie.toFixed(1)}s` },
+          { label: '🏆 ALL-TIME BEST', value: String(best.allTime || 0) },
+          { label: '🔥 MAX COMBO', value: `x${this.wheelieCombo} MULTIPLIER` }
         ];
+
         rows.forEach((row, i) => {
-          const ry = 650 + i * 86;
-          g.fillStyle(0x0e2840, 0.88); g.fillRoundedRect(90, ry - 32, 540, 64, 18);
-          this.fillText(row[0], 120, ry + 4, 18, 0x94a3b8, '800', 'left');
-          this.fillText(row[1], 600, ry + 4, 28, 0xffffff, '900', 'right');
+          const ry = 625 + i * 82;
+          g.fillStyle(0xf8fafc, 1);
+          g.fillRoundedRect(100, ry, 520, 68, 18);
+          g.lineStyle(1.5, 0xe2e8f0, 1);
+          g.strokeRoundedRect(100, ry, 520, 68, 18);
+
+          this.fillText(row.label, 130, ry + 34, 18, 0x475569, '700', 'left');
+          this.fillText(row.value, 590, ry + 34, 24, 0x0f172a, '900', 'right');
         });
 
-        g.fillStyle(0x10b981, 1); g.fillRoundedRect(90, 930, 540, 110, 34);
-        g.lineStyle(3, 0xffffff, 0.85); g.strokeRoundedRect(90, 930, 540, 110, 34);
-        this.fillText('RIDE AGAIN  ▶', 360, 985, 34, 0xffffff, '900');
+        // Vibrant Emerald "PLAY AGAIN" Button
+        g.fillStyle(0x10b981, 1);
+        g.fillRoundedRect(100, 900, 520, 105, 30);
+        g.lineStyle(2.5, 0x059669, 1);
+        g.strokeRoundedRect(100, 900, 520, 105, 30);
+
+        this.fillText('PLAY AGAIN  ▶', 360, 942, 32, 0xffffff, '900');
+        this.fillText('TAP OR PRESS SPACE', 360, 978, 16, 0xd1fae5, '700');
       }
 
       render() {
@@ -865,7 +921,6 @@
           this.renderHud(g);
           this.renderControls(g);
         }
-        if (this.state === 'home') this.renderHome(g);
         if (this.state === 'countdown') this.renderCountdown(g);
         if (this.state === 'gameover') this.renderGameOver(g);
 
