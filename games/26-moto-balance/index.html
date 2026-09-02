@@ -47,23 +47,9 @@
 
     const W = 360;
     const H = 640;
-    const ROAD_DEPTH = 34;
     const GAME_ID = 'moto-balance';
-    const VERSION = '1.1.0';
+    const VERSION = '1.2.0';
     const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
-
-    const SETTINGS = {
-      maxSpeed: 8.2,
-      driveForce: 0.0138,
-      wheelTorque: 0.0052,
-      wheelieLiftTorque: 0.088,
-      brakeDecel: 0.014,
-      brakeFrontDownTorque: 0.068,
-      crashTilt: 1.25, // approx 72 degrees over-rotation crash threshold
-      color: 0x06d6a0,
-      colorHex: '#06d6a0',
-      accent: 0xffd166
-    };
 
     const Host = {
       post(action, payload = {}) {
@@ -104,13 +90,13 @@
           this.engineOsc.start();
         } catch (_) { this.ctx = null; }
       }
-      setEngine(speed, accelerating) {
+      setEngine(speed, accelerating, wheelie = false) {
         if (!this.ctx || !this.engineOsc || !this.engineGain || !this.enabled) return;
         const now = this.ctx.currentTime;
-        const targetFreq = 34 + Math.max(0, speed) * 18 + (accelerating ? 24 : 0);
-        const targetGain = accelerating ? Math.min(0.08, 0.035 + speed * 0.007) : (speed > 0.3 ? 0.02 : 0.008);
-        this.engineOsc.frequency.setTargetAtTime(targetFreq, now, 0.05);
-        this.engineGain.gain.setTargetAtTime(targetGain, now, 0.08);
+        const targetFreq = 34 + Math.max(0, speed) * 16 + (accelerating ? 32 : 0) + (wheelie ? 20 : 0);
+        const targetGain = accelerating ? (wheelie ? 0.085 : 0.065) : (speed > 0.3 ? 0.022 : 0.008);
+        this.engineOsc.frequency.setTargetAtTime(targetFreq, now, 0.04);
+        this.engineGain.gain.setTargetAtTime(targetGain, now, 0.06);
       }
       beep(freq = 620, length = 0.06, type = 'sine', volume = 0.09) {
         this.unlock();
@@ -144,12 +130,6 @@
     function clamp(value, low, high) { return Math.max(low, Math.min(high, value)); }
     function lerp(a, b, t) { return a + (b - a) * t; }
     function modulo(value, divisor) { return ((value % divisor) + divisor) % divisor; }
-    function normalizeAngle(angle) {
-      let a = angle;
-      while (a > Math.PI) a -= Math.PI * 2;
-      while (a < -Math.PI) a += Math.PI * 2;
-      return a;
-    }
     function rotate(local, angle) {
       const c = Math.cos(angle), s = Math.sin(angle);
       return { x: local.x * c - local.y * s, y: local.x * s + local.y * c };
@@ -198,8 +178,6 @@
         this.leftHeld = false; this.rightHeld = false;
         this.particles = [];
         this.floatingTexts = [];
-        this.terrainBodies = [];
-        this.riderConstraints = [];
         this.cameraX = 0;
         this.score = 0;
         this.finalScore = 0;
@@ -207,7 +185,9 @@
         this.countdown = 0;
         this.crashTimer = 0;
         this.shake = 0;
-        this.respawnFlash = 0;
+
+        // Visual tyre rotation
+        this.tyreRotation = 0;
 
         // Wheelie mechanics
         this.wheelieActive = false;
@@ -215,14 +195,13 @@
         this.maxWheelie = 0;
         this.wheelieCombo = 1;
         this.wheeliePointsAccum = 0;
+        this.throttleHoldTime = 0;
 
-        this.matter.world.engine.positionIterations = 9;
-        this.matter.world.engine.velocityIterations = 7;
-        this.matter.world.engine.constraintIterations = 4;
-        this.matter.world.setGravity(0, 1.15);
-        this.matter.world.on('collisionstart', this.onCollisionStart, this);
-        this.matter.world.on('collisionactive', this.onCollisionActive, this);
+        this.matter.world.engine.positionIterations = 8;
+        this.matter.world.engine.velocityIterations = 8;
+        this.matter.world.setGravity(0, 1.25);
 
+        this.createGround();
         this.createBike();
         this.createBikeVisuals();
         this.createEnvironment();
@@ -285,7 +264,7 @@
 
       handlePress(pointerId, x, y) {
         if (this.state === 'playing') {
-          // Controls zone: y between 440 and 590 (Comfortably raised from bottom)
+          // Controls zone: y between 440 and 590 (Comfortably raised with generous bottom space)
           if (y >= 440 && y <= 590) {
             this.pointerControls.set(pointerId, x < W / 2 ? 'left' : 'right');
             this.refreshHeldButtons();
@@ -295,7 +274,6 @@
           return;
         }
         if (this.state === 'home') {
-          // Start Button Area
           if (y >= 440 && y <= 530) {
             this.startRun();
             return;
@@ -316,38 +294,43 @@
 
       clearInputs() { this.pointerControls.clear(); this.keyLeft = false; this.keyRight = false; this.leftHeld = false; this.rightHeld = false; }
 
+      createGround() {
+        const M = this.M;
+        // Single continuous smooth asphalt ground plane - eliminates all seam bumps and vibration!
+        this.ground = M.Bodies.rectangle(0, 365 + 100, 12000, 200, {
+          isStatic: true,
+          label: 'ground',
+          friction: 1.0,
+          frictionStatic: 2.0,
+          restitution: 0.0
+        });
+        this.matter.world.add(this.ground);
+      }
+
       createBike() {
         const M = this.M;
-        this.bikeGroup = this.matter.world.nextGroup(true);
-        const group = this.bikeGroup;
-        const sameBike = { group };
-        this.chassis = M.Bodies.rectangle(132, 301, 108, 23, {
-          label: 'moto-chassis', density: 0.0024, frictionAir: 0.018, restitution: 0.04,
-          chamfer: { radius: 7 }, collisionFilter: sameBike
-        });
-        this.rearWheel = M.Bodies.circle(88, 340, 22, {
-          label: 'rear-wheel', density: 0.0026, friction: 0.98, frictionStatic: 1.6,
-          frictionAir: 0.006, restitution: 0.02, collisionFilter: sameBike
-        });
-        this.frontWheel = M.Bodies.circle(177, 340, 22, {
-          label: 'front-wheel', density: 0.0026, friction: 0.98, frictionStatic: 1.6,
-          frictionAir: 0.006, restitution: 0.02, collisionFilter: sameBike
-        });
-        [this.chassis, this.rearWheel, this.frontWheel].forEach((body) => { body.plugin.role = body.label; });
-        this.matter.world.add([this.chassis, this.rearWheel, this.frontWheel]);
+        const startX = 132, startY = 309;
 
-        this.torso = M.Bodies.rectangle(124, 252, 27, 45, {
-          label: 'rider-torso', density: 0.0012, frictionAir: 0.028, chamfer: { radius: 10 }, collisionFilter: sameBike
+        // Compound body: Rear wheel circle, front wheel circle, and chassis body formed into ONE solid rigid body.
+        // This guarantees ZERO springs, ZERO jitter, ZERO wheel detachment, and 100% smooth physics!
+        const rearWheelPart = M.Bodies.circle(startX - 44, startY + 34, 22, {
+          label: 'rear-wheel', friction: 1.0, frictionStatic: 2.0, restitution: 0.0
         });
-        this.head = M.Bodies.circle(111, 217, 15, { label: 'rider-head', density: 0.0011, frictionAir: 0.02, collisionFilter: sameBike });
-        this.rearKnee = M.Bodies.circle(102, 291, 10, { label: 'rider-rear-knee', density: 0.0010, frictionAir: 0.02, collisionFilter: sameBike });
-        this.frontKnee = M.Bodies.circle(148, 286, 10, { label: 'rider-front-knee', density: 0.0010, frictionAir: 0.02, collisionFilter: sameBike });
-        this.rearHand = M.Bodies.circle(166, 281, 7, { label: 'rider-rear-hand', density: 0.0008, frictionAir: 0.02, collisionFilter: sameBike });
-        this.frontHand = M.Bodies.circle(173, 282, 7, { label: 'rider-front-hand', density: 0.0008, frictionAir: 0.02, collisionFilter: sameBike });
-        this.riderBodies = [this.torso, this.head, this.rearKnee, this.frontKnee, this.rearHand, this.frontHand];
-        this.riderBodies.forEach((body) => { body.plugin.role = body.label; });
-        this.matter.world.add(this.riderBodies);
-        this.buildRiderConstraints();
+        const frontWheelPart = M.Bodies.circle(startX + 45, startY + 34, 22, {
+          label: 'front-wheel', friction: 0.8, frictionStatic: 1.2, restitution: 0.0
+        });
+        const chassisPart = M.Bodies.rectangle(startX, startY + 5, 96, 32, {
+          label: 'chassis', chamfer: { radius: 6 }, friction: 0.1, restitution: 0.0
+        });
+
+        this.bike = M.Body.create({
+          parts: [chassisPart, rearWheelPart, frontWheelPart],
+          frictionAir: 0.016,
+          restitution: 0.0,
+          density: 0.003
+        });
+
+        this.matter.world.add(this.bike);
       }
 
       createBikeVisuals() {
@@ -356,9 +339,13 @@
         if (this.textures.get('moto-bike-body')) this.textures.get('moto-bike-body').setFilter(Phaser.Textures.FilterMode.LINEAR);
         if (this.textures.get('moto-tyre')) this.textures.get('moto-tyre').setFilter(Phaser.Textures.FilterMode.LINEAR);
 
-        const tyre = () => this.add.image(0, 0, 'moto-tyre').setOrigin(0.5).setDisplaySize(51, 51).setDepth(3).setVisible(false);
+        // Tyres rendered at exact 48x48 diameter matching the wheel geometry
+        const tyre = () => this.add.image(0, 0, 'moto-tyre').setOrigin(0.5).setDisplaySize(48, 48).setDepth(3).setVisible(false);
         this.rearTyreSprite = tyre();
         this.frontTyreSprite = tyre();
+
+        // Bike Body with Rider already professionally illustrated in bike.png!
+        // No ugly vector stickman needed!
         this.bikeBodySprite = this.add.image(0, 0, 'moto-bike-body').setOrigin(0.5).setDisplaySize(140, 140).setDepth(4).setVisible(false);
       }
 
@@ -368,14 +355,19 @@
         this.frontTyreSprite.setVisible(visible);
         this.bikeBodySprite.setVisible(visible);
         if (!visible) return;
-        const rear = this.worldPoint(this.rearWheel);
-        const front = this.worldPoint(this.frontWheel);
-        this.rearTyreSprite.setPosition(rear.x, rear.y).setRotation(this.rearWheel.angle);
-        this.frontTyreSprite.setPosition(front.x, front.y).setRotation(this.frontWheel.angle);
-        const visualOffset = rotate({ x: 0, y: 5.5 }, this.chassis.angle);
-        this.bikeBodySprite
-          .setPosition(this.sx(this.chassis.position.x + visualOffset.x), this.chassis.position.y + visualOffset.y)
-          .setRotation(this.chassis.angle);
+
+        const bx = this.sx(this.bike.position.x);
+        const by = this.bike.position.y;
+        const angle = this.bike.angle;
+
+        // Pixel-perfect axle positions aligned exactly to bike.png mounting points
+        const rearAxle = rotate({ x: -44, y: 34 }, angle);
+        const frontAxle = rotate({ x: 45, y: 34 }, angle);
+        const visualOffset = rotate({ x: 0, y: 5 }, angle);
+
+        this.bikeBodySprite.setPosition(bx + visualOffset.x, by + visualOffset.y).setRotation(angle);
+        this.rearTyreSprite.setPosition(bx + rearAxle.x, by + rearAxle.y).setRotation(angle + this.tyreRotation);
+        this.frontTyreSprite.setPosition(bx + frontAxle.x, by + frontAxle.y).setRotation(angle + this.tyreRotation);
       }
 
       createEnvironment() {
@@ -429,79 +421,24 @@
         }
       }
 
-      buildRiderConstraints() {
-        if (this.riderConstraints.length) this.matter.world.remove(this.riderConstraints);
-        const c = (a, pointA, b, pointB, length, stiffness, damping) => this.M.Constraint.create({ bodyA: a, pointA, bodyB: b, pointB, length, stiffness, damping, render: { visible: false } });
-        this.riderConstraints = [
-          c(this.chassis, { x: -11, y: -10 }, this.torso, { x: 0, y: 17 }, 28, 0.54, 0.16),
-          c(this.chassis, { x: 6, y: -9 }, this.torso, { x: 0, y: 17 }, 31, 0.42, 0.15),
-          c(this.torso, { x: -5, y: -21 }, this.head, { x: 0, y: 10 }, 13, 0.48, 0.14),
-          c(this.torso, { x: -4, y: 17 }, this.rearKnee, { x: 0, y: 0 }, 29, 0.34, 0.14),
-          c(this.rearKnee, { x: 0, y: 0 }, this.chassis, { x: -37, y: 4 }, 25, 0.34, 0.12),
-          c(this.torso, { x: 8, y: 15 }, this.frontKnee, { x: 0, y: 0 }, 29, 0.34, 0.14),
-          c(this.frontKnee, { x: 0, y: 0 }, this.chassis, { x: 28, y: 3 }, 25, 0.34, 0.12),
-          c(this.torso, { x: 10, y: -12 }, this.rearHand, { x: 0, y: 0 }, 52, 0.30, 0.12),
-          c(this.rearHand, { x: 0, y: 0 }, this.chassis, { x: 48, y: -14 }, 18, 0.44, 0.15),
-          c(this.torso, { x: 11, y: -8 }, this.frontHand, { x: 0, y: 0 }, 53, 0.30, 0.12),
-          c(this.frontHand, { x: 0, y: 0 }, this.chassis, { x: 50, y: -15 }, 14, 0.46, 0.15)
-        ];
-        this.matter.world.add(this.riderConstraints);
-      }
-
-      terrainHeight() { return 365; }
-
       resetWorld() {
         this.clearInputs();
-        for (const entry of this.terrainBodies) this.matter.world.remove(entry.body);
-        this.terrainBodies = [];
-        this.nextTerrainX = -480;
         const M = this.M;
-        const ground = this.terrainHeight();
-        const set = (body, x, y, angle = 0) => {
-          M.Body.setPosition(body, { x, y }); M.Body.setVelocity(body, { x: 0, y: 0 }); M.Body.setAngle(body, angle); M.Body.setAngularVelocity(body, 0); body.force.x = 0; body.force.y = 0; body.torque = 0;
-        };
-        set(this.rearWheel, 88, ground - 22);
-        set(this.frontWheel, 177, ground - 22);
-        set(this.chassis, 132, ground - 58);
-        set(this.torso, 122, ground - 111, -0.05);
-        set(this.head, 108, ground - 149);
-        set(this.rearKnee, 99, ground - 78);
-        set(this.frontKnee, 148, ground - 78);
-        set(this.rearHand, 166, ground - 84);
-        set(this.frontHand, 173, ground - 83);
-        this.buildRiderConstraints();
-        this.ensureTerrain(1100);
-        this.cameraX = this.chassis.position.x - 124;
+        const startX = 132, startY = 309;
+        M.Body.setPosition(this.bike, { x: startX, y: startY });
+        M.Body.setVelocity(this.bike, { x: 0, y: 0 });
+        M.Body.setAngle(this.bike, 0);
+        M.Body.setAngularVelocity(this.bike, 0);
+        this.bike.force.x = 0; this.bike.force.y = 0; this.bike.torque = 0;
+
+        M.Body.setPosition(this.ground, { x: startX, y: 365 + 100 });
+
+        this.cameraX = this.bike.position.x - 110;
         this.score = 0; this.finalScore = 0; this.crashTimer = 0; this.shake = 0;
+        this.tyreRotation = 0;
         this.wheelieActive = false; this.wheelieTime = 0; this.wheelieCombo = 1; this.wheeliePointsAccum = 0;
+        this.throttleHoldTime = 0;
         this.particles = []; this.floatingTexts = [];
-      }
-
-      ensureTerrain(targetX) {
-        const step = 54;
-        while (this.nextTerrainX < targetX) {
-          const x1 = this.nextTerrainX;
-          const x2 = x1 + step;
-          const y1 = this.terrainHeight(x1);
-          const y2 = this.terrainHeight(x2);
-          const angle = Math.atan2(y2 - y1, step);
-          const midY = (y1 + y2) / 2 + ROAD_DEPTH / 2;
-          const body = this.M.Bodies.rectangle((x1 + x2) / 2, midY, step + 2, ROAD_DEPTH, {
-            isStatic: true, label: 'terrain', friction: 1.0, frictionStatic: 1.8, restitution: 0.01,
-            angle, collisionFilter: { group: 0 }
-          });
-          body.plugin.role = 'terrain';
-          this.matter.world.add(body);
-          this.terrainBodies.push({ body, x2 });
-          this.nextTerrainX += step;
-        }
-      }
-
-      pruneTerrain() {
-        const cutoff = this.cameraX - 320;
-        while (this.terrainBodies.length && this.terrainBodies[0].x < cutoff) {
-          this.matter.world.remove(this.terrainBodies.shift().body);
-        }
       }
 
       startRun() {
@@ -522,78 +459,45 @@
         Host.haptic('medium');
       }
 
-      onCollisionStart(event) { this.inspectPairs(event.pairs, true); }
-      onCollisionActive(event) { this.inspectPairs(event.pairs, false); }
-      inspectPairs(pairs, started) {
-        if (this.state !== 'playing') return;
-        for (const pair of pairs) {
-          const a = pair.bodyA, b = pair.bodyB;
-          const body = a.plugin && a.plugin.role === 'terrain' ? b : b.plugin && b.plugin.role === 'terrain' ? a : null;
-          if (!body || !body.plugin) continue;
-          const role = body.plugin.role;
-          if (role === 'rear-wheel' || role === 'front-wheel') continue;
-          const impact = Math.hypot(body.velocity.x, body.velocity.y);
-          const tilted = Math.abs(normalizeAngle(this.chassis.angle)) > SETTINGS.crashTilt;
-          const headHit = role === 'rider-head' && (started || impact > 0.6);
-          const hardFrameHit = role === 'moto-chassis' && tilted;
-          const torsoHit = role === 'rider-torso' && impact > 1.8;
-          if (headHit || hardFrameHit || torsoHit) {
-            this.triggerCrash('Impact Crash');
-            break;
-          }
-        }
-      }
-
-      triggerCrash(reason = 'crash') {
+      triggerCrash() {
         if (this.state !== 'playing') return;
         this.clearInputs();
         this.audio.crash();
         this.audio.setEngine(0, false);
         Host.haptic('heavy');
-        this.spawnImpact(this.chassis.position.x + 20, this.chassis.position.y);
+        this.spawnImpact(this.bike.position.x, this.bike.position.y);
         this.shake = 16;
         this.state = 'crashing';
-        this.crashTimer = 0.65; // Short tumble, then instant respawn
+        this.crashTimer = 0.55; // Quick 0.55s tumble, then instant respawn!
         this.wheelieActive = false;
         this.wheelieTime = 0;
         this.wheelieCombo = 1;
-        this.addFloatingText('CRASH! FLIPPED!', this.sx(this.chassis.position.x), this.chassis.position.y - 45, 0xff5f79);
+        this.throttleHoldTime = 0;
+        this.addFloatingText('CRASH! FLIPPED OVER!', this.sx(this.bike.position.x), this.bike.position.y - 45, 0xff5f79);
 
-        // Ragdoll rider tumble
-        if (this.riderConstraints.length) {
-          this.matter.world.remove(this.riderConstraints);
-          this.riderConstraints = [];
-        }
-        this.M.Body.applyForce(this.torso, this.torso.position, { x: 0.018, y: -0.022 });
-        this.M.Body.setAngularVelocity(this.chassis, this.chassis.angularVelocity + (Math.random() > 0.5 ? 0.24 : -0.24));
+        // Tumble impulse
+        this.M.Body.applyForce(this.bike, this.bike.position, { x: 0.012, y: -0.025 });
+        this.M.Body.setAngularVelocity(this.bike, -0.22);
       }
 
       respawnBike() {
         const M = this.M;
         const targetX = this.cameraX + 130;
-        const ground = this.terrainHeight();
-        const set = (body, x, y, angle = 0) => {
-          M.Body.setPosition(body, { x, y });
-          M.Body.setVelocity(body, { x: 0, y: 0 });
-          M.Body.setAngle(body, angle);
-          M.Body.setAngularVelocity(body, 0);
-          body.force.x = 0; body.force.y = 0; body.torque = 0;
-        };
-        set(this.rearWheel, targetX - 44, ground - 22);
-        set(this.frontWheel, targetX + 45, ground - 22);
-        set(this.chassis, targetX, ground - 58);
-        set(this.torso, targetX - 10, ground - 111, -0.05);
-        set(this.head, targetX - 24, ground - 149);
-        set(this.rearKnee, targetX - 33, ground - 78);
-        set(this.frontKnee, targetX + 16, ground - 78);
-        set(this.rearHand, targetX + 34, ground - 84);
-        set(this.frontHand, targetX + 41, ground - 83);
-        this.buildRiderConstraints();
+        const targetY = 309;
+
+        M.Body.setPosition(this.bike, { x: targetX, y: targetY });
+        M.Body.setVelocity(this.bike, { x: 0, y: 0 });
+        M.Body.setAngle(this.bike, 0);
+        M.Body.setAngularVelocity(this.bike, 0);
+        this.bike.force.x = 0; this.bike.force.y = 0; this.bike.torque = 0;
+
+        M.Body.setPosition(this.ground, { x: targetX, y: 365 + 100 });
+
         this.wheelieActive = false;
         this.wheelieTime = 0;
         this.wheelieCombo = 1;
-        this.respawnFlash = 0.5;
-        this.addFloatingText('⚡ RESPAWNED! GO!', this.sx(targetX), ground - 100, 0x06d6a0);
+        this.throttleHoldTime = 0;
+        this.addFloatingText('⚡ QUICK RESPAWN! KEEP GOING!', this.sx(targetX), 250, 0x06d6a0);
         this.audio.beep(640, 0.08, 'sine', 0.09);
       }
 
@@ -622,24 +526,29 @@
 
       applyRideForces(dt) {
         const M = this.M;
-        const speed = this.chassis.velocity.x;
+        const speed = this.bike.velocity.x;
+        const angle = this.bike.angle; // negative = front wheel UP
 
-        // 1. RIGHT BUTTON HELD: ACCELERATE & POP WHEELIE
+        // 1. RIGHT BUTTON HELD: ACCELERATE & LIFT INTO WHEELIE
         if (this.rightHeld) {
-          if (speed < SETTINGS.maxSpeed) {
-            M.Body.applyForce(this.chassis, this.chassis.position, { x: SETTINGS.driveForce, y: 0 });
-            this.rearWheel.torque -= SETTINGS.wheelTorque;
-          }
-          // Arcade wheelie lift torque (lifts front up)
-          this.chassis.torque -= SETTINGS.wheelieLiftTorque;
-          this.torso.torque -= SETTINGS.wheelieLiftTorque * 0.18;
+          this.throttleHoldTime += dt;
 
-          // Smoke particles from rear tyre
+          // Forward thrust
+          if (speed < 8.8) {
+            M.Body.applyForce(this.bike, this.bike.position, { x: 0.024, y: 0 });
+          }
+
+          // Progressive Wheelie Torque:
+          // Immediately lifts front wheel up; holding it gracefully keeps it up!
+          const baseLift = 0.24;
+          const ramp = Math.min(0.26, this.throttleHoldTime * 0.28);
+          this.bike.torque -= (baseLift + ramp);
+
+          // Smoke & dust particles from rear wheel contact
           if (Math.random() < 0.35) {
-            const groundY = this.terrainHeight(this.rearWheel.position.x);
             this.particles.push({
-              x: this.rearWheel.position.x - 18,
-              y: groundY - 2,
+              x: this.bike.position.x - 44 - 12,
+              y: 363,
               vx: -speed * 0.5 - Math.random() * 1.5,
               vy: -0.3 - Math.random() * 0.8,
               life: 0.25 + Math.random() * 0.25,
@@ -648,48 +557,45 @@
               color: 0x94a3b8
             });
           }
+        } else {
+          this.throttleHoldTime = Math.max(0, this.throttleHoldTime - dt * 2.5);
         }
 
-        // 2. LEFT BUTTON HELD: BRAKE (NEVER GOES BACKWARD!)
+        // 2. LEFT BUTTON HELD: BRAKE (NEVER REVERSES!)
         if (this.leftHeld) {
           if (speed > 0.08) {
-            const bf = Math.min(speed * 0.010, SETTINGS.brakeDecel);
-            M.Body.applyForce(this.chassis, this.chassis.position, { x: -bf, y: 0 });
-            this.rearWheel.angularVelocity *= 0.82;
-            this.frontWheel.angularVelocity *= 0.82;
+            const brakeForce = Math.min(speed * 0.015, 0.038);
+            M.Body.applyForce(this.bike, this.bike.position, { x: -brakeForce, y: 0 });
           } else {
-            // Firm stop: do not allow negative reverse velocity
-            M.Body.setVelocity(this.chassis, { x: 0, y: this.chassis.velocity.y });
-            M.Body.setVelocity(this.rearWheel, { x: 0, y: this.rearWheel.velocity.y });
-            M.Body.setVelocity(this.frontWheel, { x: 0, y: this.frontWheel.velocity.y });
-            this.rearWheel.angularVelocity = 0;
-            this.frontWheel.angularVelocity = 0;
+            // Complete stop; strictly no reverse!
+            M.Body.setVelocity(this.bike, { x: 0, y: this.bike.velocity.y });
           }
-          // Brake also helps push front wheel down when wheeling
-          this.chassis.torque += SETTINGS.brakeFrontDownTorque;
+
+          // Brake also pulls front wheel down toward the road (wheelie balance control!)
+          this.bike.torque += 0.32;
         }
 
         // 3. IDLE (NEITHER HELD): NATURAL ROLLING RESISTANCE
         if (!this.rightHeld && !this.leftHeld) {
           if (speed > 0.04) {
-            M.Body.applyForce(this.chassis, this.chassis.position, { x: -0.0012, y: 0 });
+            M.Body.applyForce(this.bike, this.bike.position, { x: -0.0016, y: 0 });
           }
         }
 
-        // Subtle damping for stability
-        const riderDrag = clamp(this.chassis.angularVelocity * -0.0006, -0.0015, 0.0015);
-        this.chassis.torque += riderDrag;
+        // Wheel visual spin
+        this.tyreRotation += speed * 0.09;
+
+        // Ground following: keep the smooth static ground centered with the bike
+        M.Body.setPosition(this.ground, { x: this.bike.position.x, y: 365 + 100 });
       }
 
       checkWheelie(dt) {
         if (this.state !== 'playing') return;
-        const groundY = this.terrainHeight(this.rearWheel.position.x);
-        const frontLift = (groundY - 22) - this.frontWheel.position.y;
-        const rearGrounded = Math.abs(this.rearWheel.position.y - (groundY - 22)) < 16;
-        const tilt = -this.chassis.angle; // positive = front up
-        const speed = this.chassis.velocity.x;
+        const angle = this.bike.angle; // negative = front wheel UP
+        const speed = this.bike.velocity.x;
 
-        const isWheelie = rearGrounded && frontLift > 14 && tilt > 0.16 && speed > 0.5;
+        // Wheelie: front wheel is lifted (angle < -0.16 rad / ~9 deg) and moving forward
+        const isWheelie = angle < -0.16 && speed > 0.4;
 
         if (isWheelie) {
           this.wheelieActive = true;
@@ -698,7 +604,7 @@
           this.wheelieCombo = this.wheelieTime > 4.5 ? 4 : this.wheelieTime > 2.8 ? 3 : this.wheelieTime > 1.2 ? 2 : 1;
 
           // Continuous points accumulation
-          const pts = dt * 180 * this.wheelieCombo;
+          const pts = dt * 220 * this.wheelieCombo;
           this.wheeliePointsAccum += pts;
           if (this.wheeliePointsAccum >= 1) {
             const add = Math.floor(this.wheeliePointsAccum);
@@ -709,8 +615,8 @@
           // Golden wheelie sparks under rear tyre
           if (Math.random() < 0.45) {
             this.particles.push({
-              x: this.rearWheel.position.x - 12 + (Math.random() - 0.5) * 8,
-              y: groundY - 2 + (Math.random() - 0.5) * 3,
+              x: this.bike.position.x - 44 + (Math.random() - 0.5) * 8,
+              y: 363 + (Math.random() - 0.5) * 2,
               vx: -speed * 0.6 + (Math.random() - 0.5) * 2,
               vy: -0.8 - Math.random() * 2.2,
               life: 0.35 + Math.random() * 0.3,
@@ -721,11 +627,11 @@
           }
         } else {
           if (this.wheelieActive) {
-            // Landed smoothly
+            // Front wheel landed safely!
             if (this.wheelieTime >= 0.7) {
-              const landingBonus = Math.round(this.wheelieTime * 50 * this.wheelieCombo);
+              const landingBonus = Math.round(this.wheelieTime * 60 * this.wheelieCombo);
               this.score += landingBonus;
-              this.addFloatingText(`+${landingBonus} LANDING!`, this.sx(this.chassis.position.x), this.chassis.position.y - 45, 0x43d6a6);
+              this.addFloatingText(`+${landingBonus} LANDING!`, this.sx(this.bike.position.x), this.bike.position.y - 45, 0x43d6a6);
               this.audio.beep(880, 0.08, 'triangle', 0.08);
             }
             this.wheelieActive = false;
@@ -734,35 +640,9 @@
           }
         }
 
-        // CRASH ON OVER-WHEELIE (> 72 degrees / 1.25 rad)
-        if (tilt > SETTINGS.crashTilt) {
-          this.triggerCrash('Flipped Over Backward!');
-        }
-      }
-
-      applySuspension() {
-        const M = this.M;
-        const mounts = [
-          { wheel: this.rearWheel, local: { x: -40, y: 10 } },
-          { wheel: this.frontWheel, local: { x: 42, y: 10 } }
-        ];
-        for (const mount of mounts) {
-          const offset = rotate(mount.local, this.chassis.angle);
-          const anchor = { x: this.chassis.position.x + offset.x, y: this.chassis.position.y + offset.y };
-          const down = rotate({ x: 0, y: 1 }, this.chassis.angle);
-          const right = rotate({ x: 1, y: 0 }, this.chassis.angle);
-          const delta = { x: mount.wheel.position.x - anchor.x, y: mount.wheel.position.y - anchor.y };
-          const distance = delta.x * down.x + delta.y * down.y;
-          const lateral = delta.x * right.x + delta.y * right.y;
-          const relativeV = { x: mount.wheel.velocity.x - this.chassis.velocity.x, y: mount.wheel.velocity.y - this.chassis.velocity.y };
-          const verticalV = relativeV.x * down.x + relativeV.y * down.y;
-          const lateralV = relativeV.x * right.x + relativeV.y * right.y;
-          const rest = 31;
-          const verticalForce = (rest - distance) * 0.0016 - verticalV * 0.00145;
-          const lateralForce = -lateral * 0.00075 - lateralV * 0.0008;
-          const force = { x: down.x * verticalForce + right.x * lateralForce, y: down.y * verticalForce + right.y * lateralForce };
-          M.Body.applyForce(mount.wheel, mount.wheel.position, force);
-          M.Body.applyForce(this.chassis, anchor, { x: -force.x, y: -force.y });
+        // CRASH ON OVER-WHEELIE (> 75 degrees / -1.31 rad)
+        if (angle < -1.31) {
+          this.triggerCrash();
         }
       }
 
@@ -783,11 +663,9 @@
         if (this.pausedByHost || window.__GAME_ACTIVE__ === false) { this.render(); return; }
 
         if (this.state === 'countdown') {
-          this.applySuspension();
           this.countdown -= dt;
           if (this.countdown <= 0) this.beginPlaying();
         } else if (this.state === 'playing') {
-          this.applySuspension();
           this.applyRideForces(dt);
           this.checkWheelie(dt);
           this.timeLeft = Math.max(0, this.timeLeft - dt);
@@ -805,24 +683,16 @@
           }
         }
 
-        if (this.respawnFlash > 0) this.respawnFlash = Math.max(0, this.respawnFlash - dt);
-        this.cameraX = lerp(this.cameraX, this.chassis.position.x - 124, clamp(dt * 6.5, 0, 1));
-        this.ensureTerrain(this.cameraX + W + 320);
-        this.pruneTerrain();
+        // Smooth camera tracking: perfectly centered with bike progress, zero jitter!
+        this.cameraX = this.bike.position.x - 110;
+
         this.shake = Math.max(0, this.shake - dt * 22);
         this.updateParticles(dt);
-        this.audio.setEngine(this.chassis.velocity.x, this.rightHeld);
+        this.audio.setEngine(this.bike.velocity.x, this.rightHeld, this.wheelieActive);
         this.render();
       }
 
       sx(worldX) { return worldX - this.cameraX; }
-      drawPath(points, fill, stroke, width = 1) {
-        const g = this.g; if (!points.length) return;
-        g.beginPath(); g.moveTo(points[0].x, points[0].y);
-        for (let i = 1; i < points.length; i++) g.lineTo(points[i].x, points[i].y);
-        g.closePath(); if (fill !== null) { g.fillStyle(fill, 1); g.fillPath(); }
-        if (stroke !== null && width > 0) { g.lineStyle(width, stroke, 1); g.strokePath(); }
-      }
 
       renderSky(g) {
         const bands = [0x2288b8, 0x2fa5d6, 0x4ebfe3, 0x7dd7ee, 0xb4ecf5];
@@ -833,67 +703,27 @@
       }
 
       renderWorld(g) {
-        const step = 5;
-        const top = [];
-        for (let x = -10; x <= W + 10; x += step) top.push({ x, y: this.terrainHeight() });
-        g.beginPath(); g.moveTo(top[0].x, top[0].y);
-        for (let i = 1; i < top.length; i++) g.lineTo(top[i].x, top[i].y);
-        g.lineTo(W + 10, H); g.lineTo(-10, H); g.closePath(); g.fillStyle(0x161f26, 1); g.fillPath();
+        // Continuous, straight, pixel-perfect asphalt highway
+        g.fillStyle(0x161f26, 1); g.fillRect(0, 365, W, H - 365);
 
-        // Asphalt surface curb lines
-        g.lineStyle(3.5, 0xf1f5f9, 1); g.beginPath(); g.moveTo(top[0].x, top[0].y + 2);
-        for (let i = 1; i < top.length; i++) g.lineTo(top[i].x, top[i].y + 2); g.strokePath();
+        // Crisp white edge line
+        g.fillStyle(0xf1f5f9, 1); g.fillRect(0, 365, W, 4);
 
-        // Neon gold road dash markings
+        // Neon gold center dash lane markings
         const startWorld = Math.floor(this.cameraX / 72) * 72 - 72;
         for (let wx = startWorld; wx < this.cameraX + W + 80; wx += 72) {
-          const x = this.sx(wx), y = this.terrainHeight() + 24;
-          g.lineStyle(4.5, 0xffd166, 0.98); g.lineBetween(x, y, this.sx(wx + 44), y);
+          const x = this.sx(wx);
+          g.fillStyle(0xffd166, 0.98); g.fillRoundedRect(x, 365 + 24, 44, 4.5, 2);
         }
 
         // Road barrier guardrail
         const railStart = Math.floor(this.cameraX / 52) * 52 - 52;
         for (let wx = railStart; wx < this.cameraX + W + 70; wx += 52) {
-          const x = this.sx(wx), roadY = this.terrainHeight();
-          g.lineStyle(3, 0x1e293b, 0.75); g.lineBetween(x, roadY - 32, x, roadY - 3);
-          g.lineStyle(2.5, 0xe2e8f0, 0.92); g.lineBetween(x - 4, roadY - 31, this.sx(wx + 52) - 4, roadY - 31);
+          const x = this.sx(wx);
+          g.fillStyle(0x1e293b, 0.75); g.fillRect(x, 365 - 32, 4, 32);
+          g.fillStyle(0xe2e8f0, 0.92); g.fillRect(x - 4, 365 - 31, 56, 3);
         }
         g.fillStyle(0x0f172a, 0.35); g.fillRect(0, 402, W, 28);
-      }
-
-      worldPoint(body) { return { x: this.sx(body.position.x), y: body.position.y }; }
-      localPoint(body, local) { const p = rotate(local, body.angle); return { x: this.sx(body.position.x + p.x), y: body.position.y + p.y }; }
-
-      drawWheel(body, accent) {
-        const g = this.g, p = this.worldPoint(body), r = 22;
-        g.fillStyle(0x071118, 0.28); g.fillEllipse(p.x + 4, p.y + r - 1, r * 2.0, 7);
-        g.fillStyle(0x080d12, 1); g.fillCircle(p.x, p.y, r + 2);
-        g.lineStyle(1.5, 0x53616b, 1); g.strokeCircle(p.x, p.y, r - 2);
-        g.fillStyle(0x29343a, 1); g.fillCircle(p.x, p.y, r - 7);
-        g.fillStyle(0x101820, 1); g.fillCircle(p.x, p.y, 6);
-        g.fillStyle(accent, 0.95); g.fillCircle(p.x, p.y, 3);
-        g.lineStyle(1.2, 0xbfd1d4, 0.78);
-        for (let i = 0; i < 10; i++) {
-          const a = body.angle + i * Math.PI * 0.2;
-          g.lineBetween(p.x + Math.cos(a) * 5, p.y + Math.sin(a) * 5, p.x + Math.cos(a) * (r - 8), p.y + Math.sin(a) * (r - 8));
-        }
-      }
-
-      drawRider() {
-        const g = this.g;
-        const head = this.worldPoint(this.head), rearKnee = this.worldPoint(this.rearKnee), frontKnee = this.worldPoint(this.frontKnee), rearHand = this.worldPoint(this.rearHand), frontHand = this.worldPoint(this.frontHand);
-        const hip = this.localPoint(this.torso, { x: -2, y: 17 }), shoulder = this.localPoint(this.torso, { x: 6, y: -16 });
-        const pegRear = this.localPoint(this.chassis, { x: -17, y: 12 }), pegFront = this.localPoint(this.chassis, { x: 26, y: 8 });
-        g.lineStyle(10, 0x151b22, 1); g.lineBetween(hip.x, hip.y, rearKnee.x, rearKnee.y); g.lineBetween(rearKnee.x, rearKnee.y, pegRear.x, pegRear.y); g.lineBetween(hip.x + 5, hip.y, frontKnee.x, frontKnee.y); g.lineBetween(frontKnee.x, frontKnee.y, pegFront.x, pegFront.y);
-        g.lineStyle(6.2, 0x445461, 1); g.lineBetween(hip.x, hip.y, rearKnee.x, rearKnee.y); g.lineBetween(rearKnee.x, rearKnee.y, pegRear.x, pegRear.y); g.lineBetween(hip.x + 5, hip.y, frontKnee.x, frontKnee.y); g.lineBetween(frontKnee.x, frontKnee.y, pegFront.x, pegFront.y);
-        g.lineStyle(7.5, 0xf4a369, 1); g.lineBetween(shoulder.x, shoulder.y, rearHand.x, rearHand.y); g.lineBetween(shoulder.x + 2, shoulder.y + 3, frontHand.x, frontHand.y);
-        g.lineStyle(4.5, 0x2a3a43, 1); g.lineBetween(shoulder.x, shoulder.y, rearHand.x, rearHand.y); g.lineBetween(shoulder.x + 2, shoulder.y + 3, frontHand.x, frontHand.y);
-        const bodyPoly = [{x:-12,y:19},{x:-15,y:-13},{x:-6,y:-24},{x:12,y:-16},{x:14,y:13},{x:5,y:23}].map((p) => this.localPoint(this.torso, p));
-        this.drawPath(bodyPoly, 0x1f323b, 0x07131c, 1.7);
-        const jacket = [{x:-10,y:-12},{x:5,y:-20},{x:11,y:5},{x:-8,y:11}].map((p) => this.localPoint(this.torso, p));
-        this.drawPath(jacket, 0x06d6a0, 0x07131c, 1);
-        g.fillStyle(0x0c171e, 1); g.fillCircle(head.x, head.y, 16); g.fillStyle(0x118ab2, 1); g.fillCircle(head.x - 1, head.y - 1, 13.5);
-        g.fillStyle(0x07131c, 1); g.fillRoundedRect(head.x - 1, head.y - 5, 15, 10, 4); g.lineStyle(1.5, 0xffd166, 1); g.lineBetween(head.x + 1, head.y + 8, head.x + 10, head.y + 11);
       }
 
       renderParticles(g) {
@@ -949,11 +779,11 @@
       }
 
       renderControls(g) {
-        // Raised controls: y = 468, h = 88, leaving 84px of comfortable bottom spacing!
-        const y = 468, h = 88, gap = 18, w = (W - gap * 3) / 2;
+        // Raised controls: y = 470, h = 88, leaving 82px of comfortable bottom spacing!
+        const y = 470, h = 88, gap = 18, w = (W - gap * 3) / 2;
         const buttons = [
           { left: true, x: gap, held: this.leftHeld, label: 'BRAKE', sub: 'STOP · BALANCE', color: 0xef4444, icon: '◀ 🛑' },
-          { left: false, x: gap * 2 + w, held: this.rightHeld, label: 'GAS / RACE', sub: 'HOLD TO WHEELIE', color: 0x06d6a0, icon: '⚡ ▶' }
+          { left: false, x: gap * 2 + w, held: this.rightHeld, label: 'RACE / GAS', sub: 'HOLD TO WHEELIE', color: 0x06d6a0, icon: '⚡ ▶' }
         ];
 
         for (const button of buttons) {
@@ -991,10 +821,10 @@
         this.fillText('HOW TO PLAY', 180, 206, 12, 0xffffff, '900');
 
         const tips = [
-          { icon: '⚡', title: 'HOLD GAS (RIGHT)', desc: 'Accelerates forward & lifts front wheel' },
-          { icon: '🛑', title: 'HOLD BRAKE (LEFT)', desc: 'Stops the bike & brings front wheel down' },
-          { icon: '🔥', title: 'HOLD A WHEELIE', desc: 'Score rapid points & climb combo multipliers' },
-          { icon: '⚠️', title: 'DON’T OVER-TILT', desc: 'Tilt > 72° causes a crash! You auto-respawn!' }
+          { icon: '⚡', title: 'HOLD RACE (RIGHT)', desc: 'Drives forward & lifts front wheel' },
+          { icon: '🛑', title: 'HOLD BRAKE (LEFT)', desc: 'Stops bike & drops front wheel down' },
+          { icon: '🔥', title: 'HOLD A WHEELIE', desc: 'Score rapid points & climb multipliers!' },
+          { icon: '⚠️', title: 'DON’T OVER-TILT', desc: 'Tilt > 75° flips backward! Auto-respawns!' }
         ];
 
         tips.forEach((tip, i) => {
@@ -1045,7 +875,6 @@
           this.fillText(row[1], 298, ry, 15, 0xffffff, '900', 'right');
         });
 
-        // Single clean RIDE AGAIN button (No mode change or cross button!)
         g.fillStyle(0x06d6a0, 1); g.fillRoundedRect(44, 468, 272, 58, 18);
         g.lineStyle(2, 0xffffff, 0.8); g.strokeRoundedRect(44, 468, 272, 58, 18);
         this.fillText('RIDE AGAIN  ▶', 180, 496, 18, 0xffffff, '900');
@@ -1055,17 +884,11 @@
         this.skyG.clear(); this.renderSky(this.skyG); this.updateEnvironment();
         this.g.clear(); this.textIndex = 0;
         const g = this.g;
-        const shakeX = this.shake ? (Math.random() - 0.5) * this.shake : 0;
-        if (shakeX) g.x = shakeX; else g.x = 0;
+
         this.renderWorld(g);
 
         const showBike = this.state === 'countdown' || this.state === 'playing' || this.state === 'crashing';
-        if (showBike) {
-          if (this.usingBikeSprites) this.syncBikeVisuals(true);
-          this.drawRider();
-        } else {
-          if (this.usingBikeSprites) this.syncBikeVisuals(false);
-        }
+        this.syncBikeVisuals(showBike);
 
         this.renderParticles(g);
 
@@ -1082,7 +905,6 @@
           this.fillText('PAUSED', 180, 316, 24, 0xffffff, '900');
         }
 
-        if (shakeX) g.x = 0;
         for (let i = this.textIndex; i < this.textPool.length; i++) this.textPool[i].setVisible(false);
       }
     }
@@ -1108,7 +930,7 @@
       physics: {
         default: 'matter',
         matter: {
-          gravity: { y: 1.15 },
+          gravity: { y: 1.25 },
           enableSleeping: false,
           debug: false
         }
