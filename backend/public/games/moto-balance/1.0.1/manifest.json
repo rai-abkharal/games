@@ -1,0 +1,27 @@
+{
+  "id": "moto-balance",
+  "title": "Moto Balance: Skyline Run",
+  "version": "1.0.1",
+  "description": "A physics-driven 2D motorcycle balance challenge. Tilt through a living mountain highway, master real suspension and airborne control, and chase the farthest 60-second run.",
+  "orientation": "portrait",
+  "engine": "phaser-matter",
+  "category": "Arcade",
+  "feedOrder": 26,
+  "status": "published",
+  "touchZones": [
+    {
+      "name": "Balance controls",
+      "x": 0,
+      "y": 0.66,
+      "width": 1,
+      "height": 0.34
+    }
+  ],
+  "features": {
+    "sound": true,
+    "vibration": true,
+    "modes": true,
+    "physics": true,
+    "particles": true
+  }
+}

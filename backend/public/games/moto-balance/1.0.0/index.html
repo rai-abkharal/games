@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <title>Moto Balance: Skyline Run</title>
+  <style>
+    :root { color-scheme: dark; --native-dock-safe: 0px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #071827; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { overscroll-behavior: none; }
+    #game-root { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; background: radial-gradient(circle at 50% 22%, #1b5a7a 0%, #0a2339 58%, #050d18 100%); }
+    canvas { display: block; width: min(100vw, 56.25vh) !important; height: min(177.7778vw, 100vh) !important; box-shadow: 0 22px 70px rgba(0, 0, 0, .65), 0 0 0 1px rgba(226, 248, 255, .16); border-radius: clamp(0px, 1.5vw, 18px); }
+    .native-host canvas { width: 100% !important; height: 100% !important; box-shadow: none; border-radius: 0; }
+  </style>
+</head>
+<body>
+  <div id="game-root" aria-label="Moto Balance Skyline Run"></div>
+  <script src="/shared/phaser-full.min.js"></script>
+  <script>
+  (() => {
+    'use strict';
+
+    /*
+     * Moto Balance is intentionally built on Matter rather than sprite rotation.
+     * The chassis, two wheels, torso, head, knees, and hands are individual
+     * dynamic bodies joined with real spring constraints. Rendering is custom,
+     * but all movement, landings, torque, gravity, and crashes come from Matter.
+     */
+    const W = 360;
+    const H = 640;
+    const ROAD_DEPTH = 34;
+    const GAME_ID = 'moto-balance';
+    const VERSION = '1.0.0';
+
+    const MODES = {
+      easy: {
+        label: 'EASY', color: 0x43d6a6, colorHex: '#43d6a6', accent: 0x9ef2d1,
+        maxSpeed: 4.45, driveForce: 0.0070, wheelTorque: 0.0023,
+        tiltTorque: 0.090, terrain: 0.55, crashImpact: 5.4, maxTilt: 1.42,
+        subtitle: 'Gentle crests · forgiving recovery'
+      },
+      medium: {
+        label: 'MEDIUM', color: 0xff9d48, colorHex: '#ff9d48', accent: 0xffd49e,
+        maxSpeed: 5.05, driveForce: 0.0085, wheelTorque: 0.0028,
+        tiltTorque: 0.120, terrain: 0.88, crashImpact: 4.6, maxTilt: 1.18,
+        subtitle: 'Fast terrain · sharp air control'
+      },
+      hard: {
+        label: 'HARD', color: 0xff5f79, colorHex: '#ff5f79', accent: 0xffb4bf,
+        maxSpeed: 5.7, driveForce: 0.0100, wheelTorque: 0.0033,
+        tiltTorque: 0.160, terrain: 1.23, crashImpact: 3.8, maxTilt: 0.99,
+        subtitle: 'Steep rollers · precise landings'
+      }
+    };
+
+    const Host = {
+      post(action, payload = {}) {
+        const message = JSON.stringify({ source: 'GameBridge', action, payload });
+        try { if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) window.flutter_inappwebview.callHandler('GameBridgeChannel', message); } catch (_) {}
+        try { if (window.FlutterGameBridge && window.FlutterGameBridge.postMessage) window.FlutterGameBridge.postMessage(message); } catch (_) {}
+        try { if (window.parent && window.parent !== window) window.parent.postMessage({ source: 'GameBridge', action, payload }, '*'); } catch (_) {}
+      },
+      haptic(type = 'light') {
+        this.post('haptic', { type });
+        try {
+          if (navigator.vibrate) navigator.vibrate(type === 'heavy' ? 36 : type === 'medium' ? 18 : 8);
+        } catch (_) {}
+      }
+    };
+
+    class AudioBed {
+      constructor() {
+        this.enabled = true;
+        this.ctx = null;
+        this.engineOsc = null;
+        this.engineGain = null;
+      }
+      unlock() {
+        if (!this.enabled || this.ctx) return;
+        try {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new Ctx();
+          this.engineOsc = this.ctx.createOscillator();
+          this.engineGain = this.ctx.createGain();
+          this.engineOsc.type = 'sawtooth';
+          this.engineOsc.frequency.value = 38;
+          this.engineGain.gain.value = 0;
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.value = 350;
+          this.engineOsc.connect(filter); filter.connect(this.engineGain); this.engineGain.connect(this.ctx.destination);
+          this.engineOsc.start();
+        } catch (_) { this.ctx = null; }
+      }
+      setEngine(speed, active) {
+        if (!this.ctx || !this.engineOsc || !this.engineGain || !this.enabled) return;
+        const now = this.ctx.currentTime;
+        this.engineOsc.frequency.setTargetAtTime(34 + Math.max(0, speed) * 19, now, 0.06);
+        this.engineGain.gain.setTargetAtTime(active ? Math.min(.075, .022 + speed * .010) : 0, now, .10);
+      }
+      beep(freq = 620, length = .06, type = 'sine', volume = .09) {
+        this.unlock();
+        if (!this.ctx || !this.enabled) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const now = this.ctx.currentTime;
+          osc.type = type; osc.frequency.setValueAtTime(freq, now);
+          gain.gain.setValueAtTime(volume, now); gain.gain.exponentialRampToValueAtTime(.001, now + length);
+          osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + length + .01);
+        } catch (_) {}
+      }
+      crash() {
+        this.unlock();
+        if (!this.ctx || !this.enabled) return;
+        try {
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(120, now); osc.frequency.exponentialRampToValueAtTime(31, now + .42);
+          gain.gain.setValueAtTime(.20, now); gain.gain.exponentialRampToValueAtTime(.001, now + .52);
+          osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + .54);
+        } catch (_) {}
+      }
+      setEnabled(value) {
+        this.enabled = Boolean(value);
+        if (!this.enabled && this.engineGain && this.ctx) this.engineGain.gain.setValueAtTime(0, this.ctx.currentTime);
+      }
+    }
+
+    function clamp(value, low, high) { return Math.max(low, Math.min(high, value)); }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function smoothstep(t) { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); }
+    function modulo(value, divisor) { return ((value % divisor) + divisor) % divisor; }
+    function normalizeAngle(angle) {
+      let a = angle;
+      while (a > Math.PI) a -= Math.PI * 2;
+      while (a < -Math.PI) a += Math.PI * 2;
+      return a;
+    }
+    function rotate(local, angle) {
+      const c = Math.cos(angle), s = Math.sin(angle);
+      return { x: local.x * c - local.y * s, y: local.x * s + local.y * c };
+    }
+    function add(a, b) { return { x: a.x + b.x, y: a.y + b.y }; }
+    function hex(color) { return '#' + color.toString(16).padStart(6, '0'); }
+
+    class BestScores {
+      constructor() { this.key = 'moto-balance-skyline-v1'; }
+      dateKey() {
+        const d = new Date();
+        return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+      }
+      weekKey() {
+        const d = new Date();
+        const utc = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+        const copy = new Date(utc);
+        const day = copy.getUTCDay() || 7;
+        copy.setUTCDate(copy.getUTCDate() + 4 - day);
+        const yearStart = new Date(Date.UTC(copy.getUTCFullYear(), 0, 1));
+        const week = Math.ceil((((copy - yearStart) / 86400000) + 1) / 7);
+        return copy.getUTCFullYear() + '-W' + String(week).padStart(2, '0');
+      }
+      read() {
+        let scores = { date: this.dateKey(), week: this.weekKey(), today: 0, weekly: 0, allTime: 0 };
+        try { scores = Object.assign(scores, JSON.parse(localStorage.getItem(this.key) || '{}')); } catch (_) {}
+        const date = this.dateKey(), week = this.weekKey();
+        if (scores.date !== date) { scores.date = date; scores.today = 0; }
+        if (scores.week !== week) { scores.week = week; scores.weekly = 0; }
+        return scores;
+      }
+      commit(score) {
+        const scores = this.read();
+        scores.today = Math.max(scores.today || 0, score);
+        scores.weekly = Math.max(scores.weekly || 0, score);
+        scores.allTime = Math.max(scores.allTime || 0, score);
+        try { localStorage.setItem(this.key, JSON.stringify(scores)); } catch (_) {}
+        return scores;
+      }
+    }
+
+    class MotoBalanceScene extends Phaser.Scene {
+      constructor() { super({ key: 'MotoBalanceScene' }); }
+
+      create() {
+        window.__MOTO_BALANCE_SCENE__ = this;
+        this.M = Phaser.Physics.Matter.Matter;
+        this.audio = new AudioBed();
+        this.bestScores = new BestScores();
+        this.g = this.add.graphics();
+        this.g.setDepth(2);
+        this.textPool = [];
+        this.textIndex = 0;
+        this.state = 'home';
+        this.modeKey = 'medium';
+        this.mode = MODES[this.modeKey];
+        this.pausedByHost = false;
+        this.pointerControls = new Map();
+        this.keyLeft = false; this.keyRight = false;
+        this.particles = [];
+        this.terrainBodies = [];
+        this.riderConstraints = [];
+        this.bikeConstraints = [];
+        this.cameraX = 0;
+        this.runStartX = 0;
+        this.score = 0;
+        this.finalScore = 0;
+        this.timeLeft = 60;
+        this.countdown = 0;
+        this.crashTimer = 0;
+        this.shake = 0;
+        this.lastWheelContactAt = -1000;
+        this.terrainNoise = 0;
+        this.handledEnd = false;
+
+        this.matter.world.engine.positionIterations = 9;
+        this.matter.world.engine.velocityIterations = 7;
+        this.matter.world.engine.constraintIterations = 4;
+        this.matter.world.engine.timing.timeScale = 1;
+        this.matter.world.setGravity(0, 1.08);
+        this.matter.world.on('collisionstart', this.onCollisionStart, this);
+        this.matter.world.on('collisionactive', this.onCollisionActive, this);
+
+        this.createBike();
+        this.installInput();
+        this.resetWorld();
+        this.matter.world.pause();
+        this.installHostBridge();
+        Host.post('ready', { gameId: GAME_ID, version: VERSION });
+      }
+
+      installHostBridge() {
+        const clearInputs = () => this.clearInputs();
+        window.GameBridge = {
+          pause: () => { this.pausedByHost = true; clearInputs(); this.matter.world.pause(); this.audio.setEngine(0, false); },
+          resume: () => { this.pausedByHost = false; if (this.state === 'playing' || this.state === 'countdown' || this.state === 'crashing') this.matter.world.resume(); },
+          restart: () => this.startSelectedMode(),
+          setSoundEnabled: (enabled) => this.audio.setEnabled(enabled)
+        };
+        window.addEventListener('blur', () => { this.pausedByHost = true; clearInputs(); this.matter.world.pause(); });
+        window.addEventListener('focus', () => { if (!document.hidden) { this.pausedByHost = false; if (this.state === 'playing' || this.state === 'countdown' || this.state === 'crashing') this.matter.world.resume(); } });
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) { this.pausedByHost = true; clearInputs(); this.matter.world.pause(); }
+          else if (window.__GAME_ACTIVE__ !== false) { this.pausedByHost = false; if (this.state === 'playing' || this.state === 'countdown' || this.state === 'crashing') this.matter.world.resume(); }
+        });
+      }
+
+      installInput() {
+        const canvas = this.game.canvas;
+        const point = (event) => {
+          const rect = canvas.getBoundingClientRect();
+          return { x: clamp((event.clientX - rect.left) * W / rect.width, 0, W), y: clamp((event.clientY - rect.top) * H / rect.height, 0, H) };
+        };
+        const down = (event) => {
+          event.preventDefault(); this.audio.unlock();
+          const p = point(event);
+          try { canvas.setPointerCapture(event.pointerId); } catch (_) {}
+          this.handlePress(event.pointerId, p.x, p.y);
+        };
+        const up = (event) => { this.pointerControls.delete(event.pointerId); this.refreshHeldButtons(); };
+        canvas.addEventListener('pointerdown', down, { passive: false });
+        canvas.addEventListener('pointerup', up, { passive: false });
+        canvas.addEventListener('pointercancel', up, { passive: false });
+        canvas.addEventListener('pointerleave', (event) => { if (event.buttons === 0) up(event); }, { passive: false });
+        window.addEventListener('pointerup', up, { passive: false });
+        window.addEventListener('pointercancel', up, { passive: false });
+        window.addEventListener('keydown', (event) => {
+          if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') { this.keyLeft = true; event.preventDefault(); }
+          if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') { this.keyRight = true; event.preventDefault(); }
+          if (event.key === ' ' || event.key === 'Enter') { if (this.state === 'home') this.startSelectedMode(); event.preventDefault(); }
+        });
+        window.addEventListener('keyup', (event) => {
+          if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') this.keyLeft = false;
+          if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') this.keyRight = false;
+        });
+      }
+
+      handlePress(pointerId, x, y) {
+        if (this.state === 'playing') {
+          if (x > 304 && y < 70) { this.goHome(); return; }
+          if (y >= 488) {
+            this.pointerControls.set(pointerId, x < W / 2 ? 'left' : 'right');
+            this.refreshHeldButtons();
+            return;
+          }
+          return;
+        }
+        if (this.state === 'countdown') {
+          if (x > 304 && y < 70) this.goHome();
+          return;
+        }
+        if (this.state === 'home') {
+          if (y >= 295 && y < 410) {
+            const selected = x < 120 ? 'easy' : x < 240 ? 'medium' : 'hard';
+            this.modeKey = selected; this.mode = MODES[selected]; this.audio.beep(440, .05, 'sine', .06); Host.haptic('light');
+            return;
+          }
+          if (y >= 446 && y <= 526) { this.startSelectedMode(); return; }
+        }
+        if (this.state === 'gameover') {
+          if (y >= 471 && y < 525) { this.startSelectedMode(); return; }
+          if (y >= 535 && y < 590) { this.goHome(); return; }
+        }
+      }
+
+      refreshHeldButtons() {
+        this.leftHeld = this.keyLeft || Array.from(this.pointerControls.values()).includes('left');
+        this.rightHeld = this.keyRight || Array.from(this.pointerControls.values()).includes('right');
+      }
+
+      clearInputs() { this.pointerControls.clear(); this.keyLeft = false; this.keyRight = false; this.leftHeld = false; this.rightHeld = false; }
+
+      createBike() {
+        const M = this.M;
+        this.bikeGroup = this.matter.world.nextGroup(true);
+        const group = this.bikeGroup;
+        const sameBike = { group };
+        this.chassis = M.Bodies.rectangle(132, 301, 108, 23, {
+          label: 'moto-chassis', density: 0.0024, frictionAir: 0.018, restitution: 0.04,
+          chamfer: { radius: 7 }, collisionFilter: sameBike
+        });
+        this.rearWheel = M.Bodies.circle(88, 340, 22, {
+          label: 'rear-wheel', density: 0.0026, friction: 0.98, frictionStatic: 1.6,
+          frictionAir: 0.006, restitution: 0.02, collisionFilter: sameBike
+        });
+        this.frontWheel = M.Bodies.circle(177, 340, 22, {
+          label: 'front-wheel', density: 0.0026, friction: 0.98, frictionStatic: 1.6,
+          frictionAir: 0.006, restitution: 0.02, collisionFilter: sameBike
+        });
+        [this.chassis, this.rearWheel, this.frontWheel].forEach((body) => { body.plugin.role = body.label; });
+        this.matter.world.add([this.chassis, this.rearWheel, this.frontWheel]);
+
+        // A bilateral distance joint can flip a wheel above its mounting point
+        // on a downhill. These are physical suspension forces instead: each wheel
+        // is kept on its local axle line by spring + damper forces applied to both
+        // bodies (at the chassis mount, which also produces real reaction torque).
+        this.bikeConstraints = [];
+
+        this.torso = M.Bodies.rectangle(124, 252, 27, 45, {
+          label: 'rider-torso', density: 0.0012, frictionAir: 0.028, chamfer: { radius: 10 }, collisionFilter: sameBike
+        });
+        this.head = M.Bodies.circle(111, 217, 15, { label: 'rider-head', density: 0.0011, frictionAir: 0.02, collisionFilter: sameBike });
+        this.rearKnee = M.Bodies.circle(102, 291, 10, { label: 'rider-rear-knee', density: 0.0010, frictionAir: 0.02, collisionFilter: sameBike });
+        this.frontKnee = M.Bodies.circle(148, 286, 10, { label: 'rider-front-knee', density: 0.0010, frictionAir: 0.02, collisionFilter: sameBike });
+        this.rearHand = M.Bodies.circle(166, 281, 7, { label: 'rider-rear-hand', density: 0.0008, frictionAir: 0.02, collisionFilter: sameBike });
+        this.frontHand = M.Bodies.circle(173, 282, 7, { label: 'rider-front-hand', density: 0.0008, frictionAir: 0.02, collisionFilter: sameBike });
+        this.riderBodies = [this.torso, this.head, this.rearKnee, this.frontKnee, this.rearHand, this.frontHand];
+        this.riderBodies.forEach((body) => { body.plugin.role = body.label; });
+        this.matter.world.add(this.riderBodies);
+        this.buildRiderConstraints();
+      }
+
+      buildRiderConstraints() {
+        if (this.riderConstraints.length) this.matter.world.remove(this.riderConstraints);
+        const c = (a, pointA, b, pointB, length, stiffness, damping) => this.makeConstraint(a, pointA, b, pointB, length, stiffness, damping);
+        this.riderConstraints = [
+          c(this.chassis, { x: -11, y: -10 }, this.torso, { x: 0, y: 17 }, 28, 0.54, 0.16),
+          c(this.chassis, { x: 6, y: -9 }, this.torso, { x: 0, y: 17 }, 31, 0.42, 0.15),
+          c(this.torso, { x: -5, y: -21 }, this.head, { x: 0, y: 10 }, 13, 0.48, 0.14),
+          c(this.torso, { x: -4, y: 17 }, this.rearKnee, { x: 0, y: 0 }, 29, 0.34, 0.14),
+          c(this.rearKnee, { x: 0, y: 0 }, this.chassis, { x: -37, y: 4 }, 25, 0.34, 0.12),
+          c(this.torso, { x: 8, y: 15 }, this.frontKnee, { x: 0, y: 0 }, 29, 0.34, 0.14),
+          c(this.frontKnee, { x: 0, y: 0 }, this.chassis, { x: 28, y: 3 }, 25, 0.34, 0.12),
+          c(this.torso, { x: 10, y: -12 }, this.rearHand, { x: 0, y: 0 }, 52, 0.30, 0.12),
+          c(this.rearHand, { x: 0, y: 0 }, this.chassis, { x: 48, y: -14 }, 18, 0.44, 0.15),
+          c(this.torso, { x: 11, y: -8 }, this.frontHand, { x: 0, y: 0 }, 53, 0.30, 0.12),
+          c(this.frontHand, { x: 0, y: 0 }, this.chassis, { x: 50, y: -15 }, 14, 0.46, 0.15)
+        ];
+        this.matter.world.add(this.riderConstraints);
+      }
+
+      makeConstraint(bodyA, pointA, bodyB, pointB, length, stiffness, damping) {
+        return this.M.Constraint.create({ bodyA, pointA, bodyB, pointB, length, stiffness, damping, render: { visible: false } });
+      }
+
+      terrainHeight(x) {
+        const start = 260;
+        if (x <= start) return 365;
+        const progress = x - start;
+        const blend = smoothstep(progress / 220);
+        const modeScale = this.mode ? this.mode.terrain : 0.88;
+        const rolling = 8.5 * Math.sin(progress * 0.017) + 4.2 * Math.sin(progress * 0.041 + .8) + 2.1 * Math.sin(progress * .083);
+        const sector = Math.floor(progress / 470);
+        const local = modulo(progress, 470) / 470;
+        const seed = Math.sin(sector * 91.73) * 43758.5453;
+        const r = seed - Math.floor(seed);
+        const crest = Math.sin(local * Math.PI);
+        const ramp = (r > .34 ? (10 + r * 15) * crest * crest : 0) * modeScale;
+        const drop = (r > .82 ? 6 * Math.sin(local * Math.PI * 2) : 0) * modeScale;
+        return 365 - blend * (rolling * modeScale + ramp + drop);
+      }
+
+      resetWorld() {
+        this.clearInputs();
+        for (const entry of this.terrainBodies) this.matter.world.remove(entry.body);
+        this.terrainBodies = [];
+        this.nextTerrainX = -480;
+        this.mode = MODES[this.modeKey];
+        const M = this.M;
+        const ground = this.terrainHeight(120);
+        const set = (body, x, y, angle = 0) => {
+          M.Body.setPosition(body, { x, y }); M.Body.setVelocity(body, { x: 0, y: 0 }); M.Body.setAngle(body, angle); M.Body.setAngularVelocity(body, 0); body.force.x = 0; body.force.y = 0; body.torque = 0;
+        };
+        set(this.rearWheel, 88, ground - 22);
+        set(this.frontWheel, 177, ground - 22);
+        set(this.chassis, 132, ground - 58);
+        set(this.torso, 122, ground - 111, -0.05);
+        set(this.head, 108, ground - 149);
+        set(this.rearKnee, 99, ground - 78);
+        set(this.frontKnee, 148, ground - 78);
+        set(this.rearHand, 166, ground - 84);
+        set(this.frontHand, 173, ground - 83);
+        this.buildRiderConstraints();
+        this.ensureTerrain(1100);
+        this.runStartX = this.chassis.position.x;
+        this.cameraX = this.chassis.position.x - 124;
+        this.timeLeft = 60; this.score = 0; this.finalScore = 0; this.crashTimer = 0; this.shake = 0; this.handledEnd = false;
+        this.lastWheelContactAt = -1000; this.particles = [];
+      }
+
+      ensureTerrain(targetX) {
+        const step = 54;
+        while (this.nextTerrainX < targetX) {
+          const x1 = this.nextTerrainX;
+          const x2 = x1 + step;
+          const y1 = this.terrainHeight(x1);
+          const y2 = this.terrainHeight(x2);
+          const angle = Math.atan2(y2 - y1, step);
+          const midY = (y1 + y2) / 2 + ROAD_DEPTH / 2;
+          const body = this.M.Bodies.rectangle((x1 + x2) / 2, midY, step + 2, ROAD_DEPTH, {
+            isStatic: true, label: 'terrain', friction: 1.0, frictionStatic: 1.8, restitution: 0.01,
+            angle, collisionFilter: { group: 0 }
+          });
+          body.plugin.role = 'terrain';
+          this.matter.world.add(body);
+          this.terrainBodies.push({ body, x2 });
+          this.nextTerrainX += step;
+        }
+      }
+
+      pruneTerrain() {
+        const cutoff = this.cameraX - 320;
+        while (this.terrainBodies.length && this.terrainBodies[0].x < cutoff) {
+          this.matter.world.remove(this.terrainBodies.shift().body);
+        }
+      }
+
+      startSelectedMode() {
+        this.audio.unlock();
+        this.matter.world.resume();
+        this.resetWorld();
+        this.state = 'countdown';
+        this.countdown = 2.5;
+        this.audio.beep(510, .08, 'triangle', .10);
+        Host.haptic('medium');
+      }
+
+      beginRun() {
+        this.state = 'playing';
+        this.timeLeft = 60;
+        this.runStartX = this.chassis.position.x;
+        this.audio.beep(760, .11, 'triangle', .11);
+        Host.post('gameStarted', { mode: this.mode.label });
+        Host.haptic('medium');
+      }
+
+      goHome() {
+        this.state = 'home';
+        this.resetWorld();
+        this.matter.world.pause();
+        this.audio.setEngine(0, false);
+      }
+
+      onCollisionStart(event) { this.inspectPairs(event.pairs, true); }
+      onCollisionActive(event) { this.inspectPairs(event.pairs, false); }
+      inspectPairs(pairs, started) {
+        if (this.state !== 'playing' && this.state !== 'crashing') return;
+        for (const pair of pairs) {
+          const a = pair.bodyA, b = pair.bodyB;
+          const body = a.plugin && a.plugin.role === 'terrain' ? b : b.plugin && b.plugin.role === 'terrain' ? a : null;
+          if (!body || !body.plugin) continue;
+          const role = body.plugin.role;
+          if (role === 'rear-wheel' || role === 'front-wheel') {
+            this.lastWheelContactAt = performance.now();
+            continue;
+          }
+          if (this.state !== 'playing') continue;
+          const impact = Math.hypot(body.velocity.x, body.velocity.y);
+          const tilted = Math.abs(normalizeAngle(this.chassis.angle)) > this.mode.maxTilt;
+          const headHit = role === 'rider-head' && (started || impact > 0.7);
+          const hardFrameHit = role === 'moto-chassis' && (impact > this.mode.crashImpact || tilted);
+          const limbHit = role.indexOf('rider-') === 0 && impact > this.mode.crashImpact + 1.4;
+          if (headHit || hardFrameHit || limbHit) this.finishRun('crash');
+        }
+      }
+
+      finishRun(reason) {
+        if (this.handledEnd || this.state === 'gameover') return;
+        this.handledEnd = true;
+        this.clearInputs();
+        this.finalScore = this.score;
+        this.audio.setEngine(0, false);
+        if (reason === 'crash') {
+          this.state = 'crashing'; this.crashTimer = 1.05; this.shake = 13;
+          if (this.riderConstraints.length) { this.matter.world.remove(this.riderConstraints); this.riderConstraints = []; }
+          this.M.Body.applyForce(this.torso, this.torso.position, { x: -.026, y: -.018 });
+          this.M.Body.setAngularVelocity(this.chassis, this.chassis.angularVelocity + (Math.random() > .5 ? .22 : -.22));
+          this.spawnImpact(this.chassis.position.x + 22, this.chassis.position.y + 15);
+          this.audio.crash(); Host.haptic('heavy');
+          return;
+        }
+        this.showGameOver(reason);
+      }
+
+      showGameOver(reason) {
+        if (this.state === 'gameover') return;
+        this.state = 'gameover';
+        this.matter.world.pause();
+        this.finalScore = this.score;
+        this.best = this.bestScores.commit(this.finalScore);
+        this.audio.beep(reason === 'time' ? 880 : 180, .20, reason === 'time' ? 'triangle' : 'sawtooth', .10);
+        Host.post('gameOver', { score: this.finalScore, timeSpentSeconds: Math.round(60 - this.timeLeft), stats: { mode: this.mode.label, distance: Math.round(Math.max(0, this.chassis.position.x - this.runStartX)), result: reason } });
+      }
+
+      spawnImpact(x, y) {
+        const colors = [0xfff5d1, 0xff9e3d, 0xff5d67, 0xffffff, 0x64d4ff];
+        for (let i = 0; i < 28; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const speed = 1.4 + Math.random() * 4.1;
+          this.particles.push({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed - 1.5, life: .35 + Math.random() * .55, max: .9, size: 2 + Math.random() * 5, color: colors[i % colors.length] });
+        }
+      }
+
+      applyRideForces(delta) {
+        const M = this.M;
+        const speed = this.chassis.velocity.x;
+        const targetFactor = clamp((this.mode.maxSpeed - speed) / this.mode.maxSpeed, 0, 1.2);
+        const groundRecent = performance.now() - this.lastWheelContactAt < 120;
+        const drive = this.mode.driveForce * (.24 + targetFactor * .76);
+        M.Body.applyForce(this.chassis, this.chassis.position, { x: drive, y: 0 });
+        this.rearWheel.torque -= this.mode.wheelTorque * (.65 + targetFactor);
+        this.frontWheel.torque -= this.mode.wheelTorque * .18;
+        if (speed > this.mode.maxSpeed) M.Body.applyForce(this.chassis, this.chassis.position, { x: -(speed - this.mode.maxSpeed) * .00135, y: 0 });
+        if (groundRecent) M.Body.applyForce(this.chassis, this.chassis.position, { x: 0, y: -0.00014 });
+        const dir = (this.leftHeld ? -1 : 0) + (this.rightHeld ? 1 : 0);
+        if (dir) {
+          this.chassis.torque += dir * this.mode.tiltTorque;
+          this.torso.torque += dir * this.mode.tiltTorque * .18;
+        }
+        const riderDrag = clamp(this.chassis.angularVelocity * -.0006, -.0015, .0015);
+        this.chassis.torque += riderDrag;
+      }
+
+      applySuspension() {
+        const M = this.M;
+        const mounts = [
+          { wheel: this.rearWheel, local: { x: -40, y: 10 } },
+          { wheel: this.frontWheel, local: { x: 42, y: 10 } }
+        ];
+        for (const mount of mounts) {
+          const offset = rotate(mount.local, this.chassis.angle);
+          const anchor = { x: this.chassis.position.x + offset.x, y: this.chassis.position.y + offset.y };
+          const down = rotate({ x: 0, y: 1 }, this.chassis.angle);
+          const right = rotate({ x: 1, y: 0 }, this.chassis.angle);
+          const delta = { x: mount.wheel.position.x - anchor.x, y: mount.wheel.position.y - anchor.y };
+          const distance = delta.x * down.x + delta.y * down.y;
+          const lateral = delta.x * right.x + delta.y * right.y;
+          const relativeV = { x: mount.wheel.velocity.x - this.chassis.velocity.x, y: mount.wheel.velocity.y - this.chassis.velocity.y };
+          const verticalV = relativeV.x * down.x + relativeV.y * down.y;
+          const lateralV = relativeV.x * right.x + relativeV.y * right.y;
+          const rest = 31;
+          const verticalForce = (rest - distance) * 0.0016 - verticalV * 0.00145;
+          const lateralForce = -lateral * 0.00075 - lateralV * 0.0008;
+          const force = { x: down.x * verticalForce + right.x * lateralForce, y: down.y * verticalForce + right.y * lateralForce };
+          M.Body.applyForce(mount.wheel, mount.wheel.position, force);
+          M.Body.applyForce(this.chassis, anchor, { x: -force.x, y: -force.y });
+        }
+      }
+
+      updateParticles(dt) {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i]; p.life -= dt; p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.vy += .12 * dt * 60;
+          if (p.life <= 0) this.particles.splice(i, 1);
+        }
+      }
+
+      update(time, rawDelta) {
+        const dt = Math.min(rawDelta, 50) / 1000;
+        this.refreshHeldButtons();
+        if (this.pausedByHost || window.__GAME_ACTIVE__ === false) { this.render(); return; }
+        if (this.state === 'countdown') {
+          this.applySuspension();
+          this.countdown -= dt;
+          if (this.countdown <= 0) this.beginRun();
+        } else if (this.state === 'playing') {
+          this.applySuspension();
+          this.applyRideForces(dt);
+          this.timeLeft = Math.max(0, this.timeLeft - dt);
+          this.score = Math.max(0, Math.floor((this.chassis.position.x - this.runStartX) / 500));
+          if (this.timeLeft <= 0) this.finishRun('time');
+          const wheelGrounded = performance.now() - this.lastWheelContactAt < 120;
+          if (wheelGrounded && Math.abs(normalizeAngle(this.chassis.angle)) > this.mode.maxTilt + .28 && Math.abs(this.chassis.angularVelocity) > .06) this.finishRun('crash');
+        } else if (this.state === 'crashing') {
+          this.crashTimer -= dt;
+          if (this.crashTimer <= 0) this.showGameOver('crash');
+        }
+        this.cameraX = lerp(this.cameraX, this.chassis.position.x - 124, clamp(dt * 6.5, 0, 1));
+        this.ensureTerrain(this.cameraX + W + 320);
+        this.pruneTerrain();
+        this.shake = Math.max(0, this.shake - dt * 22);
+        this.updateParticles(dt);
+        this.audio.setEngine(this.chassis.velocity.x, this.state === 'playing');
+        this.render();
+      }
+
+      sx(worldX) { return worldX - this.cameraX; }
+      drawPath(points, fill, stroke, width = 1) {
+        const g = this.g; if (!points.length) return;
+        g.beginPath(); g.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) g.lineTo(points[i].x, points[i].y);
+        g.closePath(); if (fill !== null) { g.fillStyle(fill, 1); g.fillPath(); }
+        if (stroke !== null && width > 0) { g.lineStyle(width, stroke, 1); g.strokePath(); }
+      }
+
+      renderSky(g) {
+        const bands = [0x4bc5f3, 0x55c9ee, 0x73d5eb, 0x9ce1ea, 0xc3edf0];
+        const bandH = 420 / bands.length;
+        bands.forEach((color, i) => { g.fillStyle(color, 1); g.fillRect(0, i * bandH, W, bandH + 1); });
+        g.fillStyle(0xfff3c3, .93); g.fillCircle(282, 100, 31);
+        g.fillStyle(0xffffff, .18); g.fillCircle(274, 92, 18);
+        const drawCloud = (x, y, s, alpha) => {
+          g.fillStyle(0xffffff, alpha); g.fillCircle(x, y, 16 * s); g.fillCircle(x + 19 * s, y - 8 * s, 23 * s); g.fillCircle(x + 44 * s, y, 18 * s); g.fillRoundedRect(x - 20 * s, y, 82 * s, 17 * s, 9 * s);
+        };
+        const c = modulo(-this.cameraX * .042, 470);
+        drawCloud(c - 100, 145, 1.1, .62); drawCloud(c + 200, 210, .66, .48); drawCloud(c + 470, 125, .84, .45);
+        this.drawMountainLayer(g, .10, 304, 82, 0x82bdd2, .44);
+        this.drawMountainLayer(g, .19, 344, 112, 0x5799b4, .58);
+        this.drawMountainLayer(g, .30, 372, 78, 0x327c91, .80);
+      }
+
+      drawMountainLayer(g, factor, base, height, color, alpha) {
+        const offset = modulo(-this.cameraX * factor, 180);
+        for (let x = -180 - offset; x < W + 180; x += 180) {
+          const peak = x + 90;
+          g.beginPath(); g.moveTo(x, base); g.lineTo(peak, base - height); g.lineTo(x + 180, base); g.closePath(); g.fillStyle(color, alpha); g.fillPath();
+          g.beginPath(); g.moveTo(peak, base - height); g.lineTo(peak + 30, base - height + 29); g.lineTo(peak + 60, base); g.closePath(); g.fillStyle(0xffffff, .09); g.fillPath();
+        }
+      }
+
+      renderWorld(g) {
+        const step = 5;
+        const top = [];
+        for (let x = -10; x <= W + 10; x += step) top.push({ x, y: this.terrainHeight(this.cameraX + x) });
+        g.beginPath(); g.moveTo(top[0].x, top[0].y);
+        for (let i = 1; i < top.length; i++) g.lineTo(top[i].x, top[i].y);
+        g.lineTo(W + 10, H); g.lineTo(-10, H); g.closePath(); g.fillStyle(0x17212a, 1); g.fillPath();
+        g.lineStyle(3, 0xe8edf1, 1); g.beginPath(); g.moveTo(top[0].x, top[0].y + 2);
+        for (let i = 1; i < top.length; i++) g.lineTo(top[i].x, top[i].y + 2); g.strokePath();
+        g.lineStyle(1.1, 0x0a1219, .95); g.beginPath(); g.moveTo(top[0].x, top[0].y + 9);
+        for (let i = 1; i < top.length; i++) g.lineTo(top[i].x, top[i].y + 9); g.strokePath();
+
+        const startWorld = Math.floor(this.cameraX / 72) * 72 - 72;
+        for (let wx = startWorld; wx < this.cameraX + W + 80; wx += 72) {
+          const x = this.sx(wx), y = this.terrainHeight(wx) + 24;
+          const y2 = this.terrainHeight(wx + 43) + 24;
+          g.lineStyle(4.4, 0xffca57, .98); g.lineBetween(x, y, this.sx(wx + 43), y2);
+        }
+        const railStart = Math.floor(this.cameraX / 52) * 52 - 52;
+        for (let wx = railStart; wx < this.cameraX + W + 70; wx += 52) {
+          const x = this.sx(wx), roadY = this.terrainHeight(wx);
+          g.lineStyle(3, 0x1d2830, .72); g.lineBetween(x, roadY - 32, x, roadY - 3);
+          g.lineStyle(2.5, 0xd6e5e8, .91); g.lineBetween(x - 4, roadY - 31, this.sx(wx + 52) - 4, this.terrainHeight(wx + 52) - 31);
+          g.lineStyle(1.2, 0x416274, .95); g.lineBetween(x - 4, roadY - 27, this.sx(wx + 52) - 4, this.terrainHeight(wx + 52) - 27);
+        }
+        const mistY = 402;
+        g.fillStyle(0x13394b, .35); g.fillRect(0, mistY, W, 28);
+      }
+
+      worldPoint(body) { return { x: this.sx(body.position.x), y: body.position.y }; }
+      localPoint(body, local) { const p = rotate(local, body.angle); return { x: this.sx(body.position.x + p.x), y: body.position.y + p.y }; }
+      drawPolygon(points, color, outline = 0x0b1620, line = 1.5, alpha = 1) { this.drawPath(points, color, outline, line); }
+
+      drawWheel(body, accent) {
+        const g = this.g, p = this.worldPoint(body), r = 22;
+        g.fillStyle(0x071118, .28); g.fillEllipse(p.x + 4, p.y + r - 1, r * 2.0, 7);
+        g.fillStyle(0x080d12, 1); g.fillCircle(p.x, p.y, r + 2);
+        g.lineStyle(1.5, 0x53616b, 1); g.strokeCircle(p.x, p.y, r - 2);
+        g.fillStyle(0x29343a, 1); g.fillCircle(p.x, p.y, r - 7);
+        g.fillStyle(0x101820, 1); g.fillCircle(p.x, p.y, 6);
+        g.fillStyle(accent, .95); g.fillCircle(p.x, p.y, 3);
+        g.lineStyle(1.2, 0xbfd1d4, .78);
+        for (let i = 0; i < 10; i++) {
+          const a = body.angle + i * Math.PI * .2;
+          g.lineBetween(p.x + Math.cos(a) * 5, p.y + Math.sin(a) * 5, p.x + Math.cos(a) * (r - 8), p.y + Math.sin(a) * (r - 8));
+        }
+      }
+
+      drawBike() {
+        const g = this.g, ch = this.chassis;
+        const rear = this.worldPoint(this.rearWheel), front = this.worldPoint(this.frontWheel);
+        const rearAnchor = this.localPoint(ch, { x: -40, y: 10 });
+        const frontAnchor = this.localPoint(ch, { x: 42, y: 10 });
+        g.lineStyle(5.2, 0x111a22, 1); g.lineBetween(rearAnchor.x, rearAnchor.y, rear.x, rear.y); g.lineBetween(frontAnchor.x, frontAnchor.y, front.x, front.y);
+        g.lineStyle(2, 0x9cbdc5, .9); g.lineBetween(rearAnchor.x, rearAnchor.y, rear.x, rear.y); g.lineBetween(frontAnchor.x, frontAnchor.y, front.x, front.y);
+        this.drawWheel(this.rearWheel, 0xffaa49); this.drawWheel(this.frontWheel, 0xffaa49);
+        const poly = [{x:-55,y:5},{x:-44,y:-9},{x:-17,y:-14},{x:7,y:-20},{x:38,y:-13},{x:57,y:-2},{x:47,y:7},{x:14,y:9},{x:-5,y:18},{x:-32,y:15}].map((p) => this.localPoint(ch, p));
+        this.drawPolygon(poly, 0x16a9bc, 0x07131c, 2.4);
+        const fairing = [{x:-7,y:-15},{x:17,y:-19},{x:43,y:-11},{x:26,y:-4},{x:3,y:-6}].map((p) => this.localPoint(ch, p));
+        this.drawPolygon(fairing, 0xff7755, 0x07131c, 1.6);
+        const tank = [{x:-21,y:-13},{x:3,y:-20},{x:15,y:-6},{x:-6,y:0}].map((p) => this.localPoint(ch, p));
+        this.drawPolygon(tank, 0x63dce7, 0x0b1b23, 1.3);
+        const light = this.localPoint(ch, { x: 49, y: -4 }); g.fillStyle(0xfff1bd, 1); g.fillCircle(light.x, light.y, 3.6);
+        const exhaustA = this.localPoint(ch, { x: -37, y: 12 }), exhaustB = this.localPoint(ch, { x: -55, y: 17 }); g.lineStyle(5, 0x4b5961, 1); g.lineBetween(exhaustA.x, exhaustA.y, exhaustB.x, exhaustB.y);
+        this.drawRider();
+      }
+
+      drawRider() {
+        const g = this.g;
+        const torso = this.worldPoint(this.torso), head = this.worldPoint(this.head), rearKnee = this.worldPoint(this.rearKnee), frontKnee = this.worldPoint(this.frontKnee), rearHand = this.worldPoint(this.rearHand), frontHand = this.worldPoint(this.frontHand);
+        const hip = this.localPoint(this.torso, { x: -2, y: 17 }), shoulder = this.localPoint(this.torso, { x: 6, y: -16 });
+        const pegRear = this.localPoint(this.chassis, { x: -17, y: 12 }), pegFront = this.localPoint(this.chassis, { x: 26, y: 8 });
+        g.lineStyle(10, 0x151b22, 1); g.lineBetween(hip.x, hip.y, rearKnee.x, rearKnee.y); g.lineBetween(rearKnee.x, rearKnee.y, pegRear.x, pegRear.y); g.lineBetween(hip.x + 5, hip.y, frontKnee.x, frontKnee.y); g.lineBetween(frontKnee.x, frontKnee.y, pegFront.x, pegFront.y);
+        g.lineStyle(6.2, 0x445461, 1); g.lineBetween(hip.x, hip.y, rearKnee.x, rearKnee.y); g.lineBetween(rearKnee.x, rearKnee.y, pegRear.x, pegRear.y); g.lineBetween(hip.x + 5, hip.y, frontKnee.x, frontKnee.y); g.lineBetween(frontKnee.x, frontKnee.y, pegFront.x, pegFront.y);
+        g.lineStyle(7.5, 0xf4a369, 1); g.lineBetween(shoulder.x, shoulder.y, rearHand.x, rearHand.y); g.lineBetween(shoulder.x + 2, shoulder.y + 3, frontHand.x, frontHand.y);
+        g.lineStyle(4.5, 0x2a3a43, 1); g.lineBetween(shoulder.x, shoulder.y, rearHand.x, rearHand.y); g.lineBetween(shoulder.x + 2, shoulder.y + 3, frontHand.x, frontHand.y);
+        const bodyPoly = [{x:-12,y:19},{x:-15,y:-13},{x:-6,y:-24},{x:12,y:-16},{x:14,y:13},{x:5,y:23}].map((p) => this.localPoint(this.torso, p));
+        this.drawPolygon(bodyPoly, 0x1f323b, 0x07131c, 1.7);
+        const jacket = [{x:-10,y:-12},{x:5,y:-20},{x:11,y:5},{x:-8,y:11}].map((p) => this.localPoint(this.torso, p)); this.drawPolygon(jacket, 0x2fc7d7, 0x0b1b23, 1);
+        g.fillStyle(0x0c171e, 1); g.fillCircle(head.x, head.y, 16); g.fillStyle(0x19b9c8, 1); g.fillCircle(head.x - 1, head.y - 1, 13.5);
+        g.fillStyle(0x07131c, 1); g.fillRoundedRect(head.x - 1, head.y - 5, 15, 10, 4); g.lineStyle(1.5, 0xffa550, 1); g.lineBetween(head.x + 1, head.y + 8, head.x + 10, head.y + 11);
+      }
+
+      renderParticles(g) {
+        for (const p of this.particles) {
+          const a = clamp(p.life / p.max, 0, 1); g.fillStyle(p.color, a); g.fillCircle(this.sx(p.x), p.y, p.size * a);
+        }
+      }
+
+      fillText(text, x, y, size, color, weight = '800', align = 'center') {
+        let t = this.textPool[this.textIndex++];
+        if (!t) {
+          t = this.add.text(0, 0, '', { fontFamily: 'Arial, sans-serif', fontSize: size + 'px', fontStyle: weight, color: hex(color), align });
+          this.textPool.push(t);
+        }
+        t.setText(text); t.setPosition(x, y); t.setFontSize(size + 'px'); t.setFontStyle(weight); t.setColor(hex(color)); t.setAlign(align); t.setVisible(true);
+        t.setOrigin(align === 'center' ? .5 : align === 'right' ? 1 : 0, .5); t.setDepth(8); return t;
+      }
+
+      renderHud(g) {
+        const time = String(Math.max(0, Math.ceil(this.timeLeft))).padStart(2, '0');
+        g.fillStyle(0x071827, .35); g.fillCircle(180, 50, 31); g.lineStyle(1.4, 0xffffff, .36); g.strokeCircle(180, 50, 31);
+        this.fillText(time, 180, 52, 31, 0xffffff, '900');
+        this.fillText('SECONDS', 180, 78, 8, 0xe3f5f7, '700');
+        g.fillStyle(0x09121c, .82); g.fillRoundedRect(269, 159, 78, 44, 20); g.lineStyle(1.5, this.mode.color, .9); g.strokeRoundedRect(269, 159, 78, 44, 20);
+        this.fillText(String(this.score), 309, 179, 22, 0xffffff, '900'); this.fillText('DIST', 309, 196, 7, this.mode.accent, '800');
+        g.fillStyle(0xffffff, .92); g.fillCircle(329, 40, 17); g.lineStyle(3, 0x698896, .9); g.lineBetween(323, 34, 335, 46); g.lineBetween(335, 34, 323, 46);
+        g.fillStyle(0x08212c, .66); g.fillRoundedRect(14, 125, 104, 24, 12); this.fillText(this.mode.label + ' MODE', 66, 137, 9, this.mode.accent, '900');
+      }
+
+      renderControls(g) {
+        const y = 492, h = 140, gap = 14, w = (W - gap * 3) / 2;
+        const buttons = [{ left: true, x: gap, held: this.leftHeld }, { left: false, x: gap * 2 + w, held: this.rightHeld }];
+        for (const button of buttons) {
+          const color = button.left ? 0x1aaec5 : 0xff765b;
+          const alpha = button.held ? 1 : .82;
+          g.fillStyle(0x071827, .66); g.fillRoundedRect(button.x, y, w, h, 24);
+          g.lineStyle(button.held ? 3 : 1.5, color, button.held ? 1 : .7); g.strokeRoundedRect(button.x, y, w, h, 24);
+          const cx = button.x + w / 2, cy = y + 69;
+          if (button.held) { g.fillStyle(color, .23); g.fillCircle(cx, cy, 49); }
+          g.fillStyle(color, alpha); g.fillCircle(cx, cy, 38); g.lineStyle(2.5, 0xffffff, .72); g.strokeCircle(cx, cy, 38);
+          g.fillStyle(0xffffff, 1); const s = button.left ? 1 : -1;
+          g.beginPath(); g.moveTo(cx + s * 12, cy - 17); g.lineTo(cx - s * 14, cy); g.lineTo(cx + s * 12, cy + 17); g.closePath(); g.fillPath();
+          this.fillText(button.left ? 'TILT BACK' : 'TILT FORWARD', cx, y + 118, 8, button.held ? 0xffffff : 0xb9d7df, '800');
+        }
+      }
+
+      renderHome(g) {
+        g.fillStyle(0x061724, .46); g.fillRect(0, 0, W, H);
+        g.fillStyle(0x06131c, .64); g.fillRoundedRect(19, 66, 322, 497, 28); g.lineStyle(1.5, 0x92e8f1, .42); g.strokeRoundedRect(19, 66, 322, 497, 28);
+        g.fillStyle(0x19c9d4, .18); g.fillCircle(65, 105, 48); g.fillStyle(0xff9d48, .17); g.fillCircle(302, 170, 64);
+        this.fillText('MOTO', 180, 127, 34, 0xffffff, '900'); this.fillText('BALANCE', 180, 163, 34, 0x72e2ee, '900');
+        this.fillText('SKYLINE RUN', 180, 193, 11, 0xffc35c, '900');
+        this.fillText('60 seconds. One connected machine.', 180, 228, 12, 0xd8eef0, '700');
+        this.fillText('Hold the arrows to balance real momentum.', 180, 246, 10, 0x8eb7c0, '600');
+        this.fillText('CHOOSE YOUR RIDE', 180, 281, 10, 0x9dc8d1, '900');
+        const keys = ['easy', 'medium', 'hard'];
+        keys.forEach((key, i) => {
+          const mode = MODES[key], x = 25 + i * 106, selected = this.modeKey === key;
+          g.fillStyle(selected ? mode.color : 0x0c2532, selected ? .92 : .84); g.fillRoundedRect(x, 299, 98, 95, 17);
+          g.lineStyle(selected ? 2.7 : 1.1, selected ? 0xffffff : 0x4c7b89, selected ? .9 : .55); g.strokeRoundedRect(x, 299, 98, 95, 17);
+          this.fillText(mode.label, x + 49, 325, 12, selected ? 0xffffff : mode.accent, '900');
+          this.fillText(i === 0 ? 'CALM' : i === 1 ? 'TRUE' : 'WILD', x + 49, 347, 8, selected ? 0xffffff : 0xa7c8d0, '800');
+          for (let bar = 0; bar < 3; bar++) { g.fillStyle(bar <= i ? mode.color : 0x2b4751, .95); g.fillRoundedRect(x + 25 + bar * 17, 367, 12, 5, 3); }
+        });
+        const selectedMode = this.mode;
+        this.fillText(selectedMode.subtitle, 180, 419, 10, selectedMode.accent, '700');
+        g.fillStyle(selectedMode.color, 1); g.fillRoundedRect(39, 453, 282, 65, 20); g.lineStyle(2, 0xffffff, .58); g.strokeRoundedRect(39, 453, 282, 65, 20);
+        this.fillText('START RUN  ▶', 180, 480, 19, 0xffffff, '900'); this.fillText('REAL PHYSICS · 60 SECONDS', 180, 503, 8, 0xefffff, '800');
+        this.fillText('Ride centered while the mountain comes to you.', 180, 542, 9, 0x9bbbc4, '600');
+      }
+
+      renderCountdown(g) {
+        g.fillStyle(0x06121d, .28); g.fillRect(0, 0, W, H);
+        const value = this.countdown > 1.6 ? '3' : this.countdown > .8 ? '2' : this.countdown > .15 ? '1' : 'GO!';
+        g.fillStyle(0x061827, .76); g.fillCircle(180, 242, 66); g.lineStyle(3, this.mode.color, 1); g.strokeCircle(180, 242, 66);
+        this.fillText(value, 180, 245, value === 'GO!' ? 34 : 64, 0xffffff, '900'); this.fillText(this.mode.label + ' MODE', 180, 323, 12, this.mode.accent, '900');
+      }
+
+      renderGameOver(g) {
+        g.fillStyle(0x03101a, .69); g.fillRect(0, 0, W, H);
+        const best = this.best || this.bestScores.read();
+        g.fillStyle(0x071d2a, .97); g.fillRoundedRect(25, 116, 310, 458, 27); g.lineStyle(2, this.mode.color, .9); g.strokeRoundedRect(25, 116, 310, 458, 27);
+        this.fillText(this.finalScore >= best.allTime && this.finalScore > 0 ? 'NEW SKYLINE BEST' : 'RUN COMPLETE', 180, 153, 12, this.mode.accent, '900');
+        this.fillText('GAME OVER', 180, 188, 29, 0xffffff, '900');
+        g.fillStyle(this.mode.color, .18); g.fillCircle(180, 259, 55); g.lineStyle(2, this.mode.color, .8); g.strokeCircle(180, 259, 55);
+        this.fillText(String(this.finalScore), 180, 253, 42, 0xffffff, '900'); this.fillText('DISTANCE', 180, 288, 9, this.mode.accent, '900');
+        this.fillText(this.mode.label + ' MODE', 180, 322, 10, 0xd2ebef, '800');
+        const rows = [['TODAY’S BEST', best.today], ['THIS WEEK', best.weekly], ['ALL-TIME BEST', best.allTime]];
+        rows.forEach((row, i) => {
+          const y = 360 + i * 38; g.fillStyle(0x0e2a38, .82); g.fillRoundedRect(47, y - 15, 266, 30, 10);
+          this.fillText(row[0], 65, y, 9, 0xa8c6cf, '800', 'left'); this.fillText(String(row[1]), 294, y, 15, 0xffffff, '900', 'right');
+        });
+        g.fillStyle(this.mode.color, 1); g.fillRoundedRect(48, 471, 264, 53, 17); this.fillText('RIDE AGAIN  ▶', 180, 497, 16, 0xffffff, '900');
+        g.fillStyle(0x153747, 1); g.fillRoundedRect(48, 535, 264, 39, 15); this.fillText('CHANGE MODE', 180, 555, 12, 0xd9eef1, '900');
+      }
+
+      render() {
+        this.g.clear(); this.textIndex = 0;
+        const g = this.g;
+        const shakeX = this.shake ? (Math.random() - .5) * this.shake : 0;
+        if (shakeX) g.x = shakeX; else g.x = 0;
+        this.renderSky(g); this.renderWorld(g); this.drawBike(); this.renderParticles(g);
+        if (this.state === 'playing' || this.state === 'countdown' || this.state === 'crashing') { this.renderHud(g); this.renderControls(g); }
+        if (this.state === 'home') this.renderHome(g);
+        if (this.state === 'countdown') this.renderCountdown(g);
+        if (this.state === 'gameover') this.renderGameOver(g);
+        if (this.pausedByHost && (this.state === 'playing' || this.state === 'countdown')) { g.fillStyle(0x03101a, .55); g.fillRect(0, 0, W, H); this.fillText('PAUSED', 180, 316, 24, 0xffffff, '900'); }
+        if (shakeX) g.x = 0;
+        for (let i = this.textIndex; i < this.textPool.length; i++) this.textPool[i].setVisible(false);
+      }
+    }
+
+    const nativeHost = Boolean(window.NativeBridge || window.FlutterGameBridge || window.flutter_inappwebview);
+    if (nativeHost) document.documentElement.classList.add('native-host');
+    if (!window.Phaser) {
+      document.getElementById('game-root').innerHTML = '<div style="color:#fff;padding:24px;text-align:center">Unable to load the game engine. Please reconnect and try again.</div>';
+      return;
+    }
+    window.__MOTO_BALANCE_GAME__ = new Phaser.Game({
+      type: Phaser.CANVAS,
+      parent: 'game-root',
+      width: W,
+      height: H,
+      transparent: false,
+      backgroundColor: '#55c9ee',
+      banner: false,
+      render: { antialias: true, pixelArt: false, roundPixels: false },
+      physics: { default: 'matter', matter: { gravity: { y: 1.08 }, enableSleeping: false, debug: false } },
+      scene: [MotoBalanceScene]
+    });
+  })();
+  </script>
+</body>
+</html>
