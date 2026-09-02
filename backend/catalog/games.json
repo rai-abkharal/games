@@ -1,6 +1,6 @@
 {
   "version": 29,
-  "updatedAt": "2026-09-02T07:26:14.840Z",
+  "updatedAt": "2026-09-02T07:56:34.306Z",
   "games": [
     {
       "id": "color-connect",
@@ -467,17 +467,17 @@
     {
       "id": "moto-balance",
       "title": "Moto Balance: Skyline Run",
-      "version": "1.0.3",
-      "entryUrl": "http://localhost:8080/games/moto-balance/1.0.3/index.html",
+      "version": "1.0.5",
+      "entryUrl": "http://localhost:8080/games/moto-balance/1.0.5/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/moto-balance.webp",
-      "sizeBytes": 3122272,
+      "sizeBytes": 4318283,
       "orientation": "portrait",
       "engine": "phaser-matter",
-      "manifestUrl": "http://localhost:8080/games/moto-balance/1.0.3/manifest.json",
+      "manifestUrl": "http://localhost:8080/games/moto-balance/1.0.5/manifest.json",
       "feedOrder": 26,
       "category": "Arcade",
       "description": "A physics-driven 2D motorcycle balance challenge with an authentic rider-and-tyre sprite rig, progressive acceleration, and a smooth mountain highway.",
-      "sha256": "b76dd5b4825e269da7554e2839e6bdb095554ca3fc127bfe84b74d3cdea7ad03",
+      "sha256": "3bda59c7eb3e3cc10f162451206b97387eef1437597e04c581f2e163e80e47c8",
       "status": "published",
       "touchZones": [
         {

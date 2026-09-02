@@ -41,8 +41,12 @@ async function buildAll() {
       // Preserve game-local runtime art in the versioned package so relative
       // asset URLs keep working after deployment.
       const sourceAssets = path.join(gameDir, 'assets');
+      const distAssets = path.join(distDir, 'assets');
+      if (fs.existsSync(distAssets)) {
+        fs.rmSync(distAssets, { recursive: true, force: true });
+      }
       if (fs.existsSync(sourceAssets)) {
-        fs.cpSync(sourceAssets, path.join(distDir, 'assets'), { recursive: true });
+        fs.cpSync(sourceAssets, distAssets, { recursive: true });
       }
 
       const packageBytes = listFilesRecursive(distDir)
