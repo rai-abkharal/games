@@ -43,11 +43,12 @@
       return;
     }
 
-    // High Definition 720x1280 Native Resolution
+    // High Definition 720x1280 Native Resolution with Device Pixel Ratio Scaling
     const W = 720;
     const H = 1280;
+    const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
     const GAME_ID = 'moto-balance';
-    const VERSION = '2.3.0';
+    const VERSION = '2.4.0';
 
     // 280px High-Res Bike Size (scaled from 1254x1254 bike.png)
     const BIKE_DISPLAY_SIZE = 280;
@@ -147,7 +148,7 @@
     function hex(color) { return '#' + color.toString(16).padStart(6, '0'); }
 
     class BestScores {
-      constructor() { this.key = 'moto-wheelie-run-hd-v3'; }
+      constructor() { this.key = 'moto-wheelie-run-hd-v4'; }
       read() {
         let scores = { allTime: 0, maxWheelie: 0 };
         try { scores = Object.assign(scores, JSON.parse(localStorage.getItem(this.key) || '{}')); } catch (_) {}
@@ -166,7 +167,6 @@
       constructor() { super({ key: 'MotoBalanceScene' }); }
 
       preload() {
-        // Fast instant load: only 3 lightweight optimized assets
         this.load.image('moto-bike-body', 'assets/bike.png');
         this.load.image('moto-tyre', 'assets/tyre.png');
         this.load.image('moto-mountains', 'assets/mountains.png');
@@ -178,7 +178,7 @@
         this.skyG = this.add.graphics();
         this.skyG.setDepth(0);
 
-        // Natural snow-capped blue mountains cropped from the spritesheet
+        // Natural snow-capped blue mountains cropped from spritesheet
         if (this.textures.exists('moto-mountains')) {
           this.textures.get('moto-mountains').setFilter(Phaser.Textures.FilterMode.LINEAR);
           const mountainH = 143 * 1.35;
@@ -233,13 +233,6 @@
         this.crashSpin = 0;
 
         this.cameraX = 0;
-
-        // Stylized clouds
-        this.clouds = [
-          { x: 180, y: 280, scale: 1.1, speed: 0.15 },
-          { x: 520, y: 240, scale: 0.9, speed: 0.22 },
-          { x: 860, y: 260, scale: 1.3, speed: 0.18 }
-        ];
 
         this.createBikeVisuals();
         this.installInput();
@@ -484,10 +477,8 @@
         if (this.rightHeld) {
           this.speed = Math.min(17.5, this.speed + 12.5 * dt);
         } else if (this.leftHeld) {
-          // Brake firmly to a stop (STRICTLY NEVER REVERSES!)
           this.speed = Math.max(0, this.speed - 22.0 * dt);
         } else {
-          // Gentle natural coasting
           this.speed = Math.max(0, this.speed - 3.4 * dt);
         }
 
@@ -500,10 +491,8 @@
           const liftPower = 8.5;
           this.wheelieAngleVelocity += liftPower * dt;
         } else if (this.leftHeld) {
-          // Tapping brake snaps front wheel down rapidly
           this.wheelieAngleVelocity -= 12.0 * dt;
         } else {
-          // Releasing throttle allows gravity to bring front wheel down smoothly
           this.wheelieAngleVelocity -= 5.5 * dt;
         }
 
@@ -549,7 +538,6 @@
           }
         } else {
           if (this.wheelieActive) {
-            // Front wheel landed smoothly
             if (this.wheelieTime >= 0.7) {
               const landingBonus = Math.round(this.wheelieTime * 80 * this.wheelieCombo);
               this.score += landingBonus;
@@ -616,12 +604,6 @@
           this.mountainTile.tilePositionX = this.cameraX * 0.12;
         }
 
-        // Update clouds position
-        for (const c of this.clouds) {
-          c.x += c.speed * (this.speed * 0.3 + 1.0);
-          if (c.x > W + 220) c.x = -220;
-        }
-
         this.updateParticles(dt);
         this.audio.setEngine(this.speed, this.rightHeld, this.wheelieActive);
         this.render();
@@ -652,41 +634,19 @@
       }
 
       renderSky(g) {
-        // Bright Crisp Daytime Sky Blue (Matching Reference Screenshot!)
+        // Pure solid clean daytime sky blue (NO bands, NO shades above mountains!)
         g.fillStyle(0x42b4ec, 1);
         g.fillRect(0, 0, W, ROAD_SURFACE_Y);
 
-        // Soft Horizontal Atmospheric Bands in Sky (from Reference Image)
-        g.fillStyle(0x5fc4f3, 0.55);
-        g.fillRect(0, 360, W, 140);
-        g.fillStyle(0x8fe0fa, 0.45);
-        g.fillRect(0, 500, W, 140);
-        g.fillStyle(0xbbeffa, 0.35);
-        g.fillRect(0, 640, W, 80);
-
-        // Pale Cream Sun in Top-Right (Matching Reference Screenshot!)
+        // Pale Cream Sun in Top-Right
         g.fillStyle(0xfef08a, 0.95);
         g.fillCircle(580, 180, 62);
         g.fillStyle(0xfffbeb, 0.35);
         g.fillCircle(580, 180, 80);
-
-        // Cute Translucent Cloud Puffs
-        for (const c of this.clouds) {
-          this.drawReferenceCloud(g, c.x, c.y, c.scale);
-        }
-      }
-
-      drawReferenceCloud(g, cx, cy, scale) {
-        g.fillStyle(0xffffff, 0.55);
-        const r = 32 * scale;
-        g.fillCircle(cx, cy, r);
-        g.fillCircle(cx + 26 * scale, cy - 8 * scale, r * 1.2);
-        g.fillCircle(cx + 56 * scale, cy, r * 0.9);
       }
 
       renderWorld(g) {
         // 1. Guardrail Behind Bike (Matching Reference Screenshot!)
-        // Horizontal Rail Line
         g.fillStyle(0x7397af, 0.90);
         g.fillRect(0, 672, W, 4);
 
@@ -699,15 +659,15 @@
           g.fillRect(sx, 672, 6, 48);
         }
 
-        // 2. Road Top White Line (Clean crisp border)
+        // 2. Road Top White Line
         g.fillStyle(0xf8fafc, 1);
         g.fillRect(0, ROAD_SURFACE_Y, W, 6);
 
-        // 3. Dark Asphalt Road Strip (Matching Reference Screenshot!)
+        // 3. Dark Asphalt Road Strip
         g.fillStyle(0x1a2430, 1);
         g.fillRect(0, ROAD_SURFACE_Y + 6, W, 104);
 
-        // 4. Golden Yellow Center Dashes (Matching Reference Screenshot!)
+        // 4. Golden Yellow Center Dashes
         const dashSpan = 100;
         const dashStart = Math.floor(this.cameraX / dashSpan) * dashSpan - dashSpan;
         for (let wx = dashStart; wx < this.cameraX + W + 120; wx += dashSpan) {
@@ -716,7 +676,7 @@
           g.fillRect(sx, ROAD_SURFACE_Y + 54, 55, 9);
         }
 
-        // 5. Solid Deep Dark Dashboard Below Road (Matching Reference Screenshot!)
+        // 5. Solid Deep Dark Dashboard Below Road
         g.fillStyle(0x0e1722, 1);
         g.fillRect(0, ROAD_SURFACE_Y + 110, W, H - (ROAD_SURFACE_Y + 110));
       }
@@ -739,7 +699,8 @@
             fontSize: size + 'px',
             fontStyle: weight,
             color: hex(color),
-            align
+            align,
+            resolution: DPR
           });
           this.textPool.push(t);
         }
@@ -748,70 +709,72 @@
       }
 
       renderHud(g) {
-        // 1. Center-Left Timer Badge (Top Header Bar)
+        // Symmetrical, Identical-Sized Pill Cards for Timer and Score!
+        const pillW = 240;
+        const pillH = 76;
+        const pillRadius = 24;
+        const pillY = 40;
+
+        // 1. LEFT PILL: SECONDS / TIMER (Width: 240, Height: 76, X: 75)
+        const leftX = 75;
         const timeSec = Math.max(0, Math.ceil(this.timeLeft));
-        const timerBg = timeSec <= 10 ? 0xf43f5e : 0x0284c7;
-        const timerBorder = timeSec <= 10 ? 0xf43f5e : 0x38bdf8;
+        const timerBg = timeSec <= 10 ? 0x2e0811 : 0x0c1e2d;
+        const timerBorder = timeSec <= 10 ? 0xf43f5e : 0x06b6d4;
 
-        g.fillStyle(timerBg, 0.90);
-        g.fillCircle(240, 80, 52);
-        g.lineStyle(3.5, timerBorder, 0.95);
-        g.strokeCircle(240, 80, 52);
+        g.fillStyle(timerBg, 0.95);
+        g.fillRoundedRect(leftX, pillY, pillW, pillH, pillRadius);
+        g.lineStyle(3.5, timerBorder, 1);
+        g.strokeRoundedRect(leftX, pillY, pillW, pillH, pillRadius);
 
-        this.fillText(String(timeSec), 240, 68, 44, 0xffffff, '900');
-        this.fillText('SECONDS', 240, 102, 12, 0xbfeaff, '900');
+        const leftCenter = leftX + pillW / 2;
+        this.fillText(String(timeSec), leftCenter, pillY + 28, 38, 0xffffff, '900');
+        this.fillText('SECONDS', leftCenter, pillY + 58, 12, timerBorder, '900');
 
-        // 2. Score Badge UP WITH THE TIMER (Top Header Bar alongside timer!)
-        g.fillStyle(0x13212d, 0.95);
-        g.fillRoundedRect(420, 48, 220, 64, 22);
-        g.lineStyle(3, 0xe05638, 1);
-        g.strokeRoundedRect(420, 48, 220, 64, 22);
+        // 2. RIGHT PILL: SCORE (Width: 240, Height: 76, X: 405) - EXACT EQUAL SIZE!
+        const rightX = 405;
+        g.fillStyle(0x1a1622, 0.95);
+        g.fillRoundedRect(rightX, pillY, pillW, pillH, pillRadius);
+        g.lineStyle(3.5, 0xe05638, 1);
+        g.strokeRoundedRect(rightX, pillY, pillW, pillH, pillRadius);
 
-        this.fillText(String(this.score), 530, 72, 34, 0xffffff, '900');
-        this.fillText('★ SCORE', 530, 96, 12, 0xf59e0b, '900');
-
-        // NOTE: The intrusive floating Wheelie X card was completely removed as requested!
+        const rightCenter = rightX + pillW / 2;
+        this.fillText(String(this.score), rightCenter, pillY + 28, 38, 0xffffff, '900');
+        this.fillText('★ SCORE', rightCenter, pillY + 58, 12, 0xf59e0b, '900');
       }
 
       renderControls(g) {
-        // EXACT Button Layout from Reference Screenshot!
+        // Button cards matching reference screenshot
         const cardY = 930;
         const cardH = 200;
         const cardW = 275;
         const leftCardX = 55;
         const rightCardX = 390;
 
-        // 1. LEFT BUTTON CARD (Cyan/Blue Theme)
+        // 1. LEFT BUTTON CARD (Cyan)
         g.fillStyle(0x0c1722, 0.95);
         g.fillRoundedRect(leftCardX, cardY, cardW, cardH, 36);
         g.lineStyle(this.leftHeld ? 5 : 3.5, 0x06b6d4, 1);
         g.strokeRoundedRect(leftCardX, cardY, cardW, cardH, 36);
 
-        // Circular Button Inside Left Card
         const leftCenterX = leftCardX + cardW / 2;
         const centerY = cardY + cardH / 2;
         g.fillStyle(this.leftHeld ? 0x0284c7 : 0x0891b2, 1);
         g.fillCircle(leftCenterX, centerY, 56);
         g.lineStyle(2.5, 0xffffff, 0.6);
         g.strokeCircle(leftCenterX, centerY, 56);
-
-        // Solid White Left Arrow
         this.fillText('◀', leftCenterX - 2, centerY + 2, 48, 0xffffff, '900');
 
-        // 2. RIGHT BUTTON CARD (Coral/Orange Theme)
+        // 2. RIGHT BUTTON CARD (Coral/Orange)
         g.fillStyle(0x16141c, 0.95);
         g.fillRoundedRect(rightCardX, cardY, cardW, cardH, 36);
         g.lineStyle(this.rightHeld ? 5 : 3.5, 0xe05638, 1);
         g.strokeRoundedRect(rightCardX, cardY, cardW, cardH, 36);
 
-        // Circular Button Inside Right Card
         const rightCenterX = rightCardX + cardW / 2;
         g.fillStyle(this.rightHeld ? 0xe05638 : 0xc24128, 1);
         g.fillCircle(rightCenterX, centerY, 56);
         g.lineStyle(2.5, 0xffffff, 0.6);
         g.strokeCircle(rightCenterX, centerY, 56);
-
-        // Solid White Right Arrow
         this.fillText('▶', rightCenterX + 2, centerY + 2, 48, 0xffffff, '900');
       }
 
@@ -825,39 +788,39 @@
       }
 
       renderGameOver(g) {
-        // Semi-transparent backdrop
+        // High-DPI Ultra-Crisp Light-Theme Modal Card
         g.fillStyle(0x050d18, 0.65); g.fillRect(0, 0, W, H);
 
         const best = this.best || this.bestScores.read();
         const isNewBest = this.finalScore >= best.allTime && this.finalScore > 0;
 
-        // Elegant Light-Theme Pearl Card
-        g.fillStyle(0xffffff, 0.98);
-        g.fillRoundedRect(60, 200, 600, 860, 40);
+        // Main Dialog Card (High-Resolution White Card)
+        g.fillStyle(0xffffff, 0.99);
+        g.fillRoundedRect(60, 180, 600, 890, 40);
         g.lineStyle(3, 0xe2e8f0, 1);
-        g.strokeRoundedRect(60, 200, 600, 860, 40);
+        g.strokeRoundedRect(60, 180, 600, 890, 40);
 
         // Header Accent Banner
         g.fillStyle(isNewBest ? 0xfef3c7 : 0xf0fdf4, 1);
-        g.fillRoundedRect(60, 200, 600, 140, { tl: 40, tr: 40, bl: 0, br: 0 });
+        g.fillRoundedRect(60, 180, 600, 140, { tl: 40, tr: 40, bl: 0, br: 0 });
 
         // Trophy Circle Badge
-        g.fillStyle(isNewBest ? 0xf59e0b : 0x10b981, 0.18);
-        g.fillCircle(360, 270, 48);
-        this.fillText(isNewBest ? '🏆' : '🏁', 360, 270, 46, 0xffffff, '900');
+        g.fillStyle(isNewBest ? 0xf59e0b : 0x10b981, 0.20);
+        g.fillCircle(360, 250, 50);
+        this.fillText(isNewBest ? '🏆' : '🏁', 360, 250, 48, 0xffffff, '900');
 
         // Titles in Slate Navy
-        this.fillText(isNewBest ? 'NEW HIGH SCORE!' : 'RUN COMPLETE!', 360, 365, 28, isNewBest ? 0xd97706 : 0x059669, '900');
-        this.fillText('TIME’S UP', 360, 412, 44, 0x0f172a, '900');
+        this.fillText(isNewBest ? 'NEW HIGH SCORE!' : 'RUN COMPLETE!', 360, 348, 28, isNewBest ? 0xd97706 : 0x059669, '900');
+        this.fillText('TIME’S UP', 360, 396, 46, 0x0f172a, '900');
 
         // Score Highlight Box
         g.fillStyle(0xf0fdf4, 1);
-        g.fillRoundedRect(100, 460, 520, 135, 24);
+        g.fillRoundedRect(100, 440, 520, 138, 24);
         g.lineStyle(2, 0x86efac, 1);
-        g.strokeRoundedRect(100, 460, 520, 135, 24);
+        g.strokeRoundedRect(100, 440, 520, 138, 24);
 
-        this.fillText('★ FINAL SCORE ★', 360, 492, 16, 0x059669, '800');
-        this.fillText(String(this.finalScore), 360, 545, 64, 0x0f172a, '900');
+        this.fillText('★ FINAL SCORE ★', 360, 472, 16, 0x059669, '800');
+        this.fillText(String(this.finalScore), 360, 528, 66, 0x0f172a, '900');
 
         // Stats in Sleek Frosted Light-Gray Pills
         const rows = [
@@ -867,24 +830,24 @@
         ];
 
         rows.forEach((row, i) => {
-          const ry = 625 + i * 82;
+          const ry = 610 + i * 84;
           g.fillStyle(0xf8fafc, 1);
-          g.fillRoundedRect(100, ry, 520, 68, 18);
+          g.fillRoundedRect(100, ry, 520, 70, 18);
           g.lineStyle(1.5, 0xe2e8f0, 1);
-          g.strokeRoundedRect(100, ry, 520, 68, 18);
+          g.strokeRoundedRect(100, ry, 520, 70, 18);
 
-          this.fillText(row.label, 130, ry + 34, 18, 0x475569, '700', 'left');
-          this.fillText(row.value, 590, ry + 34, 24, 0x0f172a, '900', 'right');
+          this.fillText(row.label, 130, ry + 35, 18, 0x475569, '700', 'left');
+          this.fillText(row.value, 590, ry + 35, 24, 0x0f172a, '900', 'right');
         });
 
         // Vibrant Emerald "PLAY AGAIN" Button
         g.fillStyle(0x10b981, 1);
-        g.fillRoundedRect(100, 900, 520, 105, 30);
+        g.fillRoundedRect(100, 890, 520, 110, 30);
         g.lineStyle(2.5, 0x059669, 1);
-        g.strokeRoundedRect(100, 900, 520, 105, 30);
+        g.strokeRoundedRect(100, 890, 520, 110, 30);
 
-        this.fillText('PLAY AGAIN  ▶', 360, 942, 32, 0xffffff, '900');
-        this.fillText('TAP OR PRESS SPACE', 360, 978, 16, 0xd1fae5, '700');
+        this.fillText('PLAY AGAIN  ▶', 360, 935, 34, 0xffffff, '900');
+        this.fillText('TAP OR PRESS SPACE', 360, 972, 16, 0xd1fae5, '700');
       }
 
       render() {
@@ -921,6 +884,7 @@
     window.__MOTO_BALANCE_GAME__ = new Phaser.Game({
       type: Phaser.AUTO,
       parent: 'game-root',
+      resolution: DPR,
       scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
