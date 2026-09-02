@@ -47,7 +47,7 @@
     const W = 720;
     const H = 1280;
     const GAME_ID = 'moto-balance';
-    const VERSION = '2.2.0';
+    const VERSION = '2.3.0';
 
     // 280px High-Res Bike Size (scaled from 1254x1254 bike.png)
     const BIKE_DISPLAY_SIZE = 280;
@@ -147,7 +147,7 @@
     function hex(color) { return '#' + color.toString(16).padStart(6, '0'); }
 
     class BestScores {
-      constructor() { this.key = 'moto-wheelie-run-hd-ref'; }
+      constructor() { this.key = 'moto-wheelie-run-hd-v3'; }
       read() {
         let scores = { allTime: 0, maxWheelie: 0 };
         try { scores = Object.assign(scores, JSON.parse(localStorage.getItem(this.key) || '{}')); } catch (_) {}
@@ -166,9 +166,10 @@
       constructor() { super({ key: 'MotoBalanceScene' }); }
 
       preload() {
-        // Fast instant load: only load the 2 required images
+        // Fast instant load: only 3 lightweight optimized assets
         this.load.image('moto-bike-body', 'assets/bike.png');
         this.load.image('moto-tyre', 'assets/tyre.png');
+        this.load.image('moto-mountains', 'assets/mountains.png');
       }
 
       create() {
@@ -176,6 +177,18 @@
         this.bestScores = new BestScores();
         this.skyG = this.add.graphics();
         this.skyG.setDepth(0);
+
+        // Natural snow-capped blue mountains cropped from the spritesheet
+        if (this.textures.exists('moto-mountains')) {
+          this.textures.get('moto-mountains').setFilter(Phaser.Textures.FilterMode.LINEAR);
+          const mountainH = 143 * 1.35;
+          this.mountainTile = this.add.tileSprite(W / 2, ROAD_SURFACE_Y - (mountainH / 2) + 6, W + 20, mountainH, 'moto-mountains')
+            .setOrigin(0.5, 0.5)
+            .setDepth(1);
+          this.mountainTile.tileScaleX = 1.35;
+          this.mountainTile.tileScaleY = 1.35;
+        }
+
         this.g = this.add.graphics();
         this.g.setDepth(2);
         this.textPool = [];
@@ -202,7 +215,7 @@
         this.speed = 0;
         this.tyreAngle = 0;
 
-        // Snappy Progressive Wheelie Physics (Quick, exciting lift directly on Race!)
+        // Snappy Progressive Wheelie Physics
         this.wheelieAngle = 0;
         this.wheelieAngleVelocity = 0;
         this.wheelieActive = false;
@@ -221,11 +234,11 @@
 
         this.cameraX = 0;
 
-        // Stylized vector clouds like reference image
+        // Stylized clouds
         this.clouds = [
-          { x: 180, y: 380, scale: 1.1, speed: 0.15 },
-          { x: 520, y: 350, scale: 0.9, speed: 0.22 },
-          { x: 860, y: 370, scale: 1.3, speed: 0.18 }
+          { x: 180, y: 280, scale: 1.1, speed: 0.15 },
+          { x: 520, y: 240, scale: 0.9, speed: 0.22 },
+          { x: 860, y: 260, scale: 1.3, speed: 0.18 }
         ];
 
         this.createBikeVisuals();
@@ -484,7 +497,6 @@
 
         // 2. SPEEDY & SNAPPY WHEELIE LIFT FROM 0° DIRECTLY ON RACE
         if (this.rightHeld) {
-          // Snappy initial lift starting at 0°!
           const liftPower = 8.5;
           this.wheelieAngleVelocity += liftPower * dt;
         } else if (this.leftHeld) {
@@ -505,7 +517,7 @@
           this.wheelieAngleVelocity = 0;
         }
 
-        // 3. WHEELIE SCORING
+        // 3. WHEELIE SCORING (Direct to top Score card, NO intrusive floating card!)
         const isWheelie = this.wheelieAngle > 0.14 && this.speed > 0.8;
         if (isWheelie) {
           this.wheelieActive = true;
@@ -537,7 +549,7 @@
           }
         } else {
           if (this.wheelieActive) {
-            // Front wheel landed smoothly!
+            // Front wheel landed smoothly
             if (this.wheelieTime >= 0.7) {
               const landingBonus = Math.round(this.wheelieTime * 80 * this.wheelieCombo);
               this.score += landingBonus;
@@ -599,6 +611,11 @@
         // Camera smoothly tracks bike
         this.cameraX = this.worldX - 220;
 
+        // Smoothly parallax scroll natural mountain layer
+        if (this.mountainTile) {
+          this.mountainTile.tilePositionX = this.cameraX * 0.12;
+        }
+
         // Update clouds position
         for (const c of this.clouds) {
           c.x += c.speed * (this.speed * 0.3 + 1.0);
@@ -635,7 +652,7 @@
       }
 
       renderSky(g) {
-        // Bright Crisp Daytime Sky Blue (Matching Reference Screenshot Exactly!)
+        // Bright Crisp Daytime Sky Blue (Matching Reference Screenshot!)
         g.fillStyle(0x42b4ec, 1);
         g.fillRect(0, 0, W, ROAD_SURFACE_Y);
 
@@ -649,62 +666,17 @@
 
         // Pale Cream Sun in Top-Right (Matching Reference Screenshot!)
         g.fillStyle(0xfef08a, 0.95);
-        g.fillCircle(560, 190, 62);
+        g.fillCircle(580, 180, 62);
         g.fillStyle(0xfffbeb, 0.35);
-        g.fillCircle(560, 190, 80);
+        g.fillCircle(580, 180, 80);
 
-        // Stylized Geometric Polygon Mountains (Matching Reference Screenshot Exactly!)
-        this.renderGeometricMountains(g);
-
-        // Cute Translucent Cloud Puffs (Matching Reference Screenshot!)
+        // Cute Translucent Cloud Puffs
         for (const c of this.clouds) {
           this.drawReferenceCloud(g, c.x, c.y, c.scale);
         }
       }
 
-      renderGeometricMountains(g) {
-        // 2-tone vector triangular mountain peaks matching the user's reference image
-        const base = ROAD_SURFACE_Y;
-        const peaks = [
-          { x: 120, h: 320, w: 260 },
-          { x: 380, h: 420, w: 340 },
-          { x: 680, h: 360, w: 290 },
-          { x: 960, h: 440, w: 350 },
-          { x: 1260, h: 330, w: 280 }
-        ];
-
-        const span = 1140;
-        const offset = (this.cameraX * 0.08) % span;
-
-        for (let shift = -span; shift <= span; shift += span) {
-          for (const p of peaks) {
-            const cx = p.x + shift - offset;
-            const topY = base - p.h;
-            const halfW = p.w / 2;
-
-            // Left face (Light cyan blue #54b6df)
-            g.fillStyle(0x54b6df, 1);
-            g.beginPath();
-            g.moveTo(cx - halfW, base);
-            g.lineTo(cx, topY);
-            g.lineTo(cx, base);
-            g.closePath();
-            g.fillPath();
-
-            // Right face (Shadowed deeper blue #358bb5)
-            g.fillStyle(0x358bb5, 1);
-            g.beginPath();
-            g.moveTo(cx, topY);
-            g.lineTo(cx + halfW, base);
-            g.lineTo(cx, base);
-            g.closePath();
-            g.fillPath();
-          }
-        }
-      }
-
       drawReferenceCloud(g, cx, cy, scale) {
-        // Cute stylized translucent cloud matching screenshot
         g.fillStyle(0xffffff, 0.55);
         const r = 32 * scale;
         g.fillCircle(cx, cy, r);
@@ -776,43 +748,33 @@
       }
 
       renderHud(g) {
-        // 1. Center Timer Badge (Matching Reference Screenshot Exactly!)
+        // 1. Center-Left Timer Badge (Top Header Bar)
         const timeSec = Math.max(0, Math.ceil(this.timeLeft));
         const timerBg = timeSec <= 10 ? 0xf43f5e : 0x0284c7;
         const timerBorder = timeSec <= 10 ? 0xf43f5e : 0x38bdf8;
 
         g.fillStyle(timerBg, 0.90);
-        g.fillCircle(360, 95, 58);
+        g.fillCircle(240, 80, 52);
         g.lineStyle(3.5, timerBorder, 0.95);
-        g.strokeCircle(360, 95, 58);
+        g.strokeCircle(240, 80, 52);
 
-        this.fillText(String(timeSec), 360, 82, 50, 0xffffff, '900');
-        this.fillText('SECONDS', 360, 120, 13, 0xbfeaff, '900');
+        this.fillText(String(timeSec), 240, 68, 44, 0xffffff, '900');
+        this.fillText('SECONDS', 240, 102, 12, 0xbfeaff, '900');
 
-        // 2. Score Badge (Top Right Capsule Pill Matching Reference Screenshot!)
+        // 2. Score Badge UP WITH THE TIMER (Top Header Bar alongside timer!)
         g.fillStyle(0x13212d, 0.95);
-        g.fillRoundedRect(535, 245, 150, 76, 26);
+        g.fillRoundedRect(420, 48, 220, 64, 22);
         g.lineStyle(3, 0xe05638, 1);
-        g.strokeRoundedRect(535, 245, 150, 76, 26);
+        g.strokeRoundedRect(420, 48, 220, 64, 22);
 
-        this.fillText(String(this.score), 610, 272, 38, 0xffffff, '900');
-        this.fillText('SCORE', 610, 302, 13, 0xf59e0b, '900');
+        this.fillText(String(this.score), 530, 72, 34, 0xffffff, '900');
+        this.fillText('★ SCORE', 530, 96, 12, 0xf59e0b, '900');
 
-        // 3. Dynamic Wheelie Banner in mid-upper area
-        if (this.wheelieActive && this.wheelieTime > 0.2) {
-          const comboColor = this.wheelieCombo >= 4 ? 0xf43f5e : this.wheelieCombo >= 3 ? 0xf97316 : 0x0284c7;
-          g.fillStyle(0x0a1c2e, 0.95);
-          g.fillRoundedRect(120, 180, 480, 86, 26);
-          g.lineStyle(3.5, comboColor, 1);
-          g.strokeRoundedRect(120, 180, 480, 86, 26);
-          this.fillText(`🔥 WHEELIE x${this.wheelieCombo} (${this.wheelieTime.toFixed(1)}s)`, 360, 212, 30, 0xffffff, '900');
-          this.fillText('MULTIPLYING SCORE!', 360, 244, 15, comboColor, '800');
-        }
+        // NOTE: The intrusive floating Wheelie X card was completely removed as requested!
       }
 
       renderControls(g) {
         // EXACT Button Layout from Reference Screenshot!
-        // 2 Dark Rounded Cards with Colored Borders and Circular Buttons Inside!
         const cardY = 930;
         const cardH = 200;
         const cardW = 275;
@@ -863,13 +825,13 @@
       }
 
       renderGameOver(g) {
-        // Semi-transparent darkened backdrop
+        // Semi-transparent backdrop
         g.fillStyle(0x050d18, 0.65); g.fillRect(0, 0, W, H);
 
         const best = this.best || this.bestScores.read();
         const isNewBest = this.finalScore >= best.allTime && this.finalScore > 0;
 
-        // Elegant Light-Theme Pearl Card (Clean, modern, crisp, NOT dark!)
+        // Elegant Light-Theme Pearl Card
         g.fillStyle(0xffffff, 0.98);
         g.fillRoundedRect(60, 200, 600, 860, 40);
         g.lineStyle(3, 0xe2e8f0, 1);
@@ -888,7 +850,7 @@
         this.fillText(isNewBest ? 'NEW HIGH SCORE!' : 'RUN COMPLETE!', 360, 365, 28, isNewBest ? 0xd97706 : 0x059669, '900');
         this.fillText('TIME’S UP', 360, 412, 44, 0x0f172a, '900');
 
-        // Score Highlight Box (Emerald Light Card)
+        // Score Highlight Box
         g.fillStyle(0xf0fdf4, 1);
         g.fillRoundedRect(100, 460, 520, 135, 24);
         g.lineStyle(2, 0x86efac, 1);
