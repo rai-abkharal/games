@@ -31,7 +31,7 @@
     const H = 640;
     const ROAD_DEPTH = 34;
     const GAME_ID = 'moto-balance';
-    const VERSION = '1.0.3';
+    const VERSION = '1.0.2';
 
     const MODES = {
       easy: {
@@ -186,15 +186,12 @@
         // Supplied transparent source sprites, packaged beside this entry point.
         this.load.image('moto-bike-body', 'assets/bike.png');
         this.load.image('moto-tyre', 'assets/tyre.png');
-        this.load.image('moto-environment-sheet', 'assets/environment-spritesheet.png');
       }
 
       create() {
         this.M = Phaser.Physics.Matter.Matter;
         this.audio = new AudioBed();
         this.bestScores = new BestScores();
-        this.skyG = this.add.graphics();
-        this.skyG.setDepth(0);
         this.g = this.add.graphics();
         this.g.setDepth(2);
         this.textPool = [];
@@ -232,7 +229,6 @@
 
         this.createBike();
         this.createBikeVisuals();
-        this.createEnvironment();
         this.installInput();
         this.resetWorld();
         this.matter.world.pause();
@@ -386,59 +382,6 @@
         this.bikeBodySprite
           .setPosition(this.sx(this.chassis.position.x + visualOffset.x), this.chassis.position.y + visualOffset.y)
           .setRotation(this.chassis.angle);
-      }
-
-      createEnvironment() {
-        const sourceTexture = this.textures.get('moto-environment-sheet');
-        const source = sourceTexture && sourceTexture.getSourceImage();
-        this.environmentLayers = [];
-        this.environmentClouds = [];
-        if (!source) return;
-
-        // Each range is cropped from the supplied sheet once, then tile-scrolled
-        // forever. Every layer moves left with the road, at its own depth speed.
-        const layers = [
-          { key: 'env-far-range', x: 16, y: 8, w: 950, h: 143, screenY: 239, scale: .73, speed: .055, alpha: .77 },
-          { key: 'env-mid-range', x: 16, y: 164, w: 950, h: 116, screenY: 284, scale: .84, speed: .105, alpha: .88 },
-          { key: 'env-deep-range', x: 16, y: 283, w: 950, h: 120, screenY: 319, scale: .80, speed: .165, alpha: .95 },
-          { key: 'env-green-range', x: 16, y: 410, w: 950, h: 111, screenY: 337, scale: .68, speed: .220, alpha: 1 },
-          { key: 'env-forest-range', x: 16, y: 535, w: 950, h: 98, screenY: 353, scale: .57, speed: .285, alpha: 1 }
-        ];
-        const crop = (layer) => {
-          const texture = this.textures.createCanvas(layer.key, layer.w, layer.h);
-          texture.context.clearRect(0, 0, layer.w, layer.h);
-          texture.context.drawImage(source, layer.x, layer.y, layer.w, layer.h, 0, 0, layer.w, layer.h);
-          texture.refresh();
-          const tile = this.add.tileSprite(W / 2, layer.screenY, W + 6, layer.h * layer.scale, layer.key)
-            .setOrigin(.5).setDepth(1).setAlpha(layer.alpha);
-          tile.tileScaleX = layer.scale;
-          tile.tileScaleY = layer.scale;
-          return { tile, speed: layer.speed };
-        };
-        this.environmentLayers = layers.map(crop);
-
-        const makeCloud = (key, x, y, w, h, width, height, start, speed, screenY, alpha = 1) => {
-          const texture = this.textures.createCanvas(key, w, h);
-          texture.context.clearRect(0, 0, w, h);
-          texture.context.drawImage(source, x, y, w, h, 0, 0, w, h);
-          texture.refresh();
-          const image = this.add.image(0, screenY, key).setOrigin(.5).setDisplaySize(width, height).setDepth(1).setAlpha(alpha);
-          return { image, start, speed, width };
-        };
-        this.environmentClouds = [
-          makeCloud('env-cloud-large', 976, 452, 250, 144, 124, 71, 74, .028, 126, .84),
-          makeCloud('env-cloud-small', 1200, 472, 240, 103, 96, 41, 312, .041, 187, .72),
-          makeCloud('env-cloud-low', 979, 595, 245, 94, 112, 43, 208, .034, 222, .64)
-        ];
-        this.updateEnvironment();
-      }
-
-      updateEnvironment() {
-        if (!this.environmentLayers) return;
-        for (const layer of this.environmentLayers) layer.tile.tilePositionX = this.cameraX * layer.speed;
-        for (const cloud of this.environmentClouds) {
-          cloud.image.x = modulo(cloud.start - this.cameraX * cloud.speed, W + cloud.width * 2) - cloud.width;
-        }
       }
 
       buildRiderConstraints() {
@@ -717,6 +660,14 @@
         bands.forEach((color, i) => { g.fillStyle(color, 1); g.fillRect(0, i * bandH, W, bandH + 1); });
         g.fillStyle(0xfff3c3, .93); g.fillCircle(282, 100, 31);
         g.fillStyle(0xffffff, .18); g.fillCircle(274, 92, 18);
+        const drawCloud = (x, y, s, alpha) => {
+          g.fillStyle(0xffffff, alpha); g.fillCircle(x, y, 16 * s); g.fillCircle(x + 19 * s, y - 8 * s, 23 * s); g.fillCircle(x + 44 * s, y, 18 * s); g.fillRoundedRect(x - 20 * s, y, 82 * s, 17 * s, 9 * s);
+        };
+        const c = modulo(this.cameraX * .042, 470);
+        drawCloud(c - 100, 145, 1.1, .62); drawCloud(c + 200, 210, .66, .48); drawCloud(c + 470, 125, .84, .45);
+        this.drawMountainLayer(g, .10, 304, 82, 0x82bdd2, .44);
+        this.drawMountainLayer(g, .19, 344, 112, 0x5799b4, .58);
+        this.drawMountainLayer(g, .30, 372, 78, 0x327c91, .80);
       }
 
       drawMountainLayer(g, factor, base, height, color, alpha) {
@@ -908,12 +859,11 @@
       }
 
       render() {
-        this.skyG.clear(); this.renderSky(this.skyG); this.updateEnvironment();
         this.g.clear(); this.textIndex = 0;
         const g = this.g;
         const shakeX = this.shake ? (Math.random() - .5) * this.shake : 0;
         if (shakeX) g.x = shakeX; else g.x = 0;
-        this.renderWorld(g);
+        this.renderSky(g); this.renderWorld(g);
         const showBikeSprites = this.state === 'countdown' || this.state === 'playing' || this.state === 'crashing';
         if (this.usingBikeSprites) this.syncBikeVisuals(showBikeSprites); else this.drawBike();
         this.renderParticles(g);

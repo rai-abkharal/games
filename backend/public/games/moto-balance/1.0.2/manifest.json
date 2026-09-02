@@ -1,7 +1,7 @@
 {
   "id": "moto-balance",
   "title": "Moto Balance: Skyline Run",
-  "version": "1.0.3",
+  "version": "1.0.2",
   "description": "A physics-driven 2D motorcycle balance challenge with an authentic rider-and-tyre sprite rig, progressive acceleration, and a smooth mountain highway.",
   "orientation": "portrait",
   "engine": "phaser-matter",

@@ -38,7 +38,15 @@ async function buildAll() {
       fs.mkdirSync(distDir, { recursive: true });
       fs.copyFileSync(rootIndex, distIndex);
 
-      const packageBytes = fs.statSync(distIndex).size;
+      // Preserve game-local runtime art in the versioned package so relative
+      // asset URLs keep working after deployment.
+      const sourceAssets = path.join(gameDir, 'assets');
+      if (fs.existsSync(sourceAssets)) {
+        fs.cpSync(sourceAssets, path.join(distDir, 'assets'), { recursive: true });
+      }
+
+      const packageBytes = listFilesRecursive(distDir)
+        .reduce((total, filePath) => total + fs.statSync(filePath).size, 0);
       if (packageBytes > MAX_GAME_PACKAGE_BYTES) {
         throw new Error(
           `${dirName} package is ${(packageBytes / 1024 / 1024).toFixed(2)} MB; the MVP budget is ${MAX_GAME_PACKAGE_BYTES / 1024 / 1024} MB.`,
