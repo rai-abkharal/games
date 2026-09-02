@@ -7,14 +7,14 @@
   <style>
     :root { color-scheme: dark; --native-dock-safe: 0px; }
     * { box-sizing: border-box; margin: 0; padding: 0; touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #050b14; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0b131e; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { overscroll-behavior: none; }
-    #game-root { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; background: radial-gradient(circle at 50% 28%, #0f2b46 0%, #061524 62%, #02070e 100%); }
+    #game-root { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; background: #0b131e; }
     canvas {
       display: block;
       width: min(100vw, 56.25vh) !important;
       height: min(177.7778vw, 100vh) !important;
-      box-shadow: 0 25px 80px rgba(0, 0, 0, .85), 0 0 0 1px rgba(255, 255, 255, .14);
+      box-shadow: 0 25px 80px rgba(0, 0, 0, .85);
       border-radius: clamp(0px, 1.5vw, 20px);
     }
     .native-host canvas { width: 100% !important; height: 100% !important; box-shadow: none; border-radius: 0; }
@@ -47,7 +47,7 @@
     const W = 720;
     const H = 1280;
     const GAME_ID = 'moto-balance';
-    const VERSION = '2.1.0';
+    const VERSION = '2.2.0';
 
     // 280px High-Res Bike Size (scaled from 1254x1254 bike.png)
     const BIKE_DISPLAY_SIZE = 280;
@@ -62,8 +62,10 @@
     const TYRE_ORIGIN_Y = 319.0 / 600; // 0.531667
     const TYRE_DISPLAY_SIZE = 98;
     const TYRE_RADIUS = 48;
-    const ROAD_SURFACE_Y = 740;
-    const REAR_AXLE_Y = ROAD_SURFACE_Y - TYRE_RADIUS; // 692px
+
+    // Road positioning matching reference screenshot
+    const ROAD_SURFACE_Y = 720;
+    const REAR_AXLE_Y = ROAD_SURFACE_Y - TYRE_RADIUS; // 672px (resting on top of road)
 
     const Host = {
       post(action, payload = {}) {
@@ -145,7 +147,7 @@
     function hex(color) { return '#' + color.toString(16).padStart(6, '0'); }
 
     class BestScores {
-      constructor() { this.key = 'moto-wheelie-run-hd-v2'; }
+      constructor() { this.key = 'moto-wheelie-run-hd-ref'; }
       read() {
         let scores = { allTime: 0, maxWheelie: 0 };
         try { scores = Object.assign(scores, JSON.parse(localStorage.getItem(this.key) || '{}')); } catch (_) {}
@@ -164,7 +166,7 @@
       constructor() { super({ key: 'MotoBalanceScene' }); }
 
       preload() {
-        // Fast instant load: only load the 2 lightweight required images
+        // Fast instant load: only load the 2 required images
         this.load.image('moto-bike-body', 'assets/bike.png');
         this.load.image('moto-tyre', 'assets/tyre.png');
       }
@@ -179,7 +181,7 @@
         this.textPool = [];
         this.textIndex = 0;
 
-        // Auto-start immediately with countdown (No Start Button required!)
+        // Auto-start immediately with countdown (No Start button!)
         this.state = 'countdown';
         this.countdown = 2.0;
         this.pausedByHost = false;
@@ -200,7 +202,7 @@
         this.speed = 0;
         this.tyreAngle = 0;
 
-        // Fast & Snappy Wheelie Physics (Quick, exciting lift directly on Race!)
+        // Snappy Progressive Wheelie Physics (Quick, exciting lift directly on Race!)
         this.wheelieAngle = 0;
         this.wheelieAngleVelocity = 0;
         this.wheelieActive = false;
@@ -219,12 +221,11 @@
 
         this.cameraX = 0;
 
-        // Generate drifting clouds
+        // Stylized vector clouds like reference image
         this.clouds = [
-          { x: 100, y: 140, scale: 1.2, speed: 0.18 },
-          { x: 380, y: 220, scale: 0.85, speed: 0.28 },
-          { x: 620, y: 120, scale: 1.4, speed: 0.14 },
-          { x: 920, y: 180, scale: 1.0, speed: 0.22 }
+          { x: 180, y: 380, scale: 1.1, speed: 0.15 },
+          { x: 520, y: 350, scale: 0.9, speed: 0.22 },
+          { x: 860, y: 370, scale: 1.3, speed: 0.18 }
         ];
 
         this.createBikeVisuals();
@@ -289,8 +290,8 @@
 
       handlePress(pointerId, x, y) {
         if (this.state === 'playing') {
-          // Controls zone: y between 920 and 1180 (Generous 160px bottom margin)
-          if (y >= 920 && y <= 1180) {
+          // Bottom button card zone matching reference image
+          if (y >= 880 && y <= 1180) {
             this.pointerControls.set(pointerId, x < W / 2 ? 'left' : 'right');
             this.refreshHeldButtons();
             Host.haptic('light');
@@ -299,8 +300,8 @@
           return;
         }
         if (this.state === 'gameover') {
-          // Light Theme Play Again button
-          if (y >= 910 && y <= 1040 && x >= 90 && x <= 630) {
+          // Play again button
+          if (y >= 900 && y <= 1030 && x >= 90 && x <= 630) {
             this.startRun();
             return;
           }
@@ -320,7 +321,7 @@
         if (this.textures.get('moto-bike-body')) this.textures.get('moto-bike-body').setFilter(Phaser.Textures.FilterMode.LINEAR);
         if (this.textures.get('moto-tyre')) this.textures.get('moto-tyre').setFilter(Phaser.Textures.FilterMode.LINEAR);
 
-        // Tyres configured with DEAD-CENTER HUB ORIGIN (0% wobble, true axis rotation!)
+        // Tyres configured with DEAD-CENTER HUB ORIGIN (0% wobble!)
         const makeTyre = () => this.add.image(0, 0, 'moto-tyre')
           .setOrigin(TYRE_ORIGIN_X, TYRE_ORIGIN_Y)
           .setDisplaySize(TYRE_DISPLAY_SIZE, TYRE_DISPLAY_SIZE)
@@ -349,7 +350,7 @@
         this.wheelieTime = 0;
         this.wheelieCombo = 1;
         this.wheeliePointsAccum = 0;
-        this.cameraX = this.worldX - 200;
+        this.cameraX = this.worldX - 220;
         this.score = 0;
         this.finalScore = 0;
         this.crashTimer = 0;
@@ -386,7 +387,7 @@
         this.state = 'crashing';
         this.crashTimer = 0.55;
 
-        // Initialize tumble physics
+        // Tumble physics
         this.crashX = bikeX;
         this.crashY = bikeY;
         this.crashVx = this.speed * 0.4;
@@ -441,9 +442,8 @@
         this.floatingTexts.push({ text, x, y, vy: -2.0, life: 1.0, max: 1.0, color });
       }
 
-      // Compute exact positions of bike body, rear wheel, and front wheel
       computeBikePose() {
-        const angle = -this.wheelieAngle; // Negative is front lifted up
+        const angle = -this.wheelieAngle;
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
 
@@ -482,9 +482,9 @@
         this.worldX += this.speed * 60 * dt;
         this.tyreAngle += this.speed * 0.08;
 
-        // 2. SPEEDIER, SNAPPY PROGRESSIVE WHEELIE FROM 0° DIRECTLY ON RACE
+        // 2. SPEEDY & SNAPPY WHEELIE LIFT FROM 0° DIRECTLY ON RACE
         if (this.rightHeld) {
-          // Fast, responsive wheelie pop (Snappy initial lift starting at 0°!)
+          // Snappy initial lift starting at 0°!
           const liftPower = 8.5;
           this.wheelieAngleVelocity += liftPower * dt;
         } else if (this.leftHeld) {
@@ -596,13 +596,13 @@
           }
         }
 
-        // Camera smoothly tracks bike (zero jitter!)
-        this.cameraX = this.worldX - 200;
+        // Camera smoothly tracks bike
+        this.cameraX = this.worldX - 220;
 
         // Update clouds position
         for (const c of this.clouds) {
           c.x += c.speed * (this.speed * 0.3 + 1.0);
-          if (c.x > W + 200) c.x = -200;
+          if (c.x > W + 220) c.x = -220;
         }
 
         this.updateParticles(dt);
@@ -628,131 +628,125 @@
 
         const pose = this.computeBikePose();
 
-        // 100% Dead-Center Alignment: Bike frame and tyres locked together at exact axle coordinates
+        // 100% Dead-Center Alignment
         this.bikeBodySprite.setPosition(this.sx(pose.bikeX), pose.bikeY).setRotation(pose.angle);
         this.rearTyreSprite.setPosition(this.sx(pose.rearAxleX), pose.rearAxleY).setRotation(pose.angle + this.tyreAngle);
         this.frontTyreSprite.setPosition(this.sx(pose.frontAxleX), pose.frontAxleY).setRotation(pose.angle + this.tyreAngle);
       }
 
       renderSky(g) {
-        // Radiant Vibrant Daytime / Sunset Skyline Gradient
-        const bands = [
-          0x0c4a6e, // Deep Azure Ocean
-          0x0284c7, // Vivid Sky Blue
-          0x38bdf8, // Electric Cyan
-          0x7dd3fc, // Soft Cyan Sky
-          0xfed7aa, // Warm Horizon Peach
-          0xfef08a  // Golden Sunlight
-        ];
-        const bandH = 580 / bands.length;
-        bands.forEach((color, i) => { g.fillStyle(color, 1); g.fillRect(0, i * bandH, W, bandH + 2); });
+        // Bright Crisp Daytime Sky Blue (Matching Reference Screenshot Exactly!)
+        g.fillStyle(0x42b4ec, 1);
+        g.fillRect(0, 0, W, ROAD_SURFACE_Y);
 
-        // Glowing Sun with Warm Atmosphere
-        g.fillStyle(0xfde047, 0.22); g.fillCircle(580, 180, 110);
-        g.fillStyle(0xfde047, 0.45); g.fillCircle(580, 180, 75);
-        g.fillStyle(0xfffbeb, 0.98); g.fillCircle(580, 180, 50);
+        // Soft Horizontal Atmospheric Bands in Sky (from Reference Image)
+        g.fillStyle(0x5fc4f3, 0.55);
+        g.fillRect(0, 360, W, 140);
+        g.fillStyle(0x8fe0fa, 0.45);
+        g.fillRect(0, 500, W, 140);
+        g.fillStyle(0xbbeffa, 0.35);
+        g.fillRect(0, 640, W, 80);
 
-        // Fluffy Procedural White Clouds
+        // Pale Cream Sun in Top-Right (Matching Reference Screenshot!)
+        g.fillStyle(0xfef08a, 0.95);
+        g.fillCircle(560, 190, 62);
+        g.fillStyle(0xfffbeb, 0.35);
+        g.fillCircle(560, 190, 80);
+
+        // Stylized Geometric Polygon Mountains (Matching Reference Screenshot Exactly!)
+        this.renderGeometricMountains(g);
+
+        // Cute Translucent Cloud Puffs (Matching Reference Screenshot!)
         for (const c of this.clouds) {
-          this.drawFluffyCloud(g, c.x, c.y, c.scale);
+          this.drawReferenceCloud(g, c.x, c.y, c.scale);
         }
-
-        // Distant Mountain Ranges (Parallax Layer 1)
-        this.drawMountainRidge(g, 0.04, 580, 180, 0x075985, 0.85);
-        // Distant Mountain Ranges (Parallax Layer 2)
-        this.drawMountainRidge(g, 0.09, 640, 130, 0x0369a1, 0.92);
-        // Rolling Green Foothills (Parallax Layer 3)
-        this.drawRollingHills(g, 0.18, 700, 70, 0x15803d, 0.98);
       }
 
-      drawFluffyCloud(g, cx, cy, scale) {
-        g.fillStyle(0xffffff, 0.88);
-        const r = 26 * scale;
+      renderGeometricMountains(g) {
+        // 2-tone vector triangular mountain peaks matching the user's reference image
+        const base = ROAD_SURFACE_Y;
+        const peaks = [
+          { x: 120, h: 320, w: 260 },
+          { x: 380, h: 420, w: 340 },
+          { x: 680, h: 360, w: 290 },
+          { x: 960, h: 440, w: 350 },
+          { x: 1260, h: 330, w: 280 }
+        ];
+
+        const span = 1140;
+        const offset = (this.cameraX * 0.08) % span;
+
+        for (let shift = -span; shift <= span; shift += span) {
+          for (const p of peaks) {
+            const cx = p.x + shift - offset;
+            const topY = base - p.h;
+            const halfW = p.w / 2;
+
+            // Left face (Light cyan blue #54b6df)
+            g.fillStyle(0x54b6df, 1);
+            g.beginPath();
+            g.moveTo(cx - halfW, base);
+            g.lineTo(cx, topY);
+            g.lineTo(cx, base);
+            g.closePath();
+            g.fillPath();
+
+            // Right face (Shadowed deeper blue #358bb5)
+            g.fillStyle(0x358bb5, 1);
+            g.beginPath();
+            g.moveTo(cx, topY);
+            g.lineTo(cx + halfW, base);
+            g.lineTo(cx, base);
+            g.closePath();
+            g.fillPath();
+          }
+        }
+      }
+
+      drawReferenceCloud(g, cx, cy, scale) {
+        // Cute stylized translucent cloud matching screenshot
+        g.fillStyle(0xffffff, 0.55);
+        const r = 32 * scale;
         g.fillCircle(cx, cy, r);
-        g.fillCircle(cx - 24 * scale, cy + 6 * scale, r * 0.75);
-        g.fillCircle(cx + 24 * scale, cy + 6 * scale, r * 0.80);
-        g.fillCircle(cx - 44 * scale, cy + 12 * scale, r * 0.60);
-        g.fillCircle(cx + 44 * scale, cy + 12 * scale, r * 0.65);
-        g.fillRoundedRect(cx - 50 * scale, cy + 4 * scale, 100 * scale, 24 * scale, 12 * scale);
-      }
-
-      drawMountainRidge(g, factor, base, height, color, alpha) {
-        const span = 320;
-        const offset = (this.cameraX * factor) % span;
-        g.fillStyle(color, alpha);
-        for (let x = -span - offset; x < W + span; x += span) {
-          const peak = x + span / 2;
-          g.beginPath();
-          g.moveTo(x, base);
-          g.lineTo(peak, base - height);
-          g.lineTo(x + span, base);
-          g.closePath();
-          g.fillPath();
-        }
-      }
-
-      drawRollingHills(g, factor, base, height, color, alpha) {
-        const span = 240;
-        const offset = (this.cameraX * factor) % span;
-        g.fillStyle(color, alpha);
-        for (let x = -span - offset; x < W + span; x += span) {
-          g.beginPath();
-          g.moveTo(x, base + 40);
-          g.lineTo(x + span * 0.5, base - height);
-          g.lineTo(x + span, base + 40);
-          g.closePath();
-          g.fillPath();
-        }
+        g.fillCircle(cx + 26 * scale, cy - 8 * scale, r * 1.2);
+        g.fillCircle(cx + 56 * scale, cy, r * 0.9);
       }
 
       renderWorld(g) {
-        // 1. Lush Green Grass Shoulder (Above the road)
-        g.fillStyle(0x16a34a, 1); g.fillRect(0, ROAD_SURFACE_Y - 32, W, 32);
-        g.fillStyle(0x22c55e, 0.8); g.fillRect(0, ROAD_SURFACE_Y - 32, W, 6);
+        // 1. Guardrail Behind Bike (Matching Reference Screenshot!)
+        // Horizontal Rail Line
+        g.fillStyle(0x7397af, 0.90);
+        g.fillRect(0, 672, W, 4);
 
-        // Roadside Flowers & Grass Tufts
-        const tuftSpan = 64;
-        const tuftStart = Math.floor(this.cameraX / tuftSpan) * tuftSpan - tuftSpan;
-        for (let wx = tuftStart; wx < this.cameraX + W + 80; wx += tuftSpan) {
+        // Vertical Guardrail Posts
+        const railSpan = 110;
+        const railStart = Math.floor(this.cameraX / railSpan) * railSpan - railSpan;
+        for (let wx = railStart; wx < this.cameraX + W + 120; wx += railSpan) {
           const sx = this.sx(wx);
-          g.fillStyle(0x4ade80, 0.9);
-          g.fillRect(sx, ROAD_SURFACE_Y - 18, 5, 14);
-          g.fillRect(sx + 4, ROAD_SURFACE_Y - 14, 4, 10);
-          // Flower dot
-          const isYellow = Math.floor(wx / tuftSpan) % 2 === 0;
-          g.fillStyle(isYellow ? 0xfacc15 : 0xf43f5e, 0.95);
-          g.fillCircle(sx + 2, ROAD_SURFACE_Y - 20, 3.5);
+          g.fillStyle(0x1e293b, 0.92);
+          g.fillRect(sx, 672, 6, 48);
         }
 
-        // 2. High-Grade Asphalt Highway (y = 740 to 920)
-        g.fillStyle(0x0f172a, 1); g.fillRect(0, ROAD_SURFACE_Y, W, 170);
+        // 2. Road Top White Line (Clean crisp border)
+        g.fillStyle(0xf8fafc, 1);
+        g.fillRect(0, ROAD_SURFACE_Y, W, 6);
 
-        // Crisp White Top Curb Line
-        g.fillStyle(0xf8fafc, 1); g.fillRect(0, ROAD_SURFACE_Y, W, 6);
+        // 3. Dark Asphalt Road Strip (Matching Reference Screenshot!)
+        g.fillStyle(0x1a2430, 1);
+        g.fillRect(0, ROAD_SURFACE_Y + 6, W, 104);
 
-        // Red & White Safety Curb Rumble Strips
-        const curbSpan = 48;
-        const curbStart = Math.floor(this.cameraX / curbSpan) * curbSpan - curbSpan;
-        for (let wx = curbStart; wx < this.cameraX + W + 60; wx += curbSpan) {
-          const isRed = Math.floor(wx / curbSpan) % 2 === 0;
-          g.fillStyle(isRed ? 0xef4444 : 0xffffff, 0.95);
-          g.fillRect(this.sx(wx), ROAD_SURFACE_Y + 6, curbSpan, 8);
+        // 4. Golden Yellow Center Dashes (Matching Reference Screenshot!)
+        const dashSpan = 100;
+        const dashStart = Math.floor(this.cameraX / dashSpan) * dashSpan - dashSpan;
+        for (let wx = dashStart; wx < this.cameraX + W + 120; wx += dashSpan) {
+          const sx = this.sx(wx);
+          g.fillStyle(0xf59e0b, 1);
+          g.fillRect(sx, ROAD_SURFACE_Y + 54, 55, 9);
         }
 
-        // Glowing Neon Amber Center Dashed Lane Markings
-        const startWorld = Math.floor(this.cameraX / 140) * 140 - 140;
-        for (let wx = startWorld; wx < this.cameraX + W + 150; wx += 140) {
-          const x = this.sx(wx);
-          g.fillStyle(0xfbbf24, 0.98);
-          g.fillRoundedRect(x, ROAD_SURFACE_Y + 70, 88, 10, 5);
-        }
-
-        // Crisp White Bottom Edge Line
-        g.fillStyle(0xf8fafc, 0.9); g.fillRect(0, ROAD_SURFACE_Y + 164, W, 6);
-
-        // 3. Lush Green Roadside Verge (Below the road)
-        g.fillStyle(0x15803d, 1); g.fillRect(0, ROAD_SURFACE_Y + 170, W, H - (ROAD_SURFACE_Y + 170));
-        g.fillStyle(0x166534, 0.8); g.fillRect(0, ROAD_SURFACE_Y + 170, W, 10);
+        // 5. Solid Deep Dark Dashboard Below Road (Matching Reference Screenshot!)
+        g.fillStyle(0x0e1722, 1);
+        g.fillRect(0, ROAD_SURFACE_Y + 110, W, H - (ROAD_SURFACE_Y + 110));
       }
 
       renderParticles(g) {
@@ -782,62 +776,88 @@
       }
 
       renderHud(g) {
-        // 1. Center Timer Pill
+        // 1. Center Timer Badge (Matching Reference Screenshot Exactly!)
         const timeSec = Math.max(0, Math.ceil(this.timeLeft));
-        const timerPillColor = timeSec <= 10 ? 0xf43f5e : 0x0f2942;
-        g.fillStyle(timerPillColor, 0.92); g.fillRoundedRect(280, 44, 160, 92, 28);
-        g.lineStyle(3, timeSec <= 10 ? 0xf43f5e : 0x38bdf8, 0.95); g.strokeRoundedRect(280, 44, 160, 92, 28);
-        this.fillText(String(timeSec), 360, 80, 46, 0xffffff, '900');
-        this.fillText('SECONDS', 360, 116, 15, 0x94a3b8, '800');
+        const timerBg = timeSec <= 10 ? 0xf43f5e : 0x0284c7;
+        const timerBorder = timeSec <= 10 ? 0xf43f5e : 0x38bdf8;
 
-        // 2. Score Badge (Top Right)
-        g.fillStyle(0x0f2942, 0.92); g.fillRoundedRect(480, 48, 206, 84, 24);
-        g.lineStyle(2.5, 0xfbbf24, 0.9); g.strokeRoundedRect(480, 48, 206, 84, 24);
-        this.fillText(String(this.score), 583, 80, 36, 0xffffff, '900');
-        this.fillText('★ SCORE', 583, 112, 15, 0xfbbf24, '800');
+        g.fillStyle(timerBg, 0.90);
+        g.fillCircle(360, 95, 58);
+        g.lineStyle(3.5, timerBorder, 0.95);
+        g.strokeCircle(360, 95, 58);
 
-        // 3. Dynamic Wheelie Banner
+        this.fillText(String(timeSec), 360, 82, 50, 0xffffff, '900');
+        this.fillText('SECONDS', 360, 120, 13, 0xbfeaff, '900');
+
+        // 2. Score Badge (Top Right Capsule Pill Matching Reference Screenshot!)
+        g.fillStyle(0x13212d, 0.95);
+        g.fillRoundedRect(535, 245, 150, 76, 26);
+        g.lineStyle(3, 0xe05638, 1);
+        g.strokeRoundedRect(535, 245, 150, 76, 26);
+
+        this.fillText(String(this.score), 610, 272, 38, 0xffffff, '900');
+        this.fillText('SCORE', 610, 302, 13, 0xf59e0b, '900');
+
+        // 3. Dynamic Wheelie Banner in mid-upper area
         if (this.wheelieActive && this.wheelieTime > 0.2) {
-          const comboColor = this.wheelieCombo >= 4 ? 0xf43f5e : this.wheelieCombo >= 3 ? 0xf97316 : 0x10b981;
-          g.fillStyle(0x0a1c2e, 0.95); g.fillRoundedRect(100, 168, 520, 94, 28);
-          g.lineStyle(4, comboColor, 1); g.strokeRoundedRect(100, 168, 520, 94, 28);
-          this.fillText(`🔥 WHEELIE x${this.wheelieCombo} (${this.wheelieTime.toFixed(1)}s)`, 360, 202, 32, 0xffffff, '900');
-          this.fillText('MULTIPLYING SCORE!', 360, 238, 17, comboColor, '800');
+          const comboColor = this.wheelieCombo >= 4 ? 0xf43f5e : this.wheelieCombo >= 3 ? 0xf97316 : 0x0284c7;
+          g.fillStyle(0x0a1c2e, 0.95);
+          g.fillRoundedRect(120, 180, 480, 86, 26);
+          g.lineStyle(3.5, comboColor, 1);
+          g.strokeRoundedRect(120, 180, 480, 86, 26);
+          this.fillText(`🔥 WHEELIE x${this.wheelieCombo} (${this.wheelieTime.toFixed(1)}s)`, 360, 212, 30, 0xffffff, '900');
+          this.fillText('MULTIPLYING SCORE!', 360, 244, 15, comboColor, '800');
         }
       }
 
       renderControls(g) {
-        // Clean Minimalist Arrow-Only Buttons (NO text, NO labels, generous 160px bottom margin!)
-        const y = 980, h = 135, gap = 44, w = (W - gap * 3) / 2; // w = 294px
-        const buttons = [
-          { left: true, x: gap, held: this.leftHeld, color: 0xf43f5e, icon: '◀' },
-          { left: false, x: gap * 2 + w, held: this.rightHeld, color: 0x10b981, icon: '▶' }
-        ];
+        // EXACT Button Layout from Reference Screenshot!
+        // 2 Dark Rounded Cards with Colored Borders and Circular Buttons Inside!
+        const cardY = 930;
+        const cardH = 200;
+        const cardW = 275;
+        const leftCardX = 55;
+        const rightCardX = 390;
 
-        for (const button of buttons) {
-          const bgAlpha = button.held ? 0.96 : 0.82;
-          g.fillStyle(0x071524, bgAlpha);
-          g.fillRoundedRect(button.x, y, w, h, 36);
-          g.lineStyle(button.held ? 6 : 3.5, button.color, button.held ? 1 : 0.85);
-          g.strokeRoundedRect(button.x, y, w, h, 36);
+        // 1. LEFT BUTTON CARD (Cyan/Blue Theme)
+        g.fillStyle(0x0c1722, 0.95);
+        g.fillRoundedRect(leftCardX, cardY, cardW, cardH, 36);
+        g.lineStyle(this.leftHeld ? 5 : 3.5, 0x06b6d4, 1);
+        g.strokeRoundedRect(leftCardX, cardY, cardW, cardH, 36);
 
-          if (button.held) {
-            g.fillStyle(button.color, 0.28);
-            g.fillRoundedRect(button.x, y, w, h, 36);
-          }
+        // Circular Button Inside Left Card
+        const leftCenterX = leftCardX + cardW / 2;
+        const centerY = cardY + cardH / 2;
+        g.fillStyle(this.leftHeld ? 0x0284c7 : 0x0891b2, 1);
+        g.fillCircle(leftCenterX, centerY, 56);
+        g.lineStyle(2.5, 0xffffff, 0.6);
+        g.strokeCircle(leftCenterX, centerY, 56);
 
-          const cx = button.x + w / 2;
-          const cy = y + h / 2;
-          // Clean large arrow icon only!
-          this.fillText(button.icon, cx, cy, 54, button.held ? 0xffffff : button.color, '900');
-        }
+        // Solid White Left Arrow
+        this.fillText('◀', leftCenterX - 2, centerY + 2, 48, 0xffffff, '900');
+
+        // 2. RIGHT BUTTON CARD (Coral/Orange Theme)
+        g.fillStyle(0x16141c, 0.95);
+        g.fillRoundedRect(rightCardX, cardY, cardW, cardH, 36);
+        g.lineStyle(this.rightHeld ? 5 : 3.5, 0xe05638, 1);
+        g.strokeRoundedRect(rightCardX, cardY, cardW, cardH, 36);
+
+        // Circular Button Inside Right Card
+        const rightCenterX = rightCardX + cardW / 2;
+        g.fillStyle(this.rightHeld ? 0xe05638 : 0xc24128, 1);
+        g.fillCircle(rightCenterX, centerY, 56);
+        g.lineStyle(2.5, 0xffffff, 0.6);
+        g.strokeCircle(rightCenterX, centerY, 56);
+
+        // Solid White Right Arrow
+        this.fillText('▶', rightCenterX + 2, centerY + 2, 48, 0xffffff, '900');
       }
 
       renderCountdown(g) {
         g.fillStyle(0x06111d, 0.35); g.fillRect(0, 0, W, H);
         const value = this.countdown > 1.3 ? '3' : this.countdown > 0.65 ? '2' : this.countdown > 0.1 ? '1' : 'GO!';
         g.fillStyle(0x0a1e32, 0.94); g.fillCircle(360, 480, 130);
-        g.lineStyle(6, 0x10b981, 1); g.strokeCircle(360, 480, 130);
+        g.lineStyle(6, 0x0284c7, 1); g.strokeCircle(360, 480, 130);
         this.fillText(value, 360, 485, value === 'GO!' ? 70 : 120, 0xffffff, '900');
         this.fillText('GET READY TO WHEELIE!', 360, 650, 22, 0xfbbf24, '900');
       }
@@ -946,7 +966,7 @@
         height: H
       },
       transparent: false,
-      backgroundColor: '#050b14',
+      backgroundColor: '#0b131e',
       banner: false,
       render: {
         antialias: true,
