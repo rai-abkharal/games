@@ -3,19 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-  <title>Moto Balance: Skyline Run</title>
+  <title>Moto Balance: Wheelie Run</title>
   <style>
     :root { color-scheme: dark; --native-dock-safe: 0px; }
     * { box-sizing: border-box; margin: 0; padding: 0; touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #071827; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #071827; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { overscroll-behavior: none; }
-    #game-root { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; background: radial-gradient(circle at 50% 22%, #1b5a7a 0%, #0a2339 58%, #050d18 100%); }
-    canvas { display: block; width: min(100vw, 56.25vh) !important; height: min(177.7778vw, 100vh) !important; box-shadow: 0 22px 70px rgba(0, 0, 0, .65), 0 0 0 1px rgba(226, 248, 255, .16); border-radius: clamp(0px, 1.5vw, 18px); }
+    #game-root { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; background: radial-gradient(circle at 50% 22%, #14445f 0%, #0a2339 58%, #050d18 100%); }
+    canvas {
+      display: block;
+      width: min(100vw, 56.25vh) !important;
+      height: min(177.7778vw, 100vh) !important;
+      box-shadow: 0 22px 70px rgba(0, 0, 0, .75), 0 0 0 1px rgba(226, 248, 255, .16);
+      border-radius: clamp(0px, 1.5vw, 18px);
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+    }
     .native-host canvas { width: 100% !important; height: 100% !important; box-shadow: none; border-radius: 0; }
   </style>
 </head>
 <body>
-  <div id="game-root" aria-label="Moto Balance Skyline Run"></div>
+  <div id="game-root" aria-label="Moto Balance Wheelie Run"></div>
   <script src="assets/phaser-full.min.js"></script>
   <script>window.Phaser || document.write('<script src="../../shared/phaser-full.min.js"><\/script>')</script>
   <script>window.Phaser || document.write('<script src="../shared/phaser-full.min.js"><\/script>')</script>
@@ -37,37 +45,24 @@
       return;
     }
 
-    /*
-     * Moto Balance is intentionally built on Matter rather than sprite rotation.
-     * The chassis, two wheels, torso, head, knees, and hands are individual
-     * dynamic bodies joined with real spring constraints. Rendering is custom,
-     * but all movement, landings, torque, gravity, and crashes come from Matter.
-     */
     const W = 360;
     const H = 640;
     const ROAD_DEPTH = 34;
     const GAME_ID = 'moto-balance';
-    const VERSION = '1.0.5';
+    const VERSION = '1.1.0';
+    const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
 
-    const MODES = {
-      easy: {
-        label: 'EASY', color: 0x43d6a6, colorHex: '#43d6a6', accent: 0x9ef2d1,
-        maxSpeed: 6.15, speedRamp: 0.34, driveForce: 0.0090, wheelTorque: 0.0028, speedBrake: 0.0017,
-        tiltTorque: 0.090, terrain: 0.55, crashImpact: 5.4, maxTilt: 1.42,
-        subtitle: 'Gentle crests · forgiving recovery'
-      },
-      medium: {
-        label: 'MEDIUM', color: 0xff9d48, colorHex: '#ff9d48', accent: 0xffd49e,
-        maxSpeed: 7.05, speedRamp: 0.42, driveForce: 0.0105, wheelTorque: 0.0033, speedBrake: 0.0019,
-        tiltTorque: 0.120, terrain: 0.88, crashImpact: 4.6, maxTilt: 1.18,
-        subtitle: 'Fast terrain · sharp air control'
-      },
-      hard: {
-        label: 'HARD', color: 0xff5f79, colorHex: '#ff5f79', accent: 0xffb4bf,
-        maxSpeed: 7.9, speedRamp: 0.50, driveForce: 0.0120, wheelTorque: 0.0038, speedBrake: 0.0021,
-        tiltTorque: 0.160, terrain: 1.23, crashImpact: 3.8, maxTilt: 0.99,
-        subtitle: 'Steep rollers · precise landings'
-      }
+    const SETTINGS = {
+      maxSpeed: 8.2,
+      driveForce: 0.0138,
+      wheelTorque: 0.0052,
+      wheelieLiftTorque: 0.088,
+      brakeDecel: 0.014,
+      brakeFrontDownTorque: 0.068,
+      crashTilt: 1.25, // approx 72 degrees over-rotation crash threshold
+      color: 0x06d6a0,
+      colorHex: '#06d6a0',
+      accent: 0xffd166
     };
 
     const Host = {
@@ -100,22 +95,24 @@
           this.engineOsc = this.ctx.createOscillator();
           this.engineGain = this.ctx.createGain();
           this.engineOsc.type = 'sawtooth';
-          this.engineOsc.frequency.value = 38;
+          this.engineOsc.frequency.value = 35;
           this.engineGain.gain.value = 0;
           const filter = this.ctx.createBiquadFilter();
           filter.type = 'lowpass';
-          filter.frequency.value = 350;
+          filter.frequency.value = 380;
           this.engineOsc.connect(filter); filter.connect(this.engineGain); this.engineGain.connect(this.ctx.destination);
           this.engineOsc.start();
         } catch (_) { this.ctx = null; }
       }
-      setEngine(speed, active) {
+      setEngine(speed, accelerating) {
         if (!this.ctx || !this.engineOsc || !this.engineGain || !this.enabled) return;
         const now = this.ctx.currentTime;
-        this.engineOsc.frequency.setTargetAtTime(34 + Math.max(0, speed) * 19, now, 0.06);
-        this.engineGain.gain.setTargetAtTime(active ? Math.min(.075, .022 + speed * .010) : 0, now, .10);
+        const targetFreq = 34 + Math.max(0, speed) * 18 + (accelerating ? 24 : 0);
+        const targetGain = accelerating ? Math.min(0.08, 0.035 + speed * 0.007) : (speed > 0.3 ? 0.02 : 0.008);
+        this.engineOsc.frequency.setTargetAtTime(targetFreq, now, 0.05);
+        this.engineGain.gain.setTargetAtTime(targetGain, now, 0.08);
       }
-      beep(freq = 620, length = .06, type = 'sine', volume = .09) {
+      beep(freq = 620, length = 0.06, type = 'sine', volume = 0.09) {
         this.unlock();
         if (!this.ctx || !this.enabled) return;
         try {
@@ -123,8 +120,8 @@
           const gain = this.ctx.createGain();
           const now = this.ctx.currentTime;
           osc.type = type; osc.frequency.setValueAtTime(freq, now);
-          gain.gain.setValueAtTime(volume, now); gain.gain.exponentialRampToValueAtTime(.001, now + length);
-          osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + length + .01);
+          gain.gain.setValueAtTime(volume, now); gain.gain.exponentialRampToValueAtTime(0.001, now + length);
+          osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + length + 0.01);
         } catch (_) {}
       }
       crash() {
@@ -133,9 +130,9 @@
         try {
           const now = this.ctx.currentTime;
           const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(120, now); osc.frequency.exponentialRampToValueAtTime(31, now + .42);
-          gain.gain.setValueAtTime(.20, now); gain.gain.exponentialRampToValueAtTime(.001, now + .52);
-          osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + .54);
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(140, now); osc.frequency.exponentialRampToValueAtTime(28, now + 0.45);
+          gain.gain.setValueAtTime(0.24, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.50);
+          osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + 0.52);
         } catch (_) {}
       }
       setEnabled(value) {
@@ -146,7 +143,6 @@
 
     function clamp(value, low, high) { return Math.max(low, Math.min(high, value)); }
     function lerp(a, b, t) { return a + (b - a) * t; }
-    function smoothstep(t) { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); }
     function modulo(value, divisor) { return ((value % divisor) + divisor) % divisor; }
     function normalizeAngle(angle) {
       let a = angle;
@@ -158,38 +154,19 @@
       const c = Math.cos(angle), s = Math.sin(angle);
       return { x: local.x * c - local.y * s, y: local.x * s + local.y * c };
     }
-    function add(a, b) { return { x: a.x + b.x, y: a.y + b.y }; }
     function hex(color) { return '#' + color.toString(16).padStart(6, '0'); }
 
     class BestScores {
-      constructor() { this.key = 'moto-balance-skyline-v1'; }
-      dateKey() {
-        const d = new Date();
-        return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
-      }
-      weekKey() {
-        const d = new Date();
-        const utc = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
-        const copy = new Date(utc);
-        const day = copy.getUTCDay() || 7;
-        copy.setUTCDate(copy.getUTCDate() + 4 - day);
-        const yearStart = new Date(Date.UTC(copy.getUTCFullYear(), 0, 1));
-        const week = Math.ceil((((copy - yearStart) / 86400000) + 1) / 7);
-        return copy.getUTCFullYear() + '-W' + String(week).padStart(2, '0');
-      }
+      constructor() { this.key = 'moto-wheelie-run-v2'; }
       read() {
-        let scores = { date: this.dateKey(), week: this.weekKey(), today: 0, weekly: 0, allTime: 0 };
+        let scores = { allTime: 0, maxWheelie: 0 };
         try { scores = Object.assign(scores, JSON.parse(localStorage.getItem(this.key) || '{}')); } catch (_) {}
-        const date = this.dateKey(), week = this.weekKey();
-        if (scores.date !== date) { scores.date = date; scores.today = 0; }
-        if (scores.week !== week) { scores.week = week; scores.weekly = 0; }
         return scores;
       }
-      commit(score) {
+      commit(score, maxWheelie = 0) {
         const scores = this.read();
-        scores.today = Math.max(scores.today || 0, score);
-        scores.weekly = Math.max(scores.weekly || 0, score);
         scores.allTime = Math.max(scores.allTime || 0, score);
+        scores.maxWheelie = Math.max(scores.maxWheelie || 0, maxWheelie);
         try { localStorage.setItem(this.key, JSON.stringify(scores)); } catch (_) {}
         return scores;
       }
@@ -199,7 +176,6 @@
       constructor() { super({ key: 'MotoBalanceScene' }); }
 
       preload() {
-        // Supplied transparent source sprites, packaged beside this entry point.
         this.load.image('moto-bike-body', 'assets/bike.png');
         this.load.image('moto-tyre', 'assets/tyre.png');
         this.load.image('moto-environment-sheet', 'assets/environment-spritesheet.png');
@@ -216,33 +192,34 @@
         this.textPool = [];
         this.textIndex = 0;
         this.state = 'home';
-        this.modeKey = 'medium';
-        this.mode = MODES[this.modeKey];
         this.pausedByHost = false;
         this.pointerControls = new Map();
         this.keyLeft = false; this.keyRight = false;
+        this.leftHeld = false; this.rightHeld = false;
         this.particles = [];
+        this.floatingTexts = [];
         this.terrainBodies = [];
         this.riderConstraints = [];
-        this.bikeConstraints = [];
         this.cameraX = 0;
-        this.runStartX = 0;
         this.score = 0;
         this.finalScore = 0;
         this.timeLeft = 60;
         this.countdown = 0;
         this.crashTimer = 0;
         this.shake = 0;
-        this.lastWheelContactAt = -1000;
-        this.speedTarget = 0;
-        this.terrainNoise = 0;
-        this.handledEnd = false;
+        this.respawnFlash = 0;
+
+        // Wheelie mechanics
+        this.wheelieActive = false;
+        this.wheelieTime = 0;
+        this.maxWheelie = 0;
+        this.wheelieCombo = 1;
+        this.wheeliePointsAccum = 0;
 
         this.matter.world.engine.positionIterations = 9;
         this.matter.world.engine.velocityIterations = 7;
         this.matter.world.engine.constraintIterations = 4;
-        this.matter.world.engine.timing.timeScale = 1;
-        this.matter.world.setGravity(0, 1.08);
+        this.matter.world.setGravity(0, 1.15);
         this.matter.world.on('collisionstart', this.onCollisionStart, this);
         this.matter.world.on('collisionactive', this.onCollisionActive, this);
 
@@ -261,7 +238,7 @@
         window.GameBridge = {
           pause: () => { this.pausedByHost = true; clearInputs(); this.matter.world.pause(); this.audio.setEngine(0, false); },
           resume: () => { this.pausedByHost = false; if (this.state === 'playing' || this.state === 'countdown' || this.state === 'crashing') this.matter.world.resume(); },
-          restart: () => this.startSelectedMode(),
+          restart: () => this.startRun(),
           setSoundEnabled: (enabled) => this.audio.setEnabled(enabled)
         };
         window.addEventListener('blur', () => { this.pausedByHost = true; clearInputs(); this.matter.world.pause(); });
@@ -293,40 +270,42 @@
         window.addEventListener('pointercancel', up, { passive: false });
         window.addEventListener('keydown', (event) => {
           if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') { this.keyLeft = true; event.preventDefault(); }
-          if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') { this.keyRight = true; event.preventDefault(); }
-          if (event.key === ' ' || event.key === 'Enter') { if (this.state === 'home') this.startSelectedMode(); event.preventDefault(); }
+          if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd' || event.key.toLowerCase() === 'w') { this.keyRight = true; event.preventDefault(); }
+          if (event.key === ' ' || event.key === 'Enter') {
+            if (this.state === 'home') this.startRun();
+            else if (this.state === 'gameover') this.startRun();
+            event.preventDefault();
+          }
         });
         window.addEventListener('keyup', (event) => {
           if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') this.keyLeft = false;
-          if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') this.keyRight = false;
+          if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd' || event.key.toLowerCase() === 'w') this.keyRight = false;
         });
       }
 
       handlePress(pointerId, x, y) {
         if (this.state === 'playing') {
-          if (x > 304 && y < 70) { this.goHome(); return; }
-          if (y >= 504) {
+          // Controls zone: y between 440 and 590 (Comfortably raised from bottom)
+          if (y >= 440 && y <= 590) {
             this.pointerControls.set(pointerId, x < W / 2 ? 'left' : 'right');
             this.refreshHeldButtons();
+            Host.haptic('light');
             return;
           }
-          return;
-        }
-        if (this.state === 'countdown') {
-          if (x > 304 && y < 70) this.goHome();
           return;
         }
         if (this.state === 'home') {
-          if (y >= 295 && y < 410) {
-            const selected = x < 120 ? 'easy' : x < 240 ? 'medium' : 'hard';
-            this.modeKey = selected; this.mode = MODES[selected]; this.audio.beep(440, .05, 'sine', .06); Host.haptic('light');
+          // Start Button Area
+          if (y >= 440 && y <= 530) {
+            this.startRun();
             return;
           }
-          if (y >= 446 && y <= 526) { this.startSelectedMode(); return; }
         }
         if (this.state === 'gameover') {
-          if (y >= 471 && y < 525) { this.startSelectedMode(); return; }
-          if (y >= 535 && y < 590) { this.goHome(); return; }
+          if (y >= 460 && y <= 540) {
+            this.startRun();
+            return;
+          }
         }
       }
 
@@ -357,12 +336,6 @@
         [this.chassis, this.rearWheel, this.frontWheel].forEach((body) => { body.plugin.role = body.label; });
         this.matter.world.add([this.chassis, this.rearWheel, this.frontWheel]);
 
-        // A bilateral distance joint can flip a wheel above its mounting point
-        // on a downhill. These are physical suspension forces instead: each wheel
-        // is kept on its local axle line by spring + damper forces applied to both
-        // bodies (at the chassis mount, which also produces real reaction torque).
-        this.bikeConstraints = [];
-
         this.torso = M.Bodies.rectangle(124, 252, 27, 45, {
           label: 'rider-torso', density: 0.0012, frictionAir: 0.028, chamfer: { radius: 10 }, collisionFilter: sameBike
         });
@@ -379,16 +352,14 @@
 
       createBikeVisuals() {
         this.usingBikeSprites = this.textures.exists('moto-bike-body') && this.textures.exists('moto-tyre');
-        if (!this.usingBikeSprites) {
-          console.error('Moto Balance bike sprite assets failed to load.');
-          return;
-        }
-        const tyre = () => this.add.image(0, 0, 'moto-tyre').setOrigin(.5).setDisplaySize(51, 51).setDepth(3).setVisible(false);
+        if (!this.usingBikeSprites) return;
+        if (this.textures.get('moto-bike-body')) this.textures.get('moto-bike-body').setFilter(Phaser.Textures.FilterMode.LINEAR);
+        if (this.textures.get('moto-tyre')) this.textures.get('moto-tyre').setFilter(Phaser.Textures.FilterMode.LINEAR);
+
+        const tyre = () => this.add.image(0, 0, 'moto-tyre').setOrigin(0.5).setDisplaySize(51, 51).setDepth(3).setVisible(false);
         this.rearTyreSprite = tyre();
         this.frontTyreSprite = tyre();
-        // The supplied body art's axle positions line up with the Matter wheel
-        // bodies when this transparent square is displayed at 140px.
-        this.bikeBodySprite = this.add.image(0, 0, 'moto-bike-body').setOrigin(.5).setDisplaySize(140, 140).setDepth(4).setVisible(false);
+        this.bikeBodySprite = this.add.image(0, 0, 'moto-bike-body').setOrigin(0.5).setDisplaySize(140, 140).setDepth(4).setVisible(false);
       }
 
       syncBikeVisuals(visible) {
@@ -414,14 +385,12 @@
         this.environmentClouds = [];
         if (!source) return;
 
-        // Each range is cropped from the supplied sheet once, then tile-scrolled
-        // forever. Every layer moves left with the road, at its own depth speed.
         const layers = [
-          { key: 'env-far-range', x: 16, y: 8, w: 950, h: 143, screenY: 239, scale: .73, speed: .055, alpha: .77 },
-          { key: 'env-mid-range', x: 16, y: 164, w: 950, h: 116, screenY: 284, scale: .84, speed: .105, alpha: .88 },
-          { key: 'env-deep-range', x: 16, y: 283, w: 950, h: 120, screenY: 319, scale: .80, speed: .165, alpha: .95 },
-          { key: 'env-green-range', x: 16, y: 410, w: 950, h: 111, screenY: 337, scale: .68, speed: .220, alpha: 1 },
-          { key: 'env-forest-range', x: 16, y: 535, w: 950, h: 98, screenY: 353, scale: .57, speed: .285, alpha: 1 }
+          { key: 'env-far-range', x: 16, y: 8, w: 950, h: 143, screenY: 239, scale: 0.73, speed: 0.055, alpha: 0.77 },
+          { key: 'env-mid-range', x: 16, y: 164, w: 950, h: 116, screenY: 284, scale: 0.84, speed: 0.105, alpha: 0.88 },
+          { key: 'env-deep-range', x: 16, y: 283, w: 950, h: 120, screenY: 319, scale: 0.80, speed: 0.165, alpha: 0.95 },
+          { key: 'env-green-range', x: 16, y: 410, w: 950, h: 111, screenY: 337, scale: 0.68, speed: 0.220, alpha: 1 },
+          { key: 'env-forest-range', x: 16, y: 535, w: 950, h: 98, screenY: 353, scale: 0.57, speed: 0.285, alpha: 1 }
         ];
         const crop = (layer) => {
           const texture = this.textures.createCanvas(layer.key, layer.w, layer.h);
@@ -429,7 +398,7 @@
           texture.context.drawImage(source, layer.x, layer.y, layer.w, layer.h, 0, 0, layer.w, layer.h);
           texture.refresh();
           const tile = this.add.tileSprite(W / 2, layer.screenY, W + 6, layer.h * layer.scale, layer.key)
-            .setOrigin(.5).setDepth(1).setAlpha(layer.alpha);
+            .setOrigin(0.5).setDepth(1).setAlpha(layer.alpha);
           tile.tileScaleX = layer.scale;
           tile.tileScaleY = layer.scale;
           return { tile, speed: layer.speed };
@@ -441,13 +410,13 @@
           texture.context.clearRect(0, 0, w, h);
           texture.context.drawImage(source, x, y, w, h, 0, 0, w, h);
           texture.refresh();
-          const image = this.add.image(0, screenY, key).setOrigin(.5).setDisplaySize(width, height).setDepth(1).setAlpha(alpha);
+          const image = this.add.image(0, screenY, key).setOrigin(0.5).setDisplaySize(width, height).setDepth(1).setAlpha(alpha);
           return { image, start, speed, width };
         };
         this.environmentClouds = [
-          makeCloud('env-cloud-large', 976, 452, 250, 144, 124, 71, 74, .028, 126, .84),
-          makeCloud('env-cloud-small', 1200, 472, 240, 103, 96, 41, 312, .041, 187, .72),
-          makeCloud('env-cloud-low', 979, 595, 245, 94, 112, 43, 208, .034, 222, .64)
+          makeCloud('env-cloud-large', 976, 452, 250, 144, 124, 71, 74, 0.028, 126, 0.84),
+          makeCloud('env-cloud-small', 1200, 472, 240, 103, 96, 41, 312, 0.041, 187, 0.72),
+          makeCloud('env-cloud-low', 979, 595, 245, 94, 112, 43, 208, 0.034, 222, 0.64)
         ];
         this.updateEnvironment();
       }
@@ -462,7 +431,7 @@
 
       buildRiderConstraints() {
         if (this.riderConstraints.length) this.matter.world.remove(this.riderConstraints);
-        const c = (a, pointA, b, pointB, length, stiffness, damping) => this.makeConstraint(a, pointA, b, pointB, length, stiffness, damping);
+        const c = (a, pointA, b, pointB, length, stiffness, damping) => this.M.Constraint.create({ bodyA: a, pointA, bodyB: b, pointB, length, stiffness, damping, render: { visible: false } });
         this.riderConstraints = [
           c(this.chassis, { x: -11, y: -10 }, this.torso, { x: 0, y: 17 }, 28, 0.54, 0.16),
           c(this.chassis, { x: 6, y: -9 }, this.torso, { x: 0, y: 17 }, 31, 0.42, 0.15),
@@ -479,24 +448,15 @@
         this.matter.world.add(this.riderConstraints);
       }
 
-      makeConstraint(bodyA, pointA, bodyB, pointB, length, stiffness, damping) {
-        return this.M.Constraint.create({ bodyA, pointA, bodyB, pointB, length, stiffness, damping, render: { visible: false } });
-      }
-
-      terrainHeight() {
-        // A perfectly flat highway: balance now comes from true inertia and
-        // player torque, not hidden terrain slopes.
-        return 365;
-      }
+      terrainHeight() { return 365; }
 
       resetWorld() {
         this.clearInputs();
         for (const entry of this.terrainBodies) this.matter.world.remove(entry.body);
         this.terrainBodies = [];
         this.nextTerrainX = -480;
-        this.mode = MODES[this.modeKey];
         const M = this.M;
-        const ground = this.terrainHeight(120);
+        const ground = this.terrainHeight();
         const set = (body, x, y, angle = 0) => {
           M.Body.setPosition(body, { x, y }); M.Body.setVelocity(body, { x: 0, y: 0 }); M.Body.setAngle(body, angle); M.Body.setAngularVelocity(body, 0); body.force.x = 0; body.force.y = 0; body.torque = 0;
         };
@@ -511,11 +471,10 @@
         set(this.frontHand, 173, ground - 83);
         this.buildRiderConstraints();
         this.ensureTerrain(1100);
-        this.runStartX = this.chassis.position.x;
-        this.speedTarget = 0;
         this.cameraX = this.chassis.position.x - 124;
-        this.timeLeft = 60; this.score = 0; this.finalScore = 0; this.crashTimer = 0; this.shake = 0; this.handledEnd = false;
-        this.lastWheelContactAt = -1000; this.particles = [];
+        this.score = 0; this.finalScore = 0; this.crashTimer = 0; this.shake = 0;
+        this.wheelieActive = false; this.wheelieTime = 0; this.wheelieCombo = 1; this.wheeliePointsAccum = 0;
+        this.particles = []; this.floatingTexts = [];
       }
 
       ensureTerrain(targetX) {
@@ -545,82 +504,107 @@
         }
       }
 
-      startSelectedMode() {
+      startRun() {
         this.audio.unlock();
         this.matter.world.resume();
         this.resetWorld();
         this.state = 'countdown';
-        this.countdown = 2.5;
-        this.audio.beep(510, .08, 'triangle', .10);
-        Host.haptic('medium');
-      }
-
-      beginRun() {
-        this.state = 'playing';
+        this.countdown = 2.0;
         this.timeLeft = 60;
-        this.runStartX = this.chassis.position.x;
-        this.speedTarget = .65;
-        this.audio.beep(760, .11, 'triangle', .11);
-        Host.post('gameStarted', { mode: this.mode.label });
+        this.audio.beep(510, 0.08, 'triangle', 0.10);
         Host.haptic('medium');
       }
 
-      goHome() {
-        this.state = 'home';
-        this.resetWorld();
-        this.matter.world.pause();
-        this.audio.setEngine(0, false);
+      beginPlaying() {
+        this.state = 'playing';
+        this.audio.beep(780, 0.12, 'triangle', 0.12);
+        Host.post('gameStarted', { mode: 'Standard' });
+        Host.haptic('medium');
       }
 
       onCollisionStart(event) { this.inspectPairs(event.pairs, true); }
       onCollisionActive(event) { this.inspectPairs(event.pairs, false); }
       inspectPairs(pairs, started) {
-        if (this.state !== 'playing' && this.state !== 'crashing') return;
+        if (this.state !== 'playing') return;
         for (const pair of pairs) {
           const a = pair.bodyA, b = pair.bodyB;
           const body = a.plugin && a.plugin.role === 'terrain' ? b : b.plugin && b.plugin.role === 'terrain' ? a : null;
           if (!body || !body.plugin) continue;
           const role = body.plugin.role;
-          if (role === 'rear-wheel' || role === 'front-wheel') {
-            this.lastWheelContactAt = performance.now();
-            continue;
-          }
-          if (this.state !== 'playing') continue;
+          if (role === 'rear-wheel' || role === 'front-wheel') continue;
           const impact = Math.hypot(body.velocity.x, body.velocity.y);
-          const tilted = Math.abs(normalizeAngle(this.chassis.angle)) > this.mode.maxTilt;
-          const headHit = role === 'rider-head' && (started || impact > 0.7);
-          const hardFrameHit = role === 'moto-chassis' && (impact > this.mode.crashImpact || tilted);
-          const limbHit = role.indexOf('rider-') === 0 && impact > this.mode.crashImpact + 1.4;
-          if (headHit || hardFrameHit || limbHit) this.finishRun('crash');
+          const tilted = Math.abs(normalizeAngle(this.chassis.angle)) > SETTINGS.crashTilt;
+          const headHit = role === 'rider-head' && (started || impact > 0.6);
+          const hardFrameHit = role === 'moto-chassis' && tilted;
+          const torsoHit = role === 'rider-torso' && impact > 1.8;
+          if (headHit || hardFrameHit || torsoHit) {
+            this.triggerCrash('Impact Crash');
+            break;
+          }
         }
       }
 
-      finishRun(reason) {
-        if (this.handledEnd || this.state === 'gameover') return;
-        this.handledEnd = true;
+      triggerCrash(reason = 'crash') {
+        if (this.state !== 'playing') return;
         this.clearInputs();
-        this.finalScore = this.score;
+        this.audio.crash();
         this.audio.setEngine(0, false);
-        if (reason === 'crash') {
-          this.state = 'crashing'; this.crashTimer = 1.05; this.shake = 13;
-          if (this.riderConstraints.length) { this.matter.world.remove(this.riderConstraints); this.riderConstraints = []; }
-          this.M.Body.applyForce(this.torso, this.torso.position, { x: -.026, y: -.018 });
-          this.M.Body.setAngularVelocity(this.chassis, this.chassis.angularVelocity + (Math.random() > .5 ? .22 : -.22));
-          this.spawnImpact(this.chassis.position.x + 22, this.chassis.position.y + 15);
-          this.audio.crash(); Host.haptic('heavy');
-          return;
+        Host.haptic('heavy');
+        this.spawnImpact(this.chassis.position.x + 20, this.chassis.position.y);
+        this.shake = 16;
+        this.state = 'crashing';
+        this.crashTimer = 0.65; // Short tumble, then instant respawn
+        this.wheelieActive = false;
+        this.wheelieTime = 0;
+        this.wheelieCombo = 1;
+        this.addFloatingText('CRASH! FLIPPED!', this.sx(this.chassis.position.x), this.chassis.position.y - 45, 0xff5f79);
+
+        // Ragdoll rider tumble
+        if (this.riderConstraints.length) {
+          this.matter.world.remove(this.riderConstraints);
+          this.riderConstraints = [];
         }
-        this.showGameOver(reason);
+        this.M.Body.applyForce(this.torso, this.torso.position, { x: 0.018, y: -0.022 });
+        this.M.Body.setAngularVelocity(this.chassis, this.chassis.angularVelocity + (Math.random() > 0.5 ? 0.24 : -0.24));
       }
 
-      showGameOver(reason) {
+      respawnBike() {
+        const M = this.M;
+        const targetX = this.cameraX + 130;
+        const ground = this.terrainHeight();
+        const set = (body, x, y, angle = 0) => {
+          M.Body.setPosition(body, { x, y });
+          M.Body.setVelocity(body, { x: 0, y: 0 });
+          M.Body.setAngle(body, angle);
+          M.Body.setAngularVelocity(body, 0);
+          body.force.x = 0; body.force.y = 0; body.torque = 0;
+        };
+        set(this.rearWheel, targetX - 44, ground - 22);
+        set(this.frontWheel, targetX + 45, ground - 22);
+        set(this.chassis, targetX, ground - 58);
+        set(this.torso, targetX - 10, ground - 111, -0.05);
+        set(this.head, targetX - 24, ground - 149);
+        set(this.rearKnee, targetX - 33, ground - 78);
+        set(this.frontKnee, targetX + 16, ground - 78);
+        set(this.rearHand, targetX + 34, ground - 84);
+        set(this.frontHand, targetX + 41, ground - 83);
+        this.buildRiderConstraints();
+        this.wheelieActive = false;
+        this.wheelieTime = 0;
+        this.wheelieCombo = 1;
+        this.respawnFlash = 0.5;
+        this.addFloatingText('⚡ RESPAWNED! GO!', this.sx(targetX), ground - 100, 0x06d6a0);
+        this.audio.beep(640, 0.08, 'sine', 0.09);
+      }
+
+      showGameOver() {
         if (this.state === 'gameover') return;
         this.state = 'gameover';
         this.matter.world.pause();
         this.finalScore = this.score;
-        this.best = this.bestScores.commit(this.finalScore);
-        this.audio.beep(reason === 'time' ? 880 : 180, .20, reason === 'time' ? 'triangle' : 'sawtooth', .10);
-        Host.post('gameOver', { score: this.finalScore, timeSpentSeconds: Math.round(60 - this.timeLeft), stats: { mode: this.mode.label, distance: Math.round(Math.max(0, this.chassis.position.x - this.runStartX)), result: reason } });
+        this.best = this.bestScores.commit(this.finalScore, this.maxWheelie);
+        this.audio.beep(880, 0.22, 'triangle', 0.12);
+        Host.post('gameOver', { score: this.finalScore, timeSpentSeconds: 60, stats: { maxWheelie: this.maxWheelie.toFixed(1) } });
       }
 
       spawnImpact(x, y) {
@@ -628,35 +612,132 @@
         for (let i = 0; i < 28; i++) {
           const a = Math.random() * Math.PI * 2;
           const speed = 1.4 + Math.random() * 4.1;
-          this.particles.push({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed - 1.5, life: .35 + Math.random() * .55, max: .9, size: 2 + Math.random() * 5, color: colors[i % colors.length] });
+          this.particles.push({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed - 1.5, life: 0.35 + Math.random() * 0.55, max: 0.9, size: 2 + Math.random() * 5, color: colors[i % colors.length] });
         }
       }
 
-      applyRideForces(delta) {
+      addFloatingText(text, x, y, color = 0xffffff) {
+        this.floatingTexts.push({ text, x, y, vy: -1.2, life: 1.0, max: 1.0, color });
+      }
+
+      applyRideForces(dt) {
         const M = this.M;
-        const speed = Math.max(0, this.chassis.velocity.x);
-        // Acceleration is progressive: the target rises from a standstill and
-        // remains fixed after reaching the mode terminal speed.
-        this.speedTarget = Math.min(this.mode.maxSpeed, this.speedTarget + this.mode.speedRamp * delta);
-        const speedError = this.speedTarget - speed;
-        const throttle = clamp(speedError / 1.35, .055, 1);
-        const groundRecent = performance.now() - this.lastWheelContactAt < 120;
-        const drive = this.mode.driveForce * throttle;
-        M.Body.applyForce(this.chassis, this.chassis.position, { x: drive, y: 0 });
-        // Rear-wheel drive; the front tyre spins naturally from ground contact.
-        this.rearWheel.torque -= this.mode.wheelTorque * (.20 + throttle * .80);
-        const overspeed = Math.max(0, speed - this.speedTarget);
-        if (overspeed > .01) M.Body.applyForce(this.chassis, this.chassis.position, { x: -overspeed * this.mode.speedBrake, y: 0 });
-        if (groundRecent) M.Body.applyForce(this.chassis, this.chassis.position, { x: 0, y: -0.00014 });
-        // Positive Matter torque lowers the front in screen coordinates.
-        // Therefore right tilts forward and left tilts backward.
-        const dir = (this.rightHeld ? 1 : 0) - (this.leftHeld ? 1 : 0);
-        if (dir) {
-          this.chassis.torque += dir * this.mode.tiltTorque;
-          this.torso.torque += dir * this.mode.tiltTorque * .18;
+        const speed = this.chassis.velocity.x;
+
+        // 1. RIGHT BUTTON HELD: ACCELERATE & POP WHEELIE
+        if (this.rightHeld) {
+          if (speed < SETTINGS.maxSpeed) {
+            M.Body.applyForce(this.chassis, this.chassis.position, { x: SETTINGS.driveForce, y: 0 });
+            this.rearWheel.torque -= SETTINGS.wheelTorque;
+          }
+          // Arcade wheelie lift torque (lifts front up)
+          this.chassis.torque -= SETTINGS.wheelieLiftTorque;
+          this.torso.torque -= SETTINGS.wheelieLiftTorque * 0.18;
+
+          // Smoke particles from rear tyre
+          if (Math.random() < 0.35) {
+            const groundY = this.terrainHeight(this.rearWheel.position.x);
+            this.particles.push({
+              x: this.rearWheel.position.x - 18,
+              y: groundY - 2,
+              vx: -speed * 0.5 - Math.random() * 1.5,
+              vy: -0.3 - Math.random() * 0.8,
+              life: 0.25 + Math.random() * 0.25,
+              max: 0.5,
+              size: 3 + Math.random() * 4,
+              color: 0x94a3b8
+            });
+          }
         }
-        const riderDrag = clamp(this.chassis.angularVelocity * -.0006, -.0015, .0015);
+
+        // 2. LEFT BUTTON HELD: BRAKE (NEVER GOES BACKWARD!)
+        if (this.leftHeld) {
+          if (speed > 0.08) {
+            const bf = Math.min(speed * 0.010, SETTINGS.brakeDecel);
+            M.Body.applyForce(this.chassis, this.chassis.position, { x: -bf, y: 0 });
+            this.rearWheel.angularVelocity *= 0.82;
+            this.frontWheel.angularVelocity *= 0.82;
+          } else {
+            // Firm stop: do not allow negative reverse velocity
+            M.Body.setVelocity(this.chassis, { x: 0, y: this.chassis.velocity.y });
+            M.Body.setVelocity(this.rearWheel, { x: 0, y: this.rearWheel.velocity.y });
+            M.Body.setVelocity(this.frontWheel, { x: 0, y: this.frontWheel.velocity.y });
+            this.rearWheel.angularVelocity = 0;
+            this.frontWheel.angularVelocity = 0;
+          }
+          // Brake also helps push front wheel down when wheeling
+          this.chassis.torque += SETTINGS.brakeFrontDownTorque;
+        }
+
+        // 3. IDLE (NEITHER HELD): NATURAL ROLLING RESISTANCE
+        if (!this.rightHeld && !this.leftHeld) {
+          if (speed > 0.04) {
+            M.Body.applyForce(this.chassis, this.chassis.position, { x: -0.0012, y: 0 });
+          }
+        }
+
+        // Subtle damping for stability
+        const riderDrag = clamp(this.chassis.angularVelocity * -0.0006, -0.0015, 0.0015);
         this.chassis.torque += riderDrag;
+      }
+
+      checkWheelie(dt) {
+        if (this.state !== 'playing') return;
+        const groundY = this.terrainHeight(this.rearWheel.position.x);
+        const frontLift = (groundY - 22) - this.frontWheel.position.y;
+        const rearGrounded = Math.abs(this.rearWheel.position.y - (groundY - 22)) < 16;
+        const tilt = -this.chassis.angle; // positive = front up
+        const speed = this.chassis.velocity.x;
+
+        const isWheelie = rearGrounded && frontLift > 14 && tilt > 0.16 && speed > 0.5;
+
+        if (isWheelie) {
+          this.wheelieActive = true;
+          this.wheelieTime += dt;
+          this.maxWheelie = Math.max(this.maxWheelie, this.wheelieTime);
+          this.wheelieCombo = this.wheelieTime > 4.5 ? 4 : this.wheelieTime > 2.8 ? 3 : this.wheelieTime > 1.2 ? 2 : 1;
+
+          // Continuous points accumulation
+          const pts = dt * 180 * this.wheelieCombo;
+          this.wheeliePointsAccum += pts;
+          if (this.wheeliePointsAccum >= 1) {
+            const add = Math.floor(this.wheeliePointsAccum);
+            this.score += add;
+            this.wheeliePointsAccum -= add;
+          }
+
+          // Golden wheelie sparks under rear tyre
+          if (Math.random() < 0.45) {
+            this.particles.push({
+              x: this.rearWheel.position.x - 12 + (Math.random() - 0.5) * 8,
+              y: groundY - 2 + (Math.random() - 0.5) * 3,
+              vx: -speed * 0.6 + (Math.random() - 0.5) * 2,
+              vy: -0.8 - Math.random() * 2.2,
+              life: 0.35 + Math.random() * 0.3,
+              max: 0.65,
+              size: 2 + Math.random() * 4,
+              color: Math.random() > 0.4 ? 0xffd166 : 0xff70a6
+            });
+          }
+        } else {
+          if (this.wheelieActive) {
+            // Landed smoothly
+            if (this.wheelieTime >= 0.7) {
+              const landingBonus = Math.round(this.wheelieTime * 50 * this.wheelieCombo);
+              this.score += landingBonus;
+              this.addFloatingText(`+${landingBonus} LANDING!`, this.sx(this.chassis.position.x), this.chassis.position.y - 45, 0x43d6a6);
+              this.audio.beep(880, 0.08, 'triangle', 0.08);
+            }
+            this.wheelieActive = false;
+            this.wheelieTime = 0;
+            this.wheelieCombo = 1;
+          }
+        }
+
+        // CRASH ON OVER-WHEELIE (> 72 degrees / 1.25 rad)
+        if (tilt > SETTINGS.crashTilt) {
+          this.triggerCrash('Flipped Over Backward!');
+        }
       }
 
       applySuspension() {
@@ -687,8 +768,12 @@
 
       updateParticles(dt) {
         for (let i = this.particles.length - 1; i >= 0; i--) {
-          const p = this.particles[i]; p.life -= dt; p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.vy += .12 * dt * 60;
+          const p = this.particles[i]; p.life -= dt; p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.vy += 0.12 * dt * 60;
           if (p.life <= 0) this.particles.splice(i, 1);
+        }
+        for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+          const ft = this.floatingTexts[i]; ft.life -= dt; ft.y += ft.vy * dt * 60;
+          if (ft.life <= 0) this.floatingTexts.splice(i, 1);
         }
       }
 
@@ -696,28 +781,37 @@
         const dt = Math.min(rawDelta, 50) / 1000;
         this.refreshHeldButtons();
         if (this.pausedByHost || window.__GAME_ACTIVE__ === false) { this.render(); return; }
+
         if (this.state === 'countdown') {
           this.applySuspension();
           this.countdown -= dt;
-          if (this.countdown <= 0) this.beginRun();
+          if (this.countdown <= 0) this.beginPlaying();
         } else if (this.state === 'playing') {
           this.applySuspension();
           this.applyRideForces(dt);
+          this.checkWheelie(dt);
           this.timeLeft = Math.max(0, this.timeLeft - dt);
-          this.score = Math.max(0, Math.floor((this.chassis.position.x - this.runStartX) / 500));
-          if (this.timeLeft <= 0) this.finishRun('time');
-          const wheelGrounded = performance.now() - this.lastWheelContactAt < 120;
-          if (wheelGrounded && Math.abs(normalizeAngle(this.chassis.angle)) > this.mode.maxTilt + .28 && Math.abs(this.chassis.angularVelocity) > .06) this.finishRun('crash');
+          if (this.timeLeft <= 0) this.showGameOver();
         } else if (this.state === 'crashing') {
           this.crashTimer -= dt;
-          if (this.crashTimer <= 0) this.showGameOver('crash');
+          if (this.crashTimer <= 0) {
+            // AUTOMATIC INSTANT RESPAWN WITHOUT DIALOG!
+            if (this.timeLeft > 0) {
+              this.respawnBike();
+              this.state = 'playing';
+            } else {
+              this.showGameOver();
+            }
+          }
         }
+
+        if (this.respawnFlash > 0) this.respawnFlash = Math.max(0, this.respawnFlash - dt);
         this.cameraX = lerp(this.cameraX, this.chassis.position.x - 124, clamp(dt * 6.5, 0, 1));
         this.ensureTerrain(this.cameraX + W + 320);
         this.pruneTerrain();
         this.shake = Math.max(0, this.shake - dt * 22);
         this.updateParticles(dt);
-        this.audio.setEngine(this.chassis.velocity.x, this.state === 'playing');
+        this.audio.setEngine(this.chassis.velocity.x, this.rightHeld);
         this.render();
       }
 
@@ -731,75 +825,63 @@
       }
 
       renderSky(g) {
-        const bands = [0x4bc5f3, 0x55c9ee, 0x73d5eb, 0x9ce1ea, 0xc3edf0];
+        const bands = [0x2288b8, 0x2fa5d6, 0x4ebfe3, 0x7dd7ee, 0xb4ecf5];
         const bandH = 420 / bands.length;
         bands.forEach((color, i) => { g.fillStyle(color, 1); g.fillRect(0, i * bandH, W, bandH + 1); });
-        g.fillStyle(0xfff3c3, .93); g.fillCircle(282, 100, 31);
-        g.fillStyle(0xffffff, .18); g.fillCircle(274, 92, 18);
-      }
-
-      drawMountainLayer(g, factor, base, height, color, alpha) {
-        // Road markings move left as the camera advances right. Mountains use
-        // the same direction at a smaller factor for correct depth parallax.
-        const offset = modulo(this.cameraX * factor, 180);
-        for (let x = -180 - offset; x < W + 180; x += 180) {
-          const peak = x + 90;
-          g.beginPath(); g.moveTo(x, base); g.lineTo(peak, base - height); g.lineTo(x + 180, base); g.closePath(); g.fillStyle(color, alpha); g.fillPath();
-          g.beginPath(); g.moveTo(peak, base - height); g.lineTo(peak + 30, base - height + 29); g.lineTo(peak + 60, base); g.closePath(); g.fillStyle(0xffffff, .09); g.fillPath();
-        }
+        g.fillStyle(0xfff3c3, 0.95); g.fillCircle(282, 100, 31);
+        g.fillStyle(0xffffff, 0.22); g.fillCircle(274, 92, 18);
       }
 
       renderWorld(g) {
         const step = 5;
         const top = [];
-        for (let x = -10; x <= W + 10; x += step) top.push({ x, y: this.terrainHeight(this.cameraX + x) });
+        for (let x = -10; x <= W + 10; x += step) top.push({ x, y: this.terrainHeight() });
         g.beginPath(); g.moveTo(top[0].x, top[0].y);
         for (let i = 1; i < top.length; i++) g.lineTo(top[i].x, top[i].y);
-        g.lineTo(W + 10, H); g.lineTo(-10, H); g.closePath(); g.fillStyle(0x17212a, 1); g.fillPath();
-        g.lineStyle(3, 0xe8edf1, 1); g.beginPath(); g.moveTo(top[0].x, top[0].y + 2);
-        for (let i = 1; i < top.length; i++) g.lineTo(top[i].x, top[i].y + 2); g.strokePath();
-        g.lineStyle(1.1, 0x0a1219, .95); g.beginPath(); g.moveTo(top[0].x, top[0].y + 9);
-        for (let i = 1; i < top.length; i++) g.lineTo(top[i].x, top[i].y + 9); g.strokePath();
+        g.lineTo(W + 10, H); g.lineTo(-10, H); g.closePath(); g.fillStyle(0x161f26, 1); g.fillPath();
 
+        // Asphalt surface curb lines
+        g.lineStyle(3.5, 0xf1f5f9, 1); g.beginPath(); g.moveTo(top[0].x, top[0].y + 2);
+        for (let i = 1; i < top.length; i++) g.lineTo(top[i].x, top[i].y + 2); g.strokePath();
+
+        // Neon gold road dash markings
         const startWorld = Math.floor(this.cameraX / 72) * 72 - 72;
         for (let wx = startWorld; wx < this.cameraX + W + 80; wx += 72) {
-          const x = this.sx(wx), y = this.terrainHeight(wx) + 24;
-          const y2 = this.terrainHeight(wx + 43) + 24;
-          g.lineStyle(4.4, 0xffca57, .98); g.lineBetween(x, y, this.sx(wx + 43), y2);
+          const x = this.sx(wx), y = this.terrainHeight() + 24;
+          g.lineStyle(4.5, 0xffd166, 0.98); g.lineBetween(x, y, this.sx(wx + 44), y);
         }
+
+        // Road barrier guardrail
         const railStart = Math.floor(this.cameraX / 52) * 52 - 52;
         for (let wx = railStart; wx < this.cameraX + W + 70; wx += 52) {
-          const x = this.sx(wx), roadY = this.terrainHeight(wx);
-          g.lineStyle(3, 0x1d2830, .72); g.lineBetween(x, roadY - 32, x, roadY - 3);
-          g.lineStyle(2.5, 0xd6e5e8, .91); g.lineBetween(x - 4, roadY - 31, this.sx(wx + 52) - 4, this.terrainHeight(wx + 52) - 31);
-          g.lineStyle(1.2, 0x416274, .95); g.lineBetween(x - 4, roadY - 27, this.sx(wx + 52) - 4, this.terrainHeight(wx + 52) - 27);
+          const x = this.sx(wx), roadY = this.terrainHeight();
+          g.lineStyle(3, 0x1e293b, 0.75); g.lineBetween(x, roadY - 32, x, roadY - 3);
+          g.lineStyle(2.5, 0xe2e8f0, 0.92); g.lineBetween(x - 4, roadY - 31, this.sx(wx + 52) - 4, roadY - 31);
         }
-        const mistY = 402;
-        g.fillStyle(0x13394b, .35); g.fillRect(0, mistY, W, 28);
+        g.fillStyle(0x0f172a, 0.35); g.fillRect(0, 402, W, 28);
       }
 
       worldPoint(body) { return { x: this.sx(body.position.x), y: body.position.y }; }
       localPoint(body, local) { const p = rotate(local, body.angle); return { x: this.sx(body.position.x + p.x), y: body.position.y + p.y }; }
-      drawPolygon(points, color, outline = 0x0b1620, line = 1.5, alpha = 1) { this.drawPath(points, color, outline, line); }
 
       drawWheel(body, accent) {
         const g = this.g, p = this.worldPoint(body), r = 22;
-        g.fillStyle(0x071118, .28); g.fillEllipse(p.x + 4, p.y + r - 1, r * 2.0, 7);
+        g.fillStyle(0x071118, 0.28); g.fillEllipse(p.x + 4, p.y + r - 1, r * 2.0, 7);
         g.fillStyle(0x080d12, 1); g.fillCircle(p.x, p.y, r + 2);
         g.lineStyle(1.5, 0x53616b, 1); g.strokeCircle(p.x, p.y, r - 2);
         g.fillStyle(0x29343a, 1); g.fillCircle(p.x, p.y, r - 7);
         g.fillStyle(0x101820, 1); g.fillCircle(p.x, p.y, 6);
-        g.fillStyle(accent, .95); g.fillCircle(p.x, p.y, 3);
-        g.lineStyle(1.2, 0xbfd1d4, .78);
+        g.fillStyle(accent, 0.95); g.fillCircle(p.x, p.y, 3);
+        g.lineStyle(1.2, 0xbfd1d4, 0.78);
         for (let i = 0; i < 10; i++) {
-          const a = body.angle + i * Math.PI * .2;
+          const a = body.angle + i * Math.PI * 0.2;
           g.lineBetween(p.x + Math.cos(a) * 5, p.y + Math.sin(a) * 5, p.x + Math.cos(a) * (r - 8), p.y + Math.sin(a) * (r - 8));
         }
       }
 
       drawRider() {
         const g = this.g;
-        const torso = this.worldPoint(this.torso), head = this.worldPoint(this.head), rearKnee = this.worldPoint(this.rearKnee), frontKnee = this.worldPoint(this.frontKnee), rearHand = this.worldPoint(this.rearHand), frontHand = this.worldPoint(this.frontHand);
+        const head = this.worldPoint(this.head), rearKnee = this.worldPoint(this.rearKnee), frontKnee = this.worldPoint(this.frontKnee), rearHand = this.worldPoint(this.rearHand), frontHand = this.worldPoint(this.frontHand);
         const hip = this.localPoint(this.torso, { x: -2, y: 17 }), shoulder = this.localPoint(this.torso, { x: 6, y: -16 });
         const pegRear = this.localPoint(this.chassis, { x: -17, y: 12 }), pegFront = this.localPoint(this.chassis, { x: 26, y: 8 });
         g.lineStyle(10, 0x151b22, 1); g.lineBetween(hip.x, hip.y, rearKnee.x, rearKnee.y); g.lineBetween(rearKnee.x, rearKnee.y, pegRear.x, pegRear.y); g.lineBetween(hip.x + 5, hip.y, frontKnee.x, frontKnee.y); g.lineBetween(frontKnee.x, frontKnee.y, pegFront.x, pegFront.y);
@@ -807,126 +889,199 @@
         g.lineStyle(7.5, 0xf4a369, 1); g.lineBetween(shoulder.x, shoulder.y, rearHand.x, rearHand.y); g.lineBetween(shoulder.x + 2, shoulder.y + 3, frontHand.x, frontHand.y);
         g.lineStyle(4.5, 0x2a3a43, 1); g.lineBetween(shoulder.x, shoulder.y, rearHand.x, rearHand.y); g.lineBetween(shoulder.x + 2, shoulder.y + 3, frontHand.x, frontHand.y);
         const bodyPoly = [{x:-12,y:19},{x:-15,y:-13},{x:-6,y:-24},{x:12,y:-16},{x:14,y:13},{x:5,y:23}].map((p) => this.localPoint(this.torso, p));
-        this.drawPolygon(bodyPoly, 0x1f323b, 0x07131c, 1.7);
-        const jacket = [{x:-10,y:-12},{x:5,y:-20},{x:11,y:5},{x:-8,y:11}].map((p) => this.localPoint(this.torso, p)); this.drawPolygon(jacket, 0x2fc7d7, 0x0b1b23, 1);
-        g.fillStyle(0x0c171e, 1); g.fillCircle(head.x, head.y, 16); g.fillStyle(0x19b9c8, 1); g.fillCircle(head.x - 1, head.y - 1, 13.5);
-        g.fillStyle(0x07131c, 1); g.fillRoundedRect(head.x - 1, head.y - 5, 15, 10, 4); g.lineStyle(1.5, 0xffa550, 1); g.lineBetween(head.x + 1, head.y + 8, head.x + 10, head.y + 11);
+        this.drawPath(bodyPoly, 0x1f323b, 0x07131c, 1.7);
+        const jacket = [{x:-10,y:-12},{x:5,y:-20},{x:11,y:5},{x:-8,y:11}].map((p) => this.localPoint(this.torso, p));
+        this.drawPath(jacket, 0x06d6a0, 0x07131c, 1);
+        g.fillStyle(0x0c171e, 1); g.fillCircle(head.x, head.y, 16); g.fillStyle(0x118ab2, 1); g.fillCircle(head.x - 1, head.y - 1, 13.5);
+        g.fillStyle(0x07131c, 1); g.fillRoundedRect(head.x - 1, head.y - 5, 15, 10, 4); g.lineStyle(1.5, 0xffd166, 1); g.lineBetween(head.x + 1, head.y + 8, head.x + 10, head.y + 11);
       }
 
       renderParticles(g) {
         for (const p of this.particles) {
           const a = clamp(p.life / p.max, 0, 1); g.fillStyle(p.color, a); g.fillCircle(this.sx(p.x), p.y, p.size * a);
         }
+        for (const ft of this.floatingTexts) {
+          const a = clamp(ft.life / ft.max, 0, 1);
+          this.fillText(ft.text, ft.x, ft.y, 14, ft.color, '900', 'center', a);
+        }
       }
 
-      fillText(text, x, y, size, color, weight = '800', align = 'center') {
+      fillText(text, x, y, size, color, weight = '800', align = 'center', alpha = 1) {
         let t = this.textPool[this.textIndex++];
         if (!t) {
-          t = this.add.text(0, 0, '', { fontFamily: 'Arial, sans-serif', fontSize: size + 'px', fontStyle: weight, color: hex(color), align });
+          t = this.add.text(0, 0, '', {
+            fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            fontSize: size + 'px',
+            fontStyle: weight,
+            color: hex(color),
+            align,
+            resolution: DPR
+          });
           this.textPool.push(t);
         }
-        t.setText(text); t.setPosition(x, y); t.setFontSize(size + 'px'); t.setFontStyle(weight); t.setColor(hex(color)); t.setAlign(align); t.setVisible(true);
-        t.setOrigin(align === 'center' ? .5 : align === 'right' ? 1 : 0, .5); t.setDepth(8); return t;
+        t.setText(text); t.setPosition(x, y); t.setFontSize(size + 'px'); t.setFontStyle(weight); t.setColor(hex(color)); t.setAlign(align); t.setAlpha(alpha); t.setVisible(true);
+        t.setOrigin(align === 'center' ? 0.5 : align === 'right' ? 1 : 0, 0.5); t.setDepth(8); return t;
       }
 
       renderHud(g) {
-        const time = String(Math.max(0, Math.ceil(this.timeLeft))).padStart(2, '0');
-        g.fillStyle(0x071827, .35); g.fillCircle(180, 50, 31); g.lineStyle(1.4, 0xffffff, .36); g.strokeCircle(180, 50, 31);
-        this.fillText(time, 180, 52, 31, 0xffffff, '900');
-        this.fillText('SECONDS', 180, 78, 8, 0xe3f5f7, '700');
-        g.fillStyle(0x09121c, .82); g.fillRoundedRect(269, 159, 78, 44, 20); g.lineStyle(1.5, this.mode.color, .9); g.strokeRoundedRect(269, 159, 78, 44, 20);
-        this.fillText(String(this.score), 309, 179, 22, 0xffffff, '900'); this.fillText('DIST', 309, 196, 7, this.mode.accent, '800');
-        g.fillStyle(0xffffff, .92); g.fillCircle(329, 40, 17); g.lineStyle(3, 0x698896, .9); g.lineBetween(323, 34, 335, 46); g.lineBetween(335, 34, 323, 46);
-        g.fillStyle(0x08212c, .66); g.fillRoundedRect(14, 125, 104, 24, 12); this.fillText(this.mode.label + ' MODE', 66, 137, 9, this.mode.accent, '900');
+        // 1. Timer in top center
+        const timeSec = Math.max(0, Math.ceil(this.timeLeft));
+        const timerPillColor = timeSec <= 10 ? 0xff5f79 : 0x0b2535;
+        g.fillStyle(timerPillColor, 0.88); g.fillRoundedRect(140, 22, 80, 48, 16);
+        g.lineStyle(2, timeSec <= 10 ? 0xff5f79 : 0x38bdf8, 0.9); g.strokeRoundedRect(140, 22, 80, 48, 16);
+        this.fillText(String(timeSec), 180, 42, 24, 0xffffff, '900');
+        this.fillText('SECONDS', 180, 60, 8, 0x94a3b8, '800');
+
+        // 2. Score Pill on top right
+        g.fillStyle(0x0b2535, 0.88); g.fillRoundedRect(240, 24, 106, 44, 14);
+        g.lineStyle(1.5, 0xffd166, 0.85); g.strokeRoundedRect(240, 24, 106, 44, 14);
+        this.fillText(String(this.score), 293, 41, 18, 0xffffff, '900');
+        this.fillText('SCORE', 293, 58, 8, 0xffd166, '800');
+
+        // 3. Dynamic Wheelie Banner in mid-upper screen when actively wheeling
+        if (this.wheelieActive && this.wheelieTime > 0.2) {
+          const comboColor = this.wheelieCombo >= 4 ? 0xff5f79 : this.wheelieCombo >= 3 ? 0xff9d48 : 0x06d6a0;
+          g.fillStyle(0x071b29, 0.92); g.fillRoundedRect(45, 96, 270, 48, 16);
+          g.lineStyle(2.5, comboColor, 1); g.strokeRoundedRect(45, 96, 270, 48, 16);
+          this.fillText(`🔥 WHEELIE x${this.wheelieCombo}  (${this.wheelieTime.toFixed(1)}s)`, 180, 114, 16, 0xffffff, '900');
+          this.fillText('POP & HOLD TO MULTIPLY POINTS!', 180, 132, 8, comboColor, '800');
+        }
       }
 
       renderControls(g) {
-        const y = 520, h = 102, gap = 28, w = (W - gap * 3) / 2;
-        const buttons = [{ left: true, x: gap, held: this.leftHeld }, { left: false, x: gap * 2 + w, held: this.rightHeld }];
+        // Raised controls: y = 468, h = 88, leaving 84px of comfortable bottom spacing!
+        const y = 468, h = 88, gap = 18, w = (W - gap * 3) / 2;
+        const buttons = [
+          { left: true, x: gap, held: this.leftHeld, label: 'BRAKE', sub: 'STOP · BALANCE', color: 0xef4444, icon: '◀ 🛑' },
+          { left: false, x: gap * 2 + w, held: this.rightHeld, label: 'GAS / RACE', sub: 'HOLD TO WHEELIE', color: 0x06d6a0, icon: '⚡ ▶' }
+        ];
+
         for (const button of buttons) {
-          const color = button.left ? 0x1aaec5 : 0xff765b;
-          const alpha = button.held ? 1 : .82;
-          g.fillStyle(0x071827, .66); g.fillRoundedRect(button.x, y, w, h, 24);
-          g.lineStyle(button.held ? 3 : 1.5, color, button.held ? 1 : .7); g.strokeRoundedRect(button.x, y, w, h, 24);
-          const cx = button.x + w / 2, cy = y + 43;
-          if (button.held) { g.fillStyle(color, .23); g.fillCircle(cx, cy, 37); }
-          g.fillStyle(color, alpha); g.fillCircle(cx, cy, 27); g.lineStyle(2, 0xffffff, .72); g.strokeCircle(cx, cy, 27);
-          g.fillStyle(0xffffff, 1); const s = button.left ? 1 : -1;
-          g.beginPath(); g.moveTo(cx + s * 9, cy - 13); g.lineTo(cx - s * 11, cy); g.lineTo(cx + s * 9, cy + 13); g.closePath(); g.fillPath();
-          this.fillText(button.left ? 'TILT BACK' : 'TILT FORWARD', cx, y + 80, 7, button.held ? 0xffffff : 0xb9d7df, '800');
+          const bgAlpha = button.held ? 0.95 : 0.76;
+          g.fillStyle(0x071a28, bgAlpha); g.fillRoundedRect(button.x, y, w, h, 20);
+          g.lineStyle(button.held ? 3.5 : 2, button.color, button.held ? 1 : 0.75);
+          g.strokeRoundedRect(button.x, y, w, h, 20);
+
+          if (button.held) {
+            g.fillStyle(button.color, 0.22); g.fillRoundedRect(button.x, y, w, h, 20);
+          }
+
+          const cx = button.x + w / 2;
+          this.fillText(button.icon, cx, y + 26, 18, 0xffffff, '900');
+          this.fillText(button.label, cx, y + 50, 14, button.held ? 0xffffff : button.color, '900');
+          this.fillText(button.sub, cx, y + 70, 8, button.held ? 0xffffff : 0x94a3b8, '800');
         }
       }
 
       renderHome(g) {
-        g.fillStyle(0x061724, .46); g.fillRect(0, 0, W, H);
-        g.fillStyle(0x06131c, .64); g.fillRoundedRect(19, 66, 322, 497, 28); g.lineStyle(1.5, 0x92e8f1, .42); g.strokeRoundedRect(19, 66, 322, 497, 28);
-        g.fillStyle(0x19c9d4, .18); g.fillCircle(65, 105, 48); g.fillStyle(0xff9d48, .17); g.fillCircle(302, 170, 64);
-        this.fillText('MOTO', 180, 127, 34, 0xffffff, '900'); this.fillText('BALANCE', 180, 163, 34, 0x72e2ee, '900');
-        this.fillText('SKYLINE RUN', 180, 193, 11, 0xffc35c, '900');
-        this.fillText('60 seconds. One connected machine.', 180, 228, 12, 0xd8eef0, '700');
-        this.fillText('Hold the arrows to balance real momentum.', 180, 246, 10, 0x8eb7c0, '600');
-        this.fillText('CHOOSE YOUR RIDE', 180, 281, 10, 0x9dc8d1, '900');
-        const keys = ['easy', 'medium', 'hard'];
-        keys.forEach((key, i) => {
-          const mode = MODES[key], x = 25 + i * 106, selected = this.modeKey === key;
-          g.fillStyle(selected ? mode.color : 0x0c2532, selected ? .92 : .84); g.fillRoundedRect(x, 299, 98, 95, 17);
-          g.lineStyle(selected ? 2.7 : 1.1, selected ? 0xffffff : 0x4c7b89, selected ? .9 : .55); g.strokeRoundedRect(x, 299, 98, 95, 17);
-          this.fillText(mode.label, x + 49, 325, 12, selected ? 0xffffff : mode.accent, '900');
-          this.fillText(i === 0 ? 'CALM' : i === 1 ? 'TRUE' : 'WILD', x + 49, 347, 8, selected ? 0xffffff : 0xa7c8d0, '800');
-          for (let bar = 0; bar < 3; bar++) { g.fillStyle(bar <= i ? mode.color : 0x2b4751, .95); g.fillRoundedRect(x + 25 + bar * 17, 367, 12, 5, 3); }
+        g.fillStyle(0x061724, 0.65); g.fillRect(0, 0, W, H);
+        g.fillStyle(0x071f2d, 0.94); g.fillRoundedRect(18, 54, 324, 520, 26);
+        g.lineStyle(2, 0x06d6a0, 0.7); g.strokeRoundedRect(18, 54, 324, 520, 26);
+
+        // Title Header
+        g.fillStyle(0x06d6a0, 0.2); g.fillCircle(180, 108, 44);
+        this.fillText('MOTO WHEELIE', 180, 96, 28, 0xffffff, '900');
+        this.fillText('SKYLINE RUN', 180, 126, 14, 0xffd166, '900');
+        this.fillText('60 SECONDS · POP WHEELIES · SCORE BIG', 180, 154, 9, 0xa5f3fc, '800');
+
+        // Instructions Card
+        g.fillStyle(0x0d2b3e, 0.88); g.fillRoundedRect(34, 182, 292, 240, 18);
+        g.lineStyle(1.5, 0x38bdf8, 0.5); g.strokeRoundedRect(34, 182, 292, 240, 18);
+
+        this.fillText('HOW TO PLAY', 180, 206, 12, 0xffffff, '900');
+
+        const tips = [
+          { icon: '⚡', title: 'HOLD GAS (RIGHT)', desc: 'Accelerates forward & lifts front wheel' },
+          { icon: '🛑', title: 'HOLD BRAKE (LEFT)', desc: 'Stops the bike & brings front wheel down' },
+          { icon: '🔥', title: 'HOLD A WHEELIE', desc: 'Score rapid points & climb combo multipliers' },
+          { icon: '⚠️', title: 'DON’T OVER-TILT', desc: 'Tilt > 72° causes a crash! You auto-respawn!' }
+        ];
+
+        tips.forEach((tip, i) => {
+          const rowY = 242 + i * 44;
+          this.fillText(tip.icon, 54, rowY, 14, 0xffffff, '900');
+          this.fillText(tip.title, 76, rowY - 6, 10, 0xffd166, '900', 'left');
+          this.fillText(tip.desc, 76, rowY + 9, 8, 0xd1d5db, '600', 'left');
         });
-        const selectedMode = this.mode;
-        this.fillText(selectedMode.subtitle, 180, 419, 10, selectedMode.accent, '700');
-        g.fillStyle(selectedMode.color, 1); g.fillRoundedRect(39, 453, 282, 65, 20); g.lineStyle(2, 0xffffff, .58); g.strokeRoundedRect(39, 453, 282, 65, 20);
-        this.fillText('START RUN  ▶', 180, 480, 19, 0xffffff, '900'); this.fillText('REAL PHYSICS · 60 SECONDS', 180, 503, 8, 0xefffff, '800');
-        this.fillText('Ride centered while the mountain comes to you.', 180, 542, 9, 0x9bbbc4, '600');
+
+        // Start Button
+        g.fillStyle(0x06d6a0, 1); g.fillRoundedRect(36, 448, 288, 64, 20);
+        g.lineStyle(2, 0xffffff, 0.8); g.strokeRoundedRect(36, 448, 288, 64, 20);
+        this.fillText('START RUN  ▶', 180, 474, 20, 0xffffff, '900');
+        this.fillText('PRESS SPACE OR TAP TO PLAY', 180, 497, 9, 0x052e25, '800');
       }
 
       renderCountdown(g) {
-        g.fillStyle(0x06121d, .28); g.fillRect(0, 0, W, H);
-        const value = this.countdown > 1.6 ? '3' : this.countdown > .8 ? '2' : this.countdown > .15 ? '1' : 'GO!';
-        g.fillStyle(0x061827, .76); g.fillCircle(180, 242, 66); g.lineStyle(3, this.mode.color, 1); g.strokeCircle(180, 242, 66);
-        this.fillText(value, 180, 245, value === 'GO!' ? 34 : 64, 0xffffff, '900'); this.fillText(this.mode.label + ' MODE', 180, 323, 12, this.mode.accent, '900');
+        g.fillStyle(0x06121d, 0.35); g.fillRect(0, 0, W, H);
+        const value = this.countdown > 1.3 ? '3' : this.countdown > 0.65 ? '2' : this.countdown > 0.1 ? '1' : 'GO!';
+        g.fillStyle(0x071f2d, 0.88); g.fillCircle(180, 242, 68);
+        g.lineStyle(3.5, 0x06d6a0, 1); g.strokeCircle(180, 242, 68);
+        this.fillText(value, 180, 245, value === 'GO!' ? 36 : 64, 0xffffff, '900');
+        this.fillText('GET READY TO WHEELIE!', 180, 326, 11, 0xffd166, '900');
       }
 
       renderGameOver(g) {
-        g.fillStyle(0x03101a, .69); g.fillRect(0, 0, W, H);
+        g.fillStyle(0x03101a, 0.75); g.fillRect(0, 0, W, H);
         const best = this.best || this.bestScores.read();
-        g.fillStyle(0x071d2a, .97); g.fillRoundedRect(25, 116, 310, 458, 27); g.lineStyle(2, this.mode.color, .9); g.strokeRoundedRect(25, 116, 310, 458, 27);
-        this.fillText(this.finalScore >= best.allTime && this.finalScore > 0 ? 'NEW SKYLINE BEST' : 'RUN COMPLETE', 180, 153, 12, this.mode.accent, '900');
-        this.fillText('GAME OVER', 180, 188, 29, 0xffffff, '900');
-        g.fillStyle(this.mode.color, .18); g.fillCircle(180, 259, 55); g.lineStyle(2, this.mode.color, .8); g.strokeCircle(180, 259, 55);
-        this.fillText(String(this.finalScore), 180, 253, 42, 0xffffff, '900'); this.fillText('DISTANCE', 180, 288, 9, this.mode.accent, '900');
-        this.fillText(this.mode.label + ' MODE', 180, 322, 10, 0xd2ebef, '800');
-        const rows = [['TODAY’S BEST', best.today], ['THIS WEEK', best.weekly], ['ALL-TIME BEST', best.allTime]];
+        g.fillStyle(0x071d2a, 0.97); g.fillRoundedRect(25, 116, 310, 440, 26);
+        g.lineStyle(2, 0x06d6a0, 0.9); g.strokeRoundedRect(25, 116, 310, 440, 26);
+
+        this.fillText(this.finalScore >= best.allTime && this.finalScore > 0 ? '🏆 NEW BEST RUN!' : 'RUN COMPLETE', 180, 150, 12, 0xffd166, '900');
+        this.fillText('TIME’S UP!', 180, 182, 28, 0xffffff, '900');
+
+        g.fillStyle(0x06d6a0, 0.18); g.fillCircle(180, 252, 54);
+        g.lineStyle(2.5, 0x06d6a0, 0.85); g.strokeCircle(180, 252, 54);
+        this.fillText(String(this.finalScore), 180, 246, 38, 0xffffff, '900');
+        this.fillText('FINAL SCORE', 180, 280, 9, 0xffd166, '900');
+
+        const rows = [
+          ['LONGEST WHEELIE', `${this.maxWheelie.toFixed(1)}s`],
+          ['ALL-TIME BEST SCORE', String(best.allTime || 0)]
+        ];
         rows.forEach((row, i) => {
-          const y = 360 + i * 38; g.fillStyle(0x0e2a38, .82); g.fillRoundedRect(47, y - 15, 266, 30, 10);
-          this.fillText(row[0], 65, y, 9, 0xa8c6cf, '800', 'left'); this.fillText(String(row[1]), 294, y, 15, 0xffffff, '900', 'right');
+          const ry = 330 + i * 44;
+          g.fillStyle(0x0e2a38, 0.85); g.fillRoundedRect(44, ry - 16, 272, 34, 10);
+          this.fillText(row[0], 60, ry, 9, 0x94a3b8, '800', 'left');
+          this.fillText(row[1], 298, ry, 15, 0xffffff, '900', 'right');
         });
-        g.fillStyle(this.mode.color, 1); g.fillRoundedRect(48, 471, 264, 53, 17); this.fillText('RIDE AGAIN  ▶', 180, 497, 16, 0xffffff, '900');
-        g.fillStyle(0x153747, 1); g.fillRoundedRect(48, 535, 264, 39, 15); this.fillText('CHANGE MODE', 180, 555, 12, 0xd9eef1, '900');
+
+        // Single clean RIDE AGAIN button (No mode change or cross button!)
+        g.fillStyle(0x06d6a0, 1); g.fillRoundedRect(44, 468, 272, 58, 18);
+        g.lineStyle(2, 0xffffff, 0.8); g.strokeRoundedRect(44, 468, 272, 58, 18);
+        this.fillText('RIDE AGAIN  ▶', 180, 496, 18, 0xffffff, '900');
       }
 
       render() {
         this.skyG.clear(); this.renderSky(this.skyG); this.updateEnvironment();
         this.g.clear(); this.textIndex = 0;
         const g = this.g;
-        const shakeX = this.shake ? (Math.random() - .5) * this.shake : 0;
+        const shakeX = this.shake ? (Math.random() - 0.5) * this.shake : 0;
         if (shakeX) g.x = shakeX; else g.x = 0;
         this.renderWorld(g);
-        const showBikeSprites = this.state === 'countdown' || this.state === 'playing' || this.state === 'crashing';
-        this.syncBikeVisuals(showBikeSprites);
-        if (showBikeSprites && !this.usingBikeSprites) {
-          g.fillStyle(0x06121d, .90); g.fillRoundedRect(58, 272, 244, 62, 16);
-          this.fillText('BIKE SPRITE ASSET MISSING', 180, 294, 12, 0xff8b7d, '900');
-          this.fillText('Upload assets/bike.png and assets/tyre.png', 180, 314, 8, 0xffffff, '700');
+
+        const showBike = this.state === 'countdown' || this.state === 'playing' || this.state === 'crashing';
+        if (showBike) {
+          if (this.usingBikeSprites) this.syncBikeVisuals(true);
+          this.drawRider();
+        } else {
+          if (this.usingBikeSprites) this.syncBikeVisuals(false);
         }
+
         this.renderParticles(g);
-        if (this.state === 'playing' || this.state === 'countdown' || this.state === 'crashing') { this.renderHud(g); this.renderControls(g); }
+
+        if (this.state === 'playing' || this.state === 'countdown' || this.state === 'crashing') {
+          this.renderHud(g);
+          this.renderControls(g);
+        }
         if (this.state === 'home') this.renderHome(g);
         if (this.state === 'countdown') this.renderCountdown(g);
         if (this.state === 'gameover') this.renderGameOver(g);
-        if (this.pausedByHost && (this.state === 'playing' || this.state === 'countdown')) { g.fillStyle(0x03101a, .55); g.fillRect(0, 0, W, H); this.fillText('PAUSED', 180, 316, 24, 0xffffff, '900'); }
+
+        if (this.pausedByHost && (this.state === 'playing' || this.state === 'countdown')) {
+          g.fillStyle(0x03101a, 0.55); g.fillRect(0, 0, W, H);
+          this.fillText('PAUSED', 180, 316, 24, 0xffffff, '900');
+        }
+
         if (shakeX) g.x = 0;
         for (let i = this.textIndex; i < this.textPool.length; i++) this.textPool[i].setVisible(false);
       }
@@ -934,20 +1089,30 @@
 
     const nativeHost = Boolean(window.NativeBridge || window.FlutterGameBridge || window.flutter_inappwebview);
     if (nativeHost) document.documentElement.classList.add('native-host');
-    if (!window.Phaser) {
-      document.getElementById('game-root').innerHTML = '<div style="color:#fff;padding:24px;text-align:center">Unable to load the game engine. Please reconnect and try again.</div>';
-      return;
-    }
+
     window.__MOTO_BALANCE_GAME__ = new Phaser.Game({
-      type: Phaser.CANVAS,
+      type: Phaser.AUTO,
       parent: 'game-root',
       width: W,
       height: H,
+      resolution: DPR,
       transparent: false,
-      backgroundColor: '#55c9ee',
+      backgroundColor: '#2288b8',
       banner: false,
-      render: { antialias: true, pixelArt: false, roundPixels: false },
-      physics: { default: 'matter', matter: { gravity: { y: 1.08 }, enableSleeping: false, debug: false } },
+      render: {
+        antialias: true,
+        antialiasGL: true,
+        roundPixels: true,
+        powerPreference: 'high-performance'
+      },
+      physics: {
+        default: 'matter',
+        matter: {
+          gravity: { y: 1.15 },
+          enableSleeping: false,
+          debug: false
+        }
+      },
       scene: [MotoBalanceScene]
     });
   })();
