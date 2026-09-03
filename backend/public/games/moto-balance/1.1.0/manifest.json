@@ -1,0 +1,27 @@
+{
+  "id": "moto-balance",
+  "title": "Moto Balance: Wheelie Run",
+  "version": "1.1.0",
+  "description": "A physics-driven 2D motorcycle balance challenge with an authentic rider-and-tyre sprite rig, progressive acceleration, and a smooth mountain highway.",
+  "orientation": "portrait",
+  "engine": "phaser-matter",
+  "category": "Arcade",
+  "feedOrder": 26,
+  "status": "published",
+  "touchZones": [
+    {
+      "name": "Balance controls",
+      "x": 0,
+      "y": 0.66,
+      "width": 1,
+      "height": 0.34
+    }
+  ],
+  "features": {
+    "sound": true,
+    "vibration": true,
+    "modes": true,
+    "physics": true,
+    "particles": true
+  }
+}

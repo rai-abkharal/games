@@ -299,15 +299,18 @@ export class GameplayScene extends Phaser.Scene {
   }
 
   shutdown(): void {
-    this.matter.world.off('collisionstart', this.handleCollisionStart);
     GameBridge.offRestart(this.restartCurrentLevel);
     GameBridge.offSoundChange(this.handleSoundChange);
     this.particleManager?.clear();
-    for (const p of this.projectiles) p.destroy();
-    for (const l of this.launchers) l.destroy();
-    for (const pl of this.platforms) pl.destroy();
-    for (const s of this.stars) s.destroy();
-    for (const po of this.portals) po.destroy();
-    if (this.tutorialHand) this.tutorialHand.destroy();
+
+    // Phaser tears down the Matter world and display list before this callback
+    // completes. Do not remove bodies here: on mobile that race stopped the
+    // render loop between Gameplay and Complete/Failed scenes.
+    this.projectiles = [];
+    this.launchers = [];
+    this.platforms = [];
+    this.stars = [];
+    this.portals = [];
+    this.tutorialHand = null;
   }
 }

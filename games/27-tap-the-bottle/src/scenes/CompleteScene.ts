@@ -82,9 +82,9 @@ export class CompleteScene extends Phaser.Scene {
     const isFinalLevel = this.level >= MAX_LEVELS;
     const completeText = this.add.text(cx, textY, isFinalLevel ? 'ALL LEVELS CLEARED' : 'LEVEL COMPLETE', {
       fontFamily: 'Arial Black, Trebuchet MS, sans-serif',
-      fontSize: isFinalLevel ? '36px' : '46px',
+      fontSize: isFinalLevel ? '28px' : '36px',
       color: '#FFFFFF',
-      letterSpacing: 2
+      letterSpacing: 1
     }).setOrigin(0.5, 0.5).setDepth(10);
 
     this.add.text(cx, textY + 45, `${this.level} / ${MAX_LEVELS}`, {
