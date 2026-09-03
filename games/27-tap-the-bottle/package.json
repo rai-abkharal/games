@@ -1,6 +1,6 @@
 {
   "name": "tap-the-bottle",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "description": "Tap the Bottle - 2D Physics Puzzle Game built with TypeScript, Phaser 3, Matter.js and Vite",
   "type": "module",

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLLISION_CATEGORIES } from '../config/Constants';
+import { COLLISION_CATEGORIES, RENDER_SCALE } from '../config/Constants';
 
 export class Portal {
   public id: string;
@@ -35,6 +35,7 @@ export class Portal {
     const rad = Phaser.Math.DegToRad(rotation);
 
     this.sprite = scene.add.sprite(x, y, 'portal')
+      .setScale(1 / RENDER_SCALE)
       .setRotation(rad)
       .setDepth(7);
 
@@ -53,8 +54,8 @@ export class Portal {
     // Gentle pulse tween
     scene.tweens.add({
       targets: this.sprite,
-      scaleX: 1.08,
-      scaleY: 1.08,
+      scaleX: 1.08 / RENDER_SCALE,
+      scaleY: 1.08 / RENDER_SCALE,
       alpha: 0.88,
       duration: 800,
       yoyo: true,

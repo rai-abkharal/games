@@ -1,7 +1,16 @@
 import Phaser from 'phaser';
-import { COLORS } from '../config/Constants';
+import { COLORS, RENDER_SCALE } from '../config/Constants';
 
 export class GeneratedTextures {
+  private static createArtCanvas(width: number, height: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(width * RENDER_SCALE);
+    canvas.height = Math.round(height * RENDER_SCALE);
+    const ctx = canvas.getContext('2d')!;
+    ctx.scale(RENDER_SCALE, RENDER_SCALE);
+    return { canvas, ctx };
+  }
+
   public static generateAll(scene: Phaser.Scene): void {
     this.createBackgroundPattern(scene);
     this.createStar(scene);
@@ -27,10 +36,7 @@ export class GeneratedTextures {
   private static createBackgroundPattern(scene: Phaser.Scene): void {
     if (scene.textures.exists('bg_pattern')) return;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = 160;
-    canvas.height = 240;
-    const ctx = canvas.getContext('2d')!;
+    const { canvas, ctx } = this.createArtCanvas(160, 240);
 
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
@@ -93,10 +99,7 @@ export class GeneratedTextures {
     if (scene.textures.exists('star')) return;
 
     const size = 64;
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d')!;
+    const { canvas, ctx } = this.createArtCanvas(size, size);
 
     const cx = size / 2, cy = size / 2;
     const outerRadius = 26, innerRadius = 11;
@@ -148,10 +151,7 @@ export class GeneratedTextures {
     if (scene.textures.exists('crown_cap')) return;
 
     const w = 48, h = 32;
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d')!;
+    const { canvas, ctx } = this.createArtCanvas(w, h);
 
     ctx.save();
     ctx.translate(w / 2, h / 2);
@@ -199,10 +199,7 @@ export class GeneratedTextures {
     if (scene.textures.exists('can_tab')) return;
 
     const w = 40, h = 28;
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d')!;
+    const { canvas, ctx } = this.createArtCanvas(w, h);
 
     ctx.save();
     ctx.translate(w / 2, h / 2);
@@ -246,10 +243,7 @@ export class GeneratedTextures {
 
     // A. Sealed State (Cool sunglasses, smiling, liquid filled, cap on)
     {
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d')!;
+      const { canvas, ctx } = this.createArtCanvas(w, h);
       const cx = w / 2;
 
       ctx.save();
@@ -285,17 +279,8 @@ export class GeneratedTextures {
       ctx.fillStyle = liquidGrad;
       ctx.fill();
 
-      // Glass highlight streak on left shoulder/body
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.42)';
-      ctx.beginPath();
-      ctx.moveTo(cx - 24, 96);
-      ctx.lineTo(cx - 18, 96);
-      ctx.lineTo(cx - 18, 175);
-      ctx.lineTo(cx - 24, 175);
-      ctx.closePath();
-      ctx.fill();
-
       // Dark cartoon stroke
+      createBottlePath();
       ctx.strokeStyle = '#181818';
       ctx.lineWidth = 4.5;
       ctx.lineCap = 'round';
@@ -381,10 +366,7 @@ export class GeneratedTextures {
 
     // B. Opened State (Cap detached, sunglasses gone, shocked white eyes, open mouth, drained liquid)
     {
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d')!;
+      const { canvas, ctx } = this.createArtCanvas(w, h);
       const cx = w / 2;
 
       ctx.save();
@@ -416,17 +398,19 @@ export class GeneratedTextures {
       ctx.fill();
       ctx.restore();
 
-      // Glass highlight streak
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-      ctx.beginPath();
-      ctx.moveTo(cx - 24, 96);
-      ctx.lineTo(cx - 18, 96);
-      ctx.lineTo(cx - 18, 175);
-      ctx.lineTo(cx - 24, 175);
-      ctx.closePath();
-      ctx.fill();
-
       // Dark cartoon stroke
+      ctx.beginPath();
+      ctx.moveTo(cx - 13, 28);
+      ctx.lineTo(cx + 13, 28);
+      ctx.lineTo(cx + 13, 62);
+      ctx.quadraticCurveTo(cx + 28, 76, cx + 33, 98);
+      ctx.lineTo(cx + 33, 178);
+      ctx.quadraticCurveTo(cx + 33, 192, cx + 20, 195);
+      ctx.lineTo(cx - 20, 195);
+      ctx.quadraticCurveTo(cx - 33, 192, cx - 33, 178);
+      ctx.lineTo(cx - 33, 98);
+      ctx.quadraticCurveTo(cx - 28, 76, cx - 13, 62);
+      ctx.closePath();
       ctx.strokeStyle = '#181818';
       ctx.lineWidth = 4.5;
       ctx.lineCap = 'round';
@@ -490,6 +474,47 @@ export class GeneratedTextures {
 
       ctx.restore();
       scene.textures.addCanvas(`bottle_${colorKey}_opened`, canvas);
+
+      // Second-tap state: the opened container remains visible but gains a
+      // clear shattered silhouette and cracks instead of launching again.
+      const { canvas: brokenCanvas, ctx: brokenCtx } = this.createArtCanvas(w, h);
+      brokenCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h);
+
+      brokenCtx.save();
+      brokenCtx.strokeStyle = '#181818';
+      brokenCtx.lineWidth = 3.2;
+      brokenCtx.lineCap = 'round';
+      brokenCtx.lineJoin = 'round';
+      brokenCtx.beginPath();
+      brokenCtx.moveTo(cx - 6, 70);
+      brokenCtx.lineTo(cx + 5, 88);
+      brokenCtx.lineTo(cx - 5, 105);
+      brokenCtx.lineTo(cx + 8, 124);
+      brokenCtx.lineTo(cx - 2, 145);
+      brokenCtx.moveTo(cx + 5, 88);
+      brokenCtx.lineTo(cx + 22, 80);
+      brokenCtx.moveTo(cx - 5, 105);
+      brokenCtx.lineTo(cx - 24, 116);
+      brokenCtx.moveTo(cx + 8, 124);
+      brokenCtx.lineTo(cx + 27, 136);
+      brokenCtx.stroke();
+
+      brokenCtx.globalCompositeOperation = 'destination-out';
+      brokenCtx.beginPath();
+      brokenCtx.moveTo(cx - 34, 126);
+      brokenCtx.lineTo(cx - 23, 134);
+      brokenCtx.lineTo(cx - 34, 144);
+      brokenCtx.closePath();
+      brokenCtx.fill();
+      brokenCtx.beginPath();
+      brokenCtx.moveTo(cx + 34, 151);
+      brokenCtx.lineTo(cx + 23, 160);
+      brokenCtx.lineTo(cx + 34, 170);
+      brokenCtx.closePath();
+      brokenCtx.fill();
+      brokenCtx.restore();
+
+      scene.textures.addCanvas(`bottle_${colorKey}_broken`, brokenCanvas);
     }
   }
 
@@ -500,10 +525,7 @@ export class GeneratedTextures {
 
     // A. Closed Smiling Can
     {
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d')!;
+      const { canvas, ctx } = this.createArtCanvas(w, h);
 
       ctx.save();
 
@@ -588,10 +610,7 @@ export class GeneratedTextures {
 
     // B. Opened Shocked Can
     {
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d')!;
+      const { canvas, ctx } = this.createArtCanvas(w, h);
 
       ctx.save();
 
@@ -649,6 +668,33 @@ export class GeneratedTextures {
 
       ctx.restore();
       scene.textures.addCanvas('can_red_opened', canvas);
+
+      const { canvas: brokenCanvas, ctx: brokenCtx } = this.createArtCanvas(w, h);
+      brokenCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h);
+      brokenCtx.save();
+      brokenCtx.strokeStyle = '#181818';
+      brokenCtx.lineWidth = 3.2;
+      brokenCtx.lineCap = 'round';
+      brokenCtx.beginPath();
+      brokenCtx.moveTo(cx - 5, 32);
+      brokenCtx.lineTo(cx + 7, 49);
+      brokenCtx.lineTo(cx - 5, 67);
+      brokenCtx.lineTo(cx + 10, 86);
+      brokenCtx.lineTo(cx - 3, 112);
+      brokenCtx.moveTo(cx + 7, 49);
+      brokenCtx.lineTo(cx + 27, 56);
+      brokenCtx.moveTo(cx - 5, 67);
+      brokenCtx.lineTo(cx - 28, 77);
+      brokenCtx.stroke();
+      brokenCtx.globalCompositeOperation = 'destination-out';
+      brokenCtx.beginPath();
+      brokenCtx.moveTo(cx - 33, 90);
+      brokenCtx.lineTo(cx - 22, 98);
+      brokenCtx.lineTo(cx - 33, 108);
+      brokenCtx.closePath();
+      brokenCtx.fill();
+      brokenCtx.restore();
+      scene.textures.addCanvas('can_red_broken', brokenCanvas);
     }
   }
 
@@ -657,10 +703,7 @@ export class GeneratedTextures {
     if (scene.textures.exists('platform_wood')) return;
 
     const w = 240, h = 38;
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d')!;
+    const { canvas, ctx } = this.createArtCanvas(w, h);
 
     ctx.save();
     ctx.beginPath();
@@ -706,10 +749,7 @@ export class GeneratedTextures {
     if (scene.textures.exists('platform_blue')) return;
 
     const w = 240, h = 38;
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d')!;
+    const { canvas, ctx } = this.createArtCanvas(w, h);
 
     ctx.save();
     ctx.beginPath();
@@ -742,10 +782,7 @@ export class GeneratedTextures {
     if (scene.textures.exists('portal')) return;
 
     const w = 96, h = 48;
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d')!;
+    const { canvas, ctx } = this.createArtCanvas(w, h);
 
     const cx = w / 2, cy = h / 2;
 
@@ -783,10 +820,7 @@ export class GeneratedTextures {
     if (scene.textures.exists('tutorial_hand')) return;
 
     const w = 90, h = 90;
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d')!;
+    const { canvas, ctx } = this.createArtCanvas(w, h);
 
     ctx.save();
     ctx.translate(w / 2, h / 2);
@@ -837,10 +871,7 @@ export class GeneratedTextures {
     // A. Home Button (White circle, lime green house)
     if (!scene.textures.exists('btn_home')) {
       const size = 72;
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d')!;
+      const { canvas, ctx } = this.createArtCanvas(size, size);
       const c = size / 2;
 
       // Drop shadow
@@ -883,10 +914,7 @@ export class GeneratedTextures {
     // B. Restart Button (White circle, lime green circular refresh arrow)
     if (!scene.textures.exists('btn_restart')) {
       const size = 72;
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d')!;
+      const { canvas, ctx } = this.createArtCanvas(size, size);
       const c = size / 2;
 
       // Drop shadow
@@ -927,10 +955,7 @@ export class GeneratedTextures {
     // C. Large Complete Next Button (Diameter 160px with lime-green play triangle)
     if (!scene.textures.exists('btn_next')) {
       const size = 180;
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d')!;
+      const { canvas, ctx } = this.createArtCanvas(size, size);
       const c = size / 2;
 
       // Rich drop shadow
@@ -963,10 +988,7 @@ export class GeneratedTextures {
     // D. Large Failed Retry Button (Diameter 160px with lime-green circular refresh arrow)
     if (!scene.textures.exists('btn_retry')) {
       const size = 180;
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d')!;
+      const { canvas, ctx } = this.createArtCanvas(size, size);
       const c = size / 2;
 
       // Rich drop shadow
@@ -1010,10 +1032,7 @@ export class GeneratedTextures {
     // Four-pointed golden star sparkle
     if (!scene.textures.exists('particle_sparkle')) {
       const size = 24;
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d')!;
+      const { canvas, ctx } = this.createArtCanvas(size, size);
       const c = size / 2;
 
       ctx.fillStyle = '#FFF275';
@@ -1033,10 +1052,7 @@ export class GeneratedTextures {
     const makeBubble = (key: string, hexColor: string) => {
       if (scene.textures.exists(key)) return;
       const size = 32;
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d')!;
+      const { canvas, ctx } = this.createArtCanvas(size, size);
       const c = size / 2;
 
       ctx.fillStyle = hexColor;

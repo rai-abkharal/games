@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { RENDER_SCALE } from '../config/Constants';
 
 export class TutorialHand {
   private sprite: Phaser.GameObjects.Image;
@@ -7,7 +8,7 @@ export class TutorialHand {
   constructor(scene: Phaser.Scene, targetX: number, targetY: number) {
     this.sprite = scene.add.image(targetX + 30, targetY + 20, 'tutorial_hand')
       .setDepth(22)
-      .setScale(0.9);
+      .setScale(0.9 / RENDER_SCALE);
 
     this.tween = scene.tweens.add({
       targets: this.sprite,
@@ -26,7 +27,7 @@ export class TutorialHand {
     this.sprite.scene.tweens.add({
       targets: this.sprite,
       alpha: 0,
-      scale: 0.5,
+      scale: 0.5 / RENDER_SCALE,
       duration: 200,
       onComplete: () => {
         this.sprite.destroy();

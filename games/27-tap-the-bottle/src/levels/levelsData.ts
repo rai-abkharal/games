@@ -67,7 +67,7 @@ export const LEVELS: LevelDefinition[] = [
       { x: 95, y: 440, width: 145, height: 34, type: 'wood' }
     ],
     launchers: [
-      { id: 'c1', type: 'can', color: 'red', x: 95, y: 360, rotation: 0, launchAngle: 25, launchSpeed: 24 }
+      { id: 'c1', type: 'can', color: 'red', x: 95, y: 360, rotation: 0, launchAngle: 27, launchSpeed: 24 }
     ],
     stars: [
       { x: 200, y: 400 },

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { DESIGN_WIDTH } from '../config/Constants';
+import { DESIGN_WIDTH, RENDER_SCALE } from '../config/Constants';
 import { AudioManager } from '../systems/AudioManager';
 
 export class Hud {
@@ -13,6 +13,7 @@ export class Hud {
 
     // 1. Home Button (Top-Left hugging edge like reference video)
     this.homeBtn = scene.add.image(28, 48, 'btn_home')
+      .setScale(1 / RENDER_SCALE)
       .setDepth(20)
       .setInteractive({ useHandCursor: true });
 
@@ -20,7 +21,7 @@ export class Hud {
       AudioManager.playButton();
       scene.tweens.add({
         targets: this.homeBtn,
-        scale: 0.88,
+        scale: 0.88 / RENDER_SCALE,
         duration: 80,
         yoyo: true,
         onComplete: onHome
@@ -32,11 +33,13 @@ export class Hud {
       fontFamily: 'Arial Rounded MT Bold, Trebuchet MS, system-ui, sans-serif',
       fontSize: '32px',
       fontStyle: '700',
-      color: '#FFFFFF'
+      color: '#FFFFFF',
+      resolution: RENDER_SCALE
     }).setOrigin(0.5, 0.5).setDepth(20);
 
     // 3. Restart Button (Top-Right hugging edge like reference video)
     this.restartBtn = scene.add.image(DESIGN_WIDTH - 28, 48, 'btn_restart')
+      .setScale(1 / RENDER_SCALE)
       .setDepth(20)
       .setInteractive({ useHandCursor: true });
 
@@ -44,7 +47,7 @@ export class Hud {
       AudioManager.playButton();
       scene.tweens.add({
         targets: this.restartBtn,
-        scale: 0.88,
+        scale: 0.88 / RENDER_SCALE,
         duration: 80,
         yoyo: true,
         onComplete: onRestart

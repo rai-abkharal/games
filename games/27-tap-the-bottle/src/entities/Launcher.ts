@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLLISION_CATEGORIES, BASE_LAUNCH_SPEED } from '../config/Constants';
+import { COLLISION_CATEGORIES, BASE_LAUNCH_SPEED, RENDER_SCALE } from '../config/Constants';
 import { LauncherConfig } from '../levels/types';
 import { Projectile } from './Projectile';
 import { ParticleManager } from '../systems/ParticleManager';
@@ -8,12 +8,15 @@ import { AudioManager } from '../systems/AudioManager';
 export class Launcher {
   public config: LauncherConfig;
   public opened: boolean = false;
+  public broken: boolean = false;
   public sprite: Phaser.Physics.Matter.Sprite;
   public onLaunch?: (projectile: Projectile) => void;
   private scene: Phaser.Scene;
   private particleManager: ParticleManager;
   private sealedKey: string;
   private openedKey: string;
+  private brokenKey: string;
+  private openedAt: number = 0;
 
   constructor(scene: Phaser.Scene, config: LauncherConfig, particleManager: ParticleManager) {
     this.scene = scene;
@@ -23,9 +26,11 @@ export class Launcher {
     if (config.type === 'bottle') {
       this.sealedKey = `bottle_${config.color}_sealed`;
       this.openedKey = `bottle_${config.color}_opened`;
+      this.brokenKey = `bottle_${config.color}_broken`;
     } else {
       this.sealedKey = 'can_red_sealed';
       this.openedKey = 'can_red_opened';
+      this.brokenKey = 'can_red_broken';
     }
 
     const rad = Phaser.Math.DegToRad(config.rotation || 0);
@@ -44,7 +49,7 @@ export class Launcher {
       chamfer: { radius: 6 },
       collisionFilter: {
         category: COLLISION_CATEGORIES.LAUNCHER,
-        mask: COLLISION_CATEGORIES.PLATFORM | COLLISION_CATEGORIES.PROJECTILE | COLLISION_CATEGORIES.LAUNCHER
+        mask: COLLISION_CATEGORIES.PLATFORM | COLLISION_CATEGORIES.LAUNCHER
       }
     });
 
@@ -60,21 +65,26 @@ export class Launcher {
     // Interactive pointer handling with generous hit area
     this.sprite.setInteractive({ useHandCursor: true });
     this.sprite.on('pointerdown', () => {
-      this.activate();
+      if (!this.opened) {
+        this.activate();
+      } else {
+        this.breakOpenContainer();
+      }
     });
   }
 
   public activate(): Projectile | null {
     if (this.opened) return null;
     this.opened = true;
+    this.openedAt = this.scene.time.now;
 
     AudioManager.playPop();
 
     // Visual squash and swap to opened shocked expression
     this.scene.tweens.add({
       targets: this.sprite,
-      scaleX: (this.config.scale || 0.82) * 1.08,
-      scaleY: (this.config.scale || 0.82) * 0.90,
+      scaleX: ((this.config.scale || 0.82) * 1.08) / RENDER_SCALE,
+      scaleY: ((this.config.scale || 0.82) * 0.90) / RENDER_SCALE,
       duration: 70,
       yoyo: true,
       ease: 'Quad.easeInOut',
@@ -101,8 +111,7 @@ export class Launcher {
       launchX,
       launchY,
       projectileType,
-      this.config.color,
-      this.particleManager
+      this.config.color
     );
 
     projectile.setVelocity(dirX * speed, dirY * speed);
@@ -117,9 +126,16 @@ export class Launcher {
       });
     }
 
-    // Launch pop bubbles burst
-    for (let i = 0; i < 5; i++) {
-      this.particleManager.emitBubble(launchX, launchY, this.config.color, (Math.random() - 0.5) * 60, (Math.random() - 0.5) * 60);
+    // A small downward splash at the mouth. Liquid never follows the cap into
+    // the sky; gravity-looking droplets fall back toward the container.
+    for (let i = 0; i < 4; i++) {
+      this.particleManager.emitBubble(
+        launchX,
+        launchY + 5,
+        this.config.color,
+        (Math.random() - 0.5) * 24,
+        30 + Math.random() * 35
+      );
     }
 
     if (this.onLaunch) {
@@ -127,6 +143,43 @@ export class Launcher {
     }
 
     return projectile;
+  }
+
+  private breakOpenContainer(): void {
+    if (this.broken || this.scene.time.now - this.openedAt < 160) return;
+    this.broken = true;
+
+    AudioManager.playBreak();
+    this.sprite.setTexture(this.brokenKey);
+
+    for (let i = 0; i < 7; i++) {
+      this.particleManager.emitBubble(
+        this.sprite.x + (Math.random() - 0.5) * 34,
+        this.sprite.y + 15 + Math.random() * 35,
+        this.config.color,
+        (Math.random() - 0.5) * 75,
+        35 + Math.random() * 75
+      );
+    }
+
+    if (!this.config.isStatic && this.sprite.body) {
+      const direction = Math.random() < 0.5 ? -1 : 1;
+      this.sprite.setAngularVelocity(direction * 0.035);
+      this.scene.matter.body.applyForce(
+        this.sprite.body as MatterJS.BodyType,
+        { x: this.sprite.x, y: this.sprite.y },
+        { x: direction * 0.0012, y: 0.0004 }
+      );
+    }
+
+    this.scene.tweens.add({
+      targets: this.sprite,
+      scaleX: ((this.config.scale || 0.82) * 0.94) / RENDER_SCALE,
+      scaleY: ((this.config.scale || 0.82) * 0.94) / RENDER_SCALE,
+      duration: 90,
+      yoyo: true,
+      ease: 'Back.easeOut'
+    });
   }
 
   public destroy(): void {

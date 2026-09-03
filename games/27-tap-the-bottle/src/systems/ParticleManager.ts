@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { RENDER_SCALE } from '../config/Constants';
 
 interface ActiveParticle {
   sprite: Phaser.GameObjects.Image;
@@ -28,7 +29,7 @@ export class ParticleManager {
       const scale = 0.5 + Math.random() * 0.6;
 
       const p = this.scene.add.image(x, y, 'particle_sparkle')
-        .setScale(scale)
+        .setScale(scale / RENDER_SCALE)
         .setDepth(15);
 
       this.particles.push({
@@ -49,7 +50,7 @@ export class ParticleManager {
 
     const scale = 0.35 + Math.random() * 0.65;
     const p = this.scene.add.image(x + (Math.random() - 0.5) * 8, y + (Math.random() - 0.5) * 8, key)
-      .setScale(scale)
+      .setScale(scale / RENDER_SCALE)
       .setDepth(12);
 
     this.particles.push({
@@ -80,7 +81,7 @@ export class ParticleManager {
       p.sprite.x += p.vx * dt;
       p.sprite.y += p.vy * dt;
       p.sprite.rotation += p.vr * dt;
-      p.sprite.setScale(p.scaleStart * Math.max(0, progress));
+      p.sprite.setScale((p.scaleStart * Math.max(0, progress)) / RENDER_SCALE);
       p.sprite.setAlpha(progress);
     }
   }

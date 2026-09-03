@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { DESIGN_WIDTH } from '../config/Constants';
+import { DESIGN_WIDTH, RENDER_SCALE } from '../config/Constants';
 import { AudioManager } from '../systems/AudioManager';
 import { createSceneBackground } from '../ui/SceneBackground';
 import { GameBridge } from '../../../shared/GameBridge';
@@ -43,18 +43,18 @@ export class FailedScene extends Phaser.Scene {
     // Left: Yellow bottle opened
     const yellowBottle = this.add.image(cx - 85, topY + 12, 'bottle_yellow_opened')
       .setDepth(5)
-      .setScale(0.80)
+      .setScale(0.80 / RENDER_SCALE)
       .setRotation(Phaser.Math.DegToRad(-14));
 
     // Center: Green bottle opened upright
     const greenBottle = this.add.image(cx, topY, 'bottle_green_opened')
       .setDepth(6)
-      .setScale(0.85);
+      .setScale(0.85 / RENDER_SCALE);
 
     // Right: Orange bottle opened
     const orangeBottle = this.add.image(cx + 85, topY + 12, 'bottle_orange_opened')
       .setDepth(5)
-      .setScale(0.80)
+      .setScale(0.80 / RENDER_SCALE)
       .setRotation(Phaser.Math.DegToRad(14));
 
     // Worried shivering tween
@@ -73,7 +73,8 @@ export class FailedScene extends Phaser.Scene {
       fontFamily: 'Arial Black, Trebuchet MS, sans-serif',
       fontSize: '46px',
       color: '#FFFFFF',
-      letterSpacing: 2
+      letterSpacing: 2,
+      resolution: RENDER_SCALE
     }).setOrigin(0.5, 0.5).setDepth(10);
 
     failedText.setScale(0.6);
@@ -90,20 +91,20 @@ export class FailedScene extends Phaser.Scene {
     const canY = 475;
     this.add.image(cx, canY, 'can_red_opened')
       .setDepth(8)
-      .setScale(0.92);
+      .setScale(0.92 / RENDER_SCALE);
 
     // 6. Large Green Circular Retry Button
     const btnY = 660;
     const retryBtn = this.add.image(cx, btnY, 'btn_retry')
       .setDepth(12)
-      .setScale(0.92)
+      .setScale(0.92 / RENDER_SCALE)
       .setInteractive({ useHandCursor: true });
 
     // Subtle breathing pulse
     this.tweens.add({
       targets: retryBtn,
-      scaleX: 0.98,
-      scaleY: 0.98,
+      scaleX: 0.98 / RENDER_SCALE,
+      scaleY: 0.98 / RENDER_SCALE,
       duration: 800,
       yoyo: true,
       repeat: -1,
@@ -114,7 +115,7 @@ export class FailedScene extends Phaser.Scene {
       AudioManager.playButton();
       this.tweens.add({
         targets: retryBtn,
-        scale: 0.82,
+        scale: 0.82 / RENDER_SCALE,
         duration: 80,
         yoyo: true,
         onComplete: () => {
@@ -126,7 +127,8 @@ export class FailedScene extends Phaser.Scene {
     this.add.text(cx, btnY + 102, 'TRY AGAIN', {
       fontFamily: 'Arial Black, Trebuchet MS, sans-serif',
       fontSize: '17px',
-      color: '#FFFFFF'
+      color: '#FFFFFF',
+      resolution: RENDER_SCALE
     }).setOrigin(0.5).setDepth(12);
   }
 

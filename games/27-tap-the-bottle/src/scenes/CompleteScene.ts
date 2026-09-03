@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { DESIGN_WIDTH } from '../config/Constants';
+import { DESIGN_WIDTH, RENDER_SCALE } from '../config/Constants';
 import { AudioManager } from '../systems/AudioManager';
 import { createSceneBackground } from '../ui/SceneBackground';
 import { MAX_LEVELS } from '../levels';
@@ -44,18 +44,18 @@ export class CompleteScene extends Phaser.Scene {
     // Left: Yellow bottle tilted left
     const yellowBottle = this.add.image(cx - 85, topY + 12, 'bottle_yellow_sealed')
       .setDepth(5)
-      .setScale(0.80)
+      .setScale(0.80 / RENDER_SCALE)
       .setRotation(Phaser.Math.DegToRad(-14));
 
     // Center: Green bottle upright
     const greenBottle = this.add.image(cx, topY, 'bottle_green_sealed')
       .setDepth(6)
-      .setScale(0.85);
+      .setScale(0.85 / RENDER_SCALE);
 
     // Right: Orange bottle tilted right
     const orangeBottle = this.add.image(cx + 85, topY + 12, 'bottle_orange_sealed')
       .setDepth(5)
-      .setScale(0.80)
+      .setScale(0.80 / RENDER_SCALE)
       .setRotation(Phaser.Math.DegToRad(14));
 
     // Celebratory gentle bobbing
@@ -84,14 +84,16 @@ export class CompleteScene extends Phaser.Scene {
       fontFamily: 'Arial Black, Trebuchet MS, sans-serif',
       fontSize: isFinalLevel ? '28px' : '36px',
       color: '#FFFFFF',
-      letterSpacing: 1
+      letterSpacing: 1,
+      resolution: RENDER_SCALE
     }).setOrigin(0.5, 0.5).setDepth(10);
 
     this.add.text(cx, textY + 45, `${this.level} / ${MAX_LEVELS}`, {
       fontFamily: 'Trebuchet MS, sans-serif',
       fontSize: '18px',
       fontStyle: 'bold',
-      color: '#EFFFFF'
+      color: '#EFFFFF',
+      resolution: RENDER_SCALE
     }).setOrigin(0.5).setDepth(10);
 
     completeText.setScale(0.6);
@@ -108,7 +110,7 @@ export class CompleteScene extends Phaser.Scene {
     const canY = 475;
     const can = this.add.image(cx, canY, 'can_red_sealed')
       .setDepth(8)
-      .setScale(0.92);
+      .setScale(0.92 / RENDER_SCALE);
 
     // Can celebratory bounce
     this.tweens.add({
@@ -124,14 +126,14 @@ export class CompleteScene extends Phaser.Scene {
     const btnY = 660;
     const nextBtn = this.add.image(cx, btnY, 'btn_next')
       .setDepth(12)
-      .setScale(0.92)
+      .setScale(0.92 / RENDER_SCALE)
       .setInteractive({ useHandCursor: true });
 
     // Subtle breathing button pulse
     this.tweens.add({
       targets: nextBtn,
-      scaleX: 0.98,
-      scaleY: 0.98,
+      scaleX: 0.98 / RENDER_SCALE,
+      scaleY: 0.98 / RENDER_SCALE,
       duration: 800,
       yoyo: true,
       repeat: -1,
@@ -142,7 +144,7 @@ export class CompleteScene extends Phaser.Scene {
       AudioManager.playButton();
       this.tweens.add({
         targets: nextBtn,
-        scale: 0.82,
+        scale: 0.82 / RENDER_SCALE,
         duration: 80,
         yoyo: true,
         onComplete: () => {
@@ -155,7 +157,8 @@ export class CompleteScene extends Phaser.Scene {
     this.add.text(cx, btnY + 102, isFinalLevel ? 'PLAY AGAIN' : 'NEXT LEVEL', {
       fontFamily: 'Arial Black, Trebuchet MS, sans-serif',
       fontSize: '17px',
-      color: '#FFFFFF'
+      color: '#FFFFFF',
+      resolution: RENDER_SCALE
     }).setOrigin(0.5).setDepth(12);
   }
 

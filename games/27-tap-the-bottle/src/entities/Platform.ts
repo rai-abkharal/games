@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLLISION_CATEGORIES } from '../config/Constants';
+import { COLLISION_CATEGORIES, RENDER_SCALE } from '../config/Constants';
 
 export class Platform {
   public sprite: Phaser.GameObjects.NineSlice;
@@ -47,7 +47,18 @@ export class Platform {
     this.body = matterBody;
 
     // Nine-slice keeps rounded platform ends without transparent seams when wide.
-    this.sprite = scene.add.nineslice(x, y, textureKey, undefined, width, height, 18, 18, 8, 8)
+    this.sprite = scene.add.nineslice(
+      x,
+      y,
+      textureKey,
+      undefined,
+      width,
+      height,
+      18 * RENDER_SCALE,
+      18 * RENDER_SCALE,
+      8 * RENDER_SCALE,
+      8 * RENDER_SCALE
+    )
       .setRotation(rad)
       .setDepth(6);
   }

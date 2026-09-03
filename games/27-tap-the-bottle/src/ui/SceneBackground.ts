@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
-import { DESIGN_HEIGHT, DESIGN_WIDTH, GAME_HEIGHT, VERTICAL_SAFE_PADDING } from '../config/Constants';
+import { DESIGN_HEIGHT, DESIGN_WIDTH, GAME_HEIGHT, RENDER_SCALE, VERTICAL_SAFE_PADDING } from '../config/Constants';
 import { ThemeType } from '../levels';
 
 export function createSceneBackground(scene: Phaser.Scene, theme: ThemeType): void {
   const top = -VERTICAL_SAFE_PADDING;
 
+  scene.cameras.main.setOrigin(0, 0);
+  scene.cameras.main.setZoom(RENDER_SCALE);
   scene.cameras.main.setScroll(0, top);
   scene.cameras.main.setBackgroundColor(theme === 'pink' ? '#FEE1E4' : '#12B9D6');
 
@@ -22,5 +24,5 @@ export function createSceneBackground(scene: Phaser.Scene, theme: ThemeType): vo
     DESIGN_WIDTH,
     GAME_HEIGHT,
     'bg_pattern'
-  ).setDepth(1).setAlpha(0.52);
+  ).setTileScale(1 / RENDER_SCALE).setDepth(1).setAlpha(0.52);
 }

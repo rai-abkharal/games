@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { COLLISION_CATEGORIES, DESIGN_WIDTH, DESIGN_HEIGHT } from '../config/Constants';
-import { ParticleManager } from '../systems/ParticleManager';
 
 export class Projectile {
   public sprite: Phaser.Physics.Matter.Sprite;
@@ -8,8 +7,6 @@ export class Projectile {
   public type: 'crownCap' | 'canTab';
   public active: boolean = true;
   public portalCooldown: number = 0;
-  private particleManager: ParticleManager;
-  private bubbleTimer: number = 0;
   private stillTimer: number = 0;
 
   constructor(
@@ -17,12 +14,10 @@ export class Projectile {
     x: number,
     y: number,
     type: 'crownCap' | 'canTab',
-    color: string,
-    particleManager: ParticleManager
+    color: string
   ) {
     this.type = type;
     this.color = color;
-    this.particleManager = particleManager;
 
     const textureKey = type === 'crownCap' ? 'crown_cap' : 'can_tab';
 
@@ -35,11 +30,12 @@ export class Projectile {
       chamfer: { radius: 6 },
       collisionFilter: {
         category: COLLISION_CATEGORIES.PROJECTILE,
-        mask: COLLISION_CATEGORIES.PLATFORM | COLLISION_CATEGORIES.STAR | COLLISION_CATEGORIES.PORTAL | COLLISION_CATEGORIES.LAUNCHER
+        mask: COLLISION_CATEGORIES.PLATFORM | COLLISION_CATEGORIES.STAR | COLLISION_CATEGORIES.PORTAL
       }
     });
 
     this.sprite.setDepth(10);
+    this.sprite.setDisplaySize(type === 'crownCap' ? 48 : 40, type === 'crownCap' ? 32 : 28);
     this.sprite.setData('entity', this);
     if (this.sprite.body) {
       (this.sprite.body as any).projectileEntity = this;
@@ -70,11 +66,12 @@ export class Projectile {
     const vy = this.sprite.body.velocity.y;
     const speedSq = vx * vx + vy * vy;
 
-    // Emit bubble trail while in flight
-    this.bubbleTimer += delta;
-    if (this.bubbleTimer >= 22 && speedSq > 4) {
-      this.bubbleTimer = 0;
-      this.particleManager.emitBubble(this.sprite.x, this.sprite.y, this.color, -vx * 0.1, -vy * 0.1);
+    // Keep upward launches inside the visible playfield. Matter's default
+    // gravity is intentionally light for puzzle trajectories, so without this
+    // return arc a cap can leave the screen before gravity turns it around.
+    if (this.sprite.y < 125 && vy < 0) {
+      this.sprite.setPosition(this.sprite.x, 125);
+      this.sprite.setVelocity(vx * 0.88, Math.max(6, Math.abs(vy) * 0.48));
     }
 
     // Stillness check (if stopped moving on a platform or floor)

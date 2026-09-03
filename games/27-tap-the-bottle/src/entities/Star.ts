@@ -17,6 +17,7 @@ export class Star {
 
     // Visual image (completely decoupled from Matter body getters)
     this.sprite = scene.add.image(x, y, 'star')
+      .setDisplaySize(64, 64)
       .setDepth(8);
 
     // Static Matter sensor circle for precise collision detection

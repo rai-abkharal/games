@@ -1,5 +1,6 @@
 export const DESIGN_WIDTH = 478;
 export const DESIGN_HEIGHT = 850;
+export const RENDER_SCALE = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
 
 const viewportWidth = Math.max(1, window.visualViewport?.width ?? window.innerWidth ?? DESIGN_WIDTH);
 const viewportHeight = Math.max(1, window.visualViewport?.height ?? window.innerHeight ?? DESIGN_HEIGHT);
