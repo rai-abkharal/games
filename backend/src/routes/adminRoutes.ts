@@ -19,6 +19,36 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
   if (!fs.existsSync(gamesDir)) fs.mkdirSync(gamesDir, { recursive: true });
   if (!fs.existsSync(thumbnailsDir)) fs.mkdirSync(thumbnailsDir, { recursive: true });
 
+  function isDevelopmentEntryHtml(html: string): boolean {
+    return /<script\b[^>]*\bsrc=["'][^"']*(?:\/@vite\/client|(?:^|\/)src\/[^"']+\.tsx?)(?:[?#][^"']*)?["']/i.test(html);
+  }
+
+  function selectProductionEntry(entries: ReturnType<AdmZip['getEntries']>) {
+    const candidates = entries
+      .filter(entry => !entry.isDirectory && /(^|\/)index\.html$/i.test(entry.entryName))
+      .map(entry => ({
+        entry,
+        html: entry.getData().toString('utf8')
+      }));
+
+    const productionCandidates = candidates.filter(candidate => (
+      candidate.html.length > 30 && !isDevelopmentEntryHtml(candidate.html)
+    ));
+
+    productionCandidates.sort((a, b) => {
+      const productionFolder = /(^|\/)(dist|build)\/index\.html$/i;
+      const aScore = productionFolder.test(a.entry.entryName) ? 0 : a.entry.entryName === 'index.html' ? 1 : 2;
+      const bScore = productionFolder.test(b.entry.entryName) ? 0 : b.entry.entryName === 'index.html' ? 1 : 2;
+      return aScore - bScore || a.entry.entryName.length - b.entry.entryName.length;
+    });
+
+    return {
+      entry: productionCandidates[0]?.entry,
+      html: productionCandidates[0]?.html,
+      hasDevelopmentEntry: candidates.some(candidate => isDevelopmentEntryHtml(candidate.html))
+    };
+  }
+
   // 1. Get All Games for Admin Dashboard
   router.get('/games', (req: Request, res: Response) => {
     try {
@@ -113,18 +143,18 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
     }
 
     // Rule 4: Entry Point (index.html)
-    const entryHtmlEntries = entries.filter(e => (e.entryName === 'index.html' || e.entryName.endsWith('/index.html')) && !e.isDirectory);
-    entryHtmlEntries.sort((a, b) => a.entryName.length - b.entryName.length);
-    const entryHtml = entryHtmlEntries[0];
+    const selectedEntry = selectProductionEntry(entries);
+    const entryHtml = selectedEntry.entry;
     if (entryHtml) {
-      const htmlContent = entryHtml.getData().toString('utf8');
-      if (htmlContent.length > 30) {
-        checks.push({ rule: 'Entry Point (index.html)', passed: true, message: `Verified HTML5 entry point (${(htmlContent.length / 1024).toFixed(1)} KB)` });
-      } else {
-        checks.push({ rule: 'Entry Point (index.html)', passed: false, message: 'index.html file is empty' });
-      }
+      checks.push({ rule: 'Entry Point (index.html)', passed: true, message: `Verified production HTML5 entry point at ${entryHtml.entryName} (${((selectedEntry.html?.length || 0) / 1024).toFixed(1)} KB)` });
+    } else if (selectedEntry.hasDevelopmentEntry) {
+      checks.push({
+        rule: 'Entry Point (index.html)',
+        passed: false,
+        message: 'Only a development index.html was found (for example /src/main.ts or /@vite/client). Run the production build and upload dist/index.html.'
+      });
     } else {
-      checks.push({ rule: 'Entry Point (index.html)', passed: false, message: 'Missing index.html entry point in ZIP package' });
+      checks.push({ rule: 'Entry Point (index.html)', passed: false, message: 'Missing a non-empty production index.html entry point in ZIP package' });
     }
 
     // Rule 5: Package Size Constraint (< 10MB)
@@ -146,7 +176,7 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
 
     // Rule 7: Network & Standalone Offline Safety
     if (entryHtml) {
-      const htmlContent = entryHtml.getData().toString('utf8');
+      const htmlContent = selectedEntry.html || '';
       const hasBlockingCdn = /<script\s+[^>]*src=["']https?:\/\//i.test(htmlContent);
       if (!hasBlockingCdn) {
         checks.push({ rule: 'Offline Standalone Security', passed: true, message: 'Zero external blocking CDNs. 100% offline-ready' });
@@ -314,35 +344,42 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       fs.mkdirSync(targetGameDir, { recursive: true });
 
       // Smart directory flattening (detects if zip was packaged with a root folder wrapper)
-      const nonDirEntries = entries.filter(e => !e.isDirectory);
-      const htmlEntry = nonDirEntries.find(e => e.entryName === 'index.html' || e.entryName.endsWith('/index.html'));
+      const htmlEntry = selectProductionEntry(entries).entry;
       let rootPrefix = '';
       if (htmlEntry && htmlEntry.entryName !== 'index.html') {
         rootPrefix = htmlEntry.entryName.substring(0, htmlEntry.entryName.lastIndexOf('/') + 1);
       }
+      const selectedManifestEntry = entries
+        .filter(entry => !entry.isDirectory && /(^|\/)manifest\.json$/i.test(entry.entryName))
+        .sort((a, b) => a.entryName.length - b.entryName.length)[0];
 
       // Extract entries cleanly
       for (const entry of entries) {
         if (entry.isDirectory) continue;
         
-        let relativePath = entry.entryName;
-        if (rootPrefix && relativePath.startsWith(rootPrefix)) {
-          relativePath = relativePath.substring(rootPrefix.length);
-        } else {
-          const slashIdx = relativePath.indexOf('/');
-          if (slashIdx !== -1 && !relativePath.startsWith('assets/')) {
-            const firstPart = relativePath.substring(0, slashIdx);
-            if (firstPart === gameId || firstPart === 'dist' || firstPart === 'build') {
-              relativePath = relativePath.substring(slashIdx + 1);
-            }
+        let relativePath = entry.entryName.replace(/\\/g, '/');
+        if (rootPrefix) {
+          if (relativePath.startsWith(rootPrefix)) {
+            relativePath = relativePath.substring(rootPrefix.length);
+          } else if (entry === selectedManifestEntry) {
+            relativePath = 'manifest.json';
+          } else {
+            continue;
           }
         }
 
         if (!relativePath) continue;
-        const targetFile = path.join(targetGameDir, relativePath);
+        const targetFile = path.resolve(targetGameDir, relativePath);
+        const targetRoot = path.resolve(targetGameDir) + path.sep;
+        if (!targetFile.startsWith(targetRoot)) {
+          throw new Error(`Unsafe path in ZIP archive: ${entry.entryName}`);
+        }
         fs.mkdirSync(path.dirname(targetFile), { recursive: true });
         fs.writeFileSync(targetFile, entry.getData());
       }
+
+      // Always persist the normalized manifest, including auto-generated defaults.
+      fs.writeFileSync(path.join(targetGameDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
 
       // Handle thumbnail
       const thumbnailEntry = entries.find(e => e.entryName.endsWith('.svg') || e.entryName.endsWith('.webp') || e.entryName.endsWith('.png'));
