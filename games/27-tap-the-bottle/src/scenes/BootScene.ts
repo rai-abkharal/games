@@ -11,7 +11,7 @@ export class BootScene extends Phaser.Scene {
   create(): void {
     GeneratedTextures.generateAll(this);
     GameBridge.ready();
-    GameBridge.setSwipeEnabled(false);
+    GameBridge.setSwipeEnabled(true);
 
     // Support instant level testing via ?level=X query string
     const params = new URLSearchParams(window.location.search);
