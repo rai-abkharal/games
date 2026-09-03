@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { DESIGN_WIDTH, GAME_HEIGHT, DESIGN_GRAVITY, RENDER_SCALE } from './Constants';
+import { DESIGN_WIDTH, GAME_HEIGHT, DESIGN_GRAVITY } from './Constants';
 import { BootScene } from '../scenes/BootScene';
 import { GameplayScene } from '../scenes/GameplayScene';
 import { CompleteScene } from '../scenes/CompleteScene';
@@ -8,14 +8,14 @@ import { FailedScene } from '../scenes/FailedScene';
 export const GameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-container',
-  width: DESIGN_WIDTH * RENDER_SCALE,
-  height: GAME_HEIGHT * RENDER_SCALE,
+  width: DESIGN_WIDTH,
+  height: GAME_HEIGHT,
   backgroundColor: '#0b1e36',
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: DESIGN_WIDTH * RENDER_SCALE,
-    height: GAME_HEIGHT * RENDER_SCALE
+    width: DESIGN_WIDTH,
+    height: GAME_HEIGHT
   },
   render: {
     antialias: true,

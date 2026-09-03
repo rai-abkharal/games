@@ -185,35 +185,7 @@ export class GameplayScene extends Phaser.Scene {
     if (otherBody.label === 'star') {
       const star: Star | undefined = (otherBody as any).starEntity || (otherBody.gameObject?.getData('entity'));
       if (star && !star.collected) {
-        star.collect();
-        AudioManager.playStarCollect(this.collectedStarsCount++);
-        GameBridge.haptic('light');
-        this.particleManager.emitStarSparkles(star.x, star.y);
-        this.remainingStars--;
-
-        if (this.remainingStars <= 0 && !this.isLevelWon) {
-          this.isLevelWon = true;
-          const score = this.currentLevel * 1000 + this.collectedStarsCount * 100;
-          const nextUnlockedLevel = Math.min(MAX_LEVELS, this.currentLevel + 1);
-          localStorage.setItem('tap-the-bottle-unlocked-level', String(nextUnlockedLevel));
-
-          GameBridge.haptic('success');
-          GameBridge.completed({
-            score,
-            level: this.currentLevel,
-            stats: {
-              stars: this.collectedStarsCount,
-              timeSpentSeconds: Math.max(1, Math.round(this.elapsedMs / 1000))
-            }
-          });
-
-          this.time.delayedCall(650, () => {
-            this.scene.start('CompleteScene', {
-              level: this.currentLevel,
-              theme: this.levelDef.theme
-            });
-          });
-        }
+        this.collectStar(star);
       }
       return;
     }
@@ -237,7 +209,8 @@ export class GameplayScene extends Phaser.Scene {
           // Compute exit velocity preserving speed
           const vx = body.velocity.x;
           const vy = body.velocity.y;
-          const speed = Math.sqrt(vx * vx + vy * vy) || 18;
+          const curSpeed = Math.sqrt(vx * vx + vy * vy);
+          const speed = Math.max(24, curSpeed || 24);
 
           // Teleport to destination portal
           const destRotRad = Phaser.Math.DegToRad(destPortal.rotation);
@@ -256,6 +229,39 @@ export class GameplayScene extends Phaser.Scene {
     }
   }
 
+  private collectStar(star: Star): void {
+    if (star.collected) return;
+    star.collect();
+    AudioManager.playStarCollect(this.collectedStarsCount++);
+    GameBridge.haptic('light');
+    this.particleManager.emitStarSparkles(star.x, star.y);
+    this.remainingStars--;
+
+    if (this.remainingStars <= 0 && !this.isLevelWon) {
+      this.isLevelWon = true;
+      const score = this.currentLevel * 1000 + this.collectedStarsCount * 100;
+      const nextUnlockedLevel = Math.min(MAX_LEVELS, this.currentLevel + 1);
+      localStorage.setItem('tap-the-bottle-unlocked-level', String(nextUnlockedLevel));
+
+      GameBridge.haptic('success');
+      GameBridge.completed({
+        score,
+        level: this.currentLevel,
+        stats: {
+          stars: this.collectedStarsCount,
+          timeSpentSeconds: Math.max(1, Math.round(this.elapsedMs / 1000))
+        }
+      });
+
+      this.time.delayedCall(650, () => {
+        this.scene.start('CompleteScene', {
+          level: this.currentLevel,
+          theme: this.levelDef.theme
+        });
+      });
+    }
+  }
+
   update(_time: number, delta: number): void {
     if (!this.isLevelWon && !this.isLevelFailed) {
       this.elapsedMs += delta;
@@ -265,6 +271,36 @@ export class GameplayScene extends Phaser.Scene {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const proj = this.projectiles[i];
       proj.update(delta);
+    }
+
+    // Continuous swept star collection check so fast caps NEVER tunnel or miss
+    if (!this.isLevelWon) {
+      for (const star of this.stars) {
+        if (star.collected) continue;
+        for (const proj of this.projectiles) {
+          if (!proj.sprite || !proj.sprite.body || !proj.active) continue;
+          const px = proj.prevX;
+          const py = proj.prevY;
+          const cx = proj.sprite.x;
+          const cy = proj.sprite.y;
+
+          const l2 = (cx - px) ** 2 + (cy - py) ** 2;
+          let dist = 0;
+          if (l2 === 0) {
+            dist = Phaser.Math.Distance.Between(star.x, star.y, cx, cy);
+          } else {
+            const t = Phaser.Math.Clamp(((star.x - px) * (cx - px) + (star.y - py) * (cy - py)) / l2, 0, 1);
+            const projX = px + t * (cx - px);
+            const projY = py + t * (cy - py);
+            dist = Phaser.Math.Distance.Between(star.x, star.y, projX, projY);
+          }
+
+          if (dist <= 36) {
+            this.collectStar(star);
+            break;
+          }
+        }
+      }
     }
 
     // Level failure evaluation

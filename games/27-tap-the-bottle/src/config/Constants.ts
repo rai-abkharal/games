@@ -1,17 +1,9 @@
 export const DESIGN_WIDTH = 478;
 export const DESIGN_HEIGHT = 850;
-export const RENDER_SCALE = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+export const RENDER_SCALE = 1;
 
-const viewportWidth = Math.max(1, window.visualViewport?.width ?? window.innerWidth ?? DESIGN_WIDTH);
-const viewportHeight = Math.max(1, window.visualViewport?.height ?? window.innerHeight ?? DESIGN_HEIGHT);
-
-// Keep the authored 478x850 playfield intact and extend the scene vertically on
-// taller phones. This fills the WebView without stretching or dark letterboxing.
-export const GAME_HEIGHT = Math.max(
-  DESIGN_HEIGHT,
-  Math.min(1100, Math.round(DESIGN_WIDTH * (viewportHeight / viewportWidth)))
-);
-export const VERTICAL_SAFE_PADDING = Math.max(0, (GAME_HEIGHT - DESIGN_HEIGHT) / 2);
+export const GAME_HEIGHT = DESIGN_HEIGHT;
+export const VERTICAL_SAFE_PADDING = 0;
 
 export const BASE_LAUNCH_SPEED = 29.5; // in Matter.js velocity units (~790-800px/s)
 export const DESIGN_GRAVITY = 0.82;   // in Matter.js gravity units (~720px/s^2)

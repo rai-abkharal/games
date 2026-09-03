@@ -21,7 +21,7 @@ export class Star {
       .setDepth(8);
 
     // Static Matter sensor circle for precise collision detection
-    this.body = scene.matter.add.circle(x, y, 22, {
+    this.body = scene.matter.add.circle(x, y, 32, {
       isSensor: true,
       isStatic: true,
       label: 'star',
@@ -43,6 +43,10 @@ export class Star {
       repeat: -1,
       ease: 'Sine.easeInOut'
     });
+  }
+
+  public isCollected(): boolean {
+    return this.collected;
   }
 
   public collect(): void {

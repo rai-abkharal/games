@@ -7,6 +7,8 @@ export class Projectile {
   public type: 'crownCap' | 'canTab';
   public active: boolean = true;
   public portalCooldown: number = 0;
+  public prevX: number = 0;
+  public prevY: number = 0;
   private stillTimer: number = 0;
 
   constructor(
@@ -18,15 +20,17 @@ export class Projectile {
   ) {
     this.type = type;
     this.color = color;
+    this.prevX = x;
+    this.prevY = y;
 
     const textureKey = type === 'crownCap' ? 'crown_cap' : 'can_tab';
 
     this.sprite = scene.matter.add.sprite(x, y, textureKey, undefined, {
       label: 'projectile',
-      friction: 0.12,
-      frictionAir: 0.008,
-      restitution: 0.42,
-      density: 0.001,
+      friction: 0.08,
+      frictionAir: 0.006,
+      restitution: 0.68,
+      density: 0.0012,
       chamfer: { radius: 6 },
       collisionFilter: {
         category: COLLISION_CATEGORIES.PROJECTILE,
@@ -57,6 +61,9 @@ export class Projectile {
   public update(delta: number): void {
     if (!this.active || !this.sprite.body) return;
 
+    this.prevX = this.sprite.x;
+    this.prevY = this.sprite.y;
+
     const dt = delta / 1000;
     if (this.portalCooldown > 0) {
       this.portalCooldown -= delta;
@@ -66,12 +73,17 @@ export class Projectile {
     const vy = this.sprite.body.velocity.y;
     const speedSq = vx * vx + vy * vy;
 
-    // Keep upward launches inside the visible playfield. Matter's default
-    // gravity is intentionally light for puzzle trajectories, so without this
-    // return arc a cap can leave the screen before gravity turns it around.
-    if (this.sprite.y < 125 && vy < 0) {
-      this.sprite.setPosition(this.sprite.x, 125);
-      this.sprite.setVelocity(vx * 0.88, Math.max(6, Math.abs(vy) * 0.48));
+    // Boundary bounces to keep projectile in playable screen
+    if (this.sprite.y < 16 && vy < 0) {
+      this.sprite.setPosition(this.sprite.x, 16);
+      this.sprite.setVelocity(vx * 0.9, Math.abs(vy) * 0.65);
+    }
+    if (this.sprite.x < 16 && vx < 0) {
+      this.sprite.setPosition(16, this.sprite.y);
+      this.sprite.setVelocity(-vx * 0.75, vy);
+    } else if (this.sprite.x > DESIGN_WIDTH - 16 && vx > 0) {
+      this.sprite.setPosition(DESIGN_WIDTH - 16, this.sprite.y);
+      this.sprite.setVelocity(-vx * 0.75, vy);
     }
 
     // Stillness check (if stopped moving on a platform or floor)
