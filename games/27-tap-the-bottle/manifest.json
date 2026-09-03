@@ -1,7 +1,7 @@
 {
   "id": "tap-the-bottle",
   "title": "Tap the Bottle",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "engine": "phaser-matter",
   "category": "Puzzle",
   "feedOrder": 27,

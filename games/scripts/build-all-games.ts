@@ -1,5 +1,6 @@
-import path from 'path';
+import { spawnSync } from 'child_process';
 import fs from 'fs';
+import path from 'path';
 
 const MAX_GAME_PACKAGE_BYTES = 5 * 1024 * 1024;
 
@@ -18,35 +19,73 @@ function getGameDirectories(): string[] {
     .sort();
 }
 
-async function buildAll() {
-  const GAME_DIRS = getGameDirectories();
-  console.log(`🚀 Starting compilation of all ${GAME_DIRS.length} Mini-Games...\n`);
+function referencesDevelopmentSource(html: string): boolean {
+  return /<script\b[^>]*\bsrc=["'][^"']*(?:\/@vite\/client|(?:^|\/)src\/[^"']+\.tsx?)(?:[?#][^"']*)?["']/i.test(html);
+}
 
-  for (const dirName of GAME_DIRS) {
+async function buildAll() {
+  const gameDirectories = getGameDirectories();
+  console.log(`Starting compilation of all ${gameDirectories.length} mini-games...\n`);
+
+  for (const dirName of gameDirectories) {
     const gameDir = path.resolve(__dirname, '..', dirName);
     const rootIndex = path.join(gameDir, 'index.html');
     const distDir = path.join(gameDir, 'dist');
     const distIndex = path.join(distDir, 'index.html');
+    const packagePath = path.join(gameDir, 'package.json');
 
-    console.log(`🔨 Building ${dirName}...`);
+    console.log(`Building ${dirName}...`);
 
     try {
       if (!fs.existsSync(rootIndex)) {
         throw new Error(`Missing root index.html in ${dirName}`);
       }
 
-      fs.mkdirSync(distDir, { recursive: true });
-      fs.copyFileSync(rootIndex, distIndex);
+      const packageJson = fs.existsSync(packagePath)
+        ? JSON.parse(fs.readFileSync(packagePath, 'utf8'))
+        : null;
+      const hasBuildScript = typeof packageJson?.scripts?.build === 'string';
 
-      // Preserve game-local runtime art in the versioned package so relative
-      // asset URLs keep working after deployment.
-      const sourceAssets = path.join(gameDir, 'assets');
-      const distAssets = path.join(distDir, 'assets');
-      if (fs.existsSync(distAssets)) {
-        fs.rmSync(distAssets, { recursive: true, force: true });
+      if (hasBuildScript) {
+        // TypeScript/Vite games must be compiled. Copying their root HTML would
+        // deploy references such as /src/main.ts, which do not exist live.
+        const isWindows = process.platform === 'win32';
+        const command = isWindows ? 'cmd.exe' : 'npm';
+        const args = isWindows
+          ? ['/d', '/s', '/c', 'npm.cmd', 'run', 'build']
+          : ['run', 'build'];
+        const result = spawnSync(command, args, {
+          cwd: gameDir,
+          stdio: 'inherit',
+        });
+        if (result.status !== 0) {
+          const reason = result.error?.message || `exit ${result.status ?? 'unknown'}`;
+          throw new Error(`Production build failed in ${dirName} (${reason})`);
+        }
+      } else {
+        fs.mkdirSync(distDir, { recursive: true });
+        fs.copyFileSync(rootIndex, distIndex);
+
+        // Standalone HTML games may keep runtime art beside index.html.
+        const sourceAssets = path.join(gameDir, 'assets');
+        const distAssets = path.join(distDir, 'assets');
+        if (fs.existsSync(distAssets)) {
+          fs.rmSync(distAssets, { recursive: true, force: true });
+        }
+        if (fs.existsSync(sourceAssets)) {
+          fs.cpSync(sourceAssets, distAssets, { recursive: true });
+        }
       }
-      if (fs.existsSync(sourceAssets)) {
-        fs.cpSync(sourceAssets, distAssets, { recursive: true });
+
+      if (!fs.existsSync(distIndex)) {
+        throw new Error(`Production build did not create dist/index.html in ${dirName}`);
+      }
+
+      const builtHtml = fs.readFileSync(distIndex, 'utf8');
+      if (referencesDevelopmentSource(builtHtml)) {
+        throw new Error(
+          `${dirName} dist/index.html still references development source files. Configure a real production build.`,
+        );
       }
 
       const packageBytes = listFilesRecursive(distDir)
@@ -57,16 +96,14 @@ async function buildAll() {
         );
       }
 
-      console.log(
-        `✅ ${dirName}: ${(packageBytes / 1024).toFixed(1)} KB standalone micro-engine package\n`,
-      );
+      console.log(`${dirName}: ${(packageBytes / 1024).toFixed(1)} KB production package\n`);
     } catch (err) {
-      console.error(`❌ Failed building ${dirName}:`, err);
+      console.error(`Failed building ${dirName}:`, err);
       process.exit(1);
     }
   }
 
-  console.log(`🎉 All ${GAME_DIRS.length} Mini-Games successfully built!`);
+  console.log(`All ${gameDirectories.length} mini-games successfully built!`);
 }
 
 buildAll();
