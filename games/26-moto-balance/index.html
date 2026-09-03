@@ -138,6 +138,26 @@
           osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + 0.52);
         } catch (_) {}
       }
+      starChime() {
+        this.unlock();
+        if (!this.ctx || !this.enabled) return;
+        try {
+          const now = this.ctx.currentTime;
+          const osc1 = this.ctx.createOscillator();
+          const gain1 = this.ctx.createGain();
+          osc1.type = 'sine'; osc1.frequency.setValueAtTime(880, now);
+          gain1.gain.setValueAtTime(0.12, now); gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+          osc1.connect(gain1); gain1.connect(this.ctx.destination);
+          osc1.start(now); osc1.stop(now + 0.13);
+
+          const osc2 = this.ctx.createOscillator();
+          const gain2 = this.ctx.createGain();
+          osc2.type = 'triangle'; osc2.frequency.setValueAtTime(1320, now + 0.05);
+          gain2.gain.setValueAtTime(0.14, now + 0.05); gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
+          osc2.connect(gain2); gain2.connect(this.ctx.destination);
+          osc2.start(now + 0.05); osc2.stop(now + 0.21);
+        } catch (_) {}
+      }
       setEnabled(value) {
         this.enabled = Boolean(value);
         if (!this.enabled && this.engineGain && this.ctx) this.engineGain.gain.setValueAtTime(0, this.ctx.currentTime);
@@ -150,14 +170,15 @@
     class BestScores {
       constructor() { this.key = 'moto-wheelie-run-hd-v4'; }
       read() {
-        let scores = { allTime: 0, maxWheelie: 0 };
+        let scores = { allTime: 0, maxWheelie: 0, maxStars: 0 };
         try { scores = Object.assign(scores, JSON.parse(localStorage.getItem(this.key) || '{}')); } catch (_) {}
         return scores;
       }
-      commit(score, maxWheelie = 0) {
+      commit(score, maxWheelie = 0, stars = 0) {
         const scores = this.read();
         scores.allTime = Math.max(scores.allTime || 0, score);
         scores.maxWheelie = Math.max(scores.maxWheelie || 0, maxWheelie);
+        scores.maxStars = Math.max(scores.maxStars || 0, stars);
         try { localStorage.setItem(this.key, JSON.stringify(scores)); } catch (_) {}
         return scores;
       }
@@ -207,7 +228,9 @@
         // Game parameters
         this.score = 0;
         this.finalScore = 0;
-        this.timeLeft = 60;
+        this.starsCollected = 0;
+        this.stars = [];
+        this.nextStarSpawnX = 650;
         this.crashTimer = 0;
 
         // Kinematic Motion Variables
@@ -359,6 +382,9 @@
         this.cameraX = this.worldX - 220;
         this.score = 0;
         this.finalScore = 0;
+        this.starsCollected = 0;
+        this.stars = [];
+        this.nextStarSpawnX = this.worldX + 500;
         this.crashTimer = 0;
         this.particles = [];
         this.floatingTexts = [];
@@ -369,7 +395,6 @@
         this.resetWorld();
         this.state = 'countdown';
         this.countdown = 2.0;
-        this.timeLeft = 60;
         this.audio.beep(510, 0.08, 'triangle', 0.10);
         Host.haptic('medium');
       }
@@ -391,7 +416,7 @@
         const { bikeX, bikeY } = this.computeBikePose();
         this.spawnImpact(bikeX, bikeY);
         this.state = 'crashing';
-        this.crashTimer = 0.55;
+        this.crashTimer = 0.85;
 
         // Tumble physics
         this.crashX = bikeX;
@@ -404,27 +429,22 @@
         this.wheelieActive = false;
         this.wheelieTime = 0;
         this.wheelieCombo = 1;
-        this.addFloatingText('CRASH! FLIPPED OVER!', this.sx(bikeX), bikeY - 80, 0xff5f79);
-      }
-
-      respawnBike() {
-        this.speed = 0;
-        this.wheelieAngle = 0;
-        this.wheelieAngleVelocity = 0;
-        this.wheelieActive = false;
-        this.wheelieTime = 0;
-        this.wheelieCombo = 1;
-        this.addFloatingText('⚡ QUICK RESPAWN! KEEP GOING!', W / 2, 480, 0x10b981);
-        this.audio.beep(640, 0.08, 'sine', 0.09);
+        this.addFloatingText('CRASHED! FLIPPED OVER!', this.sx(bikeX), bikeY - 80, 0xff5f79);
       }
 
       showGameOver() {
         if (this.state === 'gameover') return;
         this.state = 'gameover';
         this.finalScore = this.score;
-        this.best = this.bestScores.commit(this.finalScore, this.maxWheelie);
+        this.best = this.bestScores.commit(this.finalScore, this.maxWheelie, this.starsCollected);
         this.audio.beep(880, 0.22, 'triangle', 0.12);
-        Host.post('gameOver', { score: this.finalScore, timeSpentSeconds: 60, stats: { maxWheelie: this.maxWheelie.toFixed(1) } });
+        Host.post('gameOver', {
+          score: this.finalScore,
+          stats: {
+            stars: this.starsCollected,
+            maxWheelie: this.maxWheelie.toFixed(1)
+          }
+        });
       }
 
       spawnImpact(x, y) {
@@ -556,6 +576,176 @@
         }
       }
 
+      spawnStarSparkles(x, y) {
+        const colors = [0xfef08a, 0xfbbf24, 0xffffff, 0xf59e0b];
+        for (let i = 0; i < 20; i++) {
+          const a = (i / 20) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+          const spd = 2.0 + Math.random() * 6.5;
+          this.particles.push({
+            x, y,
+            vx: Math.cos(a) * spd,
+            vy: Math.sin(a) * spd - 1.8,
+            life: 0.35 + Math.random() * 0.45,
+            max: 0.8,
+            size: 4 + Math.random() * 8,
+            color: colors[i % colors.length]
+          });
+        }
+      }
+
+      spawnStarsAhead() {
+        const spawnTargetX = this.worldX + 1700;
+        while (this.nextStarSpawnX < spawnTargetX) {
+          const pattern = Math.random();
+          if (pattern < 0.55) {
+            // Single star placed at wheelie height (515 to 540)
+            const y = 515 + Math.random() * 25;
+            this.stars.push({
+              x: this.nextStarSpawnX,
+              baseY: y,
+              y,
+              phase: Math.random() * Math.PI * 2,
+              collected: false,
+              value: 150
+            });
+            this.nextStarSpawnX += 340 + Math.random() * 160;
+          } else if (pattern < 0.85) {
+            // Pair of stars spaced 150px apart
+            const y = 520 + (Math.random() - 0.5) * 20;
+            this.stars.push({
+              x: this.nextStarSpawnX,
+              baseY: y,
+              y,
+              phase: Math.random() * Math.PI * 2,
+              collected: false,
+              value: 150
+            });
+            this.stars.push({
+              x: this.nextStarSpawnX + 150,
+              baseY: y - 10,
+              y: y - 10,
+              phase: Math.random() * Math.PI * 2,
+              collected: false,
+              value: 150
+            });
+            this.nextStarSpawnX += 520 + Math.random() * 140;
+          } else {
+            // Triplet arc (rewarding sustained wheelie!)
+            const baseY = 535;
+            for (let i = 0; i < 3; i++) {
+              const arcY = baseY - (i === 1 ? 24 : 10);
+              this.stars.push({
+                x: this.nextStarSpawnX + i * 140,
+                baseY: arcY,
+                y: arcY,
+                phase: i * 1.2,
+                collected: false,
+                value: 150
+              });
+            }
+            this.nextStarSpawnX += 680 + Math.random() * 150;
+          }
+        }
+      }
+
+      updateStars(time, dt) {
+        this.spawnStarsAhead();
+
+        const pose = this.computeBikePose();
+        const isWheelie = this.wheelieAngle > 0.15;
+
+        // Front wheel hub
+        const fx = pose.frontAxleX;
+        const fy = pose.frontAxleY;
+
+        // Handlebars / upper fork
+        const hx = (pose.bikeX + pose.frontAxleX) * 0.5;
+        const hy = (pose.bikeY + pose.frontAxleY) * 0.5 - 15;
+
+        for (let i = this.stars.length - 1; i >= 0; i--) {
+          const s = this.stars[i];
+          s.y = s.baseY + Math.sin(time * 0.004 + s.phase) * 6;
+
+          // Prune stars far behind camera
+          if (s.x < this.cameraX - 200) {
+            this.stars.splice(i, 1);
+            continue;
+          }
+
+          if (s.collected) continue;
+
+          // Collection only occurs when lifting the front wheel in a wheelie!
+          if (isWheelie && this.state === 'playing') {
+            const dWheel = Math.hypot(fx - s.x, fy - s.y);
+            const dHandle = Math.hypot(hx - s.x, hy - s.y);
+
+            if (dWheel < 68 || dHandle < 58) {
+              s.collected = true;
+              this.starsCollected++;
+              const pts = Math.round(s.value * (1 + (this.wheelieCombo - 1) * 0.5));
+              this.score += pts;
+
+              this.audio.starChime();
+              Host.haptic('light');
+              this.spawnStarSparkles(s.x, s.y);
+              this.addFloatingText(`+${pts} ★`, this.sx(s.x), s.y - 30, 0xfbbf24);
+
+              this.stars.splice(i, 1);
+            }
+          }
+        }
+      }
+
+      renderStars(g, time) {
+        for (const s of this.stars) {
+          if (s.collected) continue;
+          const sx = this.sx(s.x);
+          if (sx < -60 || sx > W + 60) continue;
+
+          const sy = s.y;
+          const rot = time * 0.0018 + s.phase;
+          const pulse = 1 + Math.sin(time * 0.005 + s.phase) * 0.12;
+          const outerR = 19 * pulse;
+          const innerR = outerR * 0.46;
+
+          // Outer glowing halo
+          g.fillStyle(0xfbbf24, 0.22);
+          g.fillCircle(sx, sy, outerR * 1.85);
+          g.fillStyle(0xfef08a, 0.42);
+          g.fillCircle(sx, sy, outerR * 1.3);
+
+          // 5-Pointed Star
+          this.drawStar(g, sx, sy, 5, outerR, innerR, 0xfbbf24, 0xd97706, rot);
+
+          // Star bright glint
+          g.fillStyle(0xffffff, 0.92);
+          g.fillCircle(sx - outerR * 0.18, sy - outerR * 0.18, outerR * 0.22);
+        }
+      }
+
+      drawStar(g, cx, cy, spikes, outerRadius, innerRadius, fillCol, strokeCol, rot = 0) {
+        let rotAngle = Math.PI / 2 * 3 + rot;
+        const step = Math.PI / spikes;
+
+        g.beginPath();
+        g.moveTo(cx + Math.cos(rotAngle) * outerRadius, cy + Math.sin(rotAngle) * outerRadius);
+        for (let i = 0; i < spikes; i++) {
+          g.lineTo(cx + Math.cos(rotAngle) * outerRadius, cy + Math.sin(rotAngle) * outerRadius);
+          rotAngle += step;
+          g.lineTo(cx + Math.cos(rotAngle) * innerRadius, cy + Math.sin(rotAngle) * innerRadius);
+          rotAngle += step;
+        }
+        g.closePath();
+        if (fillCol !== undefined) {
+          g.fillStyle(fillCol, 1);
+          g.fillPath();
+        }
+        if (strokeCol !== undefined) {
+          g.lineStyle(2.5, strokeCol, 1);
+          g.strokePath();
+        }
+      }
+
       updateParticles(dt) {
         for (let i = this.particles.length - 1; i >= 0; i--) {
           const p = this.particles[i]; p.life -= dt; p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.vy += 0.20 * dt * 60;
@@ -570,15 +760,14 @@
       update(time, rawDelta) {
         const dt = Math.min(rawDelta, 50) / 1000;
         this.refreshHeldButtons();
-        if (this.pausedByHost || window.__GAME_ACTIVE__ === false) { this.render(); return; }
+        if (this.pausedByHost || window.__GAME_ACTIVE__ === false) { this.render(time); return; }
 
         if (this.state === 'countdown') {
           this.countdown -= dt;
           if (this.countdown <= 0) this.beginPlaying();
         } else if (this.state === 'playing') {
           this.updateKinematics(dt);
-          this.timeLeft = Math.max(0, this.timeLeft - dt);
-          if (this.timeLeft <= 0) this.showGameOver();
+          this.updateStars(time, dt);
         } else if (this.state === 'crashing') {
           this.crashTimer -= dt;
           this.crashVy += 28 * dt;
@@ -587,12 +776,7 @@
           this.crashAngle += this.crashSpin * dt;
 
           if (this.crashTimer <= 0) {
-            if (this.timeLeft > 0) {
-              this.respawnBike();
-              this.state = 'playing';
-            } else {
-              this.showGameOver();
-            }
+            this.showGameOver();
           }
         }
 
@@ -606,7 +790,7 @@
 
         this.updateParticles(dt);
         this.audio.setEngine(this.speed, this.rightHeld, this.wheelieActive);
-        this.render();
+        this.render(time);
       }
 
       sx(worldX) { return worldX - this.cameraX; }
@@ -709,26 +893,22 @@
       }
 
       renderHud(g) {
-        // Symmetrical, Identical-Sized Pill Cards for Timer and Score!
+        // Symmetrical, Identical-Sized Pill Cards for Stars and Score!
         const pillW = 240;
         const pillH = 76;
         const pillRadius = 24;
         const pillY = 40;
 
-        // 1. LEFT PILL: SECONDS / TIMER (Width: 240, Height: 76, X: 75)
+        // 1. LEFT PILL: STARS (Width: 240, Height: 76, X: 75)
         const leftX = 75;
-        const timeSec = Math.max(0, Math.ceil(this.timeLeft));
-        const timerBg = timeSec <= 10 ? 0x2e0811 : 0x0c1e2d;
-        const timerBorder = timeSec <= 10 ? 0xf43f5e : 0x06b6d4;
-
-        g.fillStyle(timerBg, 0.95);
+        g.fillStyle(0x1a150a, 0.95);
         g.fillRoundedRect(leftX, pillY, pillW, pillH, pillRadius);
-        g.lineStyle(3.5, timerBorder, 1);
+        g.lineStyle(3.5, 0xf59e0b, 1);
         g.strokeRoundedRect(leftX, pillY, pillW, pillH, pillRadius);
 
         const leftCenter = leftX + pillW / 2;
-        this.fillText(String(timeSec), leftCenter, pillY + 28, 38, 0xffffff, '900');
-        this.fillText('SECONDS', leftCenter, pillY + 58, 12, timerBorder, '900');
+        this.fillText(String(this.starsCollected || 0), leftCenter, pillY + 28, 38, 0xffffff, '900');
+        this.fillText('★ STARS', leftCenter, pillY + 58, 12, 0xfbbf24, '900');
 
         // 2. RIGHT PILL: SCORE (Width: 240, Height: 76, X: 405) - EXACT EQUAL SIZE!
         const rightX = 405;
@@ -770,12 +950,12 @@
         g.lineStyle(this.rightHeld ? 5 : 3.5, 0xe05638, 1);
         g.strokeRoundedRect(rightCardX, cardY, cardW, cardH, 36);
 
-        const rightCenterX = rightCardX + cardW / 2;
+        const rightCenter = rightCardX + cardW / 2;
         g.fillStyle(this.rightHeld ? 0xe05638 : 0xc24128, 1);
-        g.fillCircle(rightCenterX, centerY, 56);
+        g.fillCircle(rightCenter, centerY, 56);
         g.lineStyle(2.5, 0xffffff, 0.6);
-        g.strokeCircle(rightCenterX, centerY, 56);
-        this.fillText('▶', rightCenterX + 2, centerY + 2, 48, 0xffffff, '900');
+        g.strokeCircle(rightCenter, centerY, 56);
+        this.fillText('▶', rightCenter + 2, centerY + 2, 48, 0xffffff, '900');
       }
 
       renderCountdown(g) {
@@ -792,7 +972,7 @@
         g.fillStyle(0x050d18, 0.65); g.fillRect(0, 0, W, H);
 
         const best = this.best || this.bestScores.read();
-        const isNewBest = this.finalScore >= best.allTime && this.finalScore > 0;
+        const isNewBest = this.finalScore >= (best.allTime || 0) && this.finalScore > 0;
 
         // Main Dialog Card (High-Resolution White Card)
         g.fillStyle(0xffffff, 0.99);
@@ -801,17 +981,17 @@
         g.strokeRoundedRect(60, 180, 600, 890, 40);
 
         // Header Accent Banner
-        g.fillStyle(isNewBest ? 0xfef3c7 : 0xf0fdf4, 1);
+        g.fillStyle(isNewBest ? 0xfef3c7 : 0xfff1f2, 1);
         g.fillRoundedRect(60, 180, 600, 140, { tl: 40, tr: 40, bl: 0, br: 0 });
 
-        // Trophy Circle Badge
-        g.fillStyle(isNewBest ? 0xf59e0b : 0x10b981, 0.20);
+        // Trophy / Crash Badge
+        g.fillStyle(isNewBest ? 0xf59e0b : 0xe11d48, 0.20);
         g.fillCircle(360, 250, 50);
-        this.fillText(isNewBest ? '🏆' : '🏁', 360, 250, 48, 0xffffff, '900');
+        this.fillText(isNewBest ? '🏆' : '💥', 360, 250, 48, 0xffffff, '900');
 
         // Titles in Slate Navy
-        this.fillText(isNewBest ? 'NEW HIGH SCORE!' : 'RUN COMPLETE!', 360, 348, 28, isNewBest ? 0xd97706 : 0x059669, '900');
-        this.fillText('TIME’S UP', 360, 396, 46, 0x0f172a, '900');
+        this.fillText(isNewBest ? 'NEW HIGH SCORE!' : 'RUN FINISHED!', 360, 348, 28, isNewBest ? 0xd97706 : 0xe11d48, '900');
+        this.fillText(isNewBest ? 'VICTORY!' : 'CRASHED!', 360, 396, 46, 0x0f172a, '900');
 
         // Score Highlight Box
         g.fillStyle(0xf0fdf4, 1);
@@ -824,9 +1004,9 @@
 
         // Stats in Sleek Frosted Light-Gray Pills
         const rows = [
+          { label: '★ STARS COLLECTED', value: String(this.starsCollected || 0) },
           { label: '⏱️ LONGEST WHEELIE', value: `${this.maxWheelie.toFixed(1)}s` },
-          { label: '🏆 ALL-TIME BEST', value: String(best.allTime || 0) },
-          { label: '🔥 MAX COMBO', value: `x${this.wheelieCombo} MULTIPLIER` }
+          { label: '🏆 ALL-TIME BEST', value: String(best.allTime || 0) }
         ];
 
         rows.forEach((row, i) => {
@@ -850,12 +1030,13 @@
         this.fillText('TAP OR PRESS SPACE', 360, 972, 16, 0xd1fae5, '700');
       }
 
-      render() {
+      render(time = 0) {
         this.skyG.clear(); this.renderSky(this.skyG);
         this.g.clear(); this.textIndex = 0;
         const g = this.g;
 
         this.renderWorld(g);
+        this.renderStars(g, time);
 
         const showBike = this.state === 'countdown' || this.state === 'playing' || this.state === 'crashing';
         this.syncBikeVisuals(showBike);

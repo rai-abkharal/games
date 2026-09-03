@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
-import { DESIGN_WIDTH, DESIGN_HEIGHT } from '../config/Constants';
+import { DESIGN_WIDTH } from '../config/Constants';
 import { AudioManager } from '../systems/AudioManager';
+import { createSceneBackground } from '../ui/SceneBackground';
+import { MAX_LEVELS } from '../levels';
+import { GameBridge } from '../../../shared/GameBridge';
 
 interface CompleteSceneData {
   level: number;
@@ -10,6 +13,12 @@ interface CompleteSceneData {
 export class CompleteScene extends Phaser.Scene {
   private level: number = 1;
   private theme: 'blue' | 'pink' = 'blue';
+  private readonly handleSoundChange = (enabled: boolean): void => {
+    AudioManager.enabled = enabled;
+  };
+  private readonly restartLevel = (): void => {
+    this.scene.start('GameplayScene', { level: this.level });
+  };
 
   constructor() {
     super('CompleteScene');
@@ -22,20 +31,11 @@ export class CompleteScene extends Phaser.Scene {
 
   create(): void {
     AudioManager.playLevelComplete();
+    GameBridge.onRestart(this.restartLevel);
+    GameBridge.onSoundChange(this.handleSoundChange);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
 
-    // 1. Background Gradient
-    const bgGraphics = this.add.graphics().setDepth(0);
-    if (this.theme === 'pink') {
-      bgGraphics.fillGradientStyle(0xFEE1E4, 0xFEE1E4, 0xFE9ADF, 0xFE9ADF, 1);
-    } else {
-      bgGraphics.fillGradientStyle(0x12B9D6, 0x12B9D6, 0x0077D1, 0x0077D1, 1);
-    }
-    bgGraphics.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
-
-    // 2. Subtle Faint Bottle Pattern
-    this.add.tileSprite(DESIGN_WIDTH / 2, DESIGN_HEIGHT / 2, DESIGN_WIDTH, DESIGN_HEIGHT, 'bg_pattern')
-      .setDepth(1)
-      .setAlpha(0.65);
+    createSceneBackground(this, this.theme);
 
     // 3. Celebratory Bottle Trio at Top
     const cx = DESIGN_WIDTH / 2;
@@ -79,12 +79,20 @@ export class CompleteScene extends Phaser.Scene {
 
     // 4. "LEVEL COMPLETE" Text
     const textY = 365;
-    const completeText = this.add.text(cx, textY, 'LEVEL COMPLETE', {
-      fontFamily: 'Bebas Neue, Outfit, sans-serif',
-      fontSize: '46px',
+    const isFinalLevel = this.level >= MAX_LEVELS;
+    const completeText = this.add.text(cx, textY, isFinalLevel ? 'ALL LEVELS CLEARED' : 'LEVEL COMPLETE', {
+      fontFamily: 'Arial Black, Trebuchet MS, sans-serif',
+      fontSize: isFinalLevel ? '36px' : '46px',
       color: '#FFFFFF',
       letterSpacing: 2
     }).setOrigin(0.5, 0.5).setDepth(10);
+
+    this.add.text(cx, textY + 45, `${this.level} / ${MAX_LEVELS}`, {
+      fontFamily: 'Trebuchet MS, sans-serif',
+      fontSize: '18px',
+      fontStyle: 'bold',
+      color: '#EFFFFF'
+    }).setOrigin(0.5).setDepth(10);
 
     completeText.setScale(0.6);
     completeText.setAlpha(0);
@@ -138,10 +146,21 @@ export class CompleteScene extends Phaser.Scene {
         duration: 80,
         yoyo: true,
         onComplete: () => {
-          const nextLevel = this.level + 1;
+          const nextLevel = isFinalLevel ? 1 : this.level + 1;
           this.scene.start('GameplayScene', { level: nextLevel });
         }
       });
     });
+
+    this.add.text(cx, btnY + 102, isFinalLevel ? 'PLAY AGAIN' : 'NEXT LEVEL', {
+      fontFamily: 'Arial Black, Trebuchet MS, sans-serif',
+      fontSize: '17px',
+      color: '#FFFFFF'
+    }).setOrigin(0.5).setDepth(12);
+  }
+
+  private shutdown(): void {
+    GameBridge.offRestart(this.restartLevel);
+    GameBridge.offSoundChange(this.handleSoundChange);
   }
 }

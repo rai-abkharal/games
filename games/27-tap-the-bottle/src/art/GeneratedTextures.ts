@@ -272,11 +272,16 @@ export class GeneratedTextures {
 
       // Fill with vibrant liquid gradient
       createBottlePath();
+      const shadowColor = colorKey === 'yellow'
+        ? '#D9A900'
+        : colorKey === 'green'
+          ? '#2C9B18'
+          : '#D6410D';
       const liquidGrad = ctx.createLinearGradient(cx - 33, 0, cx + 33, 0);
       liquidGrad.addColorStop(0, hexColor);
       liquidGrad.addColorStop(0.35, hexColor);
       liquidGrad.addColorStop(0.7, hexColor);
-      liquidGrad.addColorStop(1, '#B83200'); // shadow on right edge
+      liquidGrad.addColorStop(1, shadowColor);
       ctx.fillStyle = liquidGrad;
       ctx.fill();
 

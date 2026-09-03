@@ -2,12 +2,13 @@ import Phaser from 'phaser';
 import { COLLISION_CATEGORIES } from '../config/Constants';
 
 export class Platform {
-  public sprite: Phaser.GameObjects.TileSprite | Phaser.GameObjects.NineSlice;
+  public sprite: Phaser.GameObjects.NineSlice;
   public body: MatterJS.BodyType;
   public x: number;
   public y: number;
   public width: number;
   public height: number;
+  private scene: Phaser.Scene;
 
   constructor(
     scene: Phaser.Scene,
@@ -18,6 +19,7 @@ export class Platform {
     rotation: number = 0,
     type: 'wood' | 'blue' = 'wood'
   ) {
+    this.scene = scene;
     this.x = x;
     this.y = y;
     this.width = width;
@@ -44,13 +46,16 @@ export class Platform {
     scene.matter.body.setAngle(matterBody, rad);
     this.body = matterBody;
 
-    // Visual sprite
-    this.sprite = scene.add.tileSprite(x, y, width, height, textureKey)
+    // Nine-slice keeps rounded platform ends without transparent seams when wide.
+    this.sprite = scene.add.nineslice(x, y, textureKey, undefined, width, height, 18, 18, 8, 8)
       .setRotation(rad)
       .setDepth(6);
   }
 
   public destroy(): void {
+    if (this.body && this.scene.matter) {
+      this.scene.matter.world.remove(this.body);
+    }
     if (this.sprite) this.sprite.destroy();
   }
 }

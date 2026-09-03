@@ -2,6 +2,10 @@
   "id": "tap-the-bottle",
   "title": "Tap the Bottle",
   "version": "1.0.0",
+  "engine": "phaser-matter",
+  "category": "Puzzle",
+  "feedOrder": 27,
+  "status": "published",
   "sdkVersion": 1,
   "entry": "index.html",
   "orientation": "portrait",
@@ -13,6 +17,22 @@
   "ageRating": "everyone",
   "minAppVersion": "1.0.0",
   "hasReward": false,
+  "touchZones": [
+    {
+      "name": "Bottle controls",
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1
+    }
+  ],
+  "features": {
+    "sound": true,
+    "vibration": true,
+    "physics": true,
+    "levels": true,
+    "offline": true
+  },
   "tags": [
     "physics",
     "puzzle",

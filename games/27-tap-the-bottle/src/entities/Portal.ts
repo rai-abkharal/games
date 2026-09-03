@@ -11,6 +11,7 @@ export class Portal {
   public rotation: number;
   public exitOffsetX: number;
   public exitOffsetY: number;
+  private scene: Phaser.Scene;
 
   constructor(
     scene: Phaser.Scene,
@@ -22,6 +23,7 @@ export class Portal {
     exitOffsetX: number = 0,
     exitOffsetY: number = 0
   ) {
+    this.scene = scene;
     this.id = id;
     this.pairId = pairId;
     this.x = x;
@@ -62,6 +64,9 @@ export class Portal {
   }
 
   public destroy(): void {
+    if (this.sensor && this.scene.matter) {
+      this.scene.matter.world.remove(this.sensor);
+    }
     if (this.sprite) this.sprite.destroy();
   }
 }

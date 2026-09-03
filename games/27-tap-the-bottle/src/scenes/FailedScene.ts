@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
-import { DESIGN_WIDTH, DESIGN_HEIGHT } from '../config/Constants';
+import { DESIGN_WIDTH } from '../config/Constants';
 import { AudioManager } from '../systems/AudioManager';
+import { createSceneBackground } from '../ui/SceneBackground';
+import { GameBridge } from '../../../shared/GameBridge';
 
 interface FailedSceneData {
   level: number;
@@ -10,6 +12,12 @@ interface FailedSceneData {
 export class FailedScene extends Phaser.Scene {
   private level: number = 1;
   private theme: 'blue' | 'pink' = 'blue';
+  private readonly handleSoundChange = (enabled: boolean): void => {
+    AudioManager.enabled = enabled;
+  };
+  private readonly retryLevel = (): void => {
+    this.scene.start('GameplayScene', { level: this.level });
+  };
 
   constructor() {
     super('FailedScene');
@@ -22,20 +30,11 @@ export class FailedScene extends Phaser.Scene {
 
   create(): void {
     AudioManager.playLevelFailed();
+    GameBridge.onRestart(this.retryLevel);
+    GameBridge.onSoundChange(this.handleSoundChange);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
 
-    // 1. Background Gradient
-    const bgGraphics = this.add.graphics().setDepth(0);
-    if (this.theme === 'pink') {
-      bgGraphics.fillGradientStyle(0xFEE1E4, 0xFEE1E4, 0xFE9ADF, 0xFE9ADF, 1);
-    } else {
-      bgGraphics.fillGradientStyle(0x12B9D6, 0x12B9D6, 0x0077D1, 0x0077D1, 1);
-    }
-    bgGraphics.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
-
-    // 2. Subtle Faint Bottle Pattern
-    this.add.tileSprite(DESIGN_WIDTH / 2, DESIGN_HEIGHT / 2, DESIGN_WIDTH, DESIGN_HEIGHT, 'bg_pattern')
-      .setDepth(1)
-      .setAlpha(0.65);
+    createSceneBackground(this, this.theme);
 
     // 3. Shocked / Worried Bottle Trio at Top
     const cx = DESIGN_WIDTH / 2;
@@ -71,7 +70,7 @@ export class FailedScene extends Phaser.Scene {
     // 4. "LEVEL FAILED" Text
     const textY = 365;
     const failedText = this.add.text(cx, textY, 'LEVEL FAILED', {
-      fontFamily: 'Bebas Neue, Outfit, sans-serif',
+      fontFamily: 'Arial Black, Trebuchet MS, sans-serif',
       fontSize: '46px',
       color: '#FFFFFF',
       letterSpacing: 2
@@ -123,5 +122,16 @@ export class FailedScene extends Phaser.Scene {
         }
       });
     });
+
+    this.add.text(cx, btnY + 102, 'TRY AGAIN', {
+      fontFamily: 'Arial Black, Trebuchet MS, sans-serif',
+      fontSize: '17px',
+      color: '#FFFFFF'
+    }).setOrigin(0.5).setDepth(12);
+  }
+
+  private shutdown(): void {
+    GameBridge.offRestart(this.retryLevel);
+    GameBridge.offSoundChange(this.handleSoundChange);
   }
 }

@@ -1,10 +1,7 @@
 import Phaser from 'phaser';
-import { DESIGN_WIDTH, DESIGN_HEIGHT } from '../config/Constants';
-import { LEVELS } from '../levels';
-import { LevelDefinition } from '../levels/types';
-import { GeneratedTextures } from '../art/GeneratedTextures';
-import { Platform } from '../entities/Platform';
+import { getLevel, LevelDefinition, MAX_LEVELS } from '../levels';
 import { Launcher } from '../entities/Launcher';
+import { Platform } from '../entities/Platform';
 import { Star } from '../entities/Star';
 import { Portal } from '../entities/Portal';
 import { Projectile } from '../entities/Projectile';
@@ -12,349 +9,305 @@ import { ParticleManager } from '../systems/ParticleManager';
 import { AudioManager } from '../systems/AudioManager';
 import { Hud } from '../ui/Hud';
 import { TutorialHand } from '../ui/TutorialHand';
+import { createSceneBackground } from '../ui/SceneBackground';
+import { GameBridge } from '../../../shared/GameBridge';
+
+interface GameplayData {
+  level?: number;
+}
 
 export class GameplayScene extends Phaser.Scene {
-  private levelIndex: number = 0;
-  private currentLevel!: LevelDefinition;
-
-  private platforms: Platform[] = [];
+  private currentLevel: number = 1;
+  private levelDef!: LevelDefinition;
+  private particleManager!: ParticleManager;
+  private hud!: Hud;
+  private tutorialHand: TutorialHand | null = null;
   private launchers: Launcher[] = [];
+  private platforms: Platform[] = [];
   private stars: Star[] = [];
   private portals: Portal[] = [];
   private projectiles: Projectile[] = [];
 
-  private particleManager!: ParticleManager;
-  private hud!: Hud;
-  private tutorialHand: TutorialHand | null = null;
-
-  private bgGradient!: Phaser.GameObjects.Graphics;
-  private bgPattern!: Phaser.GameObjects.TileSprite;
-
-  private isResolving: boolean = false;
   private remainingStars: number = 0;
-  private failureTimer: number = 0;
+  private collectedStarsCount: number = 0;
+  private isLevelWon: boolean = false;
+  private isLevelFailed: boolean = false;
+  private failTimer: number = 0;
+  private elapsedMs: number = 0;
+
+  private readonly handleSoundChange = (enabled: boolean): void => {
+    AudioManager.enabled = enabled;
+  };
+
+  private readonly restartCurrentLevel = (): void => {
+    this.scene.restart({ level: this.currentLevel });
+  };
+
+  private readonly handleCollisionStart = (event: Phaser.Physics.Matter.Events.CollisionStartEvent): void => {
+    for (const pair of event.pairs) {
+      this.handleCollision(pair.bodyA as MatterJS.BodyType, pair.bodyB as MatterJS.BodyType);
+    }
+  };
 
   constructor() {
-    super({ key: 'GameplayScene' });
+    super('GameplayScene');
   }
 
-  init(data: { levelIndex?: number }): void {
-    if (typeof data.levelIndex === 'number') {
-      this.levelIndex = data.levelIndex;
-    } else {
-      // Check query param e.g. ?level=2
-      const params = new URLSearchParams(window.location.search);
-      const qLevel = params.get('level');
-      if (qLevel) {
-        const lvl = parseInt(qLevel, 10);
-        if (!isNaN(lvl) && lvl >= 1 && lvl <= LEVELS.length) {
-          this.levelIndex = lvl - 1;
-        }
-      }
-    }
+  init(data: GameplayData): void {
+    this.currentLevel = Phaser.Math.Clamp(data.level || 1, 1, MAX_LEVELS);
+    this.launchers = [];
+    this.platforms = [];
+    this.stars = [];
+    this.portals = [];
+    this.projectiles = [];
+    this.remainingStars = 0;
+    this.collectedStarsCount = 0;
+    this.isLevelWon = false;
+    this.isLevelFailed = false;
+    this.failTimer = 0;
+    this.elapsedMs = 0;
+    this.tutorialHand = null;
   }
 
   create(): void {
-    // Generate textures if not yet present
-    GeneratedTextures.generateAll(this);
+    AudioManager.unlock();
+    this.levelDef = getLevel(this.currentLevel);
+    GameBridge.gameStarted();
+    GameBridge.onRestart(this.restartCurrentLevel);
+    GameBridge.onSoundChange(this.handleSoundChange);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
 
-    // Matter Physics settings
-    this.matter.world.setBounds(0, -200, DESIGN_WIDTH, DESIGN_HEIGHT + 200);
-    this.matter.world.setGravity(0, 1.15); // Authentic gravity (~720px/s^2)
+    // 1-2. Full-height background and bottle pattern.
+    createSceneBackground(this, this.levelDef.theme);
 
+    // 3. Systems & HUD
     this.particleManager = new ParticleManager(this);
 
-    // Setup Background
-    this.createBackground();
+    this.hud = new Hud(
+      this,
+      this.currentLevel,
+      () => {
+        // Home button: restart level 1
+        this.scene.start('GameplayScene', { level: 1 });
+      },
+      () => {
+        // Restart button: instant clean reload of current level
+        this.scene.start('GameplayScene', { level: this.currentLevel });
+      }
+    );
 
-    // Load Level
-    this.loadLevel(this.levelIndex);
-
-    // Setup Collisions
-    this.setupCollisions();
-
-    // Toggle Debug Mode with 'D'
-    this.input.keyboard?.on('keydown-D', () => {
-      const debugConfig = this.matter.world.drawDebug;
-      this.matter.world.drawDebug = !debugConfig;
-      this.matter.world.debugGraphic.clear();
-    });
-  }
-
-  private createBackground(): void {
-    this.bgGradient = this.add.graphics().setDepth(0);
-    this.bgPattern = this.add.tileSprite(DESIGN_WIDTH / 2, DESIGN_HEIGHT / 2, DESIGN_WIDTH, DESIGN_HEIGHT, 'bg_pattern')
-      .setDepth(1)
-      .setAlpha(0.65);
-  }
-
-  private renderBackgroundGradient(theme: 'blue' | 'pink'): void {
-    this.bgGradient.clear();
-    if (theme === 'blue') {
-      this.bgGradient.fillGradientStyle(0x12B9D6, 0x12B9D6, 0x0077D1, 0x0077D1, 1);
-    } else {
-      this.bgGradient.fillGradientStyle(0xFEE1E4, 0xFEE1E4, 0xFE9ADF, 0xFE9ADF, 1);
-    }
-    this.bgGradient.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
-  }
-
-  public loadLevel(index: number): void {
-    this.clearLevel();
-    this.levelIndex = Phaser.Math.Clamp(index, 0, LEVELS.length - 1);
-    this.currentLevel = LEVELS[this.levelIndex];
-
-    this.isResolving = false;
-    this.failureTimer = 0;
-
-    // Render theme background
-    this.renderBackgroundGradient(this.currentLevel.theme);
-
-    // Platforms
-    for (const pConfig of this.currentLevel.platforms) {
-      this.platforms.push(new Platform(
+    // 4. Build Platforms
+    for (const pConfig of this.levelDef.platforms) {
+      const platform = new Platform(
         this,
         pConfig.x,
         pConfig.y,
         pConfig.width,
         pConfig.height,
         pConfig.rotation ?? 0,
-        pConfig.type ?? (this.currentLevel.theme === 'pink' ? 'blue' : 'wood')
-      ));
+        pConfig.type ?? 'wood'
+      );
+      this.platforms.push(platform);
     }
 
-    // Portals
-    if (this.currentLevel.portals) {
-      for (const ptConfig of this.currentLevel.portals) {
-        this.portals.push(new Portal(
+    // 5. Build Portals
+    if (this.levelDef.portals) {
+      for (const portConfig of this.levelDef.portals) {
+        const portal = new Portal(
           this,
-          ptConfig.id,
-          ptConfig.pairId,
-          ptConfig.x,
-          ptConfig.y,
-          ptConfig.rotation ?? 0,
-          ptConfig.exitOffsetX ?? 0,
-          ptConfig.exitOffsetY ?? 0
-        ));
+          portConfig.id,
+          portConfig.pairId,
+          portConfig.x,
+          portConfig.y,
+          portConfig.rotation ?? 0,
+          portConfig.exitOffsetX ?? 0,
+          portConfig.exitOffsetY ?? 0
+        );
+        this.portals.push(portal);
       }
     }
 
-    // Launchers
-    for (const lConfig of this.currentLevel.launchers) {
+    // 6. Build Stars
+    this.remainingStars = this.levelDef.stars.length;
+    for (const sConfig of this.levelDef.stars) {
+      const star = new Star(this, sConfig.x, sConfig.y);
+      this.stars.push(star);
+    }
+
+    // 7. Build Launchers (Bottles & Cans)
+    for (const lConfig of this.levelDef.launchers) {
       const launcher = new Launcher(this, lConfig, this.particleManager);
-      this.launchers.push(launcher);
-
-      // Connect tap to projectile register
-      launcher.sprite.on('pointerdown', () => {
-        if (this.isResolving) return;
-        const projectile = launcher.activate();
-        if (projectile) {
-          this.projectiles.push(projectile);
-          if (this.tutorialHand) {
-            this.tutorialHand.hide();
-            this.tutorialHand = null;
-          }
+      launcher.onLaunch = (projectile: Projectile) => {
+        this.projectiles.push(projectile);
+        if (this.tutorialHand) {
+          this.tutorialHand.hide();
+          this.tutorialHand = null;
         }
-      });
+      };
+      this.launchers.push(launcher);
     }
 
-    // Stars
-    this.remainingStars = this.currentLevel.stars.length;
-    for (const sConfig of this.currentLevel.stars) {
-      this.stars.push(new Star(this, sConfig.x, sConfig.y));
-    }
-
-    // Tutorial Hand for Level 1
-    if (this.currentLevel.tutorial && this.launchers.length > 0) {
+    // 8. Tutorial Glove (Level 1 only)
+    if (this.levelDef.tutorial && this.launchers.length > 0) {
       const firstLauncher = this.launchers[0];
       this.tutorialHand = new TutorialHand(this, firstLauncher.config.x, firstLauncher.config.y);
     }
 
-    // HUD
-    if (!this.hud) {
-      this.hud = new Hud(
-        this,
-        this.currentLevel.id,
-        () => this.loadLevel(0), // Home resets to Level 1
-        () => this.loadLevel(this.levelIndex) // Restart reloads current level
-      );
-    } else {
-      this.hud.setLevel(this.currentLevel.id);
+    // 9. Physics Collisions
+    this.matter.world.on('collisionstart', this.handleCollisionStart);
+
+    // 10. Debug Mode key
+    if (this.input.keyboard) {
+      this.input.keyboard.on('keydown-D', () => {
+        this.matter.world.drawDebug = !this.matter.world.drawDebug;
+        if (!this.matter.world.debugGraphic) {
+          this.matter.world.createDebugGraphic();
+        }
+        this.matter.world.debugGraphic.setVisible(this.matter.world.drawDebug);
+      });
     }
-  }
 
-  private setupCollisions(): void {
-    this.matter.world.on('collisionstart', (event: Phaser.Physics.Matter.Events.CollisionStartEvent) => {
-      for (const pair of event.pairs) {
-        const bodyA = pair.bodyA;
-        const bodyB = pair.bodyB;
-
-        // Check Projectile + Star
-        this.handleStarCollision(bodyA, bodyB);
-
-        // Check Projectile + Platform
-        this.handlePlatformBounce(bodyA, bodyB);
-
-        // Check Projectile + Portal
-        this.handlePortalCollision(bodyA, bodyB);
-      }
+    // Unlock WebAudio on screen touch
+    this.input.on('pointerdown', () => {
+      AudioManager.unlock();
     });
   }
 
-  private handleStarCollision(bodyA: MatterJS.BodyType, bodyB: MatterJS.BodyType): void {
-    const isStarA = bodyA.label === 'star';
-    const isStarB = bodyB.label === 'star';
-    const isProjA = bodyA.label === 'projectile';
-    const isProjB = bodyB.label === 'projectile';
+  private handleCollision(bodyA: MatterJS.BodyType, bodyB: MatterJS.BodyType): void {
+    const projectileBody = bodyA.label === 'projectile' ? bodyA : (bodyB.label === 'projectile' ? bodyB : null);
+    const otherBody = projectileBody === bodyA ? bodyB : bodyA;
 
-    if ((isStarA && isProjB) || (isStarB && isProjA)) {
-      const starBody = isStarA ? bodyA : bodyB;
-      const starSprite = (starBody as unknown as { gameObject: Phaser.Physics.Matter.Sprite }).gameObject;
-      if (!starSprite) return;
+    if (!projectileBody) return;
 
-      const starEntity = starSprite.getData('entity') as Star;
-      if (starEntity && !starEntity.collected) {
-        starEntity.collect();
-        this.particleManager.emitStarSparkles(starEntity.x, starEntity.y);
-        AudioManager.playStarCollect(this.currentLevel.stars.length - this.remainingStars);
+    const projectile: Projectile | undefined = (projectileBody as any).projectileEntity || (projectileBody.gameObject?.getData('entity'));
+
+    // A. Projectile vs Star
+    if (otherBody.label === 'star') {
+      const star: Star | undefined = (otherBody as any).starEntity || (otherBody.gameObject?.getData('entity'));
+      if (star && !star.collected) {
+        star.collect();
+        AudioManager.playStarCollect(this.collectedStarsCount++);
+        GameBridge.haptic('light');
+        this.particleManager.emitStarSparkles(star.x, star.y);
         this.remainingStars--;
 
-        if (this.remainingStars === 0 && !this.isResolving) {
-          this.triggerLevelComplete();
+        if (this.remainingStars <= 0 && !this.isLevelWon) {
+          this.isLevelWon = true;
+          const score = this.currentLevel * 1000 + this.collectedStarsCount * 100;
+          const nextUnlockedLevel = Math.min(MAX_LEVELS, this.currentLevel + 1);
+          localStorage.setItem('tap-the-bottle-unlocked-level', String(nextUnlockedLevel));
+
+          GameBridge.haptic('success');
+          GameBridge.completed({
+            score,
+            level: this.currentLevel,
+            stats: {
+              stars: this.collectedStarsCount,
+              timeSpentSeconds: Math.max(1, Math.round(this.elapsedMs / 1000))
+            }
+          });
+
+          this.time.delayedCall(650, () => {
+            this.scene.start('CompleteScene', {
+              level: this.currentLevel,
+              theme: this.levelDef.theme
+            });
+          });
         }
       }
+      return;
     }
-  }
 
-  private handlePlatformBounce(bodyA: MatterJS.BodyType, bodyB: MatterJS.BodyType): void {
-    const isPlatA = bodyA.label === 'platform';
-    const isPlatB = bodyB.label === 'platform';
-    const isProjA = bodyA.label === 'projectile';
-    const isProjB = bodyB.label === 'projectile';
-
-    if ((isPlatA && isProjB) || (isPlatB && isProjA)) {
+    // B. Projectile vs Platform
+    if (otherBody.label === 'platform') {
       AudioManager.playBounce();
+      return;
     }
-  }
 
-  private handlePortalCollision(bodyA: MatterJS.BodyType, bodyB: MatterJS.BodyType): void {
-    const isPortalA = bodyA.label === 'portal';
-    const isPortalB = bodyB.label === 'portal';
-    const isProjA = bodyA.label === 'projectile';
-    const isProjB = bodyB.label === 'projectile';
+    // C. Projectile vs Portal
+    if (otherBody.label === 'portal' && projectile && projectile.portalCooldown <= 0) {
+      const currentPortal: Portal | undefined = (otherBody as any).portalEntity;
+      if (currentPortal) {
+        const destPortal = this.portals.find(p => p.id === currentPortal.pairId);
+        if (destPortal && projectile.sprite.body) {
+          const body = projectile.sprite.body as MatterJS.BodyType;
+          AudioManager.playPortal();
+          projectile.portalCooldown = 320;
 
-    if ((isPortalA && isProjB) || (isPortalB && isProjA)) {
-      const portalBody = isPortalA ? bodyA : bodyB;
-      const projBody = isProjA ? bodyA : bodyB;
+          // Compute exit velocity preserving speed
+          const vx = body.velocity.x;
+          const vy = body.velocity.y;
+          const speed = Math.sqrt(vx * vx + vy * vy) || 18;
 
-      const portalSprite = (portalBody as unknown as { gameObject: Phaser.Physics.Matter.Sprite }).gameObject;
-      const projSprite = (projBody as unknown as { gameObject: Phaser.Physics.Matter.Sprite }).gameObject;
+          // Teleport to destination portal
+          const destRotRad = Phaser.Math.DegToRad(destPortal.rotation);
+          const exitAngle = destRotRad - Math.PI / 2; // outward direction
+          const exitX = destPortal.x + Math.cos(exitAngle) * 35;
+          const exitY = destPortal.y + Math.sin(exitAngle) * 35;
 
-      if (!projSprite || !projSprite.body) return;
-      const projectile = projSprite.getData('entity') as Projectile;
-      if (!projectile || projectile.portalCooldown > 0) return;
-
-      const portal = this.portals.find(p => p.sensor === portalBody);
-      if (!portal) return;
-
-      const targetPortal = this.portals.find(p => p.id === portal.pairId);
-      if (!targetPortal) return;
-
-      AudioManager.playPortal();
-
-      // Teleport
-      const pBody = projSprite.body as MatterJS.BodyType;
-      const vx = pBody.velocity.x;
-      const vy = pBody.velocity.y;
-      const angV = pBody.angularVelocity;
-
-      this.matter.body.setPosition(pBody, {
-        x: targetPortal.x + targetPortal.exitOffsetX,
-        y: targetPortal.y + targetPortal.exitOffsetY
-      });
-
-      projectile.setVelocity(vx, vy);
-      projectile.setAngularVelocity(angV);
-      projectile.portalCooldown = 180; // cooldown ms
-    }
-  }
-
-  private triggerLevelComplete(): void {
-    this.isResolving = true;
-    AudioManager.playLevelComplete();
-
-    this.time.delayedCall(450, () => {
-      this.cameras.main.fade(300, 0, 0, 0, false, (_cam: unknown, progress: number) => {
-        if (progress === 1) {
-          this.scene.start('CompleteScene', {
-            levelIndex: this.levelIndex,
-            totalLevels: LEVELS.length
+          this.matter.body.setPosition(body, { x: exitX, y: exitY });
+          this.matter.body.setVelocity(body, {
+            x: Math.cos(exitAngle) * speed,
+            y: Math.sin(exitAngle) * speed
           });
         }
-      });
-    });
-  }
-
-  private triggerLevelFailed(): void {
-    this.isResolving = true;
-    AudioManager.playLevelFailed();
-
-    this.time.delayedCall(450, () => {
-      this.cameras.main.fade(300, 0, 0, 0, false, (_cam: unknown, progress: number) => {
-        if (progress === 1) {
-          this.scene.start('FailedScene', {
-            levelIndex: this.levelIndex
-          });
-        }
-      });
-    });
+      }
+      return;
+    }
   }
 
   update(_time: number, delta: number): void {
+    if (!this.isLevelWon && !this.isLevelFailed) {
+      this.elapsedMs += delta;
+    }
     this.particleManager.update(delta);
 
-    // Update projectiles
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      const p = this.projectiles[i];
-      p.update(delta);
+      const proj = this.projectiles[i];
+      proj.update(delta);
     }
 
-    // Check Level Failed conditions
-    if (!this.isResolving && this.remainingStars > 0) {
+    // Level failure evaluation
+    if (!this.isLevelWon && !this.isLevelFailed && this.remainingStars > 0) {
       const allLaunchersOpened = this.launchers.length > 0 && this.launchers.every(l => l.opened);
-      const noActiveProjectiles = this.projectiles.length > 0 && this.projectiles.every(p => !p.active);
+      const allProjectilesSettled = this.projectiles.length > 0 && this.projectiles.every(p => !p.active);
 
-      if (allLaunchersOpened && noActiveProjectiles) {
-        this.failureTimer += delta;
-        if (this.failureTimer > 600) {
-          this.triggerLevelFailed();
+      if (allLaunchersOpened && allProjectilesSettled) {
+        this.failTimer += delta;
+        if (this.failTimer >= 850) {
+          this.isLevelFailed = true;
+          const score = (this.currentLevel - 1) * 1000 + this.collectedStarsCount * 100;
+          GameBridge.haptic('error');
+          GameBridge.gameOver({
+            score,
+            level: this.currentLevel,
+            timeSpentSeconds: Math.max(1, Math.round(this.elapsedMs / 1000)),
+            stats: {
+              stars: this.collectedStarsCount,
+              missedStars: this.remainingStars
+            }
+          });
+          this.scene.start('FailedScene', {
+            level: this.currentLevel,
+            theme: this.levelDef.theme
+          });
         }
       } else {
-        this.failureTimer = 0;
+        this.failTimer = 0;
       }
     }
   }
 
-  private clearLevel(): void {
+  shutdown(): void {
+    this.matter.world.off('collisionstart', this.handleCollisionStart);
+    GameBridge.offRestart(this.restartCurrentLevel);
+    GameBridge.offSoundChange(this.handleSoundChange);
     this.particleManager?.clear();
-
-    for (const p of this.platforms) p.destroy();
-    this.platforms = [];
-
+    for (const p of this.projectiles) p.destroy();
     for (const l of this.launchers) l.destroy();
-    this.launchers = [];
-
+    for (const pl of this.platforms) pl.destroy();
     for (const s of this.stars) s.destroy();
-    this.stars = [];
-
-    for (const pt of this.portals) pt.destroy();
-    this.portals = [];
-
-    for (const pr of this.projectiles) pr.destroy();
-    this.projectiles = [];
-
-    if (this.tutorialHand) {
-      this.tutorialHand.destroy();
-      this.tutorialHand = null;
-    }
+    for (const po of this.portals) po.destroy();
+    if (this.tutorialHand) this.tutorialHand.destroy();
   }
 }

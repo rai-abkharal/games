@@ -29,7 +29,7 @@ export class Hud {
 
     // 2. Level Text ("Level X", centered, white friendly sans-serif)
     this.levelText = scene.add.text(DESIGN_WIDTH / 2, 48, `Level ${levelNumber}`, {
-      fontFamily: 'Outfit, system-ui, sans-serif',
+      fontFamily: 'Arial Rounded MT Bold, Trebuchet MS, system-ui, sans-serif',
       fontSize: '32px',
       fontStyle: '700',
       color: '#FFFFFF'
