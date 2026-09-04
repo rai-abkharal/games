@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Catalog, CatalogSchema, Game } from '../types/game';
+import { normalizeGameFeatures } from '../utils/gameFeatures';
 
 export class CatalogService {
   private catalogPath: string;
@@ -49,6 +50,7 @@ export class CatalogService {
         if (g && typeof g === 'object') {
           const rawOrient = String(g.orientation || '').toLowerCase();
           g.orientation = rawOrient === 'landscape' ? 'landscape' : 'portrait';
+          g.features = normalizeGameFeatures(g.features);
         }
         return g;
       });

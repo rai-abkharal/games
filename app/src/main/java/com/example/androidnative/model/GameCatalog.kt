@@ -1,5 +1,6 @@
 package com.example.androidnative.model
 
+import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
 
 data class GameCatalog(
@@ -31,7 +32,10 @@ data class GameItem(
     @SerializedName("description") val description: String = "",
     @SerializedName("sha256") val sha256: String? = null,
     @SerializedName("touchZones") val touchZones: List<TouchZone> = emptyList(),
-    @SerializedName("features") val features: Map<String, Boolean>? = null,
+    // Kept as raw JSON for backwards compatibility with legacy manifests.
+    // The app currently does not consume these flags, so one malformed game
+    // must not prevent the rest of the catalogue from loading.
+    @SerializedName("features") val features: JsonElement? = null,
     @SerializedName("createdAt") val createdAt: String? = null,
     @SerializedName("updatedAt") val updatedAt: String? = null
 )

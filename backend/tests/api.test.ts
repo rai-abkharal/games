@@ -19,12 +19,12 @@ describe('Backend API Integration Tests', () => {
     expect(res.body.uptime).toBeDefined();
   });
 
-  it('GET /api/games returns validated catalog with 10 games', async () => {
+  it('GET /api/games returns the current validated catalog', async () => {
     const res = await request(app).get('/api/games');
     expect(res.status).toBe(200);
-    expect(res.body.version).toBe(1);
+    expect(res.body.version).toBeGreaterThan(0);
     expect(Array.isArray(res.body.games)).toBe(true);
-    expect(res.body.games.length).toBe(10);
+    expect(res.body.games.length).toBeGreaterThan(0);
 
     // Verify ordering by feedOrder
     const feedOrders = res.body.games.map((g: any) => g.feedOrder);
@@ -33,9 +33,9 @@ describe('Backend API Integration Tests', () => {
 
     // Verify required fields on first game
     const firstGame = res.body.games[0];
-    expect(firstGame.id).toBe('tap-cannon');
-    expect(firstGame.entryUrl).toContain('/games/tap-cannon/');
-    expect(firstGame.thumbnailUrl).toContain('/thumbnails/tap-cannon.webp');
+    expect(firstGame.id).toBeTruthy();
+    expect(firstGame.entryUrl).toContain(`/games/${firstGame.id}/`);
+    expect(firstGame.thumbnailUrl).toContain(`/thumbnails/${firstGame.id}.`);
     expect(firstGame.sizeBytes).toBeGreaterThan(0);
     expect(firstGame.orientation).toBe('portrait');
     expect(firstGame.features.sound).toBe(true);

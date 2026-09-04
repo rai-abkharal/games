@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { CatalogService } from '../services/catalogService';
+import { normalizeGameFeatures } from '../utils/gameFeatures';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -137,6 +138,10 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       }
       if (!manifest.version || typeof manifest.version !== 'string') {
         manifest.version = '1.0.0';
+      }
+
+      if (manifest.features !== undefined) {
+        manifest.features = normalizeGameFeatures(manifest.features);
       }
 
       checks.push({ rule: 'Required Metadata (id, title, version)', passed: true, message: `"${manifest.title}" (${manifest.id} v${manifest.version})` });
@@ -331,6 +336,10 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       const existingIndex = catalogData.games.findIndex((g: any) => g.id === gameId);
       const existingGame = existingIndex >= 0 ? catalogData.games[existingIndex] : null;
 
+      // Persist one canonical feature shape while preserving an existing game's
+      // flags when an update package omits this optional metadata.
+      manifest.features = normalizeGameFeatures(manifest.features ?? existingGame?.features);
+
       // Version determination
       const version = manifest.version || (existingGame ? (existingGame.version.includes('.') ? existingGame.version : '1.0.0') : '1.0.0');
 
@@ -417,7 +426,7 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
         tags: manifest.tags || (existingGame ? existingGame.tags : ['arcade', 'casual']),
         status: existingGame ? (existingGame.status || 'published') : 'published',
         touchZones: manifest.touchZones || (existingGame ? existingGame.touchZones : []),
-        features: manifest.features || (existingGame ? existingGame.features : { sound: true, vibration: true, hint: false }),
+        features: normalizeGameFeatures(manifest.features),
         feedOrder: existingGame ? (existingGame.feedOrder || 1) : 1,
         entryUrl: `http://localhost:8080/games/${gameId}/${version}/index.html`,
         thumbnailUrl: `http://localhost:8080/thumbnails/${thumbFileName}`,
@@ -754,7 +763,13 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
         return;
       }
 
-      game.features = { ...(game.features || {}), ...(features || {}) };
+      const currentFeatures = game.features && typeof game.features === 'object' && !Array.isArray(game.features)
+        ? game.features
+        : {};
+      const requestedFeatures = features && typeof features === 'object' && !Array.isArray(features)
+        ? features
+        : {};
+      game.features = normalizeGameFeatures({ ...currentFeatures, ...requestedFeatures });
       fs.writeFileSync(catalogPath, JSON.stringify(catalogData, null, 2), 'utf8');
 
       const frontendCatalogPath = path.resolve(__dirname, '../../../frontend/assets/catalog/games.json');

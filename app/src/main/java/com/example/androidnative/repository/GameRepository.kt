@@ -1,6 +1,7 @@
 package com.example.androidnative.repository
 
 import android.content.Context
+import android.util.Log
 import com.example.androidnative.model.GameCatalog
 import com.example.androidnative.model.GameItem
 import com.google.gson.Gson
@@ -20,6 +21,7 @@ class GameRepository(private val context: Context) {
         .build()
 
     companion object {
+        private const val TAG = "GameRepository"
         const val PRIMARY_HOST = "162.243.197.241"
         const val BASE_URL = "http://$PRIMARY_HOST:3000"
 
@@ -41,7 +43,9 @@ class GameRepository(private val context: Context) {
                     return catalog.games.map { normalizeGameUrls(it, BASE_URL) }
                         .sortedBy { it.feedOrder }
                 }
-            } catch (_: Exception) {}
+            } catch (error: Exception) {
+                Log.w(TAG, "Ignoring invalid cached game catalogue", error)
+            }
         }
         return null
     }
@@ -75,7 +79,9 @@ class GameRepository(private val context: Context) {
                         }
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (error: Exception) {
+                Log.w(TAG, "Catalogue fetch failed for $endpoint", error)
+            }
         }
 
         // 2. Fallback to locally cached catalog
