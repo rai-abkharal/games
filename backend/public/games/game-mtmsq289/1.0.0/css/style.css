@@ -1,0 +1,506 @@
+/* ==========================================================================
+   Basketball Hoops - UI skin
+   Rounded, high-contrast and chunky, matching the reference art direction.
+   ========================================================================== */
+
+:root {
+  --sky:        #7fdcf5;
+  --red:        #fb6058;
+  --red-dark:   #e2483f;
+  --amber:      #ffc02e;
+  --amber-dark: #e79f10;
+  --green:      #5ac85a;
+  --green-dark: #3fa53f;
+  --ink:        #2e3440;
+  --ink-soft:   #6b7280;
+  --card:       #ffffff;
+  --font: "Baloo 2", "Nunito", "Segoe UI Variable", "Trebuchet MS", system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #0f1622;
+  font-family: var(--font);
+  color: var(--ink);
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #0f1622;
+}
+
+/* The play surface keeps the reference's portrait framing on wide screens. */
+#view {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+/* --- top bar -------------------------------------------------------------- */
+
+#topbar {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 30;
+}
+
+.tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(20, 28, 44, 0.42);
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(20, 28, 44, 0.42);
+  color: #fff;
+  font-size: 17px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  backdrop-filter: blur(4px);
+  transition: transform 0.12s ease;
+}
+.icon-btn:active { transform: scale(0.9); }
+.icon-btn.off { opacity: 0.55; }
+
+/* --- HUD ------------------------------------------------------------------ */
+
+#hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: 20;
+}
+#hud.show { opacity: 1; }
+
+/* Score pill, bottom-right, exactly like the reference. */
+#score {
+  position: absolute;
+  right: -14px;
+  bottom: 8%;
+  min-width: 76px;
+  padding: 8px 26px 8px 20px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  border-radius: 999px 0 0 999px;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.22);
+}
+#score.pop { animation: pop 0.42s cubic-bezier(0.2, 1.6, 0.4, 1); }
+
+@keyframes pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.30); color: var(--amber); }
+  100% { transform: scale(1); }
+}
+
+#streak {
+  position: absolute;
+  left: 50%;
+  top: 16%;
+  transform: translate(-50%, -6px) scale(0.8);
+  padding: 7px 18px;
+  background: var(--amber);
+  color: #6b3e00;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  border-bottom: 4px solid var(--amber-dark);
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.28s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+#streak.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+/* --- Virtual Joystick ---------------------------------------------------- */
+.joystick-zone {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 154px;
+  height: 154px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  touch-action: none;
+  z-index: 25;
+}
+
+.joystick-base {
+  position: relative;
+  width: 124px;
+  height: 124px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(30, 38, 55, 0.65) 0%, rgba(15, 22, 34, 0.88) 100%);
+  border: 2px solid rgba(255, 192, 46, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), inset 0 0 16px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  cursor: grab;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.joystick-base.active {
+  cursor: grabbing;
+  border-color: var(--amber);
+  box-shadow: 0 8px 28px rgba(255, 192, 46, 0.35), inset 0 0 20px rgba(255, 192, 46, 0.2);
+}
+
+.joystick-ring {
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+}
+
+.joystick-arrow {
+  position: absolute;
+  font-size: 11px;
+  color: rgba(255, 192, 46, 0.6);
+  pointer-events: none;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.joystick-up {
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.joystick-base.active .joystick-arrow {
+  color: var(--amber);
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.joystick-knob {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ff9838, #d2490f);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.5), inset 0 2px 3px rgba(255, 255, 255, 0.5);
+  border: 2px solid #ffbc58;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
+}
+
+.knob-core {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffe6a3, #e79f10);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.joystick-base.active .joystick-knob {
+  background: radial-gradient(circle at 35% 35%, #ffa84d, #e65518);
+  box-shadow: 0 6px 16px rgba(255, 120, 30, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.6);
+}
+
+/* "Your turn!" curved badge that greets the first shot. */
+#turn {
+  position: absolute;
+  left: 50%;
+  bottom: 24%;
+  transform: translate(-50%, 14px);
+  z-index: 21;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.35s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+#turn.show { opacity: 1; transform: translate(-50%, 0); }
+#turn span {
+  display: block;
+  padding: 9px 26px;
+  background: var(--red);
+  color: #fff;
+  font-size: 21px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  border-bottom: 5px solid var(--red-dark);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+  animation: turnBob 1.1s ease-in-out infinite;
+}
+@keyframes turnBob {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50%      { transform: translateY(-6px) rotate(-3deg); }
+}
+
+/* --- panels --------------------------------------------------------------- */
+
+.panel-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(24, 32, 56, 0.55);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.28s ease, visibility 0.28s;
+}
+.panel-layer.show { opacity: 1; visibility: visible; }
+
+/* Menu ---------------------------------------------------------------------*/
+
+.menu-card {
+  width: min(340px, 92vw);
+  border-radius: 26px;
+  overflow: hidden;
+  background: var(--card);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.35);
+  transform: translateY(10px) scale(0.97);
+  transition: transform 0.32s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.panel-layer.show .menu-card { transform: none; }
+
+.menu-hero {
+  padding: 26px 22px 22px;
+  text-align: center;
+  color: #fff;
+  background:
+    radial-gradient(120% 80% at 50% 120%, rgba(255, 255, 255, 0.18), transparent 60%),
+    linear-gradient(160deg, #ff8a5c, #f4552f);
+}
+.menu-hero h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  line-height: 1.06;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.14);
+}
+.menu-hero p {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.42;
+  opacity: 0.95;
+}
+
+.menu-body { padding: 20px 24px 24px; text-align: center; }
+
+.emoji { font-size: 42px; line-height: 1; }
+.emoji-sm { font-size: 19px; }
+
+.difficulty {
+  margin: 6px 0 14px;
+  font-size: 25px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: var(--amber-dark);
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 16px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--amber) 0%, var(--amber) 50%, #dfe3ea 50%, #dfe3ea 100%);
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--amber-dark);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+  cursor: grab;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--amber-dark);
+  cursor: grab;
+}
+
+.hint {
+  margin: 10px 0 18px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.menu-actions { display: flex; align-items: center; justify-content: center; gap: 12px; }
+
+.btn {
+  border: none;
+  font-family: var(--font);
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.1s ease, filter 0.15s ease;
+}
+.btn:active { transform: translateY(3px); }
+
+.btn-play {
+  flex: 1;
+  max-width: 190px;
+  padding: 13px 26px;
+  font-size: 19px;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: var(--amber);
+  border-bottom: 5px solid var(--amber-dark);
+  border-radius: 999px;
+}
+.btn-play.green { background: var(--green); border-bottom-color: var(--green-dark); }
+
+.btn-round {
+  width: 46px;
+  height: 46px;
+  font-size: 20px;
+  color: #fff;
+  background: #4d5a86;
+  border-bottom: 5px solid #38436a;
+  border-radius: 50%;
+}
+.btn-round.green { background: var(--green); border-bottom-color: var(--green-dark); }
+
+/* Help ---------------------------------------------------------------------*/
+
+.sheet {
+  width: min(360px, 92vw);
+  padding: 24px 26px 22px;
+  border-radius: 26px;
+  background: var(--card);
+  text-align: center;
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.35);
+}
+.sheet h2 { margin: 0 0 14px; font-size: 24px; font-weight: 900; color: var(--red); }
+.sheet ul { margin: 0 0 20px; padding: 0 0 0 4px; list-style: none; text-align: left; }
+.sheet li {
+  position: relative;
+  margin-bottom: 9px;
+  padding-left: 22px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #414a5c;
+}
+.sheet li::before {
+  content: "🏀";
+  position: absolute;
+  left: 0;
+  font-size: 12px;
+}
+
+/* Game over ----------------------------------------------------------------*/
+
+.over-card {
+  width: min(330px, 92vw);
+  padding: 24px 22px 22px;
+  border-radius: 26px;
+  text-align: center;
+  background: linear-gradient(180deg, #ffffff 0%, #eaf6ff 100%);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.4);
+  transform: translateY(14px) scale(0.95);
+  transition: transform 0.36s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+.panel-layer.show .over-card { transform: none; }
+
+.over-card h2 {
+  margin: 0 0 12px;
+  font-size: 27px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #3a4a66;
+}
+.over-score-label { font-size: 15px; font-weight: 800; color: var(--ink-soft); }
+.over-score {
+  font-size: 58px;
+  font-weight: 900;
+  line-height: 1.05;
+  color: #29b6d8;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.08);
+}
+
+.mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 10px 0 14px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
+.bests { display: grid; gap: 7px; margin-bottom: 18px; }
+.best-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 13px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+}
+.best-row b { font-size: 15px; }
+.best-row.gold { background: linear-gradient(90deg, #f7b733, #e08c1a); }
+.best-row.pink { background: linear-gradient(90deg, #f472a5, #d94f86); }
+.best-row.blue { background: linear-gradient(90deg, #56c8e8, #2f9fc4); }
+
+.over-actions { display: flex; align-items: center; justify-content: center; gap: 12px; }
+
+/* --- small screens -------------------------------------------------------- */
+
+@media (max-height: 620px) {
+  .menu-hero { padding: 18px 20px 16px; }
+  .menu-hero h1 { font-size: 25px; }
+  .menu-body { padding: 14px 20px 18px; }
+  .emoji { font-size: 34px; }
+  .difficulty { font-size: 21px; margin-bottom: 10px; }
+  .over-score { font-size: 46px; }
+  .over-card h2 { font-size: 23px; }
+}

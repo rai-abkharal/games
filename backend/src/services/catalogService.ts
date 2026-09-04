@@ -9,17 +9,71 @@ export class CatalogService {
   private baseUrl: string;
 
   constructor(catalogPath?: string, baseUrl?: string) {
-    const candidates = [
-      catalogPath,
+    const seedCandidates = [
       path.resolve(process.cwd(), 'catalog/games.json'),
       path.resolve(process.cwd(), 'backend/catalog/games.json'),
       path.resolve(__dirname, '../../../catalog/games.json'),
       path.resolve(__dirname, '../../catalog/games.json'),
       '/var/www/games-platform/backend/catalog/games.json',
-    ].filter(Boolean) as string[];
+    ];
 
-    this.catalogPath = candidates.find(p => fs.existsSync(p)) || path.resolve(__dirname, '../../catalog/games.json');
+    const configuredCatalogPath = catalogPath || process.env.CATALOG_PATH;
+    if (configuredCatalogPath) {
+      this.catalogPath = path.resolve(configuredCatalogPath);
+    } else {
+      const seedCatalogPath = seedCandidates.find(candidate => fs.existsSync(candidate))
+        || path.resolve(__dirname, '../../catalog/games.json');
+      const runtimeCatalogPath = process.env.RUNTIME_CATALOG_PATH
+        ? path.resolve(process.env.RUNTIME_CATALOG_PATH)
+        : path.join(path.dirname(seedCatalogPath), 'games.runtime.json');
+
+      this.initializeRuntimeCatalog(seedCatalogPath, runtimeCatalogPath);
+      this.catalogPath = runtimeCatalogPath;
+    }
+
     this.baseUrl = (baseUrl || process.env.BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
+  }
+
+  private initializeRuntimeCatalog(seedPath: string, runtimePath: string): void {
+    fs.mkdirSync(path.dirname(runtimePath), { recursive: true });
+
+    if (!fs.existsSync(runtimePath)) {
+      fs.copyFileSync(seedPath, runtimePath);
+      return;
+    }
+
+    // Runtime/admin data wins. Only append genuinely new games introduced by
+    // the repository seed, while respecting admin deletion tombstones.
+    try {
+      const seed = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+      const runtime = JSON.parse(fs.readFileSync(runtimePath, 'utf8'));
+      const tombstonePath = path.join(path.dirname(runtimePath), 'deleted_games.json');
+      const deletedIds = fs.existsSync(tombstonePath)
+        ? new Set<string>(JSON.parse(fs.readFileSync(tombstonePath, 'utf8')))
+        : new Set<string>();
+      const runtimeIds = new Set<string>((runtime.games || []).map((game: any) => game.id));
+      const additions = (seed.games || []).filter((game: any) =>
+        game?.id && !runtimeIds.has(game.id) && !deletedIds.has(game.id)
+      );
+
+      if (additions.length === 0) return;
+
+      const maxOrder = (runtime.games || []).reduce(
+        (max: number, game: any) => Math.max(max, Number(game.feedOrder) || 0),
+        0,
+      );
+      additions.forEach((game: any, index: number) => {
+        runtime.games.push({ ...game, feedOrder: maxOrder + index + 1 });
+      });
+      runtime.version = Math.max(Number(runtime.version) || 1, Number(seed.version) || 1);
+      runtime.updatedAt = new Date().toISOString();
+
+      const temporaryPath = `${runtimePath}.tmp-${process.pid}`;
+      fs.writeFileSync(temporaryPath, `${JSON.stringify(runtime, null, 2)}\n`, 'utf8');
+      fs.renameSync(temporaryPath, runtimePath);
+    } catch (error) {
+      console.error('[Catalog] Runtime catalogue reconciliation failed; keeping existing runtime data.', error);
+    }
   }
 
   public getCatalogPath(): string {

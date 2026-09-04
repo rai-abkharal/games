@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1E4F96"/>
+      <stop offset="100%" stop-color="#0D2649"/>
+    </linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E5BD7A"/>
+      <stop offset="50%" stop-color="#D7A967"/>
+      <stop offset="100%" stop-color="#B98243"/>
+    </linearGradient>
+    <linearGradient id="screw" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F0F2F5"/>
+      <stop offset="50%" stop-color="#D0D4DA"/>
+      <stop offset="100%" stop-color="#8E929A"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="64" fill="url(#bg)"/>
+  <!-- Board -->
+  <rect x="56" y="80" width="400" height="352" rx="20" fill="url(#wood)" stroke="#A0713A" stroke-width="3"/>
+  <!-- Holes -->
+  <circle cx="156" cy="200" r="28" fill="#0F2E5C" stroke="rgba(0,0,0,0.3)" stroke-width="2"/>
+  <circle cx="356" cy="200" r="28" fill="#0F2E5C" stroke="rgba(0,0,0,0.3)" stroke-width="2"/>
+  <circle cx="156" cy="340" r="28" fill="#0F2E5C" stroke="rgba(0,0,0,0.3)" stroke-width="2"/>
+  <circle cx="356" cy="340" r="28" fill="#0F2E5C" stroke="rgba(0,0,0,0.3)" stroke-width="2"/>
+  <!-- Metal piece -->
+  <rect x="110" y="170" width="292" height="60" rx="10" fill="#D8D9DC" stroke="#A0A2A6" stroke-width="2"/>
+  <!-- Wood piece -->
+  <rect x="110" y="310" width="292" height="60" rx="10" fill="#F2B51D" stroke="#C9960E" stroke-width="2"/>
+  <!-- Screws -->
+  <circle cx="156" cy="200" r="22" fill="url(#screw)" stroke="#8E929A" stroke-width="1.5"/>
+  <line x1="144" y1="200" x2="168" y2="200" stroke="#555962" stroke-width="3" stroke-linecap="round"/>
+  <line x1="156" y1="188" x2="156" y2="212" stroke="#555962" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="356" cy="200" r="22" fill="url(#screw)" stroke="#8E929A" stroke-width="1.5"/>
+  <line x1="344" y1="200" x2="368" y2="200" stroke="#555962" stroke-width="3" stroke-linecap="round"/>
+  <line x1="356" y1="188" x2="356" y2="212" stroke="#555962" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="156" cy="340" r="22" fill="url(#screw)" stroke="#8E929A" stroke-width="1.5"/>
+  <line x1="144" y1="340" x2="168" y2="340" stroke="#555962" stroke-width="3" stroke-linecap="round"/>
+  <line x1="156" y1="328" x2="156" y2="352" stroke="#555962" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="356" cy="340" r="22" fill="url(#screw)" stroke="#8E929A" stroke-width="1.5"/>
+  <line x1="344" y1="340" x2="368" y2="340" stroke="#555962" stroke-width="3" stroke-linecap="round"/>
+  <line x1="356" y1="328" x2="356" y2="352" stroke="#555962" stroke-width="3" stroke-linecap="round"/>
+  <!-- Title -->
+  <text x="256" y="475" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="36" fill="white" stroke="rgba(0,0,0,0.4)" stroke-width="2">TakeOff Bolts</text>
+</svg>

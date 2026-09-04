@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 480">
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#1a2444"/><stop offset="1" stop-color="#05070f"/></linearGradient>
+<radialGradient id="ball" cx="0.35" cy="0.32"><stop stop-color="#b6ffd8"/><stop offset="0.6" stop-color="#31d68b"/><stop offset="1" stop-color="#128a52"/></radialGradient></defs>
+<rect width="360" height="480" fill="url(#g)"/>
+<g>
+  <rect x="26"  y="52"  width="46" height="26" rx="7" fill="#e34b5f"/><rect x="80"  y="52"  width="46" height="26" rx="7" fill="#f0a12b"/><rect x="134" y="52" width="46" height="26" rx="7" fill="#31b06d"/><rect x="188" y="52" width="46" height="26" rx="7" fill="#3d9fe0"/>
+  <rect x="242" y="52"  width="46" height="26" rx="7" fill="#a765d8"/><rect x="296" y="52" width="38" height="26" rx="7" fill="#e34b5f"/>
+  <rect x="26"  y="86"  width="46" height="26" rx="7" fill="#3d9fe0"/><rect x="80"  y="86"  width="46" height="26" rx="7" fill="#a765d8"/><rect x="134" y="86" width="46" height="26" rx="7" fill="#e34b5f"/><rect x="188" y="86" width="46" height="26" rx="7" fill="#31b06d"/><rect x="242" y="86" width="46" height="26" rx="7" fill="#f0a12b"/><rect x="296" y="86" width="38" height="26" rx="7" fill="#3d9fe0"/>
+  <rect x="26"  y="120" width="46" height="26" rx="7" fill="#f0a12b"/><rect x="80"  y="120" width="46" height="26" rx="7" fill="#31b06d"/><rect x="188" y="120" width="46" height="26" rx="7" fill="#a765d8"/><rect x="242" y="120" width="46" height="26" rx="7" fill="#3d9fe0"/><rect x="296" y="120" width="38" height="26" rx="7" fill="#31b06d"/>
+</g>
+<g fill="#ffffff" opacity="0.6">
+  <circle cx="49" cy="65" r="5"/><path d="M103 59 l6 11 h-12z"/><rect x="152" y="60" width="10" height="10" rx="2"/><path d="M211 59 l6 6 -6 6 -6-6z"/><circle cx="319" cy="65" r="5"/>
+</g>
+<g opacity="0.55" fill="#31d68b">
+  <circle cx="180" cy="200" r="4"/><circle cx="180" cy="228" r="4.5"/><circle cx="180" cy="256" r="5"/><circle cx="180" cy="284" r="5.5"/>
+</g>
+<circle cx="180" cy="322" r="17" fill="url(#ball)"/>
+<rect x="140" y="352" width="80" height="16" rx="8" fill="#2b3450"/>
+<text x="180" y="412" font-family="system-ui" font-size="27" font-weight="800" fill="#e9eef8" text-anchor="middle">Chroma Breaker</text>
+<text x="180" y="444" font-family="system-ui" font-size="14" font-weight="700" fill="#7ef0b6" text-anchor="middle">MATCH • BREAK • CHAIN</text>
+</svg>

@@ -1,0 +1,32 @@
+{
+  "id": "fruit-merge",
+  "gameId": "fruit-merge",
+  "name": "Fruit Merge - Watermelon Puzzle",
+  "title": "Fruit Merge - Watermelon Puzzle",
+  "slug": "fruit-merge",
+  "version": "1.0.0",
+  "type": "hyper-casual",
+  "orientation": "portrait",
+  "targetFrameRate": 60,
+  "dimensions": {
+    "width": 390,
+    "height": 844
+  },
+  "entry": "index.html",
+  "sizeBytes": 76302,
+  "sha256": "585cf55f13fd19f72f24a4fa2357720158d5f5cd01223453c0506da63ded4284",
+  "author": "Antigravity Game Studios",
+  "description": "Fruit Merge (Watermelon Puzzle) - 2D physics-based fruit-merging puzzle game featuring 11 kawaii fruit tiers, trajectory aiming guide, merge chain reactions, power-ups, and save/load state.",
+  "categories": [
+    "puzzle",
+    "physics",
+    "casual",
+    "arcade"
+  ],
+  "features": [
+    "offline-capable",
+    "touch-support",
+    "procedural-audio",
+    "responsive"
+  ]
+}

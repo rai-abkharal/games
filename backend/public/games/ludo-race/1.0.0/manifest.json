@@ -1,0 +1,31 @@
+{
+  "id": "ludo-race",
+  "gameId": "ludo-race",
+  "name": "Ludo Race",
+  "title": "Ludo Race",
+  "slug": "ludo-race",
+  "version": "1.0.0",
+  "type": "hyper-casual",
+  "orientation": "portrait",
+  "targetFrameRate": 60,
+  "dimensions": {
+    "width": 390,
+    "height": 844
+  },
+  "entry": "index.html",
+  "sizeBytes": 57503,
+  "sha256": "ff7f25fb5396939cb373c1b880480fcd66bf22969fe2dde55e00d08e785190d1",
+  "author": "Antigravity Game Studios",
+  "description": "A fast 2-player Ludo-style race game played on a compact cross-shaped board with 3D wooden pawns, animated dice rolls, captures, and smart AI.",
+  "categories": [
+    "board",
+    "casual",
+    "arcade"
+  ],
+  "features": [
+    "offline-capable",
+    "touch-support",
+    "procedural-audio",
+    "responsive"
+  ]
+}

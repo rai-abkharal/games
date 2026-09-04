@@ -1,0 +1,24 @@
+{
+  "id": "chroma-breaker",
+  "title": "Chroma Breaker",
+  "version": "1.1.0",
+  "sdkVersion": 1,
+  "entry": "index.html",
+  "orientation": "portrait",
+  "controls": [
+    "TAP"
+  ],
+  "sizeBytes": 77668,
+  "sha256": "d74f133b1f3c3608799b6b8f13f3786463887754dd1f578005e79748a0c9fdd0",
+  "ageRating": "everyone",
+  "minAppVersion": "1.0.0",
+  "hasReward": false,
+  "thumbnail": "chroma-breaker.svg",
+  "tags": [
+    "arcade",
+    "hypercasual",
+    "casual",
+    "reflex"
+  ],
+  "description": "Match the ball colour to the block, chain the breaks, and hold the wall back."
+}

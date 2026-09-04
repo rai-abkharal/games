@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#080E1A"/>
+    </linearGradient>
+    <linearGradient id="shelfGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4E6A8A"/>
+      <stop offset="100%" stop-color="#2F435C"/>
+    </linearGradient>
+    <linearGradient id="goldCoin" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFE082"/>
+      <stop offset="100%" stop-color="#FF8F00"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="64" fill="url(#bg)"/>
+
+  <!-- Top Shelf Rack -->
+  <g filter="url(#shadow)">
+    <rect x="48" y="140" width="416" height="120" rx="20" fill="#152232" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+    <rect x="56" y="240" width="400" height="20" rx="6" fill="url(#shelfGrad)"/>
+  </g>
+
+  <!-- Soda Can 1 -->
+  <g transform="translate(120, 180)">
+    <rect x="-24" y="-36" width="48" height="72" rx="10" fill="#FF3366"/>
+    <rect x="-24" y="-36" width="48" height="8" fill="#E0E0E0"/>
+    <rect x="-24" y="28" width="48" height="8" fill="#E0E0E0"/>
+    <circle cx="0" cy="0" r="14" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+  </g>
+
+  <!-- Soda Can 2 -->
+  <g transform="translate(256, 180)">
+    <rect x="-24" y="-36" width="48" height="72" rx="10" fill="#FF3366"/>
+    <rect x="-24" y="-36" width="48" height="8" fill="#E0E0E0"/>
+    <rect x="-24" y="28" width="48" height="8" fill="#E0E0E0"/>
+    <circle cx="0" cy="0" r="14" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+  </g>
+
+  <!-- Soda Can 3 (Matching!) -->
+  <g transform="translate(392, 180)">
+    <rect x="-24" y="-36" width="48" height="72" rx="10" fill="#FF3366"/>
+    <rect x="-24" y="-36" width="48" height="8" fill="#E0E0E0"/>
+    <rect x="-24" y="28" width="48" height="8" fill="#E0E0E0"/>
+    <circle cx="0" cy="0" r="14" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+  </g>
+
+  <!-- Bottom Shelf Rack -->
+  <g filter="url(#shadow)">
+    <rect x="48" y="300" width="416" height="120" rx="20" fill="#152232" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+    <rect x="56" y="400" width="400" height="20" rx="6" fill="url(#shelfGrad)"/>
+  </g>
+
+  <!-- Ice Cream -->
+  <g transform="translate(120, 345)">
+    <path d="M-16 -5 L16 -5 L0 30 Z" fill="#FFA726"/>
+    <circle cx="0" cy="-15" r="20" fill="#00D2FC"/>
+    <circle cx="0" cy="-32" r="6" fill="#FF1744"/>
+  </g>
+
+  <!-- Donut -->
+  <g transform="translate(256, 345)">
+    <circle cx="0" cy="0" r="26" fill="#FFB74D"/>
+    <circle cx="0" cy="0" r="22" fill="#F06292"/>
+    <circle cx="0" cy="0" r="8" fill="#152232"/>
+  </g>
+
+  <!-- Chips -->
+  <g transform="translate(392, 345)">
+    <polygon points="-20,-28 20,-28 16,28 -16,28" fill="#FFB800"/>
+    <rect x="-20" y="-28" width="40" height="5" fill="#E65100"/>
+    <rect x="-16" y="23" width="32" height="5" fill="#E65100"/>
+  </g>
+
+  <!-- Title Badge -->
+  <g filter="url(#shadow)" transform="translate(256, 68)">
+    <rect x="-180" y="-34" width="360" height="68" rx="24" fill="#0F172A" stroke="#00E676" stroke-width="3"/>
+    <text x="0" y="8" font-family="'Fredoka', sans-serif" font-weight="900" font-size="28" fill="#FFE082" text-anchor="middle">GOODS SORT™</text>
+  </g>
+</svg>

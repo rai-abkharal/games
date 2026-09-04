@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="oceanGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4FA8D8"/>
+      <stop offset="100%" stop-color="#3B82B6"/>
+    </linearGradient>
+    <linearGradient id="coralGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F08C6E"/>
+      <stop offset="100%" stop-color="#D97558"/>
+    </linearGradient>
+    <linearGradient id="cannonGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2F3640"/>
+      <stop offset="35%" stop-color="#718093"/>
+      <stop offset="70%" stop-color="#2F3640"/>
+      <stop offset="100%" stop-color="#1E272E"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Top Ocean Half -->
+  <rect width="512" height="260" rx="30" fill="url(#oceanGrad)"/>
+
+  <!-- Bottom Coral Half -->
+  <rect y="250" width="512" height="262" rx="30" fill="url(#coralGrad)"/>
+
+  <!-- Enemy Grid Cells in Top Half -->
+  <g opacity="0.85">
+    <rect x="40" y="30" width="50" height="50" rx="8" fill="#2F5973"/>
+    <rect x="96" y="30" width="50" height="50" rx="8" fill="#2F5973"/>
+    <rect x="152" y="30" width="50" height="50" rx="8" fill="#2F5973"/>
+    <rect x="208" y="30" width="50" height="50" rx="8" fill="#2F5973"/>
+    <rect x="264" y="30" width="50" height="50" rx="8" fill="#2F5973"/>
+    <rect x="320" y="30" width="50" height="50" rx="8" fill="#2F5973"/>
+    <rect x="376" y="30" width="50" height="50" rx="8" fill="#2F5973"/>
+    <rect x="432" y="30" width="50" height="50" rx="8" fill="#2F5973"/>
+
+    <rect x="40" y="86" width="50" height="50" rx="8" fill="#2F5973"/>
+    <rect x="96" y="86" width="50" height="50" rx="8" fill="#2F5973"/>
+    <rect x="152" y="86" width="50" height="50" rx="8" fill="#2F5973"/>
+    <rect x="208" y="86" width="50" height="50" rx="8" fill="#2F5973"/>
+    <rect x="264" y="86" width="50" height="50" rx="8" fill="#2F5973"/>
+    <rect x="320" y="86" width="50" height="50" rx="8" fill="#2F5973"/>
+    <rect x="376" y="86" width="50" height="50" rx="8" fill="#2F5973"/>
+    <rect x="432" y="86" width="50" height="50" rx="8" fill="#2F5973"/>
+  </g>
+
+  <!-- Hits (Flames) & Misses (X) -->
+  <path d="M 233 40 L 248 55 L 233 70 L 218 55 Z" fill="#FF9F43"/>
+  <path d="M 233 46 L 243 55 L 233 64 L 223 55 Z" fill="#FECA57"/>
+
+  <path d="M 289 40 L 304 55 L 289 70 L 274 55 Z" fill="#FF9F43"/>
+  <path d="M 289 46 L 299 55 L 289 64 L 279 55 Z" fill="#FECA57"/>
+
+  <path d="M 52 98 L 78 124 M 78 98 L 52 124" stroke="#256285" stroke-width="6" stroke-linecap="round"/>
+  <path d="M 164 98 L 190 124 M 190 98 L 164 124" stroke="#256285" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Sunk Battleship Warship in Top Grid -->
+  <g filter="url(#shadow)">
+    <path d="M 120 160 L 290 160 Q 330 160 340 178 Q 330 196 290 196 L 120 196 Q 105 178 120 160 Z" fill="#2D3436" stroke="#101416" stroke-width="4"/>
+    <circle cx="300" cy="178" r="8" fill="#1E272E"/>
+    <line x1="300" y1="178" x2="325" y2="178" stroke="#101416" stroke-width="4"/>
+    <circle cx="160" cy="178" r="8" fill="#1E272E"/>
+  </g>
+
+  <!-- 3D Cannon Turret at Bottom Center -->
+  <g filter="url(#shadow)">
+    <!-- Red Mount Ring -->
+    <circle cx="256" cy="400" r="65" fill="#C0392B" stroke="#1E272E" stroke-width="8"/>
+    <circle cx="256" cy="400" r="54" fill="#1E272E"/>
+    <!-- Rotating Cannon Barrel -->
+    <g transform="rotate(-15, 256, 400)">
+      <rect x="228" y="280" width="56" height="110" rx="14" fill="url(#cannonGrad)" stroke="#1E272E" stroke-width="6"/>
+      <ellipse cx="256" cy="280" rx="30" ry="12" fill="#1E272E"/>
+      <ellipse cx="256" cy="280" rx="22" ry="8" fill="#000000"/>
+    </g>
+    <!-- Muzzle Flash & Sparks -->
+    <circle cx="280" cy="245" r="16" fill="#FFA500" opacity="0.8"/>
+    <circle cx="285" cy="240" r="8" fill="#FFF59D"/>
+  </g>
+
+  <!-- Remaining Badge -->
+  <rect x="25" y="25" width="60" height="36" rx="10" fill="#1E272E"/>
+  <text x="55" y="49" font-family="'Fredoka', sans-serif" font-weight="900" font-size="20" fill="#5CE1E6" text-anchor="middle">12</text>
+
+  <!-- Title Badge -->
+  <text x="256" y="490" font-family="'Fredoka', sans-serif" font-weight="900" font-size="34" fill="#FFFFFF" stroke="#1E272E" stroke-width="5" stroke-linejoin="round" text-anchor="middle">SEA BATTLE</text>
+</svg>

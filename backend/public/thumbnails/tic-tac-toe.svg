@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 480">
+<rect width="360" height="480" fill="#171b1e"/>
+<rect x="35" y="110" width="290" height="290" rx="24" fill="#252b30"/>
+<path d="M132 125v260M228 125v260M50 207h260M50 303h260" stroke="#697278" stroke-width="4"/>
+<path d="M78 153l55 55m0-55l-55 55M207 152a28 28 0 1 0 56 0a28 28 0 1 0-56 0" stroke-width="10" fill="none"/>
+<text x="180" y="65" text-anchor="middle" font-family="system-ui" font-size="30" font-weight="800" fill="#f0ede6">TIC TAC TOE</text>
+<text x="180" y="445" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="700" fill="#e9c46a">CLASSIC • TAP TO PLAY</text>
+</svg>

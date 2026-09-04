@@ -1,0 +1,32 @@
+{
+  "id": "block-blast",
+  "gameId": "block-blast",
+  "name": "Block Blast! - Jewel Puzzle",
+  "title": "Block Blast! - Jewel Puzzle",
+  "slug": "block-blast",
+  "version": "1.0.0",
+  "type": "hyper-casual",
+  "orientation": "portrait",
+  "targetFrameRate": 60,
+  "dimensions": {
+    "width": 390,
+    "height": 844
+  },
+  "entry": "index.html",
+  "sizeBytes": 76001,
+  "sha256": "bd6771cc5ce2764e3ff59a07b6bc96163c305a3acf708d57c789140ab17cc491",
+  "author": "Antigravity Game Studios",
+  "description": "Block Blast! (Block Juggle) - Strategic mobile 8x8 block puzzle game featuring 3D jewel blocks, neon rainbow line clears, dynamic combo multipliers, and satisfying procedural sound effects.",
+  "categories": [
+    "puzzle",
+    "board",
+    "arcade",
+    "casual"
+  ],
+  "features": [
+    "offline-capable",
+    "touch-support",
+    "procedural-audio",
+    "responsive"
+  ]
+}

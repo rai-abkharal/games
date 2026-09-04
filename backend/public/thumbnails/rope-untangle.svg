@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F7F8FE"/>
+      <stop offset="100%" stop-color="#E2E7FC"/>
+    </linearGradient>
+    <linearGradient id="pinkRope" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFA4C5"/>
+      <stop offset="40%" stop-color="#FF5E97"/>
+      <stop offset="100%" stop-color="#C82B65"/>
+    </linearGradient>
+    <linearGradient id="greenRope" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#78F590"/>
+      <stop offset="40%" stop-color="#10D636"/>
+      <stop offset="100%" stop-color="#0A9B26"/>
+    </linearGradient>
+    <linearGradient id="yellowRope" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE285"/>
+      <stop offset="40%" stop-color="#FFC312"/>
+      <stop offset="100%" stop-color="#C69204"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="3" dy="8" stdDeviation="6" flood-color="#1E272E" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="512" height="512" rx="48" fill="url(#bgGrad)"/>
+
+  <!-- Socket Dots Grid -->
+  <g fill="#DCE2F9" stroke="#CBD4F4" stroke-width="3">
+    <circle cx="106" cy="116" r="26"/>
+    <circle cx="206" cy="116" r="26"/>
+    <circle cx="306" cy="116" r="26"/>
+    <circle cx="406" cy="116" r="26"/>
+
+    <circle cx="106" cy="216" r="26"/>
+    <circle cx="206" cy="216" r="26"/>
+    <circle cx="306" cy="216" r="26"/>
+    <circle cx="406" cy="216" r="26"/>
+
+    <circle cx="106" cy="316" r="26"/>
+    <circle cx="206" cy="316" r="26"/>
+    <circle cx="306" cy="316" r="26"/>
+    <circle cx="406" cy="316" r="26"/>
+
+    <circle cx="106" cy="416" r="26"/>
+    <circle cx="206" cy="416" r="26"/>
+    <circle cx="306" cy="416" r="26"/>
+    <circle cx="406" cy="416" r="26"/>
+  </g>
+
+  <!-- Ropes with Braided Appearance -->
+  <!-- 1. Green Rope (Underneath) -->
+  <path d="M 106 216 Q 256 266 406 316" fill="none" stroke="#1E272E" stroke-width="26" stroke-linecap="round" filter="url(#shadow)"/>
+  <path d="M 106 216 Q 256 266 406 316" fill="none" stroke="url(#greenRope)" stroke-width="20" stroke-linecap="round"/>
+
+  <!-- 2. Pink Rope (Crossing) -->
+  <path d="M 106 116 Q 256 256 406 416" fill="none" stroke="#1E272E" stroke-width="26" stroke-linecap="round" filter="url(#shadow)"/>
+  <path d="M 106 116 Q 256 256 406 416" fill="none" stroke="url(#pinkRope)" stroke-width="20" stroke-linecap="round"/>
+
+  <!-- 3. Yellow Rope (Over top) -->
+  <path d="M 406 116 Q 256 270 106 416" fill="none" stroke="#1E272E" stroke-width="26" stroke-linecap="round" filter="url(#shadow)"/>
+  <path d="M 406 116 Q 256 270 106 416" fill="none" stroke="url(#yellowRope)" stroke-width="20" stroke-linecap="round"/>
+
+  <!-- Colored Suction Pins -->
+  <!-- Yellow Pin A -->
+  <circle cx="406" cy="116" r="28" fill="#C69204" stroke="#1E272E" stroke-width="4"/>
+  <circle cx="406" cy="116" r="22" fill="#FFC312"/>
+  <circle cx="400" cy="110" r="6" fill="#FFF" opacity="0.6"/>
+
+  <!-- Yellow Pin B -->
+  <circle cx="106" cy="416" r="28" fill="#C69204" stroke="#1E272E" stroke-width="4"/>
+  <circle cx="106" cy="416" r="22" fill="#FFC312"/>
+  <circle cx="100" cy="410" r="6" fill="#FFF" opacity="0.6"/>
+
+  <!-- Pink Pin A -->
+  <circle cx="106" cy="116" r="28" fill="#C82B65" stroke="#1E272E" stroke-width="4"/>
+  <circle cx="106" cy="116" r="22" fill="#FF5E97"/>
+  <circle cx="100" cy="110" r="6" fill="#FFF" opacity="0.6"/>
+
+  <!-- Pink Pin B -->
+  <circle cx="406" cy="416" r="28" fill="#C82B65" stroke="#1E272E" stroke-width="4"/>
+  <circle cx="406" cy="416" r="22" fill="#FF5E97"/>
+  <circle cx="400" cy="410" r="6" fill="#FFF" opacity="0.6"/>
+
+  <!-- Green Pin A (Metallic Anchor) -->
+  <circle cx="106" cy="216" r="28" fill="#3A4150" stroke="#1E272E" stroke-width="4"/>
+  <circle cx="106" cy="216" r="16" fill="#CAD1E0"/>
+  <circle cx="106" cy="216" r="6" fill="#1A1E24"/>
+
+  <!-- Green Pin B -->
+  <circle cx="406" cy="316" r="28" fill="#0A9B26" stroke="#1E272E" stroke-width="4"/>
+  <circle cx="406" cy="316" r="22" fill="#10D636"/>
+  <circle cx="400" cy="310" r="6" fill="#FFF" opacity="0.6"/>
+
+  <!-- Floating Title Badge -->
+  <g filter="url(#shadow)">
+    <rect x="56" y="24" width="400" height="58" rx="29" fill="#FFFFFF" stroke="#DDE3FB" stroke-width="3"/>
+    <text x="256" y="62" font-family="'Lilita One', 'Fredoka', sans-serif" font-weight="900" font-size="28" fill="#2C3E50" text-anchor="middle" letter-spacing="1.5">ROPE UNTANGLE</text>
+  </g>
+</svg>

@@ -1,0 +1,24 @@
+{
+  "id": "tic-tac-toe",
+  "title": "Tic Tac Toe",
+  "version": "1.0.0",
+  "sdkVersion": 1,
+  "entry": "index.html",
+  "orientation": "portrait",
+  "controls": [
+    "TAP"
+  ],
+  "sizeBytes": 0,
+  "sha256": "",
+  "ageRating": "everyone",
+  "minAppVersion": "1.0.0",
+  "hasReward": false,
+  "thumbnail": "tic-tac-toe.svg",
+  "tags": [
+    "puzzle",
+    "board",
+    "classic",
+    "casual"
+  ],
+  "description": "A polished portrait Tic Tac Toe game with responsive tap controls, smart AI opponent, score tracking and animated win effects."
+}

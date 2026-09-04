@@ -1,0 +1,32 @@
+{
+  "id": "arrow-puzzle",
+  "gameId": "arrow-puzzle",
+  "name": "Arrow Puzzle",
+  "title": "Arrow Puzzle",
+  "slug": "arrow-puzzle",
+  "version": "1.0.0",
+  "type": "hyper-casual",
+  "orientation": "portrait",
+  "targetFrameRate": 60,
+  "dimensions": {
+    "width": 480,
+    "height": 800
+  },
+  "entry": "index.html",
+  "sizeBytes": 39254,
+  "sha256": "d07a411226e606e77a3c29f51419a8f02fd5ed0dac4d0def8bc1ca1f48e8b828",
+  "author": "Antigravity Game Studios",
+  "description": "Arrow Puzzle - Highly addictive directional logic brain puzzle. Tap unblocked arrows to guide them out of the intricate grid. Features 1000 procedural levels with guaranteed solvability, procedural audio synthesis, multi-touch pan and zoom, and progressive challenge shapes.",
+  "categories": [
+    "puzzle",
+    "brain",
+    "casual",
+    "logic"
+  ],
+  "features": [
+    "offline-capable",
+    "touch-support",
+    "procedural-audio",
+    "responsive"
+  ]
+}

@@ -14,6 +14,7 @@ export function createApp(catalogPath?: string, baseUrl?: string): Express {
   try {
     const catalog = catalogService.loadAndValidateCatalog();
     console.log(`[Catalog] Successfully validated ${catalog.games.length} games in catalog.`);
+    console.log(`[Catalog] Runtime source: ${catalogService.getCatalogPath()}`);
   } catch (err) {
     console.error(`[Catalog Warning] ${err instanceof Error ? err.message : String(err)}`);
   }

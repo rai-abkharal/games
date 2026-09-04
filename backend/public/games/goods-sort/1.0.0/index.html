@@ -1,0 +1,2174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Goods Puzzle: Sort Challenge™</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800;900&family=Lilita+One&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background: #080E1A;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Fredoka', 'Lilita One', 'Nunito', -apple-system, sans-serif;
+    }
+    #game-canvas {
+      display: block;
+      width: 100vw;
+      width: 100dvw;
+      height: 100vh;
+      height: 100dvh;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+  <script>
+
+(function() {
+  'use strict';
+
+  // --- UTILS & AUDIO ---
+  "use strict";
+// ============================================================================
+// Goods Puzzle: Sort Challenge™ - Utils, Sound Synthesizer & Vector Icons
+// ============================================================================
+const GOODS_CATALOG = [
+    { id: 0, name: 'Soda Can', category: 'Drinks', primaryColor: '#FF3366', accentColor: '#FF6B8B', glowColor: 'rgba(255, 51, 102, 0.4)' },
+    { id: 1, name: 'Ice Cream', category: 'Desserts', primaryColor: '#00D2FC', accentColor: '#80EAFF', glowColor: 'rgba(0, 210, 252, 0.4)' },
+    { id: 2, name: 'Potato Chips', category: 'Snacks', primaryColor: '#FFB800', accentColor: '#FFE066', glowColor: 'rgba(255, 184, 0, 0.4)' },
+    { id: 3, name: 'Juice Box', category: 'Drinks', primaryColor: '#FF7A00', accentColor: '#FFAE66', glowColor: 'rgba(255, 122, 0, 0.4)' },
+    { id: 4, name: 'Glazed Donut', category: 'Bakery', primaryColor: '#E040FB', accentColor: '#F08CFF', glowColor: 'rgba(224, 64, 251, 0.4)' },
+    { id: 5, name: 'Chocolate Bar', category: 'Sweets', primaryColor: '#8D6E63', accentColor: '#D7CCC8', glowColor: 'rgba(141, 110, 99, 0.4)' },
+    { id: 6, name: 'Milk Bottle', category: 'Dairy', primaryColor: '#3D5AFE', accentColor: '#8C9EFF', glowColor: 'rgba(61, 90, 254, 0.4)' },
+    { id: 7, name: 'Burger', category: 'FastFood', primaryColor: '#FF9100', accentColor: '#FFD180', glowColor: 'rgba(255, 145, 0, 0.4)' },
+    { id: 8, name: 'Red Apple', category: 'Fruits', primaryColor: '#F44336', accentColor: '#FF8A80', glowColor: 'rgba(244, 67, 54, 0.4)' },
+    { id: 9, name: 'Hot Coffee', category: 'Drinks', primaryColor: '#5D4037', accentColor: '#BCAAA4', glowColor: 'rgba(93, 64, 55, 0.4)' },
+    { id: 10, name: 'Berry Jam', category: 'Spreads', primaryColor: '#C2185B', accentColor: '#F48FB1', glowColor: 'rgba(194, 24, 91, 0.4)' },
+    { id: 11, name: 'Cookies', category: 'Bakery', primaryColor: '#FFA000', accentColor: '#FFD54F', glowColor: 'rgba(255, 160, 0, 0.4)' }
+];
+class SoundSynth {
+    constructor() {
+        this.ctx = null;
+        this.isMuted = false;
+    }
+    init() {
+        if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+                this.ctx = new AudioCtx();
+            }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => { });
+        }
+    }
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        return this.isMuted;
+    }
+    get muted() {
+        return this.isMuted;
+    }
+    playTap() {
+        if (this.isMuted)
+            return;
+        this.init();
+        if (!this.ctx)
+            return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(520, t);
+        osc.frequency.exponentialRampToValueAtTime(880, t + 0.07);
+        gain.gain.setValueAtTime(0.25, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.09);
+    }
+    playSlide() {
+        if (this.isMuted)
+            return;
+        this.init();
+        if (!this.ctx)
+            return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(320, t);
+        osc.frequency.exponentialRampToValueAtTime(460, t + 0.12);
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.14);
+    }
+    playMatch3() {
+        if (this.isMuted)
+            return;
+        this.init();
+        if (!this.ctx)
+            return;
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, i) => {
+            const t = this.ctx.currentTime + i * 0.055;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.22, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.35);
+        });
+    }
+    playCombo(streak) {
+        if (this.isMuted)
+            return;
+        this.init();
+        if (!this.ctx)
+            return;
+        const baseFreq = 600 + Math.min(6, streak) * 90;
+        const notes = [baseFreq, baseFreq * 1.25, baseFreq * 1.5, baseFreq * 2.0];
+        notes.forEach((freq, i) => {
+            const t = this.ctx.currentTime + i * 0.06;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.24, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.42);
+        });
+    }
+    playBooster() {
+        if (this.isMuted)
+            return;
+        this.init();
+        if (!this.ctx)
+            return;
+        const freqs = [440, 554.37, 659.25, 880, 1108.73];
+        freqs.forEach((freq, i) => {
+            const t = this.ctx.currentTime + i * 0.05;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.2, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.38);
+        });
+    }
+    playError() {
+        if (this.isMuted)
+            return;
+        this.init();
+        if (!this.ctx)
+            return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(160, t);
+        osc.frequency.linearRampToValueAtTime(100, t + 0.15);
+        gain.gain.setValueAtTime(0.18, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.2);
+    }
+    playWinFanfare() {
+        if (this.isMuted)
+            return;
+        this.init();
+        if (!this.ctx)
+            return;
+        const chords = [
+            { t: 0.00, freqs: [523.25, 659.25, 783.99] },
+            { t: 0.18, freqs: [587.33, 739.99, 880.00] },
+            { t: 0.36, freqs: [659.25, 830.61, 987.77] },
+            { t: 0.56, freqs: [783.99, 987.77, 1174.66, 1567.98] }
+        ];
+        chords.forEach(({ t, freqs }) => {
+            freqs.forEach(freq => {
+                const noteT = this.ctx.currentTime + t;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, noteT);
+                const dur = t > 0.4 ? 0.9 : 0.3;
+                gain.gain.setValueAtTime(0.2, noteT);
+                gain.gain.exponentialRampToValueAtTime(0.001, noteT + dur);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(noteT);
+                osc.stop(noteT + dur + 0.05);
+            });
+        });
+    }
+    playButton() {
+        if (this.isMuted)
+            return;
+        this.init();
+        if (!this.ctx)
+            return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(640, t);
+        osc.frequency.exponentialRampToValueAtTime(420, t + 0.06);
+        gain.gain.setValueAtTime(0.22, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.08);
+    }
+}
+class LevelGenerator {
+    static generateLevel(level) {
+        let itemTypesCount = 2;
+        let shelfCount = 3;
+        if (level === 1) {
+            itemTypesCount = 2;
+            shelfCount = 3;
+        }
+        else if (level === 2) {
+            itemTypesCount = 3;
+            shelfCount = 4;
+        }
+        else if (level === 3) {
+            itemTypesCount = 4;
+            shelfCount = 5;
+        }
+        else if (level >= 4 && level <= 6) {
+            itemTypesCount = 5;
+            shelfCount = 6;
+        }
+        else if (level >= 7 && level <= 10) {
+            itemTypesCount = 6;
+            shelfCount = 7;
+        }
+        else {
+            itemTypesCount = Math.min(GOODS_CATALOG.length, 6 + Math.floor((level - 10) * 0.25));
+            shelfCount = Math.min(9, itemTypesCount + 2);
+        }
+        const allItems = [];
+        for (let typeId = 0; typeId < itemTypesCount; typeId++) {
+            allItems.push(typeId, typeId, typeId);
+        }
+        const totalSlots = shelfCount * 3;
+        const emptySlotsCount = totalSlots - allItems.length;
+        const flatSlots = [...allItems];
+        for (let e = 0; e < emptySlotsCount; e++) {
+            flatSlots.push(null);
+        }
+        let valid = false;
+        let shelves = [];
+        while (!valid) {
+            for (let i = flatSlots.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [flatSlots[i], flatSlots[j]] = [flatSlots[j], flatSlots[i]];
+            }
+            shelves = [];
+            for (let s = 0; s < shelfCount; s++) {
+                shelves.push(flatSlots.slice(s * 3, (s + 1) * 3));
+            }
+            const hasPreSolved = shelves.some(shelf => shelf[0] !== null && shelf[0] === shelf[1] && shelf[1] === shelf[2]);
+            const hasEmptySlot = shelves.some(shelf => shelf.includes(null));
+            if (!hasPreSolved && hasEmptySlot) {
+                valid = true;
+            }
+        }
+        return {
+            level,
+            shelfCount,
+            itemTypesCount,
+            shelves
+        };
+    }
+    static findHint(shelves) {
+        for (let s = 0; s < shelves.length; s++) {
+            const shelf = shelves[s];
+            const counts = {};
+            shelf.forEach(item => {
+                if (item !== null)
+                    counts[item] = (counts[item] || 0) + 1;
+            });
+            for (const [typeStr, count] of Object.entries(counts)) {
+                const typeId = parseInt(typeStr, 10);
+                if (count === 2) {
+                    const emptySlot = shelf.indexOf(null);
+                    if (emptySlot !== -1) {
+                        for (let otherS = 0; otherS < shelves.length; otherS++) {
+                            if (otherS === s)
+                                continue;
+                            const otherSlot = shelves[otherS].indexOf(typeId);
+                            if (otherSlot !== -1) {
+                                return { fromShelf: otherS, fromSlot: otherSlot, toShelf: s, toSlot: emptySlot };
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (let s = 0; s < shelves.length; s++) {
+            const shelf = shelves[s];
+            const emptySlot = shelf.indexOf(null);
+            if (emptySlot === -1)
+                continue;
+            for (let slot = 0; slot < 3; slot++) {
+                const item = shelf[slot];
+                if (item === null)
+                    continue;
+                for (let otherS = 0; otherS < shelves.length; otherS++) {
+                    if (otherS === s)
+                        continue;
+                    const otherSlot = shelves[otherS].indexOf(item);
+                    if (otherSlot !== -1) {
+                        return { fromShelf: otherS, fromSlot: otherSlot, toShelf: s, toSlot: emptySlot };
+                    }
+                }
+            }
+        }
+        for (let s = 0; s < shelves.length; s++) {
+            for (let slot = 0; slot < 3; slot++) {
+                if (shelves[s][slot] !== null) {
+                    for (let otherS = 0; otherS < shelves.length; otherS++) {
+                        if (otherS === s)
+                            continue;
+                        const emptySlot = shelves[otherS].indexOf(null);
+                        if (emptySlot !== -1) {
+                            return { fromShelf: s, fromSlot: slot, toShelf: otherS, toSlot: emptySlot };
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+}
+class VectorIcons {
+    static drawUndo(ctx, cx, cy, size, color = '#FFFFFF') {
+        ctx.save();
+        ctx.translate(cx, cy);
+        const s = size / 24;
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 2.8 * s;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.arc(0, 2 * s, 8 * s, Math.PI * 0.8, Math.PI * 1.9, false);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-9 * s, -3 * s);
+        ctx.lineTo(-4 * s, -7 * s);
+        ctx.lineTo(-4 * s, 1 * s);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+    static drawShuffle(ctx, cx, cy, size, color = '#FFFFFF') {
+        ctx.save();
+        ctx.translate(cx, cy);
+        const s = size / 24;
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 2.6 * s;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-8 * s, -5 * s);
+        ctx.bezierCurveTo(-2 * s, -5 * s, 2 * s, 5 * s, 7 * s, 5 * s);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(5 * s, 2 * s);
+        ctx.lineTo(8 * s, 5 * s);
+        ctx.lineTo(5 * s, 8 * s);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-8 * s, 5 * s);
+        ctx.bezierCurveTo(-3 * s, 5 * s, -1 * s, 1 * s, 0, 0);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(2 * s, -2 * s);
+        ctx.bezierCurveTo(4 * s, -5 * s, 6 * s, -5 * s, 7 * s, -5 * s);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(5 * s, -8 * s);
+        ctx.lineTo(8 * s, -5 * s);
+        ctx.lineTo(5 * s, -2 * s);
+        ctx.stroke();
+        ctx.restore();
+    }
+    static drawAddShelf(ctx, cx, cy, size, color = '#FFFFFF') {
+        ctx.save();
+        ctx.translate(cx, cy);
+        const s = size / 24;
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 2.5 * s;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.roundRect(-9 * s, -6 * s, 18 * s, 12 * s, 3 * s);
+        ctx.stroke();
+        ctx.lineWidth = 3.0 * s;
+        ctx.beginPath();
+        ctx.moveTo(0, -3 * s);
+        ctx.lineTo(0, 3 * s);
+        ctx.moveTo(-3 * s, 0);
+        ctx.lineTo(3 * s, 0);
+        ctx.stroke();
+        ctx.restore();
+    }
+    static drawBulb(ctx, cx, cy, size, color = '#FFFFFF') {
+        ctx.save();
+        ctx.translate(cx, cy);
+        const s = size / 24;
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 2.4 * s;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.arc(0, -3 * s, 6.5 * s, Math.PI * 0.75, Math.PI * 2.25, false);
+        ctx.lineTo(3 * s, 4 * s);
+        ctx.lineTo(-3 * s, 4 * s);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-2 * s, 7 * s);
+        ctx.lineTo(2 * s, 7 * s);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, -3 * s, 3 * s, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+    static drawStar(ctx, cx, cy, r, color1 = '#FFD700', color2 = '#FF9100') {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+            const x = Math.cos(angle) * r;
+            const y = Math.sin(angle) * r;
+            if (i === 0)
+                ctx.moveTo(x, y);
+            else
+                ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        const grad = ctx.createLinearGradient(0, -r, 0, r);
+        grad.addColorStop(0, color1);
+        grad.addColorStop(1, color2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+    }
+    static drawCoin(ctx, cx, cy, r) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        const grad = ctx.createLinearGradient(0, -r, 0, r);
+        grad.addColorStop(0, '#FFE082');
+        grad.addColorStop(0.5, '#FFB300');
+        grad.addColorStop(1, '#FF8F00');
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.strokeStyle = '#FFF8E1';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.font = '900 ' + Math.floor(r * 1.1) + 'px Fredoka, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('$', 0, 1);
+        ctx.restore();
+    }
+}
+
+
+  // --- ENTITIES & PARTICLES ---
+  "use strict";
+// ============================================================================
+// Goods Puzzle: Sort Challenge™ - 2.5D Goods Items, Shelves & Particle VFX
+// ============================================================================
+class GoodsItem {
+    constructor(typeId) {
+        this.x = 0;
+        this.y = 0;
+        this.targetX = 0;
+        this.targetY = 0;
+        this.width = 64;
+        this.height = 64;
+        this.isDragging = false;
+        this.isSelected = false;
+        this.isHint = false;
+        this.isMatching = false;
+        this.matchProgress = 0; // 0 to 1
+        this.scale = 1.0;
+        this.wobblePhase = Math.random() * Math.PI * 2;
+        this.typeId = typeId;
+    }
+    update(dt) {
+        if (!this.isDragging) {
+            // Smooth spring to target
+            this.x += (this.targetX - this.x) * Math.min(1.0, dt * 18);
+            this.y += (this.targetY - this.y) * Math.min(1.0, dt * 18);
+        }
+        if (this.isMatching) {
+            this.matchProgress += dt * 3.2;
+            this.scale = Math.max(0, 1.0 - this.matchProgress);
+        }
+        else {
+            const targetScale = this.isDragging ? 1.18 : (this.isSelected ? 1.1 : 1.0);
+            this.scale += (targetScale - this.scale) * Math.min(1.0, dt * 16);
+        }
+    }
+    render(ctx, time) {
+        if (this.isMatching && this.matchProgress >= 1.0)
+            return;
+        ctx.save();
+        const cx = this.x + this.width / 2;
+        const cy = this.y + this.height / 2;
+        ctx.translate(cx, cy);
+        // Wobble breathing
+        const wobble = (this.isSelected || this.isDragging) ? Math.sin(time * 12 + this.wobblePhase) * 0.08 : 0;
+        ctx.rotate(wobble);
+        ctx.scale(this.scale, this.scale);
+        const w = this.width;
+        const h = this.height;
+        const halfW = w / 2;
+        const halfH = h / 2;
+        // 1. Drop Shadow
+        ctx.beginPath();
+        ctx.ellipse(0, halfH + 2, halfW * 0.75, 6, 0, 0, Math.PI * 2);
+        ctx.fillStyle = this.isDragging ? 'rgba(0,0,0,0.38)' : 'rgba(0,0,0,0.22)';
+        ctx.fill();
+        // 2. Selection & Hint Glow Aura
+        if (this.isSelected || this.isHint) {
+            const pulse = 0.5 + 0.5 * Math.sin(time * 8);
+            ctx.beginPath();
+            ctx.roundRect(-halfW - 6, -halfH - 6, w + 12, h + 12, 16);
+            ctx.strokeStyle = this.isHint ? `rgba(255, 222, 89, ${0.5 + 0.5 * pulse})` : `rgba(0, 210, 252, ${0.6 + 0.4 * pulse})`;
+            ctx.lineWidth = 3.5;
+            ctx.stroke();
+        }
+        // 3. Render Custom 2.5D Supermarket Goods Item
+        this.renderGoodsGraphic(ctx, -halfW, -halfH, w, h, time);
+        ctx.restore();
+    }
+    renderGoodsGraphic(ctx, x, y, w, h, time) {
+        const type = this.typeId;
+        const item = GOODS_CATALOG[type % GOODS_CATALOG.length];
+        // Card/Container background squircle with 3D gradient
+        ctx.beginPath();
+        ctx.roundRect(x + 2, y + 2, w - 4, h - 4, 14);
+        const bgGrad = ctx.createLinearGradient(x, y, x, y + h);
+        bgGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+        bgGrad.addColorStop(1, 'rgba(240, 245, 250, 0.92)');
+        ctx.fillStyle = bgGrad;
+        ctx.fill();
+        // 3D Rim / Border
+        ctx.strokeStyle = item.primaryColor;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        // Top Gloss Arc
+        ctx.beginPath();
+        ctx.roundRect(x + 5, y + 4, w - 10, (h - 8) * 0.45, [10, 10, 2, 2]);
+        const gloss = ctx.createLinearGradient(0, y + 4, 0, y + h * 0.45);
+        gloss.addColorStop(0, 'rgba(255, 255, 255, 0.7)');
+        gloss.addColorStop(1, 'rgba(255, 255, 255, 0.05)');
+        ctx.fillStyle = gloss;
+        ctx.fill();
+        // Specific Item Drawing
+        const cx = x + w / 2;
+        const cy = y + h / 2 + 1;
+        const s = (w - 16) / 48;
+        switch (type) {
+            case 0: // SODA CAN
+                this.drawSodaCan(ctx, cx, cy, s);
+                break;
+            case 1: // ICE CREAM
+                this.drawIceCream(ctx, cx, cy, s);
+                break;
+            case 2: // POTATO CHIPS
+                this.drawChips(ctx, cx, cy, s);
+                break;
+            case 3: // JUICE BOX
+                this.drawJuiceBox(ctx, cx, cy, s);
+                break;
+            case 4: // DONUT
+                this.drawDonut(ctx, cx, cy, s, time);
+                break;
+            case 5: // CHOCOLATE
+                this.drawChocolate(ctx, cx, cy, s);
+                break;
+            case 6: // MILK BOTTLE
+                this.drawMilk(ctx, cx, cy, s);
+                break;
+            case 7: // BURGER
+                this.drawBurger(ctx, cx, cy, s);
+                break;
+            case 8: // APPLE
+                this.drawApple(ctx, cx, cy, s);
+                break;
+            case 9: // COFFEE
+                this.drawCoffee(ctx, cx, cy, s);
+                break;
+            case 10: // JAM
+                this.drawJam(ctx, cx, cy, s);
+                break;
+            case 11: // COOKIES
+            default:
+                this.drawCookies(ctx, cx, cy, s);
+                break;
+        }
+    }
+    // --- Specialized Vector Item Drawings ---
+    drawSodaCan(ctx, cx, cy, s) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Can Body
+        ctx.beginPath();
+        ctx.roundRect(-10 * s, -14 * s, 20 * s, 28 * s, 4 * s);
+        const grad = ctx.createLinearGradient(-10 * s, 0, 10 * s, 0);
+        grad.addColorStop(0, '#C9184A');
+        grad.addColorStop(0.3, '#FF416C');
+        grad.addColorStop(0.7, '#FF758F');
+        grad.addColorStop(1, '#A01035');
+        ctx.fillStyle = grad;
+        ctx.fill();
+        // Silver Top & Bottom Rim
+        ctx.fillStyle = '#E0E0E0';
+        ctx.fillRect(-10 * s, -14 * s, 20 * s, 3 * s);
+        ctx.fillRect(-10 * s, 11 * s, 20 * s, 3 * s);
+        // Wave Star Logo
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1.8 * s;
+        ctx.beginPath();
+        ctx.arc(0, 0, 5 * s, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+    drawIceCream(ctx, cx, cy, s) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Waffle Cone
+        ctx.beginPath();
+        ctx.moveTo(-9 * s, -2 * s);
+        ctx.lineTo(9 * s, -2 * s);
+        ctx.lineTo(0, 16 * s);
+        ctx.closePath();
+        ctx.fillStyle = '#FFA726';
+        ctx.fill();
+        ctx.strokeStyle = '#E65100';
+        ctx.lineWidth = 1 * s;
+        ctx.stroke();
+        // Ice cream scoop
+        ctx.beginPath();
+        ctx.arc(0, -5 * s, 11 * s, Math.PI, 0);
+        ctx.arc(0, -5 * s, 11 * s, 0, Math.PI * 2);
+        const grad = ctx.createRadialGradient(-3 * s, -9 * s, 2 * s, 0, -5 * s, 12 * s);
+        grad.addColorStop(0, '#80EAFF');
+        grad.addColorStop(0.6, '#00D2FC');
+        grad.addColorStop(1, '#0090B0');
+        ctx.fillStyle = grad;
+        ctx.fill();
+        // Cherry on top
+        ctx.beginPath();
+        ctx.arc(0, -15 * s, 3.5 * s, 0, Math.PI * 2);
+        ctx.fillStyle = '#FF1744';
+        ctx.fill();
+        ctx.restore();
+    }
+    drawChips(ctx, cx, cy, s) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Chip Bag
+        ctx.beginPath();
+        ctx.moveTo(-11 * s, -14 * s);
+        ctx.lineTo(11 * s, -14 * s);
+        ctx.lineTo(9 * s, 14 * s);
+        ctx.lineTo(-9 * s, 14 * s);
+        ctx.closePath();
+        const grad = ctx.createLinearGradient(-11 * s, 0, 11 * s, 0);
+        grad.addColorStop(0, '#FF8F00');
+        grad.addColorStop(0.4, '#FFC107');
+        grad.addColorStop(1, '#FF6F00');
+        ctx.fillStyle = grad;
+        ctx.fill();
+        // Crimped edges
+        ctx.fillStyle = '#E65100';
+        ctx.fillRect(-11 * s, -14 * s, 22 * s, 2.5 * s);
+        ctx.fillRect(-9 * s, 12 * s, 18 * s, 2.5 * s);
+        // Chip icon
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 6 * s, 4 * s, -0.3, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFE082';
+        ctx.fill();
+        ctx.restore();
+    }
+    drawJuiceBox(ctx, cx, cy, s) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Box Body
+        ctx.beginPath();
+        ctx.roundRect(-10 * s, -12 * s, 20 * s, 25 * s, 3 * s);
+        const grad = ctx.createLinearGradient(-10 * s, 0, 10 * s, 0);
+        grad.addColorStop(0, '#E65100');
+        grad.addColorStop(0.3, '#FF9800');
+        grad.addColorStop(1, '#F57C00');
+        ctx.fillStyle = grad;
+        ctx.fill();
+        // Straw
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2 * s;
+        ctx.beginPath();
+        ctx.moveTo(3 * s, -12 * s);
+        ctx.lineTo(6 * s, -17 * s);
+        ctx.lineTo(10 * s, -15 * s);
+        ctx.stroke();
+        // Orange Slice Icon
+        ctx.beginPath();
+        ctx.arc(0, 1 * s, 5 * s, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFE082';
+        ctx.fill();
+        ctx.restore();
+    }
+    drawDonut(ctx, cx, cy, s, time) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Pastry Ring
+        ctx.beginPath();
+        ctx.arc(0, 0, 13 * s, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFB74D';
+        ctx.fill();
+        // Pink Glaze
+        ctx.beginPath();
+        ctx.arc(0, 0, 11.5 * s, 0, Math.PI * 2);
+        ctx.fillStyle = '#F06292';
+        ctx.fill();
+        // Center Hole
+        ctx.beginPath();
+        ctx.arc(0, 0, 4.5 * s, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        // Sprinkles
+        ctx.fillStyle = '#FFEB3B';
+        ctx.fillRect(-6 * s, -7 * s, 3 * s, 1.5 * s);
+        ctx.fillStyle = '#00E676';
+        ctx.fillRect(4 * s, -6 * s, 1.5 * s, 3 * s);
+        ctx.fillStyle = '#00B0FF';
+        ctx.fillRect(-7 * s, 4 * s, 3 * s, 1.5 * s);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(4 * s, 5 * s, 2.5 * s, 1.5 * s);
+        ctx.restore();
+    }
+    drawChocolate(ctx, cx, cy, s) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Chocolate Base
+        ctx.beginPath();
+        ctx.roundRect(-11 * s, -13 * s, 22 * s, 26 * s, 3 * s);
+        ctx.fillStyle = '#4E342E';
+        ctx.fill();
+        // Gold wrapper tear
+        ctx.beginPath();
+        ctx.moveTo(-11 * s, -13 * s);
+        ctx.lineTo(11 * s, -13 * s);
+        ctx.lineTo(11 * s, 3 * s);
+        ctx.lineTo(-11 * s, 7 * s);
+        ctx.closePath();
+        ctx.fillStyle = '#FFD54F';
+        ctx.fill();
+        // Grid Choco blocks
+        ctx.fillStyle = '#3E2723';
+        ctx.fillRect(-8 * s, 9 * s, 6 * s, 4 * s);
+        ctx.fillRect(2 * s, 9 * s, 6 * s, 4 * s);
+        ctx.restore();
+    }
+    drawMilk(ctx, cx, cy, s) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Glass Bottle
+        ctx.beginPath();
+        ctx.roundRect(-9 * s, -8 * s, 18 * s, 22 * s, [2, 2, 6, 6]);
+        ctx.fillStyle = '#E1F5FE';
+        ctx.fill();
+        ctx.strokeStyle = '#0288D1';
+        ctx.lineWidth = 1.2 * s;
+        ctx.stroke();
+        // Neck & Blue Cap
+        ctx.fillRect(-5 * s, -14 * s, 10 * s, 6 * s);
+        ctx.fillStyle = '#1976D2';
+        ctx.fillRect(-6 * s, -16 * s, 12 * s, 3 * s);
+        // Blue Label
+        ctx.fillStyle = '#29B6F6';
+        ctx.fillRect(-9 * s, -2 * s, 18 * s, 9 * s);
+        ctx.restore();
+    }
+    drawBurger(ctx, cx, cy, s) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Top Bun
+        ctx.beginPath();
+        ctx.arc(0, -2 * s, 12 * s, Math.PI, 0);
+        ctx.fillStyle = '#FFA726';
+        ctx.fill();
+        // Patty & Lettuce
+        ctx.fillStyle = '#2E7D32';
+        ctx.fillRect(-12 * s, -1 * s, 24 * s, 2.5 * s);
+        ctx.fillStyle = '#FFD54F'; // Cheese
+        ctx.fillRect(-11 * s, 1.5 * s, 22 * s, 2 * s);
+        ctx.fillStyle = '#5D4037'; // Meat
+        ctx.fillRect(-12 * s, 3.5 * s, 24 * s, 4 * s);
+        // Bottom Bun
+        ctx.beginPath();
+        ctx.roundRect(-12 * s, 7.5 * s, 24 * s, 5 * s, 2 * s);
+        ctx.fillStyle = '#FFA726';
+        ctx.fill();
+        // Sesame Seeds
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(-5 * s, -8 * s, 1.5 * s, 2 * s);
+        ctx.fillRect(3 * s, -7 * s, 1.5 * s, 2 * s);
+        ctx.fillRect(-1 * s, -5 * s, 1.5 * s, 2 * s);
+        ctx.restore();
+    }
+    drawApple(ctx, cx, cy, s) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Apple lobes
+        ctx.beginPath();
+        ctx.arc(-4 * s, 1 * s, 8.5 * s, 0, Math.PI * 2);
+        ctx.arc(4 * s, 1 * s, 8.5 * s, 0, Math.PI * 2);
+        const grad = ctx.createRadialGradient(-3 * s, -4 * s, 2 * s, 0, 0, 12 * s);
+        grad.addColorStop(0, '#FF5252');
+        grad.addColorStop(0.6, '#D50000');
+        grad.addColorStop(1, '#8B0000');
+        ctx.fillStyle = grad;
+        ctx.fill();
+        // Leaf & Stem
+        ctx.strokeStyle = '#4E342E';
+        ctx.lineWidth = 1.8 * s;
+        ctx.beginPath();
+        ctx.moveTo(0, -6 * s);
+        ctx.lineTo(2 * s, -13 * s);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(5 * s, -11 * s, 4 * s, 2 * s, -0.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#76FF03';
+        ctx.fill();
+        ctx.restore();
+    }
+    drawCoffee(ctx, cx, cy, s) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Cup
+        ctx.beginPath();
+        ctx.moveTo(-9 * s, -10 * s);
+        ctx.lineTo(9 * s, -10 * s);
+        ctx.lineTo(7 * s, 13 * s);
+        ctx.lineTo(-7 * s, 13 * s);
+        ctx.closePath();
+        ctx.fillStyle = '#ECEFF1';
+        ctx.fill();
+        // Sleeve
+        ctx.fillStyle = '#8D6E63';
+        ctx.fillRect(-8 * s, -3 * s, 16 * s, 8 * s);
+        // Lid
+        ctx.fillStyle = '#37474F';
+        ctx.fillRect(-10 * s, -14 * s, 20 * s, 4 * s);
+        ctx.restore();
+    }
+    drawJam(ctx, cx, cy, s) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Glass Jar
+        ctx.beginPath();
+        ctx.roundRect(-10 * s, -7 * s, 20 * s, 20 * s, 5 * s);
+        ctx.fillStyle = '#AD1457';
+        ctx.fill();
+        // Checkered Lid
+        ctx.fillStyle = '#D81B60';
+        ctx.fillRect(-11 * s, -12 * s, 22 * s, 5 * s);
+        // Label
+        ctx.fillStyle = '#FFF8E1';
+        ctx.fillRect(-7 * s, -2 * s, 14 * s, 10 * s);
+        ctx.restore();
+    }
+    drawCookies(ctx, cx, cy, s) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Cookie 1
+        ctx.beginPath();
+        ctx.arc(-2 * s, 2 * s, 11 * s, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFA000';
+        ctx.fill();
+        ctx.strokeStyle = '#FF8F00';
+        ctx.lineWidth = 1 * s;
+        ctx.stroke();
+        // Choco chips
+        ctx.fillStyle = '#3E2723';
+        ctx.beginPath();
+        ctx.arc(-6 * s, 0, 2 * s, 0, Math.PI * 2);
+        ctx.arc(1 * s, -3 * s, 1.8 * s, 0, Math.PI * 2);
+        ctx.arc(3 * s, 5 * s, 2 * s, 0, Math.PI * 2);
+        ctx.arc(-3 * s, 6 * s, 1.6 * s, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+// ============================================================================
+// Shelf Container Entity (Holds up to 3 slots)
+// ============================================================================
+class Shelf {
+    constructor(id, isBooster = false) {
+        this.x = 0;
+        this.y = 0;
+        this.width = 240;
+        this.height = 74;
+        this.slots = [null, null, null];
+        this.isHighlighted = false;
+        this.isBoosterShelf = false;
+        this.id = id;
+        this.isBoosterShelf = isBooster;
+    }
+    get isFull() {
+        return this.slots.every(slot => slot !== null);
+    }
+    get isEmpty() {
+        return this.slots.every(slot => slot === null);
+    }
+    get itemCount() {
+        return this.slots.filter(slot => slot !== null).length;
+    }
+    checkMatch3() {
+        if (this.slots[0] && this.slots[1] && this.slots[2]) {
+            if (this.slots[0].typeId === this.slots[1].typeId && this.slots[1].typeId === this.slots[2].typeId) {
+                return this.slots[0].typeId;
+            }
+        }
+        return null;
+    }
+    getSlotCenter(slotIdx) {
+        const slotW = this.width / 3;
+        return {
+            x: this.x + slotIdx * slotW + slotW / 2,
+            y: this.y + this.height / 2 - 4
+        };
+    }
+    updateSlotPositions() {
+        const itemW = 54;
+        const itemH = 54;
+        const slotW = this.width / 3;
+        for (let i = 0; i < 3; i++) {
+            const item = this.slots[i];
+            if (item) {
+                item.width = itemW;
+                item.height = itemH;
+                item.targetX = this.x + i * slotW + (slotW - itemW) / 2;
+                item.targetY = this.y + (this.height - itemH) / 2 - 5;
+                if (!item.isDragging) {
+                    // If initializing
+                    if (item.x === 0 && item.y === 0) {
+                        item.x = item.targetX;
+                        item.y = item.targetY;
+                    }
+                }
+            }
+        }
+    }
+    render(ctx, time) {
+        ctx.save();
+        const x = this.x;
+        const y = this.y;
+        const w = this.width;
+        const h = this.height;
+        const r = 14;
+        // 1. Shelf Drop Shadow
+        ctx.beginPath();
+        ctx.roundRect(x, y + 6, w, h, r);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.fill();
+        // 2. Shelf Backboard / Shadow Depth
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+        const rackGrad = ctx.createLinearGradient(x, y, x, y + h);
+        if (this.isBoosterShelf) {
+            rackGrad.addColorStop(0, '#1B5E20');
+            rackGrad.addColorStop(1, '#0A3311');
+        }
+        else {
+            rackGrad.addColorStop(0, '#2A3B50');
+            rackGrad.addColorStop(1, '#152232');
+        }
+        ctx.fillStyle = rackGrad;
+        ctx.fill();
+        // 3. Highlight Aura when target hovering
+        if (this.isHighlighted) {
+            const pulse = 0.5 + 0.5 * Math.sin(time * 8);
+            ctx.strokeStyle = `rgba(0, 230, 118, ${0.6 + 0.4 * pulse})`;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+        else {
+            ctx.strokeStyle = this.isBoosterShelf ? 'rgba(0, 230, 118, 0.5)' : 'rgba(255, 255, 255, 0.16)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+        // 4. Compartment Slot Recesses (3 Slots)
+        const slotW = w / 3;
+        for (let i = 0; i < 3; i++) {
+            const sx = x + i * slotW + 5;
+            const sy = y + 6;
+            const sw = slotW - 10;
+            const sh = h - 18;
+            ctx.beginPath();
+            ctx.roundRect(sx, sy, sw, sh, 8);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+        // 5. Wooden/Metallic Front Ledge Rail
+        ctx.beginPath();
+        ctx.roundRect(x + 2, y + h - 14, w - 4, 12, 6);
+        const ledgeGrad = ctx.createLinearGradient(x, y + h - 14, x, y + h - 2);
+        if (this.isBoosterShelf) {
+            ledgeGrad.addColorStop(0, '#00E676');
+            ledgeGrad.addColorStop(1, '#00B0FF');
+        }
+        else {
+            ledgeGrad.addColorStop(0, '#4E6A8A');
+            ledgeGrad.addColorStop(1, '#2F435C');
+        }
+        ctx.fillStyle = ledgeGrad;
+        ctx.fill();
+        // Ledge Gloss Top Edge
+        ctx.beginPath();
+        ctx.roundRect(x + 4, y + h - 14, w - 8, 2.5, 1);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.fill();
+        ctx.restore();
+    }
+}
+class ParticleSystem {
+    constructor() {
+        this.particles = [];
+        this.popups = [];
+    }
+    clear() {
+        this.particles = [];
+        this.popups = [];
+    }
+    spawnMatch3Burst(cx, cy, color) {
+        // Ring Shockwave
+        this.particles.push({
+            x: cx,
+            y: cy,
+            vx: 0,
+            vy: 0,
+            color,
+            size: 15,
+            life: 0.45,
+            maxLife: 0.45,
+            type: 'RING',
+            rot: 0,
+            vRot: 0
+        });
+        // 24 Radial Sparkles & Stars
+        for (let i = 0; i < 24; i++) {
+            const angle = (i / 24) * Math.PI * 2 + Math.random() * 0.2;
+            const speed = 120 + Math.random() * 220;
+            this.particles.push({
+                x: cx,
+                y: cy,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                color: Math.random() < 0.5 ? color : '#FFE082',
+                size: 5 + Math.random() * 6,
+                life: 0.6 + Math.random() * 0.4,
+                maxLife: 0.8,
+                type: Math.random() < 0.6 ? 'STAR' : 'SPARKLE',
+                rot: Math.random() * Math.PI * 2,
+                vRot: (Math.random() - 0.5) * 10
+            });
+        }
+        // 6 Flying Gold Coins
+        for (let i = 0; i < 6; i++) {
+            const angle = -Math.PI * 0.5 + (Math.random() - 0.5) * 1.5;
+            const speed = 160 + Math.random() * 140;
+            this.particles.push({
+                x: cx,
+                y: cy,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                color: '#FFD700',
+                size: 10,
+                life: 0.8,
+                maxLife: 0.8,
+                type: 'COIN',
+                rot: 0,
+                vRot: 6
+            });
+        }
+    }
+    spawnScorePopup(x, y, text, color = '#FFE082') {
+        this.popups.push({
+            x,
+            y,
+            text,
+            color,
+            life: 1.0,
+            maxLife: 1.0
+        });
+    }
+    spawnConfetti(width, height) {
+        const colors = ['#FF416C', '#00D2FC', '#00E676', '#FFB800', '#E040FB', '#FFFFFF'];
+        for (let i = 0; i < 50; i++) {
+            this.particles.push({
+                x: Math.random() * width,
+                y: -20 - Math.random() * 80,
+                vx: (Math.random() - 0.5) * 80,
+                vy: 120 + Math.random() * 160,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                size: 6 + Math.random() * 6,
+                life: 2.2,
+                maxLife: 2.2,
+                type: 'STAR',
+                rot: Math.random() * Math.PI * 2,
+                vRot: (Math.random() - 0.5) * 8
+            });
+        }
+    }
+    update(dt) {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.life -= dt;
+            if (p.life <= 0) {
+                this.particles.splice(i, 1);
+                continue;
+            }
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            if (p.type === 'COIN' || p.type === 'STAR') {
+                p.vy += 320 * dt; // Gravity
+            }
+            p.rot += p.vRot * dt;
+        }
+        for (let i = this.popups.length - 1; i >= 0; i--) {
+            const pop = this.popups[i];
+            pop.life -= dt;
+            pop.y -= 38 * dt; // Float upwards
+            if (pop.life <= 0) {
+                this.popups.splice(i, 1);
+            }
+        }
+    }
+    render(ctx) {
+        ctx.save();
+        // Render Particles
+        for (const p of this.particles) {
+            const alpha = Math.max(0, p.life / p.maxLife);
+            ctx.globalAlpha = alpha;
+            if (p.type === 'RING') {
+                const expand = (1.0 - p.life / p.maxLife) * 60;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size + expand, 0, Math.PI * 2);
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = 3 * alpha;
+                ctx.stroke();
+            }
+            else if (p.type === 'STAR') {
+                VectorIcons.drawStar(ctx, p.x, p.y, p.size, p.color, '#FF9100');
+            }
+            else if (p.type === 'COIN') {
+                VectorIcons.drawCoin(ctx, p.x, p.y, p.size);
+            }
+            else {
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        // Render Score Popups
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (const pop of this.popups) {
+            const alpha = Math.max(0, pop.life / pop.maxLife);
+            const scale = 1.0 + (1.0 - alpha) * 0.4;
+            ctx.globalAlpha = alpha;
+            ctx.save();
+            ctx.translate(pop.x, pop.y);
+            ctx.scale(scale, scale);
+            ctx.font = '900 18px Fredoka, Lilita One, sans-serif';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillText(pop.text, 1.5, 1.5);
+            ctx.fillStyle = pop.color;
+            ctx.fillText(pop.text, 0, 0);
+            ctx.restore();
+        }
+        ctx.restore();
+    }
+}
+
+
+  // --- ENGINE & LOGIC ---
+  "use strict";
+// ============================================================================
+// Goods Puzzle: Sort Challenge™ - Game Engine, FSM, Match-3 & Vector UI
+// ============================================================================
+class GameEngine {
+    constructor(canvas) {
+        // Viewport & Scale
+        this.width = 390;
+        this.height = 844;
+        this.dpr = 1;
+        // FSM
+        this.state = 'PLAYING';
+        this.currentLevel = 1;
+        this.score = 0;
+        this.bestScore = 0;
+        this.moves = 0;
+        this.gameTime = 0;
+        // Shelves & Items
+        this.shelves = [];
+        this.selectedItem = null;
+        this.draggedItem = null;
+        this.dragOffset = { x: 0, y: 0 };
+        this.hoveredSlot = null;
+        // Boosters & Undo
+        this.undoStack = [];
+        this.extraShelvesUsed = 0;
+        this.comboStreak = 0;
+        this.comboTimer = 0;
+        // UI Buttons
+        this.actionButtons = [];
+        this.soundButtonRect = { x: 0, y: 0, w: 38, h: 38 };
+        this.playAgainButtonRect = { x: 0, y: 0, w: 220, h: 56, pressProgress: 0 };
+        this.victoryStars = 0;
+        this.victoryStarAnims = [0, 0, 0];
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d', { alpha: false });
+        this.synth = new SoundSynth();
+        this.particles = new ParticleSystem();
+        this.loadProgress();
+        this.setupButtons();
+        this.startLevel(this.currentLevel);
+    }
+    loadProgress() {
+        try {
+            const savedLvl = localStorage.getItem('goods_sort_level');
+            const savedBest = localStorage.getItem('goods_sort_best_score');
+            if (savedLvl)
+                this.currentLevel = Math.max(1, parseInt(savedLvl, 10));
+            if (savedBest)
+                this.bestScore = parseInt(savedBest, 10);
+        }
+        catch { }
+    }
+    saveProgress() {
+        try {
+            localStorage.setItem('goods_sort_level', this.currentLevel.toString());
+            localStorage.setItem('goods_sort_best_score', Math.max(this.score, this.bestScore).toString());
+        }
+        catch { }
+    }
+    startLevel(level) {
+        this.currentLevel = level;
+        this.moves = 0;
+        this.selectedItem = null;
+        this.draggedItem = null;
+        this.undoStack = [];
+        this.extraShelvesUsed = 0;
+        this.state = 'PLAYING';
+        this.particles.clear();
+        this.victoryStarAnims = [0, 0, 0];
+        const levelData = LevelGenerator.generateLevel(level);
+        this.shelves = [];
+        for (let s = 0; s < levelData.shelfCount; s++) {
+            const shelf = new Shelf(s);
+            for (let slot = 0; slot < 3; slot++) {
+                const typeId = levelData.shelves[s][slot];
+                if (typeId !== null) {
+                    shelf.slots[slot] = new GoodsItem(typeId);
+                }
+            }
+            this.shelves.push(shelf);
+        }
+        this.layoutShelves();
+        this.setupButtons();
+        this.saveProgress();
+    }
+    restartLevel() {
+        this.synth.playButton();
+        this.startLevel(this.currentLevel);
+    }
+    nextLevel() {
+        this.synth.playButton();
+        this.startLevel(this.currentLevel + 1);
+    }
+    setSize(w, h, dpr) {
+        this.width = w;
+        this.height = h;
+        this.dpr = dpr;
+        this.layoutShelves();
+        this.setupButtons();
+    }
+    layoutShelves() {
+        if (this.shelves.length === 0)
+            return;
+        const count = this.shelves.length;
+        const hudHeight = 90;
+        const bottomNavHeight = 110;
+        const availW = this.width - 32;
+        const availH = this.height - hudHeight - bottomNavHeight;
+        const shelfW = Math.min(320, availW);
+        const shelfH = Math.min(68, (availH - (count - 1) * 12) / count);
+        const totalGridH = count * shelfH + (count - 1) * 10;
+        const startY = hudHeight + (availH - totalGridH) / 2 + 5;
+        const startX = (this.width - shelfW) / 2;
+        for (let i = 0; i < count; i++) {
+            const shelf = this.shelves[i];
+            shelf.width = shelfW;
+            shelf.height = shelfH;
+            shelf.x = startX;
+            shelf.y = startY + i * (shelfH + 10);
+            shelf.updateSlotPositions();
+        }
+    }
+    setupButtons() {
+        const bottomY = this.height - 76;
+        const btnW = Math.min(84, (this.width - 48) / 4);
+        const btnH = 54;
+        const spacing = (this.width - 32 - btnW * 4) / 3;
+        const startX = 16;
+        this.actionButtons = [
+            {
+                id: 'undo',
+                label: 'UNDO',
+                x: startX,
+                y: bottomY,
+                w: btnW,
+                h: btnH,
+                bgGrad: ['#4CC9F0', '#4361EE'],
+                shadowColor: '#2B3A8C',
+                pressProgress: 0,
+                disabled: this.undoStack.length === 0,
+                iconType: 'UNDO'
+            },
+            {
+                id: 'shuffle',
+                label: 'SHUFFLE',
+                x: startX + (btnW + spacing) * 1,
+                y: bottomY,
+                w: btnW,
+                h: btnH,
+                bgGrad: ['#FF9A8B', '#FF6B6B'],
+                shadowColor: '#B71C1C',
+                pressProgress: 0,
+                disabled: false,
+                iconType: 'SHUFFLE'
+            },
+            {
+                id: 'add_shelf',
+                label: '+SHELF',
+                x: startX + (btnW + spacing) * 2,
+                y: bottomY,
+                w: btnW,
+                h: btnH,
+                bgGrad: ['#00E676', '#00B0FF'],
+                shadowColor: '#00695C',
+                pressProgress: 0,
+                disabled: this.extraShelvesUsed >= 2 || this.shelves.length >= 10,
+                badgeText: 'FREE',
+                iconType: 'ADD_SHELF'
+            },
+            {
+                id: 'hint',
+                label: 'HINT',
+                x: startX + (btnW + spacing) * 3,
+                y: bottomY,
+                w: btnW,
+                h: btnH,
+                bgGrad: ['#FFDE59', '#FF9100'],
+                shadowColor: '#B26A00',
+                pressProgress: 0,
+                disabled: false,
+                iconType: 'HINT'
+            }
+        ];
+        this.soundButtonRect = {
+            x: this.width - 50,
+            y: 20,
+            w: 36,
+            h: 36
+        };
+        this.playAgainButtonRect = {
+            x: (this.width - 220) / 2,
+            y: this.height * 0.65,
+            w: 220,
+            h: 56,
+            pressProgress: 0
+        };
+    }
+    // ==========================================================================
+    // Interactions & Match-3 Logic
+    // ==========================================================================
+    onPointerDown(clientX, clientY) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = (clientX - rect.left) * (this.width / rect.width);
+        const y = (clientY - rect.top) * (this.height / rect.height);
+        this.synth.init();
+        // Sound toggle
+        const snd = this.soundButtonRect;
+        if (x >= snd.x && x <= snd.x + snd.w && y >= snd.y && y <= snd.y + snd.h) {
+            this.synth.toggleMute();
+            this.synth.playButton();
+            return;
+        }
+        // Victory button
+        if (this.state === 'VICTORY') {
+            const btn = this.playAgainButtonRect;
+            if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
+                btn.pressProgress = 1.0;
+                this.nextLevel();
+            }
+            return;
+        }
+        if (this.state !== 'PLAYING')
+            return;
+        // Action buttons
+        for (const btn of this.actionButtons) {
+            if (!btn.disabled && x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
+                btn.pressProgress = 1.0;
+                if (btn.id === 'undo')
+                    this.undo();
+                else if (btn.id === 'shuffle')
+                    this.shuffleActiveItems();
+                else if (btn.id === 'add_shelf')
+                    this.addExtraShelf();
+                else if (btn.id === 'hint')
+                    this.triggerHint();
+                return;
+            }
+        }
+        // Check click on items/shelves
+        this.clearHints();
+        const clicked = this.findSlotAt(x, y);
+        if (clicked) {
+            const { shelfIdx, slotIdx } = clicked;
+            const shelf = this.shelves[shelfIdx];
+            const item = shelf.slots[slotIdx];
+            if (this.selectedItem) {
+                // Second tap: Move/Swap
+                if (this.selectedItem.shelfIdx === shelfIdx && this.selectedItem.slotIdx === slotIdx) {
+                    // Deselect
+                    this.selectedItem.item.isSelected = false;
+                    this.selectedItem = null;
+                    this.synth.playTap();
+                }
+                else {
+                    // Perform swap/move
+                    this.performMove(this.selectedItem.shelfIdx, this.selectedItem.slotIdx, shelfIdx, slotIdx);
+                }
+            }
+            else {
+                if (item) {
+                    // First tap / start drag
+                    this.draggedItem = { shelfIdx, slotIdx, item };
+                    this.dragOffset = { x: x - item.x, y: y - item.y };
+                    item.isDragging = true;
+                    this.synth.playTap();
+                }
+            }
+        }
+    }
+    onPointerMove(clientX, clientY) {
+        if (!this.draggedItem)
+            return;
+        const rect = this.canvas.getBoundingClientRect();
+        const x = (clientX - rect.left) * (this.width / rect.width);
+        const y = (clientY - rect.top) * (this.height / rect.height);
+        this.draggedItem.item.x = x - this.dragOffset.x;
+        this.draggedItem.item.y = y - this.dragOffset.y;
+        // Check shelf slot highlight
+        const hover = this.findSlotAt(x, y);
+        for (const s of this.shelves)
+            s.isHighlighted = false;
+        if (hover) {
+            this.hoveredSlot = hover;
+            this.shelves[hover.shelfIdx].isHighlighted = true;
+        }
+        else {
+            this.hoveredSlot = null;
+        }
+    }
+    onPointerUp(clientX, clientY) {
+        if (this.draggedItem) {
+            const { shelfIdx: fromS, slotIdx: fromSlot, item } = this.draggedItem;
+            item.isDragging = false;
+            for (const s of this.shelves)
+                s.isHighlighted = false;
+            if (this.hoveredSlot) {
+                const { shelfIdx: toS, slotIdx: toSlot } = this.hoveredSlot;
+                if (fromS !== toS || fromSlot !== toSlot) {
+                    this.performMove(fromS, fromSlot, toS, toSlot);
+                }
+                else {
+                    // Clicked in place: treat as selection
+                    item.isSelected = true;
+                    this.selectedItem = { shelfIdx: fromS, slotIdx: fromSlot, item };
+                }
+            }
+            else {
+                // Dragged outside: snap back
+                this.shelves[fromS].updateSlotPositions();
+            }
+            this.draggedItem = null;
+            this.hoveredSlot = null;
+        }
+        for (const btn of this.actionButtons) {
+            btn.pressProgress = 0;
+        }
+        this.playAgainButtonRect.pressProgress = 0;
+    }
+    findSlotAt(x, y) {
+        for (let s = 0; s < this.shelves.length; s++) {
+            const shelf = this.shelves[s];
+            if (x >= shelf.x && x <= shelf.x + shelf.width && y >= shelf.y && y <= shelf.y + shelf.height) {
+                const slotW = shelf.width / 3;
+                const slotIdx = Math.min(2, Math.max(0, Math.floor((x - shelf.x) / slotW)));
+                return { shelfIdx: s, slotIdx };
+            }
+        }
+        return null;
+    }
+    performMove(fromS, fromSlot, toS, toSlot) {
+        this.pushUndoSnapshot();
+        const fromShelf = this.shelves[fromS];
+        const toShelf = this.shelves[toS];
+        const sourceItem = fromShelf.slots[fromSlot];
+        const destItem = toShelf.slots[toSlot];
+        fromShelf.slots[fromSlot] = destItem;
+        toShelf.slots[toSlot] = sourceItem;
+        if (sourceItem)
+            sourceItem.isSelected = false;
+        if (destItem)
+            destItem.isSelected = false;
+        this.selectedItem = null;
+        fromShelf.updateSlotPositions();
+        toShelf.updateSlotPositions();
+        this.moves++;
+        this.synth.playSlide();
+        // Check for Match-3 on affected shelves
+        this.evaluateMatches();
+        this.setupButtons();
+    }
+    evaluateMatches() {
+        let matchedAny = false;
+        for (let s = 0; s < this.shelves.length; s++) {
+            const shelf = this.shelves[s];
+            const matchType = shelf.checkMatch3();
+            if (matchType !== null) {
+                matchedAny = true;
+                this.state = 'MATCHING';
+                const itemDef = GOODS_CATALOG[matchType % GOODS_CATALOG.length];
+                const shelfCenter = shelf.getSlotCenter(1);
+                // Animate match popping on the 3 items
+                shelf.slots.forEach(item => {
+                    if (item)
+                        item.isMatching = true;
+                });
+                this.comboStreak++;
+                this.comboTimer = 4.0;
+                const baseScore = 300;
+                const bonusScore = baseScore * Math.max(1, this.comboStreak);
+                this.score += bonusScore;
+                this.synth.playMatch3();
+                if (this.comboStreak > 1) {
+                    this.synth.playCombo(this.comboStreak);
+                }
+                this.particles.spawnMatch3Burst(shelfCenter.x, shelfCenter.y, itemDef.primaryColor);
+                const comboMsg = this.comboStreak > 1 ? `COMBO x${this.comboStreak}! +${bonusScore}` : `PERFECT MATCH! +${bonusScore}`;
+                this.particles.spawnScorePopup(shelfCenter.x, shelfCenter.y - 20, comboMsg, itemDef.primaryColor);
+                setTimeout(() => {
+                    shelf.slots = [null, null, null];
+                    this.checkWinCondition();
+                }, 320);
+            }
+        }
+        if (!matchedAny && this.state === 'MATCHING') {
+            this.state = 'PLAYING';
+        }
+    }
+    checkWinCondition() {
+        // Win if all shelves are completely cleared
+        const allCleared = this.shelves.every(s => s.isEmpty);
+        if (allCleared) {
+            this.triggerVictory();
+        }
+        else {
+            this.state = 'PLAYING';
+        }
+    }
+    triggerVictory() {
+        this.state = 'VICTORY';
+        this.victoryStars = this.moves <= this.currentLevel * 4 + 4 ? 3 : (this.moves <= this.currentLevel * 6 + 6 ? 2 : 1);
+        this.synth.playWinFanfare();
+        this.particles.spawnConfetti(this.width, this.height);
+        this.saveProgress();
+    }
+    pushUndoSnapshot() {
+        this.undoStack.push({
+            shelves: this.shelves.map(s => s.slots.map(item => item ? item.typeId : null)),
+            score: this.score,
+            moves: this.moves
+        });
+        if (this.undoStack.length > 15)
+            this.undoStack.shift();
+    }
+    undo() {
+        if (this.state !== 'PLAYING' || this.undoStack.length === 0)
+            return;
+        const snap = this.undoStack.pop();
+        this.shelves.forEach((s, sIdx) => {
+            s.slots = snap.shelves[sIdx].map(typeId => typeId !== null ? new GoodsItem(typeId) : null);
+            s.updateSlotPositions();
+        });
+        this.score = snap.score;
+        this.moves = snap.moves;
+        this.selectedItem = null;
+        this.clearHints();
+        this.synth.playButton();
+        this.particles.spawnScorePopup(this.width / 2, this.height * 0.5, 'UNDO', '#4CC9F0');
+        this.setupButtons();
+    }
+    shuffleActiveItems() {
+        if (this.state !== 'PLAYING')
+            return;
+        this.pushUndoSnapshot();
+        const activeItems = [];
+        this.shelves.forEach(s => {
+            s.slots.forEach(item => {
+                if (item)
+                    activeItems.push(item.typeId);
+            });
+        });
+        if (activeItems.length === 0)
+            return;
+        // Shuffle
+        for (let i = activeItems.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [activeItems[i], activeItems[j]] = [activeItems[j], activeItems[i]];
+        }
+        let ptr = 0;
+        this.shelves.forEach(s => {
+            for (let slot = 0; slot < 3; slot++) {
+                if (s.slots[slot] !== null) {
+                    s.slots[slot] = new GoodsItem(activeItems[ptr++]);
+                }
+            }
+            s.updateSlotPositions();
+        });
+        this.synth.playBooster();
+        this.particles.spawnScorePopup(this.width / 2, this.height * 0.5, 'SHUFFLE!', '#FF9A8B');
+        this.evaluateMatches();
+        this.setupButtons();
+    }
+    addExtraShelf() {
+        if (this.state !== 'PLAYING' || this.extraShelvesUsed >= 2 || this.shelves.length >= 10)
+            return;
+        this.extraShelvesUsed++;
+        const newShelf = new Shelf(this.shelves.length, true);
+        this.shelves.push(newShelf);
+        this.layoutShelves();
+        this.synth.playBooster();
+        this.particles.spawnScorePopup(this.width / 2, this.height * 0.45, '+1 SHELF!', '#00E676');
+        this.setupButtons();
+    }
+    triggerHint() {
+        if (this.state !== 'PLAYING')
+            return;
+        const rawShelves = this.shelves.map(s => s.slots.map(item => item ? item.typeId : null));
+        const hint = LevelGenerator.findHint(rawShelves);
+        if (hint) {
+            const item = this.shelves[hint.fromShelf].slots[hint.fromSlot];
+            if (item)
+                item.isHint = true;
+            this.shelves[hint.toShelf].isHighlighted = true;
+            this.synth.playBooster();
+            this.particles.spawnScorePopup(this.width / 2, this.height * 0.5, 'HINT!', '#FFDE59');
+        }
+    }
+    clearHints() {
+        this.shelves.forEach(s => {
+            s.isHighlighted = false;
+            s.slots.forEach(item => {
+                if (item)
+                    item.isHint = false;
+            });
+        });
+    }
+    // ==========================================================================
+    // Update & Render Loop
+    // ==========================================================================
+    update(dt) {
+        this.gameTime += dt;
+        if (this.comboTimer > 0) {
+            this.comboTimer -= dt;
+            if (this.comboTimer <= 0)
+                this.comboStreak = 0;
+        }
+        for (const shelf of this.shelves) {
+            for (const item of shelf.slots) {
+                if (item)
+                    item.update(dt);
+            }
+        }
+        if (this.state === 'VICTORY') {
+            for (let s = 0; s < 3; s++) {
+                if (s < this.victoryStars) {
+                    this.victoryStarAnims[s] = Math.min(1.0, this.victoryStarAnims[s] + dt * 3.5);
+                }
+            }
+        }
+        this.particles.update(dt);
+    }
+    render() {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        // 1. Supermarket Ambient Background
+        this.renderBackground(ctx);
+        // 2. Shelves
+        for (const shelf of this.shelves) {
+            shelf.render(ctx, this.gameTime);
+        }
+        // 3. Goods Items (Non-dragging first)
+        for (const shelf of this.shelves) {
+            for (const item of shelf.slots) {
+                if (item && !item.isDragging) {
+                    item.render(ctx, this.gameTime);
+                }
+            }
+        }
+        // 4. Render Dragged Item on top
+        if (this.draggedItem) {
+            this.draggedItem.item.render(ctx, this.gameTime);
+        }
+        // 5. Particles
+        this.particles.render(ctx);
+        // 6. Top Stadium Capsule HUD
+        this.renderTopHUD(ctx);
+        // 7. Bottom Action Buttons
+        if (this.state === 'PLAYING' || this.state === 'MATCHING') {
+            this.renderActionButtons(ctx);
+        }
+        // 8. Victory Celebration Modal
+        if (this.state === 'VICTORY') {
+            this.renderVictoryModal(ctx);
+        }
+        ctx.restore();
+    }
+    renderBackground(ctx) {
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, this.height);
+        bgGrad.addColorStop(0, '#1E293B');
+        bgGrad.addColorStop(0.5, '#0F172A');
+        bgGrad.addColorStop(1, '#080E1A');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, this.width, this.height);
+        // Supermarket Warm Lighting Orbs
+        ctx.save();
+        const glow1 = ctx.createRadialGradient(this.width * 0.25, this.height * 0.2, 10, this.width * 0.25, this.height * 0.2, 200);
+        glow1.addColorStop(0, 'rgba(0, 210, 252, 0.08)');
+        glow1.addColorStop(1, 'rgba(0, 210, 252, 0)');
+        ctx.fillStyle = glow1;
+        ctx.fillRect(0, 0, this.width, this.height);
+        const glow2 = ctx.createRadialGradient(this.width * 0.8, this.height * 0.7, 10, this.width * 0.8, this.height * 0.7, 220);
+        glow2.addColorStop(0, 'rgba(255, 184, 0, 0.06)');
+        glow2.addColorStop(1, 'rgba(255, 184, 0, 0)');
+        ctx.fillStyle = glow2;
+        ctx.fillRect(0, 0, this.width, this.height);
+        ctx.restore();
+    }
+    renderTopHUD(ctx) {
+        const hudW = Math.min(360, this.width - 24);
+        const hudH = 58;
+        const hudX = (this.width - hudW) / 2;
+        const hudY = 16;
+        const r = 24;
+        ctx.save();
+        // 1. Drop Shadow
+        ctx.beginPath();
+        ctx.roundRect(hudX, hudY + 4, hudW, hudH, r);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+        ctx.fill();
+        // 2. Glassmorphic Capsule Body
+        ctx.beginPath();
+        ctx.roundRect(hudX, hudY, hudW, hudH, r);
+        const hudGrad = ctx.createLinearGradient(hudX, hudY, hudX, hudY + hudH);
+        hudGrad.addColorStop(0, 'rgba(30, 41, 59, 0.9)');
+        hudGrad.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
+        ctx.fillStyle = hudGrad;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // 3. Gloss Top Sheen
+        ctx.beginPath();
+        ctx.roundRect(hudX + 8, hudY + 3, hudW - 16, hudH * 0.44, [16, 16, 4, 4]);
+        const glossGrad = ctx.createLinearGradient(0, hudY + 3, 0, hudY + hudH * 0.44);
+        glossGrad.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+        glossGrad.addColorStop(1, 'rgba(255, 255, 255, 0.01)');
+        ctx.fillStyle = glossGrad;
+        ctx.fill();
+        // 4. Wave-Animated Bubble Title: "GOODS SORT"
+        const title = 'GOODS SORT';
+        ctx.font = '900 17px Fredoka, Lilita One, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        let curX = hudX + 16;
+        for (let i = 0; i < title.length; i++) {
+            const char = title[i];
+            const waveY = Math.sin(this.gameTime * 4.2 + i * 0.55) * 2.2;
+            const charW = ctx.measureText(char).width;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillText(char, curX + 1, hudY + 22 + waveY + 1);
+            ctx.fillStyle = i < 5 ? '#FFE082' : '#00E676';
+            ctx.fillText(char, curX, hudY + 22 + waveY);
+            curX += charW;
+        }
+        // Subtitle
+        ctx.font = '800 12px Fredoka, Nunito, sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.fillText(`LEVEL ${this.currentLevel} • MOVES: ${this.moves}`, hudX + 16, hudY + 42);
+        // 5. Coin Score Badge on Right
+        const scoreText = this.score.toLocaleString();
+        ctx.font = '900 16px Fredoka, Lilita One, sans-serif';
+        ctx.textAlign = 'right';
+        const textW = ctx.measureText(scoreText).width;
+        const coinBadgeW = textW + 36;
+        const coinBadgeH = 28;
+        const coinBadgeX = hudX + hudW - coinBadgeW - 48;
+        const coinBadgeY = hudY + 15;
+        ctx.beginPath();
+        ctx.roundRect(coinBadgeX, coinBadgeY, coinBadgeW, coinBadgeH, 14);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        VectorIcons.drawCoin(ctx, coinBadgeX + 14, coinBadgeY + coinBadgeH / 2, 8);
+        ctx.fillStyle = '#FFE082';
+        ctx.fillText(scoreText, coinBadgeX + coinBadgeW - 8, coinBadgeY + coinBadgeH / 2 + 1);
+        // 6. Sound Toggle Button
+        const snd = this.soundButtonRect;
+        ctx.beginPath();
+        ctx.arc(snd.x + snd.w / 2, snd.y + snd.h / 2, snd.w / 2, 0, Math.PI * 2);
+        ctx.fillStyle = this.synth.muted ? '#E53935' : '#00E676';
+        ctx.fill();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.font = '900 13px Fredoka, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(this.synth.muted ? 'OFF' : 'ON', snd.x + snd.w / 2, snd.y + snd.h / 2 + 1);
+        // 7. Combo Streak Banner
+        if (this.comboStreak > 1) {
+            const comboText = `🔥 x${this.comboStreak} COMBO!`;
+            ctx.font = '900 13px Fredoka, Lilita One, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#FF9100';
+            ctx.fillText(comboText, hudX + hudW / 2, hudY + hudH + 16);
+        }
+        ctx.restore();
+    }
+    renderActionButtons(ctx) {
+        for (const btn of this.actionButtons) {
+            ctx.save();
+            const squish = btn.pressProgress * 3;
+            const bx = btn.x;
+            const by = btn.y + squish;
+            const bw = btn.w;
+            const bh = btn.h - squish;
+            const r = 16;
+            // 1. 3D Shadow Cushion
+            ctx.beginPath();
+            ctx.roundRect(bx, by + 5, bw, bh, r);
+            ctx.fillStyle = btn.disabled ? '#1C2530' : btn.shadowColor;
+            ctx.fill();
+            // 2. Button Body Gradient
+            ctx.beginPath();
+            ctx.roundRect(bx, by, bw, bh, r);
+            const grad = ctx.createLinearGradient(bx, by, bx, by + bh);
+            if (btn.disabled) {
+                grad.addColorStop(0, '#37474F');
+                grad.addColorStop(1, '#263238');
+            }
+            else {
+                grad.addColorStop(0, btn.bgGrad[0]);
+                grad.addColorStop(1, btn.bgGrad[1]);
+            }
+            ctx.fillStyle = grad;
+            ctx.fill();
+            ctx.strokeStyle = btn.disabled ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.45)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            // 3. Upper Specular Highlight
+            ctx.beginPath();
+            ctx.roundRect(bx + 4, by + 2, bw - 8, bh * 0.42, [12, 12, 4, 4]);
+            const highGrad = ctx.createLinearGradient(0, by + 2, 0, by + bh * 0.42);
+            highGrad.addColorStop(0, 'rgba(255, 255, 255, 0.42)');
+            highGrad.addColorStop(1, 'rgba(255, 255, 255, 0.02)');
+            ctx.fillStyle = highGrad;
+            ctx.fill();
+            // 4. Custom Vector Icon
+            const iconColor = btn.disabled ? 'rgba(255, 255, 255, 0.4)' : '#FFFFFF';
+            const iconY = by + bh * 0.38;
+            const iconSize = 20;
+            if (btn.iconType === 'UNDO')
+                VectorIcons.drawUndo(ctx, bx + bw / 2, iconY, iconSize, iconColor);
+            else if (btn.iconType === 'SHUFFLE')
+                VectorIcons.drawShuffle(ctx, bx + bw / 2, iconY, iconSize, iconColor);
+            else if (btn.iconType === 'ADD_SHELF')
+                VectorIcons.drawAddShelf(ctx, bx + bw / 2, iconY, iconSize, iconColor);
+            else if (btn.iconType === 'HINT')
+                VectorIcons.drawBulb(ctx, bx + bw / 2, iconY, iconSize, iconColor);
+            // 5. Button Label
+            ctx.font = '900 11px Fredoka, Lilita One, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillText(btn.label, bx + bw / 2 + 0.5, by + bh - 10 + 0.5);
+            ctx.fillStyle = btn.disabled ? 'rgba(255, 255, 255, 0.4)' : '#FFFFFF';
+            ctx.fillText(btn.label, bx + bw / 2, by + bh - 10);
+            // 6. Free Badge
+            if (btn.badgeText && !btn.disabled) {
+                const badgeW = 32;
+                const badgeH = 15;
+                const badgeX = bx + bw - badgeW + 4;
+                const badgeY = by - 5;
+                ctx.beginPath();
+                ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 7);
+                ctx.fillStyle = '#FF416C';
+                ctx.fill();
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.font = '900 9px Fredoka, sans-serif';
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillText(btn.badgeText, badgeX + badgeW / 2, badgeY + badgeH / 2 + 1);
+            }
+            ctx.restore();
+        }
+    }
+    renderVictoryModal(ctx) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(4, 14, 24, 0.78)';
+        ctx.fillRect(0, 0, this.width, this.height);
+        const cardW = Math.min(340, this.width - 40);
+        const cardH = 370;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2 - 10;
+        const r = 28;
+        // Card Drop Shadow
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY + 8, cardW, cardH, r);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fill();
+        // Card Body
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, r);
+        const cardGrad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
+        cardGrad.addColorStop(0, '#1E293B');
+        cardGrad.addColorStop(1, '#0F172A');
+        ctx.fillStyle = cardGrad;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0, 230, 118, 0.6)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        // Title
+        ctx.font = '900 24px Fredoka, Lilita One, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#FFE082';
+        ctx.fillText('LEVEL COMPLETED!', this.width / 2, cardY + 45);
+        ctx.font = '700 14px Fredoka, Nunito, sans-serif';
+        ctx.fillStyle = '#80EAFF';
+        ctx.fillText(`Level ${this.currentLevel} Sorted!`, this.width / 2, cardY + 74);
+        // 3 Stars
+        const starSpacing = 58;
+        const startStarX = this.width / 2 - starSpacing;
+        const starY = cardY + 130;
+        for (let s = 0; s < 3; s++) {
+            const anim = this.victoryStarAnims[s];
+            const sx = startStarX + s * starSpacing;
+            const sy = s === 1 ? starY - 10 : starY;
+            if (anim > 0) {
+                const starScale = 1.0 + (1.0 - anim) * 0.8;
+                ctx.save();
+                ctx.translate(sx, sy);
+                ctx.scale(starScale, starScale);
+                VectorIcons.drawStar(ctx, 0, 0, 22, '#FFD700', '#FF9100');
+                ctx.restore();
+            }
+            else {
+                VectorIcons.drawStar(ctx, sx, sy, 20, '#37474F', '#263238');
+            }
+        }
+        // Stats Box
+        const boxW = cardW - 48;
+        const boxH = 68;
+        const boxX = (this.width - boxW) / 2;
+        const boxY = cardY + 185;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, 16);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.font = '800 14px Fredoka, Nunito, sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.fillText(`Moves Used: ${this.moves}`, boxX + boxW * 0.3, boxY + 24);
+        ctx.fillText(`Total Score: ${this.score.toLocaleString()}`, boxX + boxW * 0.3, boxY + 46);
+        // Next Level Button
+        const btn = this.playAgainButtonRect;
+        btn.x = (this.width - btn.w) / 2;
+        btn.y = cardY + cardH - 74;
+        const btnSquish = btn.pressProgress * 3;
+        const bbx = btn.x;
+        const bby = btn.y + btnSquish;
+        const bbw = btn.w;
+        const bbh = btn.h - btnSquish;
+        ctx.beginPath();
+        ctx.roundRect(bbx, bby + 5, bbw, bbh, 20);
+        ctx.fillStyle = '#00701A';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.roundRect(bbx, bby, bbw, bbh, 20);
+        const btnGrad = ctx.createLinearGradient(bbx, bby, bbx, bby + bbh);
+        btnGrad.addColorStop(0, '#00E676');
+        btnGrad.addColorStop(1, '#00B0FF');
+        ctx.fillStyle = btnGrad;
+        ctx.fill();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.font = '900 19px Fredoka, Lilita One, sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('NEXT LEVEL →', bbx + bbw / 2, bby + bbh / 2);
+        ctx.restore();
+    }
+}
+
+
+  // --- MAIN ENTRY ---
+  "use strict";
+// ============================================================================
+// Goods Puzzle: Sort Challenge™ - Main Entry Point & Event Wiring
+// ============================================================================
+window.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('game-canvas');
+    if (!canvas)
+        return;
+    const engine = new GameEngine(canvas);
+    function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const vp = window.visualViewport;
+        const w = vp ? vp.width : window.innerWidth;
+        const h = vp ? vp.height : window.innerHeight;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+        engine.setSize(w, h, dpr);
+    }
+    window.addEventListener('resize', resize);
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', resize);
+        window.visualViewport.addEventListener('scroll', resize);
+    }
+    resize();
+    // Pointer & Touch Events
+    canvas.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        engine.onPointerDown(e.clientX, e.clientY);
+    });
+    window.addEventListener('pointermove', (e) => {
+        engine.onPointerMove(e.clientX, e.clientY);
+    });
+    window.addEventListener('pointerup', (e) => {
+        engine.onPointerUp(e.clientX, e.clientY);
+    });
+    window.addEventListener('pointercancel', (e) => {
+        engine.onPointerUp(e.clientX, e.clientY);
+    });
+    // Game Loop
+    let lastTime = performance.now();
+    function loop(currentTime) {
+        const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+        lastTime = currentTime;
+        engine.update(dt);
+        engine.render();
+        requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+});
+
+})();
+
+  </script>
+</body>
+</html>

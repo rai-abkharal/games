@@ -1,0 +1,24 @@
+{
+  "id": "save-the-doges",
+  "title": "Save The Doges",
+  "version": "1.0.0",
+  "sdkVersion": 1,
+  "entry": "index.html",
+  "orientation": "portrait",
+  "controls": [
+    "TAP"
+  ],
+  "sizeBytes": 146104,
+  "sha256": "0de3ae0461d35c066f6a25b55c44e5bc93b777a24e5eeeacc6b720c380c81291",
+  "ageRating": "everyone",
+  "minAppVersion": "1.0.0",
+  "hasReward": false,
+  "thumbnail": "save-the-doges.svg",
+  "tags": [
+    "puzzle",
+    "hypercasual",
+    "casual",
+    "arcade"
+  ],
+  "description": "Draw ink shields to keep the pups safe from the swarm across fifty levels."
+}

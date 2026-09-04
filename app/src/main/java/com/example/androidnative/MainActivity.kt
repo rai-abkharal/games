@@ -32,6 +32,7 @@ import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -57,6 +58,8 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     private var currentTab = FeedTab.ALL
     private var fullGameList: List<GameItem> = emptyList()
     private var displayedGameList: List<GameItem> = emptyList()
+    private var catalogRefreshJob: Job? = null
+    private var lastCatalogRefreshAtMs = 0L
 
     // Ads State & Remote Configuration
     private var adView: AdView? = null
@@ -228,7 +231,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         }
     }
 
-    private fun filterGamesByTab(tab: FeedTab) {
+    private fun filterGamesByTab(tab: FeedTab, preferredGameId: String? = null) {
         currentTab = tab
         updateNavTabVisuals()
 
@@ -246,8 +249,12 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
         adapter.setGames(displayedGameList)
         if (displayedGameList.isNotEmpty()) {
-            binding.viewPager.setCurrentItem(0, false)
-            updateTopBarForGame(0)
+            val targetPosition = preferredGameId
+                ?.let { id -> displayedGameList.indexOfFirst { it.id == id } }
+                ?.takeIf { it >= 0 }
+                ?: 0
+            binding.viewPager.setCurrentItem(targetPosition, false)
+            updateTopBarForGame(targetPosition)
         }
     }
 
@@ -316,13 +323,22 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         }
 
         // 2. Background Live Server Fetch (Updates catalog and syncs any new/updated games)
-        lifecycleScope.launch {
+        refreshCatalogFromServer(force = true)
+    }
+
+    private fun refreshCatalogFromServer(force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastCatalogRefreshAtMs < 30_000L) return
+        if (catalogRefreshJob?.isActive == true) return
+
+        lastCatalogRefreshAtMs = now
+        catalogRefreshJob = lifecycleScope.launch {
+            val currentGameId = adapter.getGame(binding.viewPager.currentItem)?.id
             val liveCatalog = repository.fetchCatalog()
             binding.progressBar.visibility = View.GONE
-            if (liveCatalog.isNotEmpty()) {
+            if (liveCatalog.isNotEmpty() && liveCatalog != fullGameList) {
                 fullGameList = liveCatalog
-                filterGamesByTab(currentTab)
-                updateTopBarForGame(binding.viewPager.currentItem)
+                filterGamesByTab(currentTab, currentGameId)
             }
         }
     }
@@ -540,6 +556,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         adapter.setSoundMuted(isMuted)
         adapter.resumeCurrent()
         updateCoinsDisplay()
+        refreshCatalogFromServer()
     }
 
     override fun onDestroy() {

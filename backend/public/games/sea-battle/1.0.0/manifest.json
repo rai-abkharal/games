@@ -1,0 +1,32 @@
+{
+  "id": "sea-battle",
+  "gameId": "sea-battle",
+  "name": "Sea Battle - Naval War",
+  "title": "Sea Battle - Naval War",
+  "slug": "sea-battle",
+  "version": "1.0.0",
+  "type": "hyper-casual",
+  "orientation": "portrait",
+  "targetFrameRate": 60,
+  "dimensions": {
+    "width": 390,
+    "height": 844
+  },
+  "entry": "index.html",
+  "sizeBytes": 183644,
+  "sha256": "e13b48588c94428d5c9eab6abeee5cfd620ec1768a01eab921a1c92b080a8129",
+  "author": "Antigravity Game Studios",
+  "description": "Sea Battle (Battleship Strategy Game) - Turn-based naval tactical battle game featuring 5 distinct warships, split-screen dual grid views, 3D rotating cannon turret, animated projectile trajectories, and intelligent AI modes (Easy, Medium, Hard).",
+  "categories": [
+    "strategy",
+    "board",
+    "turn-based",
+    "arcade"
+  ],
+  "features": [
+    "offline-capable",
+    "touch-support",
+    "procedural-audio",
+    "responsive"
+  ]
+}

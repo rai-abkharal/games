@@ -1,0 +1,2169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#eff0fd" />
+<meta name="description" content="Rope Untangle - 3D Puzzle — untangle the ropes, free them all." />
+<title>Rope Untangle - 3D Puzzle</title>
+<meta name="application-name" content="Rope Untangle - 3D Puzzle" />
+<meta name="apple-mobile-web-app-title" content="Rope Untangle" />
+<meta name="game-title" content="Rope Untangle - 3D Puzzle" />
+<meta name="game-id" content="rope-untangle" />
+<style>
+  :root {
+    --bg: #eff0fd;
+    --ink: #3d4062;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: radial-gradient(120% 80% at 50% 18%, #f6f7ff 0%, var(--bg) 62%, #e3e5fa 100%);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    user-select: none; -webkit-user-select: none;
+    touch-action: none; overscroll-behavior: none;
+  }
+  /* #stage fills the viewport and the runtime fits the 3:5 canvas inside it.
+     Do NOT give #stage an aspect-ratio with auto width/height — it then sizes
+     itself from the canvas while the canvas sizes itself from #stage, and the
+     pair settles at something tiny. */
+  #app { height: 100%; width: 100%; display: block; overflow: hidden; }
+  #stage {
+    width: 100%; height: 100%;
+    display: grid; place-items: center;
+    overflow: hidden;
+  }
+  #stage canvas { display: block; touch-action: none; }
+</style>
+</head>
+<body>
+  <div id="app"><div id="stage" aria-label="game canvas"><canvas id="gameCanvas"></canvas></div></div>
+  <script>
+/* ============================================================================
+ * shim.ts — a small Canvas 2D runtime that implements the slice of the Phaser 3
+ * API this game actually uses: Scene, Graphics, Text, pointer/keyboard input,
+ * a scaled canvas and the frame loop.
+ *
+ * It installs itself ONLY when `Phaser` is not already on the page. Load the
+ * real Phaser (dev.html does, from a CDN, and build-single.mjs inlines it when
+ * node_modules/phaser is present) and this file steps aside completely.
+ *
+ * Why it exists: the shipped index.html has to run from a double-click with no
+ * network and no server. Without a vendored Phaser that is impossible, so this
+ * is the floor the file falls back to. Same game, same rendering code.
+ * ==========================================================================*/
+class ShimGraphics {
+    constructor() {
+        this.cmds = [];
+        this.depth = 0;
+        this.__order = 0;
+        this.isGraphics = true;
+    }
+    setDepth(d) { this.depth = d; return this; }
+    clear() { this.cmds.length = 0; return this; }
+    fillStyle(c, a) { this.cmds.push(['fs', c, a === undefined ? 1 : a]); return this; }
+    lineStyle(w, c, a) { this.cmds.push(['ls', w, c, a === undefined ? 1 : a]); return this; }
+    fillRect(x, y, w, h) { this.cmds.push(['rect', x, y, w, h]); return this; }
+    fillCircle(x, y, r) { this.cmds.push(['circ', x, y, r]); return this; }
+    strokeCircle(x, y, r) { this.cmds.push(['scirc', x, y, r]); return this; }
+    fillEllipse(x, y, w, h) { this.cmds.push(['ell', x, y, w, h]); return this; }
+    fillTriangle(x1, y1, x2, y2, x3, y3) {
+        this.cmds.push(['tri', x1, y1, x2, y2, x3, y3]);
+        return this;
+    }
+    fillRoundedRect(x, y, w, h, r) {
+        this.cmds.push(['rr', x, y, w, h, r, 1]);
+        return this;
+    }
+    strokeRoundedRect(x, y, w, h, r) {
+        this.cmds.push(['rr', x, y, w, h, r, 0]);
+        return this;
+    }
+    strokePoints(pts) {
+        const flat = [];
+        for (const p of pts) {
+            flat.push(p.x, p.y);
+        }
+        this.cmds.push(['pts', flat]);
+        return this;
+    }
+    lineBetween(x1, y1, x2, y2) {
+        this.cmds.push(['line', x1, y1, x2, y2]);
+        return this;
+    }
+    beginPath() { this.cmds.push(['bp']); return this; }
+    arc(x, y, r, a0, a1, ccw) {
+        this.cmds.push(['arc', x, y, r, a0, a1, !!ccw]);
+        return this;
+    }
+    strokePath() { this.cmds.push(['sp']); return this; }
+    fillPath() { this.cmds.push(['fp']); return this; }
+}
+class ShimText {
+    constructor(x, y, text, style) {
+        this.x = x;
+        this.y = y;
+        this.text = text;
+        this.style = style;
+        this.depth = 0;
+        this.__order = 0;
+        this.visible = true;
+        this.alpha = 1;
+        this.scale = 1;
+        this.ox = 0;
+        this.oy = 0;
+        this.strokeColor = null;
+        this.strokeWidth = 0;
+        this.isGraphics = false;
+        this.color = style.color || '#000000';
+    }
+    setOrigin(x, y) { this.ox = x; this.oy = y === undefined ? x : y; return this; }
+    setDepth(d) { this.depth = d; return this; }
+    setVisible(v) { this.visible = v; return this; }
+    setAlpha(a) { this.alpha = a; return this; }
+    setScale(s) { this.scale = s; return this; }
+    setPosition(x, y) { this.x = x; this.y = y; return this; }
+    setColor(c) { this.color = c; return this; }
+    setStroke(c, w) { this.strokeColor = c; this.strokeWidth = w; return this; }
+    setText(t) { this.text = String(t); return this; }
+}
+function shimRgba(c, a) {
+    return `rgba(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255},${a})`;
+}
+function shimPaint(ctx, g) {
+    let fill = 'rgba(0,0,0,1)';
+    let stroke = 'rgba(0,0,0,1)';
+    let lw = 1;
+    let open = false;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    for (const c of g.cmds) {
+        const k = c[0];
+        if (k === 'fs') {
+            fill = shimRgba(c[1], c[2]);
+            continue;
+        }
+        if (k === 'ls') {
+            lw = c[1];
+            stroke = shimRgba(c[2], c[3]);
+            continue;
+        }
+        if (k === 'rect') {
+            ctx.fillStyle = fill;
+            ctx.fillRect(c[1], c[2], c[3], c[4]);
+            continue;
+        }
+        if (k === 'circ') {
+            ctx.fillStyle = fill;
+            ctx.beginPath();
+            ctx.arc(c[1], c[2], Math.max(0, c[3]), 0, Math.PI * 2);
+            ctx.fill();
+            continue;
+        }
+        if (k === 'scirc') {
+            ctx.strokeStyle = stroke;
+            ctx.lineWidth = lw;
+            ctx.beginPath();
+            ctx.arc(c[1], c[2], Math.max(0, c[3]), 0, Math.PI * 2);
+            ctx.stroke();
+            continue;
+        }
+        if (k === 'ell') {
+            ctx.fillStyle = fill;
+            ctx.beginPath();
+            ctx.ellipse(c[1], c[2], c[3] / 2, c[4] / 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            continue;
+        }
+        if (k === 'tri') {
+            ctx.fillStyle = fill;
+            ctx.beginPath();
+            ctx.moveTo(c[1], c[2]);
+            ctx.lineTo(c[3], c[4]);
+            ctx.lineTo(c[5], c[6]);
+            ctx.closePath();
+            ctx.fill();
+            continue;
+        }
+        if (k === 'rr') {
+            ctx.beginPath();
+            const anyCtx = ctx;
+            if (anyCtx.roundRect)
+                anyCtx.roundRect(c[1], c[2], c[3], c[4], c[5]);
+            else
+                ctx.rect(c[1], c[2], c[3], c[4]);
+            if (c[6]) {
+                ctx.fillStyle = fill;
+                ctx.fill();
+            }
+            else {
+                ctx.strokeStyle = stroke;
+                ctx.lineWidth = lw;
+                ctx.stroke();
+            }
+            continue;
+        }
+        if (k === 'pts') {
+            const f = c[1];
+            if (f.length < 4)
+                continue;
+            ctx.strokeStyle = stroke;
+            ctx.lineWidth = lw;
+            ctx.beginPath();
+            ctx.moveTo(f[0], f[1]);
+            for (let i = 2; i < f.length; i += 2)
+                ctx.lineTo(f[i], f[i + 1]);
+            ctx.stroke();
+            continue;
+        }
+        if (k === 'line') {
+            ctx.strokeStyle = stroke;
+            ctx.lineWidth = lw;
+            ctx.beginPath();
+            ctx.moveTo(c[1], c[2]);
+            ctx.lineTo(c[3], c[4]);
+            ctx.stroke();
+            continue;
+        }
+        if (k === 'bp') {
+            ctx.beginPath();
+            open = true;
+            continue;
+        }
+        if (k === 'arc') {
+            ctx.arc(c[1], c[2], Math.max(0, c[3]), c[4], c[5], c[6]);
+            continue;
+        }
+        if (k === 'sp') {
+            if (open) {
+                ctx.strokeStyle = stroke;
+                ctx.lineWidth = lw;
+                ctx.stroke();
+            }
+            open = false;
+            continue;
+        }
+        if (k === 'fp') {
+            if (open) {
+                ctx.fillStyle = fill;
+                ctx.fill();
+            }
+            open = false;
+            continue;
+        }
+    }
+}
+function shimPaintText(ctx, t) {
+    if (!t.visible || !t.text)
+        return;
+    const size = parseFloat(t.style.fontSize || '20px') * t.scale;
+    ctx.save();
+    ctx.globalAlpha = t.alpha;
+    ctx.font = `${t.style.fontStyle || '400'} ${size}px ${t.style.fontFamily || 'sans-serif'}`;
+    ctx.textAlign = t.ox === 0.5 ? 'center' : t.ox === 1 ? 'right' : 'left';
+    ctx.textBaseline = t.oy === 0.5 ? 'middle' : t.oy === 1 ? 'bottom' : 'top';
+    if (t.strokeColor && t.strokeWidth) {
+        ctx.lineWidth = t.strokeWidth;
+        ctx.strokeStyle = t.strokeColor;
+        ctx.lineJoin = 'round';
+        ctx.strokeText(t.text, t.x, t.y);
+    }
+    ctx.fillStyle = t.color;
+    ctx.fillText(t.text, t.x, t.y);
+    ctx.restore();
+}
+function installPhaserFallback() {
+    const w = window;
+    if (w.Phaser)
+        return;
+    const display = [];
+    class ShimScene {
+        constructor(_config) {
+            this.__pointer = new Map();
+            this.__keys = new Map();
+            this.__scroll = { x: 0, y: 0 };
+            this.add = {
+                graphics: () => { const g = new ShimGraphics(); display.push(g); return g; },
+                text: (x, y, s, st) => { const t = new ShimText(x, y, s, st); display.push(t); return t; },
+            };
+            this.input = {
+                on: (ev, fn) => { this.__pointer.set(ev, fn); },
+                keyboard: { on: (ev, fn) => { this.__keys.set(ev, fn); } },
+            };
+            this.cameras = { main: { setScroll: (x, y) => { this.__scroll.x = x; this.__scroll.y = y; } } };
+        }
+    }
+    class ShimGame {
+        constructor(config) {
+            const W = config.width;
+            const H = config.height;
+            const parent = document.getElementById(config.parent) || document.body;
+            let canvas = document.getElementById('gameCanvas') || parent.querySelector('canvas');
+            if (!canvas) {
+                canvas = document.createElement('canvas');
+                canvas.id = 'gameCanvas';
+                parent.appendChild(canvas);
+            }
+            canvas.style.display = 'block';
+            canvas.style.touchAction = 'none';
+            const ctx = canvas.getContext('2d');
+            let cssW = W;
+            let cssH = H;
+            const resize = () => {
+                const box = parent.getBoundingClientRect();
+                const availW = box.width || window.innerWidth;
+                const availH = box.height || window.innerHeight;
+                const k = Math.min(availW / W, availH / H) || 1;
+                cssW = Math.max(1, Math.floor(W * k));
+                cssH = Math.max(1, Math.floor(H * k));
+                const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+                canvas.style.width = cssW + 'px';
+                canvas.style.height = cssH + 'px';
+                canvas.width = Math.floor(cssW * dpr);
+                canvas.height = Math.floor(cssH * dpr);
+            };
+            resize();
+            window.addEventListener('resize', resize);
+            window.addEventListener('orientationchange', resize);
+            const scene = new (config.scene[0])();
+            scene.create();
+            const toGame = (e) => {
+                const r = canvas.getBoundingClientRect();
+                return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * H };
+            };
+            const fire = (ev, e) => {
+                const fn = scene.__pointer.get(ev);
+                if (fn)
+                    fn(e ? toGame(e) : { x: 0, y: 0 });
+            };
+            canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); fire('pointerdown', e); });
+            window.addEventListener('pointermove', (e) => fire('pointermove', e));
+            window.addEventListener('pointerup', (e) => fire('pointerup', e));
+            window.addEventListener('pointercancel', () => fire('pointerup'));
+            window.addEventListener('keydown', (e) => {
+                const fn = scene.__keys.get('keydown-' + e.key.toUpperCase()) || scene.__keys.get('keydown-' + e.code.toUpperCase());
+                if (fn) {
+                    e.preventDefault();
+                    fn();
+                }
+            });
+            let last = performance.now();
+            const frame = (now) => {
+                const delta = Math.min(now - last, 250);
+                last = now;
+                scene.update(now, delta);
+                const dpr = canvas.width / cssW;
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.clearRect(0, 0, cssW, cssH);
+                const k = cssW / W;
+                ctx.save();
+                ctx.scale(k, k);
+                ctx.translate(-scene.__scroll.x, -scene.__scroll.y);
+                for (let i = 0; i < display.length; i++)
+                    display[i].__order = i;
+                const sorted = display.slice().sort((a, b) => (a.depth - b.depth) || (a.__order - b.__order));
+                for (const item of sorted) {
+                    if (item instanceof ShimGraphics)
+                        shimPaint(ctx, item);
+                    else
+                        shimPaintText(ctx, item);
+                }
+                ctx.restore();
+                requestAnimationFrame(frame);
+            };
+            requestAnimationFrame(frame);
+        }
+    }
+    w.Phaser = {
+        AUTO: 0,
+        CANVAS: 1,
+        Scale: { FIT: 1, CENTER_BOTH: 2 },
+        Scene: ShimScene,
+        Game: ShimGame,
+    };
+}
+// Installed at load, not at boot: `class BoardScene extends Phaser.Scene`
+// evaluates the moment the bundle is parsed, long before anything calls boot().
+// shim.ts is first in the build order so this always wins that race.
+installPhaserFallback();
+var Phaser = window.Phaser;
+
+
+/* ------------------------------------------------------------ */
+
+/* ============================================================================
+ * utils.ts — pure helpers + EVERY tuning constant.
+ * No game state, no imports. Change balance here, nowhere else.
+ * ==========================================================================*/
+/* ---------------------------------------------------------------- canvas -- */
+const VIEW_W = 480;
+const VIEW_H = 800;
+const HUD_H = 104; // top bar height
+const BOARD_TOP = 132; // first peg row centre can start here
+const BOARD_BOTTOM = 748; // last peg row centre must stay above this
+const MAX_CELL = 96; // peg-to-peg spacing ceiling
+const SIDE_PAD = 34; // min gap from peg centre to screen edge
+/* ------------------------------------------------------------------ art -- */
+const COL_BG = 0xeff0fd;
+const COL_BG_DEEP = 0xe3e5fa;
+const COL_PEG = 0xcdd1f0;
+const COL_PEG_HI = 0xd9dcf6;
+const COL_INK = 0x14141c; // rope + knob outline
+const COL_HUD_INK = 0x5b5f82;
+const PEG_R = 32;
+const ROPE_W = 25; // rope body diameter
+const OUTLINE = 6; // outline thickness added around the rope
+const KNOB_R = 32; // outer radius of an end knob
+const KNOB_HOLE = 0.52; // inner ball radius as a fraction of KNOB_R
+/** Twist marks along the cord. Lower STEP = tighter twist. */
+const TWIST_STEP = 10;
+const TWIST_SLANT = 0.62; // radians away from perpendicular
+const TWIST_ALPHA = 0.56;
+/** Local braid at a crossing: the two ropes spiral around each other. */
+const TWIST_AMP = 0.44; // × ROPE_W each rope leans at a crossing
+const TWIST_SPAN = 40; // px each side of the crossing point
+/** Path samples per rope segment. Higher = smoother curve, slightly more work. */
+const SUB = 5;
+/**
+ * The braid, in px of arc length.
+ *
+ * Each rope leans the opposite way through a crossing, so the pair meets three
+ * times: once in the middle and once on each side. Drawing the over rope across
+ * the middle and the under rope back across the two flanks gives the
+ * over-under-over weave the reference art has, out of a single logical
+ * crossing — the stack underneath it never changes.
+ */
+const WEAVE_OVER_PX = 15;
+const WEAVE_FLANK_AT = 24;
+const WEAVE_FLANK_PX = 13;
+/* --------------------------------------------------------------- physics -- */
+const SEG = 16; // rope segments (SEG + 1 verlet points)
+const GRAVITY = 110; // px/s² — just enough life in a drag, not enough to sag
+const VERLET_DAMP = 0.94; // velocity retained per step
+const ITERS = 26; // constraint relaxation passes
+const SETTLE_SPEED = 0.5; // px/step below which a rope counts as still
+/**
+ * Rope length as a fraction of the current pin-to-pin distance. Under 1 means
+ * the cord is always slightly stretched, so it pulls dead straight and never
+ * hangs slack — whatever the pins do, the rope keeps up.
+ */
+const TAUT = 0.975;
+const HOLD_LAMBDA = 34; // how hard a held end chases the finger
+/* ----------------------------------------------------------------- rules -- */
+const GRAB_R = 48; // finger-to-knob distance that grabs an end
+const SNAP_R = 60; // finger-to-peg distance that drops onto it
+/** Generation only: how far a shuffle step may stretch a rope. Play has no cap. */
+const REACH = 1.45;
+/** Shortest span, in grid cells, that a generated rope may be laid out across. */
+const MIN_SPAN = 1.35;
+/**
+ * Rules.
+ *
+ * Over/under alternates along each pair — over, under, over — the way a real
+ * twist does. `layer` is only a base painter order; the actual decision is made
+ * per crossing in findCrossings().
+ *
+ * A rope escapes only once it crosses nothing at all. That single rule is what
+ * makes a tangle a tangle: a rope with anything lying across it can be shuffled
+ * between nearby pegs — both ends, freely — and will stay unsolvable, and
+ * swinging it around the rope above only wraps it once more, adding two
+ * crossings instead of removing any. Nothing locks a rope from being dragged;
+ * the player must be able to work it loose.
+ *
+ * The one thing that does lock is a bolted end (see `lockA` / `lockB` on a
+ * RopeSpec). Those sit on a metal plate and never move.
+ */
+/** A rope with another rope lying across it cannot be dragged at all. */
+const DRAG_REQUIRES_TOP = true;
+/** First level that can bolt a rope end to the board. */
+const LOCK_FROM_LEVEL = 5;
+/** Roughly what fraction of ropes get one bolted end, once locks are in play. */
+const LOCK_SHARE = 0.4;
+/* -------------------------------------------------------------- metal art -- */
+const COL_METAL = 0x3a3d42; // plate body
+const COL_METAL_HI = 0xb9bcc2; // the four bolts
+const COL_METAL_HUB = 0x82858b; // centre dome
+const COL_METAL_HUB_LO = 0x5c6066;
+const ESCAPE_TIME = 0.3; // seconds for the contract-and-pop animation
+const COINS_PER_ROPE = 10;
+const COINS_PER_LEVEL = 30;
+const WIN_HOLD = 0.55; // seconds before a tap can skip the win card
+/* ------------------------------------------------------------------ math -- */
+function clamp(v, lo, hi) {
+    return v < lo ? lo : v > hi ? hi : v;
+}
+function lerp(a, b, t) {
+    return a + (b - a) * t;
+}
+/** Frame-rate independent smoothing. Use this instead of lerp(a, b, 0.1). */
+function damp(a, b, lambda, dt) {
+    return lerp(a, b, 1 - Math.exp(-lambda * dt));
+}
+function dist(ax, ay, bx, by) {
+    return Math.hypot(bx - ax, by - ay);
+}
+function easeOutBack(t) {
+    const c = 1.70158 + 1;
+    const u = t - 1;
+    return 1 + (c + 1) * u * u * u + c * u * u;
+}
+function easeInQuad(t) {
+    return t * t;
+}
+function easeOutCubic(t) {
+    const u = 1 - t;
+    return 1 - u * u * u;
+}
+/** Deterministic RNG so level N is the same board on every device. */
+function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function next() {
+        a = (a + 0x6d2b79f5) >>> 0;
+        let t = a;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+/** Proper segment/segment intersection. Returns null for parallel or no touch. */
+function segHit(ax, ay, bx, by, cx, cy, dx, dy) {
+    const rx = bx - ax;
+    const ry = by - ay;
+    const sx = dx - cx;
+    const sy = dy - cy;
+    const den = rx * sy - ry * sx;
+    if (Math.abs(den) < 1e-9)
+        return null;
+    const ta = ((cx - ax) * sy - (cy - ay) * sx) / den;
+    const tb = ((cx - ax) * ry - (cy - ay) * rx) / den;
+    if (ta < 0 || ta > 1 || tb < 0 || tb > 1)
+        return null;
+    return { x: ax + rx * ta, y: ay + ry * ta, ta, tb };
+}
+/** Sampled straight off the reference footage. */
+const PALETTE = [
+    { mid: 0x1e90e6, light: 0x74c6f7, dark: 0x0d5da5 }, // blue
+    { mid: 0xf2871d, light: 0xffbe6b, dark: 0xa8530a }, // orange
+    { mid: 0xf0d92c, light: 0xfff08a, dark: 0xb59a0c }, // yellow
+    { mid: 0xf074b4, light: 0xffb3d8, dark: 0xb43f7d }, // pink
+    { mid: 0x4cc22e, light: 0x9ae87f, dark: 0x2c8317 }, // green
+    { mid: 0x33c6dc, light: 0x8ceaf7, dark: 0x14879b }, // cyan
+    { mid: 0xe5372b, light: 0xff8478, dark: 0x9d1a11 }, // red
+    { mid: 0x9b5de5, light: 0xc9a4ff, dark: 0x6229a8 }, // purple
+];
+function pegKey(c, r) {
+    return r * 64 + c;
+}
+/**
+ * Hand-built openers that mirror the reference game's first screens: a single
+ * crossed pair, then a pair plus a straggler, then stacked X blocks.
+ */
+const HAND_LEVELS = [
+    {
+        cols: 4, rows: 5,
+        ropes: [
+            { color: 0, a: [0, 1], b: [2, 2], layer: 0 },
+            { color: 1, a: [0, 2], b: [2, 1], layer: 1 },
+        ],
+    },
+    {
+        cols: 4, rows: 5,
+        ropes: [
+            { color: 2, a: [0, 0], b: [3, 2], layer: 2 },
+            { color: 0, a: [0, 2], b: [2, 0], layer: 3 },
+            { color: 6, a: [1, 3], b: [3, 1], layer: 4 },
+        ],
+    },
+    {
+        cols: 4, rows: 6,
+        ropes: [
+            { color: 0, a: [0, 0], b: [1, 1], layer: 5 },
+            { color: 1, a: [0, 1], b: [1, 0], layer: 6 },
+            { color: 4, a: [2, 3], b: [3, 4], layer: 7 },
+            { color: 5, a: [2, 4], b: [3, 3], layer: 8 },
+        ],
+    },
+    {
+        // The three stacked X pairs from the recording.
+        cols: 4, rows: 6,
+        ropes: [
+            { color: 0, a: [0, 0], b: [2, 1], layer: 9 },
+            { color: 1, a: [0, 1], b: [2, 0], layer: 10 },
+            { color: 2, a: [1, 2], b: [3, 3], layer: 11 },
+            { color: 3, a: [1, 3], b: [3, 2], layer: 12 },
+            { color: 0, a: [0, 4], b: [2, 5], layer: 13 },
+            { color: 1, a: [0, 5], b: [2, 4], layer: 14 },
+        ],
+    },
+    {
+        // The bolted star from the reference: three ropes through one knot, every
+        // anchor welded to a metal plate. Only the free ends can be worked loose.
+        cols: 4, rows: 5,
+        ropes: [
+            { color: 4, a: [1, 1], b: [3, 3], lockA: true, layer: 15 },
+            { color: 3, a: [1, 3], b: [3, 1], lockA: true, layer: 16 },
+            { color: 2, a: [2, 0], b: [1, 4], lockA: true, layer: 17 },
+        ],
+    },
+];
+/** Shape of the board for a given level number. */
+function levelShape(n) {
+    const cols = n < 8 ? 4 : 5;
+    const rows = n < 6 ? 5 : n < 22 ? 6 : 7;
+    const cap = cols === 4 ? 7 : rows === 6 ? 9 : 12;
+    const ropes = clamp(3 + Math.floor(n / 2), 3, cap);
+    return { cols, rows, ropes };
+}
+function chordsCross(x, y) {
+    return segHit(x.a.c, x.a.r, x.b.c, x.b.r, y.a.c, y.a.r, y.b.c, y.b.r) !== null;
+}
+function countTangled(ropes) {
+    const n = ropes.length;
+    const hits = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            if (chordsCross(ropes[i], ropes[j])) {
+                hits[i]++;
+                hits[j]++;
+            }
+        }
+    }
+    return hits;
+}
+/**
+ * Levels are built BACKWARDS from a solved board, which is what guarantees
+ * every generated level can actually be finished:
+ *
+ *   1. lay ropes out so that nothing crosses anything (a solved position),
+ *   2. walk one end of each rope to random free pegs, never exceeding the
+ *      reach the player is allowed,
+ *   3. keep the result only if every rope is tangled with at least one other.
+ *
+ * Because each shuffle step is legal in reverse, replaying the walk backwards
+ * is a valid solution — no unsolvable board can come out of this.
+ */
+function generateLevel(n) {
+    const shape = levelShape(n);
+    // A dense board occasionally refuses to lay out. Shed one rope and try
+    // again rather than dropping the player onto the tutorial grid.
+    for (let want = shape.ropes; want >= 3; want--) {
+        const spec = attemptGenerate(n, shape.cols, shape.rows, want);
+        if (spec)
+            return spec;
+    }
+    return HAND_LEVELS[0];
+}
+function attemptGenerate(n, cols, rows, ropeCount) {
+    const shape = { cols, rows, ropes: ropeCount };
+    const rng = mulberry32(n * 9176 + 1013 + ropeCount * 7);
+    for (let attempt = 0; attempt < 240; attempt++) {
+        const used = new Set();
+        const ropes = [];
+        // --- 1. solved layout: short spans that cross nothing -------------------
+        // No single-cell spans: two knobs one cell apart leave almost no visible
+        // rope between them.
+        const offsets = [
+            [1, 1], [1, -1], [2, 0], [0, 2], [2, 1], [1, 2], [2, -1], [2, 2],
+        ];
+        let guard = 0;
+        while (ropes.length < shape.ropes && guard++ < 4000) {
+            const c = Math.floor(rng() * shape.cols);
+            const r = Math.floor(rng() * shape.rows);
+            const off = offsets[Math.floor(rng() * offsets.length)];
+            const c2 = c + off[0];
+            const r2 = r + off[1];
+            if (c2 < 0 || c2 >= shape.cols || r2 < 0 || r2 >= shape.rows)
+                continue;
+            if (used.has(pegKey(c, r)) || used.has(pegKey(c2, r2)))
+                continue;
+            const cand = {
+                color: 0,
+                a: { c, r },
+                b: { c: c2, r: r2 },
+                rest: Math.hypot(c2 - c, r2 - r),
+            };
+            if (ropes.some((o) => chordsCross(cand, o)))
+                continue;
+            used.add(pegKey(c, r));
+            used.add(pegKey(c2, r2));
+            ropes.push(cand);
+        }
+        if (ropes.length < shape.ropes)
+            continue;
+        // --- 2. walk the B end of each rope to tangle the board ------------------
+        const steps = shape.ropes * 4 + Math.min(24, Math.floor(n / 2));
+        for (let s = 0; s < steps; s++) {
+            const rope = ropes[Math.floor(rng() * ropes.length)];
+            const targets = [];
+            for (let c = 0; c < shape.cols; c++) {
+                for (let r = 0; r < shape.rows; r++) {
+                    if (used.has(pegKey(c, r)))
+                        continue;
+                    const span = Math.hypot(c - rope.a.c, r - rope.a.r);
+                    if (span > rope.rest * REACH || span < MIN_SPAN)
+                        continue;
+                    targets.push({ c, r });
+                }
+            }
+            if (!targets.length)
+                continue;
+            const pick = targets[Math.floor(rng() * targets.length)];
+            used.delete(pegKey(rope.b.c, rope.b.r));
+            used.add(pegKey(pick.c, pick.r));
+            rope.b = pick;
+        }
+        // --- 3. repair: drag any straggler into the knot ------------------------
+        // Every one of these is still a legal, reversible move, so the board stays
+        // solvable; it just stops the level from popping ropes on frame one.
+        for (let pass = 0; pass < 40; pass++) {
+            const hits = countTangled(ropes);
+            const idx = hits.findIndex((h) => h === 0);
+            if (idx < 0)
+                break;
+            const rope = ropes[idx];
+            const options = [];
+            for (let c = 0; c < shape.cols; c++) {
+                for (let r = 0; r < shape.rows; r++) {
+                    if (used.has(pegKey(c, r)))
+                        continue;
+                    const span = Math.hypot(c - rope.a.c, r - rope.a.r);
+                    if (span > rope.rest * REACH || span < MIN_SPAN)
+                        continue;
+                    const trial = { color: 0, a: rope.a, b: { c, r }, rest: rope.rest };
+                    if (!ropes.some((o) => o !== rope && chordsCross(trial, o)))
+                        continue;
+                    options.push({ c, r });
+                }
+            }
+            if (!options.length)
+                break;
+            const pick = options[Math.floor(rng() * options.length)];
+            used.delete(pegKey(rope.b.c, rope.b.r));
+            used.add(pegKey(pick.c, pick.r));
+            rope.b = pick;
+        }
+        const finalHits = countTangled(ropes);
+        if (finalHits.some((h) => h === 0))
+            continue;
+        // A fixed stack order, shuffled so the rope on top is not simply the last
+        // one in the level data.
+        const stack = ropes.map((_, i) => i);
+        for (let i = stack.length - 1; i > 0; i--) {
+            const j = Math.floor(rng() * (i + 1));
+            const t = stack[i];
+            stack[i] = stack[j];
+            stack[j] = t;
+        }
+        // spread the palette so neighbouring ropes never share a colour
+        const shuffledHues = PALETTE.map((_, i) => i);
+        for (let i = shuffledHues.length - 1; i > 0; i--) {
+            const j = Math.floor(rng() * (i + 1));
+            const t = shuffledHues[i];
+            shuffledHues[i] = shuffledHues[j];
+            shuffledHues[j] = t;
+        }
+        const candidate = {
+            cols: shape.cols,
+            rows: shape.rows,
+            ropes: ropes.map((rp, i) => ({
+                color: shuffledHues[i % shuffledHues.length],
+                a: [rp.a.c, rp.a.r],
+                b: [rp.b.c, rp.b.r],
+                layer: stack[i],
+            })),
+        };
+        applyLocks(candidate, n, rng);
+        const layers = chooseLayers(candidate, n * 7919 + attempt);
+        if (!layers)
+            continue;
+        candidate.ropes.forEach((rs, i) => { rs.layer = layers[i]; });
+        return candidate;
+    }
+    return null;
+}
+/**
+ * Bolts down a share of the A ends.
+ *
+ * Only A ends are ever bolted, and that is not cosmetic: the generator's
+ * guaranteed solution walks B ends only, so locking an A end can never make a
+ * board unwinnable. Locking a B end could, which is why it never happens.
+ */
+function applyLocks(spec, n, rng) {
+    if (n < LOCK_FROM_LEVEL)
+        return;
+    const want = Math.max(1, Math.round(spec.ropes.length * LOCK_SHARE));
+    const order = spec.ropes.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        const t = order[i];
+        order[i] = order[j];
+        order[j] = t;
+    }
+    for (let k = 0; k < want && k < order.length; k++)
+        spec.ropes[order[k]].lockA = true;
+}
+function buildLevel(n) {
+    if (n >= 1 && n <= HAND_LEVELS.length) {
+        const hand = HAND_LEVELS[n - 1];
+        const spec = {
+            cols: hand.cols,
+            rows: hand.rows,
+            ropes: hand.ropes.map((r) => ({
+                ...r,
+                a: [...r.a],
+                b: [...r.b],
+            })),
+        };
+        const layers = chooseLayers(spec, n * 104729);
+        if (layers)
+            spec.ropes.forEach((rs, i) => { rs.layer = layers[i]; });
+        return spec;
+    }
+    return generateLevel(n);
+}
+function peelCross(p, q) {
+    return segHit(p.ax, p.ay, p.bx, p.by, q.ax, q.ay, q.bx, q.by) !== null;
+}
+function peelCascade(ropes) {
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const r of ropes) {
+            if (!r.alive)
+                continue;
+            if (!ropes.some((o) => o !== r && o.alive && peelCross(r, o))) {
+                r.alive = false;
+                changed = true;
+            }
+        }
+    }
+}
+/**
+ * Can this board be cleared, given that a covered rope cannot be touched?
+ *
+ * The board must come apart from the top down, so this walks that peel: take
+ * the highest uncovered rope, find a slot that lifts it clear, repeat. Reaching
+ * an empty board is a constructive proof the level is winnable. Bolted ends are
+ * respected. Any layout this rejects is thrown away by the generator.
+ */
+function peelSolvable(spec, layers) {
+    const ropes = spec.ropes.map((rs, i) => ({
+        ax: rs.a[0], ay: rs.a[1], bx: rs.b[0], by: rs.b[1],
+        layer: layers[i],
+        lockA: !!rs.lockA, lockB: !!rs.lockB,
+        alive: true,
+    }));
+    peelCascade(ropes);
+    for (let guard = 0; guard < 400; guard++) {
+        const live = ropes.filter((r) => r.alive);
+        if (!live.length)
+            return true;
+        const taken = new Set();
+        for (const r of live) {
+            taken.add(r.ay * 64 + r.ax);
+            taken.add(r.by * 64 + r.bx);
+        }
+        const free = live
+            .filter((r) => !live.some((o) => o !== r && o.layer > r.layer && peelCross(r, o)))
+            .sort((p, q) => q.layer - p.layer);
+        if (!free.length)
+            return false;
+        let moved = false;
+        search: for (const rope of free) {
+            for (const which of [0, 1]) {
+                if (which === 0 && rope.lockA)
+                    continue;
+                if (which === 1 && rope.lockB)
+                    continue;
+                const anchorX = which === 0 ? rope.bx : rope.ax;
+                const anchorY = which === 0 ? rope.by : rope.ay;
+                for (let c = 0; c < spec.cols; c++) {
+                    for (let r = 0; r < spec.rows; r++) {
+                        if (taken.has(r * 64 + c))
+                            continue;
+                        if (Math.hypot(c - anchorX, r - anchorY) < MIN_SPAN)
+                            continue;
+                        const trial = which === 0
+                            ? { ...rope, ax: c, ay: r }
+                            : { ...rope, bx: c, by: r };
+                        if (live.some((o) => o !== rope && o.alive && peelCross(trial, o)))
+                            continue;
+                        if (which === 0) {
+                            rope.ax = c;
+                            rope.ay = r;
+                        }
+                        else {
+                            rope.bx = c;
+                            rope.by = r;
+                        }
+                        moved = true;
+                        break search;
+                    }
+                }
+            }
+        }
+        if (!moved)
+            return false;
+        peelCascade(ropes);
+    }
+    return ropes.every((r) => !r.alive);
+}
+/**
+ * Picks a stack order the board can actually be peeled in. Which rope sits on
+ * top decides what the player is allowed to touch, so a layout that deadlocks
+ * under one order often works under another. Deterministic per level.
+ */
+function chooseLayers(spec, seed) {
+    const n = spec.ropes.length;
+    const rng = mulberry32(seed);
+    const layers = spec.ropes.map((_, i) => i);
+    for (let attempt = 0; attempt < 120; attempt++) {
+        if (peelSolvable(spec, layers))
+            return layers.slice();
+        for (let i = n - 1; i > 0; i--) {
+            const j = Math.floor(rng() * (i + 1));
+            const t = layers[i];
+            layers[i] = layers[j];
+            layers[j] = t;
+        }
+    }
+    return null;
+}
+/** Peg spacing and board origin for a grid, fitted to the play area. */
+function boardMetrics(cols, rows) {
+    const availW = VIEW_W - SIDE_PAD * 2;
+    const availH = BOARD_BOTTOM - BOARD_TOP;
+    const cell = Math.min(MAX_CELL, cols > 1 ? availW / (cols - 1) : MAX_CELL, rows > 1 ? availH / (rows - 1) : MAX_CELL);
+    const ox = (VIEW_W - (cols - 1) * cell) / 2;
+    const oy = BOARD_TOP + (availH - (rows - 1) * cell) / 2;
+    return { cell, ox, oy };
+}
+
+
+/* ------------------------------------------------------------ */
+
+/* ============================================================================
+ * entities.ts — the simulated world: pegs, verlet ropes, crossings, particles.
+ * Pure simulation and geometry. Nothing here knows about Phaser or drawing.
+ * ==========================================================================*/
+/* ------------------------------------------------------------------- peg -- */
+class Peg {
+    constructor(index, col, row, x, y) {
+        this.index = index;
+        this.col = col;
+        this.row = row;
+        this.x = x;
+        this.y = y;
+        this.taken = false;
+        this.pulse = 0; // grows when an end lands here
+        this.glow = 0; // grows while this peg is a valid drop target
+    }
+    update(dt) {
+        this.pulse = Math.max(0, this.pulse - dt * 3.2);
+        this.glow = Math.max(0, this.glow - dt * 6);
+    }
+}
+/* -------------------------------------------------------------- rope end -- */
+class RopeEnd {
+    constructor(peg) {
+        this.peg = peg;
+        this.x = 0;
+        this.y = 0;
+        this.held = false;
+        /** Bolted to a metal plate. A locked end never moves and cannot be grabbed. */
+        this.locked = false;
+        /** Peg this end returns to if the drag is dropped somewhere illegal. */
+        this.homePeg = -1;
+        this.homePeg = peg;
+    }
+}
+class Rope {
+    constructor(id, color,
+    /**
+     * Base painter order. Over/under at a crossing is decided per crossing by
+     * findCrossings(), not by this — layer only keeps the underlying draw order
+     * stable so the weave pass has something deterministic to paint on top of.
+     */
+    layer, a, b) {
+        this.id = id;
+        this.color = color;
+        this.layer = layer;
+        this.a = a;
+        this.b = b;
+        this.px = [];
+        this.py = [];
+        this.ox = []; // previous positions (verlet)
+        this.oy = [];
+        this.state = 'idle';
+        this.escapeT = 0;
+        this.restLen = 1;
+        this.shake = 0; // wobble applied when a move is rejected
+        this.bornT = 0; // intro animation timer
+    }
+    /** Lay the rope out dead straight between two points and freeze it there. */
+    place(ax, ay, bx, by) {
+        this.a.x = ax;
+        this.a.y = ay;
+        this.b.x = bx;
+        this.b.y = by;
+        this.restLen = Math.max(1, dist(ax, ay, bx, by));
+        for (let i = 0; i <= SEG; i++) {
+            const t = i / SEG;
+            const x = ax + (bx - ax) * t;
+            const y = ay + (by - ay) * t;
+            this.px[i] = x;
+            this.py[i] = y;
+            this.ox[i] = x;
+            this.oy[i] = y;
+        }
+    }
+    get alive() {
+        return this.state === 'idle' || this.state === 'held';
+    }
+    other(end) {
+        return end === this.a ? this.b : this.a;
+    }
+    step(dt) {
+        if (this.state === 'gone')
+            return;
+        // The cord is re-tensioned to the current pin spacing every frame and kept
+        // fractionally short, so it is always taut: no slack, no sag, no bow.
+        this.restLen = Math.max(1, dist(this.a.x, this.a.y, this.b.x, this.b.y) * TAUT);
+        const segRest = this.restLen / SEG;
+        const g = GRAVITY * dt * dt;
+        for (let i = 0; i <= SEG; i++) {
+            const vx = (this.px[i] - this.ox[i]) * VERLET_DAMP;
+            const vy = (this.py[i] - this.oy[i]) * VERLET_DAMP;
+            this.ox[i] = this.px[i];
+            this.oy[i] = this.py[i];
+            this.px[i] += vx;
+            this.py[i] += vy + g;
+        }
+        for (let k = 0; k < ITERS; k++) {
+            // pin the two ends to where the game says they are
+            this.px[0] = this.a.x;
+            this.py[0] = this.a.y;
+            this.px[SEG] = this.b.x;
+            this.py[SEG] = this.b.y;
+            for (let i = 0; i < SEG; i++) {
+                const dx = this.px[i + 1] - this.px[i];
+                const dy = this.py[i + 1] - this.py[i];
+                const d = Math.hypot(dx, dy) || 1e-6;
+                // Fully stiff both ways: the cord is held under tension, so it neither
+                // stretches nor folds. It reads as a taut rope, never a hanging one.
+                const corr = ((d - segRest) / d) * 0.5;
+                const cx = dx * corr;
+                const cy = dy * corr;
+                this.px[i] += cx;
+                this.py[i] += cy;
+                this.px[i + 1] -= cx;
+                this.py[i + 1] -= cy;
+            }
+        }
+        this.px[0] = this.a.x;
+        this.py[0] = this.a.y;
+        this.px[SEG] = this.b.x;
+        this.py[SEG] = this.b.y;
+        this.shake = Math.max(0, this.shake - dt * 4);
+        this.bornT = Math.min(1, this.bornT + dt * 2.6);
+    }
+    /** Fastest-moving point, in px per step. Used to tell when the board is still. */
+    maxSpeed() {
+        let m = 0;
+        for (let i = 0; i <= SEG; i++) {
+            const s = Math.hypot(this.px[i] - this.ox[i], this.py[i] - this.oy[i]);
+            if (s > m)
+                m = s;
+        }
+        return m;
+    }
+    /**
+     * Drive a held end toward the finger. A pin may go to any slot at any
+     * distance; the cord re-tensions to whatever span it ends up with.
+     */
+    dragTo(end, tx, ty, dt) {
+        end.x = damp(end.x, tx, HOLD_LAMBDA, dt);
+        end.y = damp(end.y, ty, HOLD_LAMBDA, dt);
+    }
+    /** Contract-and-pop. Returns true on the frame the rope finishes leaving. */
+    stepEscape(dt) {
+        this.escapeT += dt / ESCAPE_TIME;
+        const t = clamp(this.escapeT, 0, 1);
+        const mx = (this.a.x + this.b.x) / 2;
+        const my = (this.a.y + this.b.y) / 2;
+        const k = t * t;
+        for (let i = 0; i <= SEG; i++) {
+            this.px[i] += (mx - this.px[i]) * k * 0.55;
+            this.py[i] += (my - this.py[i]) * k * 0.55;
+            this.ox[i] = this.px[i];
+            this.oy[i] = this.py[i];
+        }
+        this.a.x += (mx - this.a.x) * k * 0.55;
+        this.a.y += (my - this.a.y) * k * 0.55;
+        this.b.x += (mx - this.b.x) * k * 0.55;
+        this.b.y += (my - this.b.y) * k * 0.55;
+        if (this.escapeT >= 1) {
+            this.state = 'gone';
+            return true;
+        }
+        return false;
+    }
+}
+function ropeBounds(r) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let k = 0; k <= SEG; k++) {
+        if (r.px[k] < x0)
+            x0 = r.px[k];
+        if (r.px[k] > x1)
+            x1 = r.px[k];
+        if (r.py[k] < y0)
+            y0 = r.py[k];
+        if (r.py[k] > y1)
+            y1 = r.py[k];
+    }
+    return [x0, y0, x1, y1];
+}
+/**
+ * Every place two live ropes overlap, with over/under alternating along the pair.
+ *
+ * Crossings between the same two ropes are sorted along the first rope and then
+ * flipped one after the other — over, under, over — which is what a real twist
+ * does and what the reference art shows. The parity seed comes from the rope
+ * ids, so a given pair always starts the same way and the weave never flickers
+ * between frames.
+ *
+ * Note what this does NOT do: it does not give a rope a fixed place in a stack.
+ * A pair that crosses twice has each rope over once, so neither can be lifted
+ * clear — which is precisely why a wrapped pair is stuck. The gameplay rule
+ * lives entirely in `ropesUncrossed()`: a rope escapes only when it crosses
+ * nothing at all, so moving a tangled rope between nearby pegs never solves it
+ * and wrapping it around another only adds crossings.
+ */
+function findCrossings(ropes) {
+    const live = ropes.filter((r) => r.alive);
+    const out = [];
+    const boxes = new Map();
+    for (const r of live)
+        boxes.set(r.id, ropeBounds(r));
+    for (let m = 0; m < live.length; m++) {
+        for (let n = m + 1; n < live.length; n++) {
+            const A = live[m];
+            const B = live[n];
+            const ba = boxes.get(A.id);
+            const bb = boxes.get(B.id);
+            const pad = ROPE_W;
+            if (ba[2] + pad < bb[0] || bb[2] + pad < ba[0])
+                continue;
+            if (ba[3] + pad < bb[1] || bb[3] + pad < ba[1])
+                continue;
+            const lo = A.id < B.id ? A : B;
+            const hi = A.id < B.id ? B : A;
+            // The stack decides, not the crossing. Higher layer is always the upper
+            // rope — at every crossing, and before and after anything is dragged.
+            const loOver = lo.layer > hi.layer;
+            for (let p = 0; p < SEG; p++) {
+                for (let q = 0; q < SEG; q++) {
+                    const h = segHit(lo.px[p], lo.py[p], lo.px[p + 1], lo.py[p + 1], hi.px[q], hi.py[q], hi.px[q + 1], hi.py[q + 1]);
+                    if (!h)
+                        continue;
+                    out.push({
+                        i: lo.id, j: hi.id,
+                        si: p, sj: q,
+                        ai: p + h.ta, aj: q + h.tb,
+                        x: h.x, y: h.y,
+                        iOver: loOver,
+                    });
+                }
+            }
+        }
+    }
+    return out;
+}
+/**
+ * ids of ropes with something lying on top of them. These are PINNED: neither
+ * pin can be dragged until whatever covers the rope has been cleared.
+ */
+function buriedRopes(ropes, crossings) {
+    const buried = new Set();
+    for (const c of crossings)
+        buried.add(c.iOver ? c.j : c.i);
+    return buried;
+}
+/**
+ * For a pinned rope, the id of the rope sitting on it — the one that has to be
+ * moved first. Returns -1 when nothing covers it.
+ */
+function blockerOf(ropeId, crossings) {
+    for (const c of crossings) {
+        if (c.iOver && c.j === ropeId)
+            return c.i;
+        if (!c.iOver && c.i === ropeId)
+            return c.j;
+    }
+    return -1;
+}
+/** ids of ropes that touch no other rope at all. */
+function ropesUncrossed(ropes, crossings) {
+    const touched = new Set();
+    for (const c of crossings) {
+        touched.add(c.i);
+        touched.add(c.j);
+    }
+    const free = new Set();
+    for (const r of ropes)
+        if (r.alive && !touched.has(r.id))
+            free.add(r.id);
+    return free;
+}
+/**
+ * Perpendicular braid offset for a point on a rope near a crossing.
+ * The two ropes bend in opposite directions so they visibly wind around each
+ * other instead of simply overlapping.
+ */
+function braidOffset(arc, crossings, ropeId, segLen) {
+    let off = 0;
+    const window = TWIST_SPAN / Math.max(6, segLen); // window measured in rope segments
+    for (const c of crossings) {
+        const isI = c.i === ropeId;
+        if (!isI && c.j !== ropeId)
+            continue;
+        const at = isI ? c.ai : c.aj;
+        const u = (arc - at) / window;
+        if (u < -1 || u > 1)
+            continue;
+        // Odd-symmetric S: the rope leans one way going in and the other coming
+        // out. Give the partner rope the opposite lean and the pair winds.
+        const dir = isI === c.iOver ? 1 : -1;
+        off += Math.sin(Math.PI * u) * TWIST_AMP * ROPE_W * dir;
+    }
+    return clamp(off, -ROPE_W, ROPE_W);
+}
+/* -------------------------------------------------------------- particle -- */
+class Particle {
+    constructor(x, y, vx, vy, r, color, ttl) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.r = r;
+        this.color = color;
+        this.ttl = ttl;
+        this.life = 1;
+    }
+    update(dt) {
+        this.life -= dt / this.ttl;
+        this.vy += 900 * dt;
+        this.vx *= 0.99;
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+    }
+}
+class FloatText {
+    constructor(x, y, text, color) {
+        this.x = x;
+        this.y = y;
+        this.text = text;
+        this.color = color;
+        this.life = 1;
+    }
+    update(dt) {
+        this.life -= dt / 0.9;
+        this.y -= 62 * dt;
+    }
+}
+
+
+/* ------------------------------------------------------------ */
+
+/* ============================================================================
+ * engine.ts — Phaser scene, the rope renderer, input, audio and the FSM.
+ * ==========================================================================*/
+const STEP = 1 / 60;
+const PATH_N = SEG * SUB + 1;
+/* ------------------------------------------------------------------ audio -- */
+class Sfx {
+    constructor() {
+        this.ctx = null;
+        this.master = null;
+        this.muted = false;
+    }
+    /** Must be called from inside a user gesture or autoplay policy blocks it. */
+    unlock() {
+        if (this.ctx)
+            return;
+        try {
+            const Ctor = window.AudioContext || window.webkitAudioContext;
+            if (!Ctor)
+                return;
+            this.ctx = new Ctor();
+            this.master = this.ctx.createGain();
+            this.master.gain.value = 0.32;
+            this.master.connect(this.ctx.destination);
+        }
+        catch {
+            this.ctx = null;
+        }
+    }
+    blip(freq, dur, type, vol, slide = 0) {
+        if (!this.ctx || !this.master || this.muted)
+            return;
+        const t = this.ctx.currentTime;
+        const o = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(freq, t);
+        if (slide)
+            o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t + dur);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g);
+        g.connect(this.master);
+        o.start(t);
+        o.stop(t + dur + 0.02);
+    }
+    grab() { this.blip(320, 0.09, 'triangle', 0.5, 90); }
+    drop() { this.blip(180, 0.12, 'sine', 0.6, -60); }
+    deny() { this.blip(140, 0.16, 'square', 0.28, -40); }
+    pop(combo) {
+        const f = 520 * Math.pow(1.09, Math.min(combo, 10));
+        this.blip(f, 0.16, 'triangle', 0.55, 240);
+    }
+    win() {
+        [0, 120, 240, 400].forEach((ms, i) => {
+            setTimeout(() => this.blip(440 * Math.pow(1.26, i), 0.22, 'triangle', 0.5, 60), ms);
+        });
+    }
+}
+function emptyPath() {
+    return { x: [], y: [], nx: [], ny: [], arc: [] };
+}
+/**
+ * Samples a rope into a smooth polyline and applies the braid offset so the
+ * cord visibly winds around whatever it crosses.
+ */
+function buildPath(rope, crossings, out) {
+    // Catmull-Rom through the verlet points. Straight-line interpolation left a
+    // visible facet at every segment joint; this rides through them smoothly.
+    const bx = [];
+    const by = [];
+    const cr = (p0, p1, p2, p3, f) => {
+        const f2 = f * f;
+        const f3 = f2 * f;
+        return 0.5 * ((2 * p1)
+            + (-p0 + p2) * f
+            + (2 * p0 - 5 * p1 + 4 * p2 - p3) * f2
+            + (-p0 + 3 * p1 - 3 * p2 + p3) * f3);
+    };
+    for (let k = 0; k < PATH_N; k++) {
+        const s = k / SUB;
+        const i = Math.min(SEG - 1, Math.floor(s));
+        const f = s - i;
+        const i0 = Math.max(0, i - 1);
+        const i2 = i + 1;
+        const i3 = Math.min(SEG, i + 2);
+        bx[k] = cr(rope.px[i0], rope.px[i], rope.px[i2], rope.px[i3], f);
+        by[k] = cr(rope.py[i0], rope.py[i], rope.py[i2], rope.py[i3], f);
+    }
+    for (let k = 0; k < PATH_N; k++) {
+        const p = Math.max(0, k - 1);
+        const n = Math.min(PATH_N - 1, k + 1);
+        let tx = bx[n] - bx[p];
+        let ty = by[n] - by[p];
+        const len = Math.hypot(tx, ty) || 1;
+        tx /= len;
+        ty /= len;
+        out.nx[k] = -ty;
+        out.ny[k] = tx;
+        // taper the braid to zero at the knobs so ends stay planted on their pegs
+        const edge = Math.min(k, PATH_N - 1 - k) / (SUB * 1.5);
+        const fade = clamp(edge, 0, 1);
+        const off = braidOffset(k / SUB, crossings, rope.id, rope.restLen / SEG) * fade;
+        out.x[k] = bx[k] + out.nx[k] * off;
+        out.y[k] = by[k] + out.ny[k] * off;
+    }
+    out.arc[0] = 0;
+    for (let k = 1; k < PATH_N; k++) {
+        out.arc[k] = out.arc[k - 1] + Math.hypot(out.x[k] - out.x[k - 1], out.y[k] - out.y[k - 1]);
+    }
+}
+/** Cumulative arc length at a fractional path index. */
+function arcAt(path, idx) {
+    const i = clamp(Math.floor(idx), 0, PATH_N - 2);
+    const f = clamp(idx - i, 0, 1);
+    return path.arc[i] + (path.arc[i + 1] - path.arc[i]) * f;
+}
+/** Nearest path index at a given arc length. */
+function indexAtArc(path, target) {
+    if (target <= 0)
+        return 0;
+    if (target >= path.arc[PATH_N - 1])
+        return PATH_N - 1;
+    let lo = 0;
+    let hi = PATH_N - 1;
+    while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (path.arc[mid] < target)
+            lo = mid;
+        else
+            hi = mid;
+    }
+    return lo;
+}
+/** Draws the cord for path indices [from, to]. Used whole, and for weave patches. */
+function strokeCord(g, path, col, from, to, width, alpha, caps = true) {
+    const lo = clamp(from, 0, PATH_N - 1);
+    const hi = clamp(to, 0, PATH_N - 1);
+    if (hi - lo < 1)
+        return;
+    const pts = [];
+    for (let k = lo; k <= hi; k++)
+        pts.push({ x: path.x[k], y: path.y[k] });
+    // 1. dark outline
+    g.lineStyle(width + OUTLINE, COL_INK, alpha);
+    g.strokePoints(pts, false, false);
+    // Rounded ends, since Phaser's WebGL graphics has no round line cap. Weave
+    // patches skip them: a capped slice reads as a separate link in a chain
+    // rather than the same cord continuing through the crossing.
+    if (caps) {
+        g.fillStyle(COL_INK, alpha);
+        g.fillCircle(path.x[lo], path.y[lo], (width + OUTLINE) / 2);
+        g.fillCircle(path.x[hi], path.y[hi], (width + OUTLINE) / 2);
+    }
+    // 2. body
+    g.lineStyle(width, col.mid, alpha);
+    g.strokePoints(pts, false, false);
+    if (caps) {
+        g.fillStyle(col.mid, alpha);
+        g.fillCircle(path.x[lo], path.y[lo], width / 2);
+        g.fillCircle(path.x[hi], path.y[hi], width / 2);
+    }
+    // 3. shaded lower edge + lit upper edge
+    const edge = [];
+    for (let k = lo; k <= hi; k++) {
+        edge.push({ x: path.x[k] + path.nx[k] * width * 0.26, y: path.y[k] + path.ny[k] * width * 0.26 });
+    }
+    g.lineStyle(width * 0.46, col.dark, alpha * 0.55);
+    g.strokePoints(edge, false, false);
+    const lit = [];
+    for (let k = lo; k <= hi; k++) {
+        lit.push({ x: path.x[k] - path.nx[k] * width * 0.28, y: path.y[k] - path.ny[k] * width * 0.28 });
+    }
+    g.lineStyle(width * 0.26, col.light, alpha * 0.95);
+    g.strokePoints(lit, false, false);
+    const spec = [];
+    for (let k = lo; k <= hi; k++) {
+        spec.push({ x: path.x[k] - path.nx[k] * width * 0.32, y: path.y[k] - path.ny[k] * width * 0.32 });
+    }
+    g.lineStyle(width * 0.1, 0xffffff, alpha * 0.4);
+    g.strokePoints(spec, false, false);
+    // 4. twist marks — a dark groove with a lit ridge just behind it is what
+    //    reads as laid cord rather than a coloured tube
+    const startArc = path.arc[lo];
+    const endArc = path.arc[hi];
+    let target = Math.ceil(startArc / TWIST_STEP) * TWIST_STEP;
+    let k = lo;
+    const cs = Math.cos(TWIST_SLANT);
+    const sn = Math.sin(TWIST_SLANT);
+    const h = width * 0.47;
+    while (target < endArc && k < hi) {
+        while (k < hi && path.arc[k] < target)
+            k++;
+        const ax = path.nx[k] * cs - path.ny[k] * sn;
+        const ay = path.nx[k] * sn + path.ny[k] * cs;
+        const gx = path.x[k];
+        const gy = path.y[k];
+        const tx = path.ny[k] * -1;
+        const ty = path.nx[k];
+        g.lineStyle(Math.max(2.4, width * 0.17), col.dark, TWIST_ALPHA * alpha);
+        g.lineBetween(gx - ax * h, gy - ay * h, gx + ax * h, gy + ay * h);
+        g.lineStyle(Math.max(1.6, width * 0.1), col.light, 0.42 * alpha);
+        g.lineBetween(gx - ax * h * 0.8 + tx * 2.6, gy - ay * h * 0.8 + ty * 2.6, gx + ax * h * 0.8 + tx * 2.6, gy + ay * h * 0.8 + ty * 2.6);
+        target += TWIST_STEP;
+    }
+}
+function drawPlate(g, x, y, scale) {
+    const R = KNOB_R * scale;
+    g.fillStyle(COL_INK, 1);
+    g.fillCircle(x, y, R + 3.5);
+    g.fillStyle(COL_METAL, 1);
+    g.fillCircle(x, y, R);
+    for (let i = 0; i < 4; i++) {
+        const a = i * Math.PI * 0.5 + Math.PI * 0.25;
+        const bx = x + Math.cos(a) * R * 0.62;
+        const by = y + Math.sin(a) * R * 0.62;
+        g.fillStyle(0x24262a, 1);
+        g.fillCircle(bx, by, R * 0.27);
+        g.fillStyle(COL_METAL_HI, 1);
+        g.fillCircle(bx, by, R * 0.22);
+    }
+    g.fillStyle(COL_INK, 1);
+    g.fillCircle(x, y, R * 0.5 + 2.5);
+    g.fillStyle(COL_METAL_HUB_LO, 1);
+    g.fillCircle(x, y, R * 0.5);
+    g.fillStyle(COL_METAL_HUB, 1);
+    g.fillCircle(x, y - R * 0.05, R * 0.44);
+    g.fillStyle(0xffffff, 0.65);
+    g.fillCircle(x + R * 0.14, y - R * 0.2, R * 0.06);
+}
+function drawKnob(g, x, y, col, scale, lifted) {
+    const R = KNOB_R * scale;
+    if (lifted) {
+        g.fillStyle(0x000000, 0.16);
+        g.fillCircle(x + 5, y + 9, R * 1.02);
+    }
+    g.fillStyle(COL_INK, 1);
+    g.fillCircle(x, y, R + 3.5);
+    g.fillStyle(col.dark, 1);
+    g.fillCircle(x, y, R);
+    g.fillStyle(col.mid, 1);
+    g.fillCircle(x, y, R - 3.5);
+    g.fillStyle(COL_INK, 1);
+    g.fillCircle(x, y, R * KNOB_HOLE + 3.5);
+    g.fillStyle(col.mid, 1);
+    g.fillCircle(x, y, R * KNOB_HOLE);
+    g.fillStyle(col.light, 0.5);
+    g.fillCircle(x - R * 0.16, y - R * 0.2, R * KNOB_HOLE * 0.52);
+    g.fillStyle(col.light, 0.4);
+    g.fillCircle(x - R * 0.52, y - R * 0.52, R * 0.14);
+}
+/* ------------------------------------------------------------------ scene -- */
+class BoardScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'board' });
+        // world
+        this.pegs = [];
+        this.ropes = [];
+        this.paths = [];
+        this.crossings = [];
+        this.buried = new Set();
+        this.flashId = -1;
+        this.flashT = 0;
+        this.particles = [];
+        this.floats = [];
+        this.popPool = [];
+        // state
+        this.fsm = 'PLAYING';
+        this.level = 1;
+        this.coins = 0;
+        this.acc = 0;
+        this.t = 0;
+        this.winT = 0;
+        this.combo = 0;
+        this.toastT = 0;
+        this.shakeT = 0;
+        this.shakeMag = 0;
+        this.cell = 90;
+        // input
+        this.held = null;
+        this.ptrX = 0;
+        this.ptrY = 0;
+        this.sfx = new Sfx();
+        this.restartHit = { x: VIEW_W - 46, y: 54, r: 30 };
+        this.soundHit = { x: VIEW_W - 112, y: 54, r: 28 };
+    }
+    create() {
+        this.gBoard = this.add.graphics().setDepth(1);
+        this.gRope = this.add.graphics().setDepth(2);
+        this.gFx = this.add.graphics().setDepth(3);
+        this.gHud = this.add.graphics().setDepth(4);
+        this.gWin = this.add.graphics().setDepth(5);
+        const font = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+        this.txtCoins = this.add.text(74, 54, '0', {
+            fontFamily: font, fontSize: '26px', fontStyle: '800', color: '#3d4062',
+        }).setOrigin(0, 0.5).setDepth(6);
+        this.txtLevel = this.add.text(VIEW_W / 2, 54, 'Level 1', {
+            fontFamily: font, fontSize: '23px', fontStyle: '800', color: '#5b5f82',
+        }).setOrigin(0.5).setDepth(6);
+        this.txtToast = this.add.text(VIEW_W / 2, VIEW_H - 54, '', {
+            fontFamily: font, fontSize: '19px', fontStyle: '700', color: '#7d81a6',
+        }).setOrigin(0.5).setDepth(6).setAlpha(0);
+        this.txtWinBig = this.add.text(VIEW_W / 2, 452, 'LEVEL', {
+            fontFamily: font, fontSize: '54px', fontStyle: '900', color: '#ffd23f',
+        }).setOrigin(0.5).setDepth(7).setVisible(false);
+        this.txtWinBig.setStroke('#8a4b00', 10);
+        this.txtWinSub = this.add.text(VIEW_W / 2, 512, 'COMPLETED', {
+            fontFamily: font, fontSize: '46px', fontStyle: '900', color: '#ffb300',
+        }).setOrigin(0.5).setDepth(7).setVisible(false);
+        this.txtWinSub.setStroke('#8a4b00', 10);
+        this.txtWinCoins = this.add.text(VIEW_W / 2, 596, '+30', {
+            fontFamily: font, fontSize: '34px', fontStyle: '900', color: '#ffffff',
+        }).setOrigin(0.5).setDepth(7).setVisible(false);
+        this.txtTap = this.add.text(VIEW_W / 2, 672, 'TAP TO CONTINUE', {
+            fontFamily: font, fontSize: '20px', fontStyle: '800', color: '#e9eef8',
+        }).setOrigin(0.5).setDepth(7).setVisible(false);
+        for (let i = 0; i < 6; i++) {
+            const label = this.add.text(0, 0, '', {
+                fontFamily: font, fontSize: '28px', fontStyle: '900', color: '#ffffff',
+            }).setOrigin(0.5).setDepth(6).setVisible(false);
+            label.setStroke('#ffffff', 5);
+            this.popPool.push(label);
+        }
+        this.input.on('pointerdown', (p) => this.onDown(p.x, p.y));
+        this.input.on('pointermove', (p) => { this.ptrX = p.x; this.ptrY = p.y; });
+        this.input.on('pointerup', () => this.onUp());
+        this.input.on('gameout', () => this.onUp());
+        this.input.keyboard?.on('keydown-R', () => this.loadLevel(this.level));
+        this.input.keyboard?.on('keydown-SPACE', () => { if (this.fsm === 'WIN')
+            this.advance(); });
+        this.input.keyboard?.on('keydown-M', () => { this.sfx.muted = !this.sfx.muted; });
+        this.loadLevel(1);
+    }
+    /* ------------------------------------------------------------- level ---- */
+    loadLevel(n) {
+        this.level = n;
+        this.fsm = 'PLAYING';
+        this.winT = 0;
+        this.combo = 0;
+        this.held = null;
+        this.particles.length = 0;
+        this.floats.length = 0;
+        this.crossings = [];
+        this.buried = new Set();
+        this.flashT = 0;
+        this.flashId = -1;
+        const spec = buildLevel(n);
+        const m = boardMetrics(spec.cols, spec.rows);
+        this.cell = m.cell;
+        this.pegs = [];
+        for (let r = 0; r < spec.rows; r++) {
+            for (let c = 0; c < spec.cols; c++) {
+                this.pegs.push(new Peg(this.pegs.length, c, r, m.ox + c * m.cell, m.oy + r * m.cell));
+            }
+        }
+        const pegAt = (c, r) => this.pegs[r * spec.cols + c];
+        this.ropes = [];
+        this.paths = [];
+        spec.ropes.forEach((rs, i) => {
+            const pa = pegAt(rs.a[0], rs.a[1]);
+            const pb = pegAt(rs.b[0], rs.b[1]);
+            pa.taken = true;
+            pb.taken = true;
+            const endA = new RopeEnd(pa.index);
+            const endB = new RopeEnd(pb.index);
+            endA.locked = !!rs.lockA;
+            endB.locked = !!rs.lockB;
+            const rope = new Rope(i, rs.color % PALETTE.length, rs.layer, endA, endB);
+            rope.place(pa.x, pa.y, pb.x, pb.y);
+            this.ropes.push(rope);
+            this.paths.push(emptyPath());
+        });
+        this.txtLevel.setText('Level ' + n);
+        this.txtWinBig.setVisible(false);
+        this.txtWinSub.setVisible(false);
+        this.txtWinCoins.setVisible(false);
+        this.txtTap.setVisible(false);
+        this.toast(n === 1 ? 'Drag a free rope end onto an empty peg' : '');
+    }
+    advance() {
+        this.coins += COINS_PER_LEVEL;
+        this.loadLevel(this.level + 1);
+    }
+    toast(msg) {
+        this.txtToast.setText(msg);
+        this.toastT = msg ? 3.4 : 0;
+    }
+    /* ------------------------------------------------------------- input ---- */
+    onDown(x, y) {
+        this.sfx.unlock();
+        this.ptrX = x;
+        this.ptrY = y;
+        if (dist(x, y, this.soundHit.x, this.soundHit.y) < this.soundHit.r) {
+            this.sfx.muted = !this.sfx.muted;
+            return;
+        }
+        if (dist(x, y, this.restartHit.x, this.restartHit.y) < this.restartHit.r) {
+            this.loadLevel(this.level);
+            return;
+        }
+        if (this.fsm === 'WIN') {
+            if (this.winT > WIN_HOLD)
+                this.advance();
+            return;
+        }
+        let best = null;
+        let bestD = GRAB_R;
+        for (const rope of this.ropes) {
+            if (!rope.alive)
+                continue;
+            for (const end of [rope.a, rope.b]) {
+                const d = dist(x, y, end.x, end.y);
+                if (end.locked && d > GRAB_R * 0.8)
+                    continue;
+                if (d <= bestD) {
+                    bestD = d;
+                    best = { rope, end };
+                }
+            }
+        }
+        if (!best)
+            return;
+        // A rope with something lying across it is pinned to the board. Say so, and
+        // light up whatever is holding it down so the player knows what to move.
+        if (DRAG_REQUIRES_TOP && this.buried.has(best.rope.id)) {
+            best.rope.shake = 1;
+            this.flashId = blockerOf(best.rope.id, this.crossings);
+            this.flashT = 1;
+            this.sfx.deny();
+            this.toast('Pinned — move the rope lying on top of it');
+            return;
+        }
+        // A bolted end is welded to its plate — nothing frees it.
+        if (best.end.locked) {
+            best.rope.shake = 1;
+            this.sfx.deny();
+            this.toast('That end is bolted down — use the other one');
+            return;
+        }
+        best.end.held = true;
+        best.end.homePeg = best.end.peg;
+        best.rope.state = 'held';
+        this.pegs[best.end.peg].taken = false;
+        best.end.peg = -1;
+        this.held = best;
+        this.sfx.grab();
+    }
+    onUp() {
+        const h = this.held;
+        if (!h)
+            return;
+        this.held = null;
+        h.end.held = false;
+        h.rope.state = 'idle';
+        const anchor = h.rope.other(h.end);
+        let target = null;
+        let bestD = SNAP_R;
+        for (const peg of this.pegs) {
+            if (peg.taken)
+                continue;
+            if (peg.index === anchor.peg)
+                continue;
+            const d = dist(h.end.x, h.end.y, peg.x, peg.y);
+            if (d > bestD)
+                continue;
+            bestD = d;
+            target = peg;
+        }
+        if (target) {
+            h.end.peg = target.index;
+            target.taken = true;
+            target.pulse = 1;
+            h.end.x = target.x;
+            h.end.y = target.y;
+            this.sfx.drop();
+        }
+        else {
+            const home = this.pegs[h.end.homePeg];
+            h.end.peg = home.index;
+            home.taken = true;
+            h.end.x = home.x;
+            h.end.y = home.y;
+            h.rope.shake = 1;
+            this.sfx.deny();
+        }
+    }
+    /* ---------------------------------------------------------- simulation -- */
+    sim(dt) {
+        this.t += dt;
+        this.toastT = Math.max(0, this.toastT - dt);
+        this.shakeT = Math.max(0, this.shakeT - dt);
+        this.shakeMag = damp(this.shakeMag, 0, 9, dt);
+        for (const peg of this.pegs)
+            peg.update(dt);
+        if (this.held) {
+            this.held.rope.dragTo(this.held.end, this.ptrX, this.ptrY, dt);
+            const anchor = this.held.rope.other(this.held.end);
+            for (const peg of this.pegs) {
+                if (peg.taken || peg.index === anchor.peg)
+                    continue;
+                if (dist(this.held.end.x, this.held.end.y, peg.x, peg.y) > SNAP_R)
+                    continue;
+                peg.glow = 1;
+            }
+        }
+        for (const rope of this.ropes) {
+            if (rope.state === 'gone')
+                continue;
+            if (rope.state === 'escaping') {
+                rope.stepEscape(dt);
+            }
+            else {
+                rope.step(dt);
+            }
+        }
+        this.crossings = findCrossings(this.ropes);
+        this.buried = buriedRopes(this.ropes, this.crossings);
+        this.flashT = Math.max(0, this.flashT - dt * 1.6);
+        if (this.fsm === 'PLAYING')
+            this.tryRelease();
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.update(dt);
+            if (p.life <= 0)
+                this.particles.splice(i, 1);
+        }
+        for (let i = this.floats.length - 1; i >= 0; i--) {
+            const f = this.floats[i];
+            f.update(dt);
+            if (f.life <= 0)
+                this.floats.splice(i, 1);
+        }
+        if (this.fsm === 'WIN')
+            this.winT += dt;
+    }
+    /**
+     * A rope leaves the board the moment it is no longer tangled — checked every
+     * frame, with no wait for the board to settle and no queue. The only rope
+     * held back is the one under the player's finger; it goes the frame after
+     * they let go.
+     */
+    tryRelease() {
+        const anyAlive = this.ropes.some((r) => r.alive);
+        if (!anyAlive) {
+            if (this.ropes.every((r) => r.state === 'gone'))
+                this.onWin();
+            return;
+        }
+        const free = ropesUncrossed(this.ropes, this.crossings);
+        if (!free.size) {
+            this.combo = 0;
+            return;
+        }
+        let popped = 0;
+        for (const rope of this.ropes) {
+            if (!free.has(rope.id))
+                continue;
+            if (rope.state === 'held')
+                continue;
+            rope.state = 'escaping';
+            rope.escapeT = 0;
+            if (rope.a.peg >= 0)
+                this.pegs[rope.a.peg].taken = false;
+            if (rope.b.peg >= 0)
+                this.pegs[rope.b.peg].taken = false;
+            this.combo++;
+            this.coins += COINS_PER_ROPE;
+            this.burst(rope);
+            this.sfx.pop(this.combo);
+            popped++;
+        }
+        if (popped) {
+            this.shakeMag = Math.min(7, 3 + this.combo * 0.6);
+            this.shakeT = 0.22;
+        }
+    }
+    burst(rope) {
+        const col = PALETTE[rope.color];
+        const mx = (rope.a.x + rope.b.x) / 2;
+        const my = (rope.a.y + rope.b.y) / 2;
+        for (let i = 0; i < 16; i++) {
+            const ang = (i / 16) * Math.PI * 2 + Math.random();
+            const sp = 130 + Math.random() * 190;
+            this.particles.push(new Particle(mx, my, Math.cos(ang) * sp, Math.sin(ang) * sp - 60, 3 + Math.random() * 5, i % 3 === 0 ? col.light : col.mid, 0.5 + Math.random() * 0.35));
+        }
+        this.floats.push(new FloatText(mx + (Math.random() - 0.5) * 40, my, '+' + COINS_PER_ROPE, col.dark));
+    }
+    onWin() {
+        this.fsm = 'WIN';
+        this.winT = 0;
+        this.txtWinCoins.setText('+' + COINS_PER_LEVEL + ' coins');
+        this.sfx.win();
+    }
+    /* ------------------------------------------------------------- render -- */
+    update(_time, deltaMs) {
+        this.acc += Math.min(deltaMs / 1000, 0.25);
+        let steps = 0;
+        while (this.acc >= STEP && steps < 5) {
+            this.sim(STEP);
+            this.acc -= STEP;
+            steps++;
+        }
+        if (steps === 5)
+            this.acc = 0;
+        this.draw();
+    }
+    draw() {
+        const shake = this.shakeT > 0 ? this.shakeMag : 0;
+        const sx = shake ? (Math.random() - 0.5) * shake : 0;
+        const sy = shake ? (Math.random() - 0.5) * shake : 0;
+        this.cameras.main.setScroll(sx, sy);
+        this.drawBoard();
+        this.drawRopes();
+        this.drawFx();
+        this.drawHud();
+        this.drawWin();
+    }
+    drawBoard() {
+        const g = this.gBoard;
+        g.clear();
+        g.fillStyle(COL_BG, 1);
+        g.fillRect(-40, -40, VIEW_W + 80, VIEW_H + 80);
+        for (const peg of this.pegs) {
+            const r = PEG_R * (1 + peg.pulse * 0.16);
+            if (peg.glow > 0) {
+                g.fillStyle(0x8f95ff, 0.22 * peg.glow);
+                g.fillCircle(peg.x, peg.y, r + 16 * peg.glow);
+            }
+            g.fillStyle(COL_PEG, 1);
+            g.fillCircle(peg.x, peg.y, r);
+            g.fillStyle(COL_PEG_HI, 0.85);
+            g.fillCircle(peg.x, peg.y - 2, r - 5);
+            if (peg.glow > 0) {
+                g.lineStyle(4, 0x6f76ff, 0.7 * peg.glow);
+                g.strokeCircle(peg.x, peg.y, r + 3);
+            }
+        }
+    }
+    drawRopes() {
+        const g = this.gRope;
+        g.clear();
+        for (const rope of this.ropes) {
+            if (rope.state === 'gone')
+                continue;
+            buildPath(rope, this.crossings, this.paths[rope.id]);
+            if (rope.shake > 0) {
+                // wobble a rope the player just tried and failed to move
+                const dx = Math.sin(this.t * 46) * rope.shake * 5;
+                const path = this.paths[rope.id];
+                for (let k = 0; k < PATH_N; k++)
+                    path.x[k] += dx;
+            }
+        }
+        // halo under whatever is pinning the rope the player just poked
+        if (this.flashT > 0 && this.flashId >= 0) {
+            const blocker = this.ropes[this.flashId];
+            if (blocker && blocker.state !== 'gone') {
+                const path = this.paths[blocker.id];
+                const pts = [];
+                for (let k = 0; k < PATH_N; k++)
+                    pts.push({ x: path.x[k], y: path.y[k] });
+                const pulse = this.flashT * (0.6 + 0.4 * Math.sin(this.t * 16));
+                g.lineStyle(ROPE_W + 24, 0xffc21f, 0.7 * pulse);
+                g.strokePoints(pts, false, false);
+                g.lineStyle(ROPE_W + 12, 0xffffff, 0.4 * pulse);
+                g.strokePoints(pts, false, false);
+            }
+        }
+        // Base pass in stack order, so every crossing draws its over/under exactly
+        // as the rules see it. A rope the player has picked up is lifted clear of
+        // the board, so it always draws last.
+        const order = this.ropes
+            .filter((r) => r.state !== 'gone')
+            .sort((p, q) => {
+            const held = (p.state === 'held' ? 1 : 0) - (q.state === 'held' ? 1 : 0);
+            return held !== 0 ? held : p.layer - q.layer;
+        });
+        for (const rope of order) {
+            const col = PALETTE[rope.color];
+            const alpha = rope.state === 'escaping' ? 1 - easeOutCubic(rope.escapeT) * 0.15 : 1;
+            const w = ROPE_W * (rope.state === 'escaping' ? 1 + rope.escapeT * 0.25 : 1);
+            strokeCord(g, this.paths[rope.id], col, 0, PATH_N - 1, w, alpha);
+        }
+        // Weave pass. Each rope leans the opposite way through a crossing, so the
+        // pair meets three times. Redraw the under rope across the two flanking
+        // meetings and the over rope across the middle one, and the crossing reads
+        // over-under-over — a real braid, from one logical crossing.
+        for (const c of this.crossings) {
+            const overId = c.iOver ? c.i : c.j;
+            const underId = c.iOver ? c.j : c.i;
+            const over = this.ropes[overId];
+            const under = this.ropes[underId];
+            if (!over || over.state === 'gone' || !under || under.state === 'gone')
+                continue;
+            if (under.state === 'held' || over.state === 'held')
+                continue;
+            const overPath = this.paths[overId];
+            const underPath = this.paths[underId];
+            const overArc = arcAt(overPath, (c.iOver ? c.ai : c.aj) * SUB);
+            const underArc = arcAt(underPath, (c.iOver ? c.aj : c.ai) * SUB);
+            for (const side of [-1, 1]) {
+                const centre = underArc + side * WEAVE_FLANK_AT;
+                strokeCord(g, underPath, PALETTE[under.color], indexAtArc(underPath, centre - WEAVE_FLANK_PX), indexAtArc(underPath, centre + WEAVE_FLANK_PX), ROPE_W, 1, false);
+            }
+            strokeCord(g, overPath, PALETTE[over.color], indexAtArc(overPath, overArc - WEAVE_OVER_PX), indexAtArc(overPath, overArc + WEAVE_OVER_PX), ROPE_W, 1, false);
+        }
+        // knobs and plates always sit on top of everything
+        for (const rope of this.ropes) {
+            if (rope.state === 'gone')
+                continue;
+            const col = PALETTE[rope.color];
+            let scale = 1;
+            if (rope.state === 'escaping')
+                scale = 1 - easeOutCubic(rope.escapeT) * 0.85;
+            else if (rope.bornT < 1)
+                scale = easeOutBack(rope.bornT);
+            // A rope with nothing on top of it is one move from coming loose, so its
+            // knobs breathe. Buried ropes sit still — a hint, never a restriction.
+            if (rope.state === 'idle' && !this.buried.has(rope.id)) {
+                scale *= 1 + 0.035 * Math.sin(this.t * 3.4 + rope.id * 1.7);
+            }
+            if (scale <= 0.02)
+                continue;
+            const dx = rope.shake > 0 ? Math.sin(this.t * 46) * rope.shake * 5 : 0;
+            for (const end of [rope.a, rope.b]) {
+                const ex = end.x + dx;
+                if (end.locked)
+                    drawPlate(g, ex, end.y, scale);
+                else
+                    drawKnob(g, ex, end.y, col, scale * (end.held ? 1.14 : 1), end.held);
+            }
+        }
+    }
+    drawFx() {
+        const g = this.gFx;
+        g.clear();
+        for (const p of this.particles) {
+            g.fillStyle(p.color, clamp(p.life, 0, 1));
+            g.fillCircle(p.x, p.y, p.r * clamp(p.life, 0, 1));
+        }
+        for (let i = 0; i < this.popPool.length; i++) {
+            const f = this.floats[i];
+            const label = this.popPool[i];
+            if (!f) {
+                label.setVisible(false);
+                continue;
+            }
+            const a = clamp(f.life, 0, 1);
+            label.setVisible(true);
+            label.setPosition(f.x, f.y);
+            label.setAlpha(a);
+            label.setScale(0.8 + 0.35 * clamp((1 - f.life) * 4, 0, 1));
+            label.setText(f.text);
+            label.setColor('#' + f.color.toString(16).padStart(6, '0'));
+        }
+    }
+    drawHud() {
+        const g = this.gHud;
+        g.clear();
+        // coin pill
+        g.fillStyle(0xffffff, 0.9);
+        g.fillRoundedRect(22, 32, 130, 44, 22);
+        g.fillStyle(0xf7b733, 1);
+        g.fillCircle(44, 54, 19);
+        g.fillStyle(0xffd76e, 1);
+        g.fillCircle(44, 54, 14);
+        // level pill
+        g.fillStyle(0xffffff, 0.85);
+        const lw = 150;
+        g.fillRoundedRect(VIEW_W / 2 - lw / 2, 34, lw, 40, 20);
+        // sound button
+        g.fillStyle(0xffffff, 0.9);
+        g.fillCircle(this.soundHit.x, this.soundHit.y, this.soundHit.r);
+        g.fillStyle(this.sfx.muted ? 0xb9bcd6 : COL_HUD_INK, 1);
+        g.fillRect(this.soundHit.x - 11, this.soundHit.y - 6, 8, 12);
+        g.fillTriangle(this.soundHit.x + 4, this.soundHit.y - 13, this.soundHit.x + 4, this.soundHit.y + 13, this.soundHit.x - 8, this.soundHit.y);
+        if (!this.sfx.muted) {
+            g.lineStyle(3, COL_HUD_INK, 0.85);
+            g.beginPath();
+            g.arc(this.soundHit.x + 6, this.soundHit.y, 11, -0.7, 0.7, false);
+            g.strokePath();
+        }
+        if (this.sfx.muted) {
+            g.lineStyle(3.5, 0xe5372b, 1);
+            g.lineBetween(this.soundHit.x - 13, this.soundHit.y - 13, this.soundHit.x + 13, this.soundHit.y + 13);
+        }
+        // restart button
+        g.fillStyle(0xffffff, 0.95);
+        g.fillCircle(this.restartHit.x, this.restartHit.y, this.restartHit.r);
+        g.lineStyle(4.5, COL_HUD_INK, 1);
+        g.beginPath();
+        g.arc(this.restartHit.x, this.restartHit.y, 13, Math.PI * 0.35, Math.PI * 1.85, false);
+        g.strokePath();
+        g.fillStyle(COL_HUD_INK, 1);
+        g.fillTriangle(this.restartHit.x + 6, this.restartHit.y - 18, this.restartHit.x + 18, this.restartHit.y - 12, this.restartHit.x + 5, this.restartHit.y - 5);
+        const hudVisible = this.fsm !== 'WIN';
+        this.txtCoins.setVisible(hudVisible).setText(String(this.coins));
+        this.txtLevel.setVisible(hudVisible);
+        this.txtToast.setAlpha(hudVisible ? clamp(this.toastT, 0, 1) : 0);
+    }
+    drawWin() {
+        const g = this.gWin;
+        g.clear();
+        const show = this.fsm === 'WIN';
+        this.txtWinBig.setVisible(show);
+        this.txtWinSub.setVisible(show);
+        this.txtWinCoins.setVisible(show);
+        this.txtTap.setVisible(show && this.winT > WIN_HOLD);
+        if (!show)
+            return;
+        const t = clamp(this.winT / 0.45, 0, 1);
+        g.fillStyle(0x0a0a14, 0.82 * t);
+        g.fillRect(-40, -40, VIEW_W + 80, VIEW_H + 80);
+        const pop = easeOutBack(t);
+        const cx = VIEW_W / 2;
+        const cy = 300;
+        const R = 96 * pop;
+        g.fillStyle(0xffc83d, 1);
+        g.fillCircle(cx, cy, R);
+        g.fillStyle(0xffdd7a, 0.6);
+        g.fillCircle(cx - R * 0.22, cy - R * 0.26, R * 0.52);
+        g.fillStyle(0xff8f6b, 0.55);
+        g.fillCircle(cx - R * 0.58, cy + R * 0.22, R * 0.2);
+        g.fillCircle(cx + R * 0.58, cy + R * 0.22, R * 0.2);
+        g.lineStyle(R * 0.11, 0x4a2a08, 1);
+        g.beginPath();
+        g.arc(cx - R * 0.36, cy - R * 0.16, R * 0.2, Math.PI, Math.PI * 2, false);
+        g.strokePath();
+        g.beginPath();
+        g.arc(cx + R * 0.36, cy - R * 0.16, R * 0.2, Math.PI, Math.PI * 2, false);
+        g.strokePath();
+        g.fillStyle(0x4a2a08, 1);
+        g.beginPath();
+        g.arc(cx, cy + R * 0.16, R * 0.46, 0, Math.PI, false);
+        g.fillPath();
+        g.fillStyle(0xff6b6b, 1);
+        g.fillCircle(cx, cy + R * 0.5, R * 0.16);
+        if (this.winT > WIN_HOLD) {
+            this.txtTap.setAlpha(0.55 + 0.45 * Math.sin(this.t * 5));
+        }
+        const scale = 0.6 + 0.4 * pop;
+        this.txtWinBig.setScale(scale);
+        this.txtWinSub.setScale(scale);
+    }
+}
+
+
+/* ------------------------------------------------------------ */
+
+/* ============================================================================
+ * main.ts — boot only.
+ * ==========================================================================*/
+function boot() {
+    const config = {
+        type: Phaser.AUTO,
+        parent: 'stage',
+        width: VIEW_W,
+        height: VIEW_H,
+        backgroundColor: COL_BG,
+        roundPixels: false,
+        antialias: true,
+        scale: {
+            mode: Phaser.Scale.FIT,
+            autoCenter: Phaser.Scale.CENTER_BOTH,
+            width: VIEW_W,
+            height: VIEW_H,
+        },
+        input: { activePointers: 2 },
+        scene: [BoardScene],
+    };
+    // eslint-disable-next-line no-new
+    new Phaser.Game(config);
+}
+function start() {
+    // No-op when the page already loaded the real Phaser, or when shim.ts already
+    // installed the built-in Canvas 2D runtime at parse time. Kept so the dev
+    // module graph pulls shim.ts in ahead of engine.ts.
+    installPhaserFallback();
+    boot();
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+}
+else {
+    start();
+}
+
+</script>
+</body>
+</html>

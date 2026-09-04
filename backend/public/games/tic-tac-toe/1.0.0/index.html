@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Tic Tac Toe</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;touch-action:none;user-select:none;-webkit-user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#17191c}
+#game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+canvas{display:block}
+</style>
+</head>
+<body>
+<div id="game-container"></div>
+<script>
+(()=>{"use strict";
+const W=360,H=640,D=Math.min(devicePixelRatio||1,2);
+const c=document.createElement("canvas");c.width=W*D;c.height=H*D;
+c.style.width="min(100vw,56.25vh)";c.style.height="min(177.78vw,100vh)";
+document.getElementById("game-container").appendChild(c);
+const g=c.getContext("2d");g.scale(D,D);
+
+let board=Array(9).fill(""),turn="X",state="playing",winner="",winLine=[];
+let scoreX=+localStorage.getItem("ttt-x")||0,scoreO=+localStorage.getItem("ttt-o")||0;
+let pulse=0,aiTimer=0,particles=[],last=performance.now();
+
+function bridge(event,...args){try{window.parent.postMessage({type:"GAME_BRIDGE",event,args},"*")}catch(_){}}
+bridge("sendReady");
+
+const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+function reset(){
+ board=Array(9).fill("");turn="X";state="playing";winner="";winLine=[];pulse=0;aiTimer=0;particles=[];
+ bridge("sendScoreUpdated",scoreX,1);
+}
+function check(){
+ for(const line of wins){
+   const [a,b,d]=line;
+   if(board[a]&&board[a]===board[b]&&board[a]===board[d]){
+     winner=board[a];winLine=line;state="won";
+     if(winner==="X")scoreX++;else scoreO++;
+     localStorage.setItem("ttt-x",scoreX);localStorage.setItem("ttt-o",scoreO);
+     bridge("sendScoreUpdated",winner==="X"?scoreX:scoreO,1);
+     burstLine(line);return true;
+   }
+ }
+ if(board.every(Boolean)){state="draw";return true}
+ return false;
+}
+function bestMove(){
+ const empty=board.map((v,i)=>v?null:i).filter(v=>v!==null);
+ // Win if possible.
+ for(const i of empty){board[i]="O";if(isWin("O")){board[i]="";return i}board[i]=""}
+ // Block player.
+ for(const i of empty){board[i]="X";if(isWin("X")){board[i]="";return i}board[i]=""}
+ if(!board[4])return 4;
+ const corners=[0,2,6,8].filter(i=>!board[i]);
+ if(corners.length)return corners[Math.floor(Math.random()*corners.length)];
+ const sides=[1,3,5,7].filter(i=>!board[i]);
+ return sides[Math.floor(Math.random()*sides.length)];
+}
+function isWin(p){
+ return wins.some(line=>line.every(i=>board[i]===p));
+}
+function move(i){
+ if(state!=="playing"||turn!=="X"||board[i])return;
+ board[i]="X";pulse=.25;
+ if(check())return;
+ turn="O";aiTimer=.38;
+}
+function aiMove(){
+ if(state!=="playing"||turn!=="O")return;
+ const i=bestMove();if(i==null)return;
+ board[i]="O";pulse=.25;
+ if(!check())turn="X";
+}
+function cellCenter(i){return {x:75+(i%3)*105,y:205+Math.floor(i/3)*105}}
+function burstLine(line){
+ for(const i of line){
+   const p=cellCenter(i);
+   for(let n=0;n<8;n++){
+     const a=Math.random()*6.28,s=30+Math.random()*65;
+     particles.push({x:p.x,y:p.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.45+Math.random()*.4,max:.8});
+   }
+ }
+}
+function tap(x,y){
+ if(state!=="playing"){reset();return}
+ if(x>=20&&x<=340&&y>=150&&y<=465){
+   const col=Math.floor((x-20)/105),row=Math.floor((y-150)/105),i=row*3+col;
+   if(col>=0&&col<3&&row>=0&&row<3)move(i);
+ }
+}
+addEventListener("pointerdown",e=>{
+ e.preventDefault();const r=c.getBoundingClientRect();
+ tap((e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height);
+},{passive:false});
+
+function roundedRect(x,y,w,h,r,fill,stroke){
+ g.beginPath();g.roundRect(x,y,w,h,r);if(fill){g.fillStyle=fill;g.fill()}if(stroke){g.strokeStyle=stroke;g.stroke()}
+}
+function drawX(x,y,alpha=1){
+ g.save();g.globalAlpha=alpha;g.strokeStyle="#d46b52";g.lineWidth=11;g.lineCap="round";
+ g.beginPath();g.moveTo(x-25,y-25);g.lineTo(x+25,y+25);g.moveTo(x+25,y-25);g.lineTo(x-25,y+25);g.stroke();g.restore();
+}
+function drawO(x,y,alpha=1){
+ g.save();g.globalAlpha=alpha;g.strokeStyle="#668da8";g.lineWidth=11;
+ g.beginPath();g.arc(x,y,27,0,6.28);g.stroke();g.restore();
+}
+function draw(){
+ const bg=g.createLinearGradient(0,0,0,H);bg.addColorStop(0,"#20252a");bg.addColorStop(1,"#111417");
+ g.fillStyle=bg;g.fillRect(0,0,W,H);
+
+ // soft decorative circles
+ g.globalAlpha=.08;g.fillStyle="#fff";g.beginPath();g.arc(40,130,90,0,6.28);g.arc(330,540,130,0,6.28);g.fill();g.globalAlpha=1;
+
+ g.textAlign="center";g.fillStyle="#f0ede6";g.font="800 32px Arial Black,Arial";g.fillText("TIC TAC TOE",W/2,62);
+ g.font="13px Arial";g.fillStyle="#9da5aa";g.fillText("CLASSIC • TWO-PLAYER",W/2,87);
+
+ // Score cards
+ roundedRect(35,105,125,55,12,"#292f34");
+ roundedRect(200,105,125,55,12,"#292f34");
+ g.font="bold 11px Arial";g.fillStyle="#aeb4b7";g.fillText("PLAYER X",97,125);g.fillText("PLAYER O",263,125);
+ g.font="bold 22px Arial";g.fillStyle="#d46b52";g.fillText(scoreX,97,148);g.fillStyle="#668da8";g.fillText(scoreO,263,148);
+
+ // board
+ roundedRect(20,150,320,320,20,"#252b30");
+ g.strokeStyle="rgba(255,255,255,.16)";g.lineWidth=2;
+ for(let i=1;i<3;i++){g.beginPath();g.moveTo(25+i*105,165);g.lineTo(25+i*105,455);g.stroke();g.beginPath();g.moveTo(35,150+i*105);g.lineTo(325,150+i*105);g.stroke()}
+
+ for(let i=0;i<9;i++){
+   const p=cellCenter(i),v=board[i];
+   if(v==="X")drawX(p.x,p.y);
+   if(v==="O")drawO(p.x,p.y);
+ }
+ if(winLine.length){
+   const a=cellCenter(winLine[0]),b=cellCenter(winLine[2]);
+   g.strokeStyle="#e9c46a";g.lineWidth=7;g.lineCap="round";
+   g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.stroke();
+ }
+
+ const label=state==="playing"?(turn==="X"?"YOUR TURN  •  X":"THINKING  •  O"):state==="draw"?"DRAW":winner==="X"?"PLAYER X WINS":"PLAYER O WINS";
+ g.font="bold 15px Arial";g.fillStyle=state==="playing"?"#dfe3e4":"#e9c46a";g.fillText(label,W/2,505);
+
+ roundedRect(80,535,200,58,16,"#e7e1d5");
+ g.fillStyle="#252b30";g.font="bold 15px Arial";g.fillText(state==="playing"?"TAP A SQUARE":"TAP TO PLAY AGAIN",W/2,571);
+
+ // particles
+ for(let i=particles.length-1;i>=0;i--){
+   const p=particles[i];p.life-=1/60;p.x+=p.vx/60;p.y+=p.vy/60;
+   if(p.life<=0){particles.splice(i,1);continue}
+   g.globalAlpha=p.life/p.max;g.fillStyle="#e9c46a";g.beginPath();g.arc(p.x,p.y,3,0,6.28);g.fill();
+ }
+ g.globalAlpha=1;
+}
+function loop(now){
+ const dt=Math.min(.04,(now-last)/1000);last=now;
+ if(aiTimer>0){aiTimer-=dt;if(aiTimer<=0)aiMove()}
+ if(pulse>0)pulse-=dt;
+ draw();requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

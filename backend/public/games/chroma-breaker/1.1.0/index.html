@@ -1,0 +1,2127 @@
+<!-- Source shell. Loads src/main.ts as a live module, so it only works behind
+     `npm run dev`. build-single.mjs generates the shippable index.html from
+     this file — author HTML and CSS here, never in index.html. -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#080b18" />
+<meta name="description" content="Chroma Breaker — a colour-matching block breaker built with TypeScript and HTML5 Canvas." />
+<title>Chroma Breaker — dev</title>
+<style>
+  :root {
+    --bg: #05070f;
+    --panel: rgba(255, 255, 255, 0.06);
+    --stroke: rgba(255, 255, 255, 0.12);
+    --ink: #e9eef8;
+    --muted: rgba(233, 238, 248, 0.55);
+    --accent: #7ef0b6;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: radial-gradient(120% 80% at 50% 0%, #1a2444 0%, var(--bg) 60%);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    user-select: none; -webkit-user-select: none;
+    touch-action: none; overscroll-behavior: none;
+  }
+  #app {
+    height: 100%;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 10px;
+    padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  }
+  header {
+    width: 100%; max-width: 520px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex: 0 0 auto;
+  }
+  .brand { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .brand b { font-size: 15px; letter-spacing: 0.18em; font-weight: 800; white-space: nowrap; }
+  .brand span {
+    font-size: 11px; color: var(--muted); letter-spacing: 0.06em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #btn-mute {
+    width: 38px; height: 38px; border-radius: 12px; cursor: pointer; flex: 0 0 auto;
+    border: 1px solid var(--stroke); background: var(--panel); color: var(--ink);
+    font-size: 16px; line-height: 1; display: grid; place-items: center;
+  }
+  #stage {
+    flex: 1 1 auto; min-height: 0;
+    width: 100%; max-width: 520px;
+    display: grid; place-items: center;
+  }
+  #game {
+    width: auto; height: auto; aspect-ratio: 3 / 5;
+    max-width: 100%; max-height: 100%;
+    border-radius: 22px; display: block;
+    background: #080b18;
+    border: 1px solid var(--stroke);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255,255,255,0.03);
+    touch-action: none; cursor: crosshair;
+  }
+  #controls {
+    flex: 0 0 auto;
+    width: 100%; max-width: 520px;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  #btn-swap {
+    width: 100%; height: 62px; border-radius: 18px; cursor: pointer;
+    border: 1px solid var(--stroke);
+    background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03));
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    font-size: 14px; font-weight: 800; letter-spacing: 0.14em;
+    transition: transform 0.06s ease, background 0.12s ease, box-shadow 0.12s ease;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.35);
+    touch-action: none;
+  }
+  #btn-swap:active {
+    transform: translateY(3px) scale(0.99);
+    background: linear-gradient(180deg, rgba(126,240,182,0.28), rgba(126,240,182,0.10));
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+  #btn-swap svg { width: 20px; height: 20px; }
+  .hint { font-size: 10.5px; white-space: nowrap; color: var(--muted); letter-spacing: 0.06em; text-align: center; }
+  @media (max-height: 640px) {
+    #btn-swap { height: 50px; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="brand"><b>CHROMA BREAKER</b><span>match the colour · break the block</span></div>
+      <button id="btn-mute" aria-label="Mute" type="button">🔊</button>
+    </header>
+
+    <div id="stage">
+      <canvas id="game" width="480" height="800" aria-label="Chroma Breaker game canvas"></canvas>
+    </div>
+
+    <div id="controls">
+      <button id="btn-swap" type="button" aria-label="Swap current and next ball">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>
+        SWAP COLOUR
+      </button>
+      <div class="hint">DRAG to aim · RELEASE to fire · S to swap</div>
+    </div>
+  </div>
+
+  <script>
+/**
+ * utils.ts — pure helpers: math, randomness, colour, geometry, layout constants.
+ * No game state lives here, and it imports nothing, so every module can use it.
+ * Every tunable number in the game is in this file.
+ */
+const TAU = Math.PI * 2;
+/* ------------------------------------------------------------------ *
+ * Virtual resolution. Everything is authored against this fixed
+ * 480x800 canvas; engine.ts scales it to whatever the device gives us.
+ * ------------------------------------------------------------------ */
+const VIEW_W = 480;
+const VIEW_H = 800;
+/* Playfield -------------------------------------------------------- */
+const PLAY_X = 32; // left wall
+const PLAY_W = 416;
+const PLAY_R = PLAY_X + PLAY_W; // right wall
+const TOP_WALL = 92; // ball bounces off this
+const COLS = 8;
+const CELL_W = PLAY_W / COLS; // 52
+const BLOCK_W = CELL_W - 5;
+const BLOCK_H = 27;
+const ROW_H = 32;
+const GRID_TOP = 108; // centre y of the first row
+const DANGER_Y = 584; // blocks touching this end the run
+const LAUNCH_X = VIEW_W / 2;
+const LAUNCH_Y = 706;
+/* Tuning ----------------------------------------------------------- */
+const START_ROWS = 5;
+const DROP_EVERY_START = 5; // shots between row drops
+const DROP_EVERY_MIN = 3;
+const BALL_R = 10;
+const BALL_SPEED = 880;
+const BALL_ENERGY = 14; // bounces before gravity takes over
+const BALL_LIFE = 9; // seconds before gravity takes over
+const MATCH_DRAG = 0.95; // speed kept after punching a block
+const AIM_LIMIT = 1.30; // max radians either side of straight up
+const AIM_KEY_RATE = 1.7; // radians/sec when steering by keyboard
+const CHAIN_MAX = 5; // score multiplier ceiling
+const BLOCK_POINTS = 10;
+const ORPHAN_POINTS = 6; // per block that falls for lack of support
+const COMBO_BONUS = 25; // per step of a back-to-back combo
+const PRAISE_MIN = 3; // blocks in one shot before praise fires
+const CLEAR_BONUS = 500;
+const GOAL_BLOCKS = 240; // clear this many and you WIN
+const PRAISE = [
+    { min: 3, text: 'NICE!', hue: 150, size: 46 },
+    { min: 5, text: 'GREAT!', hue: 190, size: 50 },
+    { min: 7, text: 'AMAZING!', hue: 275, size: 52 },
+    { min: 10, text: 'FABULOUS!', hue: 330, size: 54 },
+    { min: 14, text: 'UNSTOPPABLE!', hue: 40, size: 46 },
+];
+/** Returns the index of the highest tier earned, or -1 for none. */
+function praiseTier(count) {
+    let idx = -1;
+    for (let i = 0; i < PRAISE.length; i++)
+        if (count >= PRAISE[i].min)
+            idx = i;
+    return idx;
+}
+const PALETTE = [
+    { hsl: { h: 352, s: 78, l: 55 }, glyph: 'circle', name: 'red' },
+    { hsl: { h: 34, s: 92, l: 56 }, glyph: 'triangle', name: 'amber' },
+    { hsl: { h: 145, s: 62, l: 46 }, glyph: 'square', name: 'green' },
+    { hsl: { h: 202, s: 82, l: 55 }, glyph: 'diamond', name: 'blue' },
+    { hsl: { h: 278, s: 62, l: 60 }, glyph: 'star', name: 'violet' },
+];
+/* Math ------------------------------------------------------------- */
+function clamp(v, lo, hi) {
+    return v < lo ? lo : v > hi ? hi : v;
+}
+function lerp(a, b, t) {
+    return a + (b - a) * t;
+}
+/** Frame-rate independent lerp — the workhorse for smooth follow motion. */
+function damp(a, b, lambda, dt) {
+    return lerp(a, b, 1 - Math.exp(-lambda * dt));
+}
+function rand(min, max) {
+    return min + Math.random() * (max - min);
+}
+function randInt(min, max) {
+    return Math.floor(rand(min, max + 1));
+}
+function pick(items) {
+    return items[Math.floor(Math.random() * items.length)];
+}
+function chance(p) {
+    return Math.random() < p;
+}
+function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+}
+function easeOutBack(t) {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+/* Geometry --------------------------------------------------------- */
+function pointInRect(px, py, r) {
+    return (px > r.x - r.w / 2 && px < r.x + r.w / 2 &&
+        py > r.y - r.h / 2 && py < r.y + r.h / 2);
+}
+function colX(col) {
+    return PLAY_X + CELL_W * (col + 0.5);
+}
+/* Colour ----------------------------------------------------------- */
+function css(c, dl = 0, alpha = 1, ds = 0) {
+    return `hsla(${c.h}, ${clamp(c.s + ds, 0, 100)}%, ${clamp(c.l + dl, 0, 100)}%, ${alpha})`;
+}
+/* Canvas helpers --------------------------------------------------- */
+function roundRect(ctx, x, y, w, h, r) {
+    const rr = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.lineTo(x + w - rr, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+    ctx.lineTo(x + w, y + h - rr);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+    ctx.lineTo(x + rr, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+    ctx.lineTo(x, y + rr);
+    ctx.quadraticCurveTo(x, y, x + rr, y);
+    ctx.closePath();
+}
+/** Soft additive light blob — makes anything read as emissive. */
+function glow(ctx, x, y, radius, color, alpha, squash = 1) {
+    if (alpha <= 0.002 || radius <= 0)
+        return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = alpha;
+    ctx.translate(x, y);
+    ctx.scale(1, squash);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+    g.addColorStop(0, color);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+}
+/** Traces the glyph path for a swatch, centred on (0,0). Caller fills/strokes. */
+function glyphPath(ctx, glyph, r) {
+    ctx.beginPath();
+    switch (glyph) {
+        case 'circle':
+            ctx.arc(0, 0, r, 0, TAU);
+            break;
+        case 'triangle':
+            ctx.moveTo(0, -r * 1.05);
+            ctx.lineTo(r * 0.95, r * 0.75);
+            ctx.lineTo(-r * 0.95, r * 0.75);
+            ctx.closePath();
+            break;
+        case 'square':
+            ctx.rect(-r * 0.85, -r * 0.85, r * 1.7, r * 1.7);
+            break;
+        case 'diamond':
+            ctx.moveTo(0, -r * 1.15);
+            ctx.lineTo(r, 0);
+            ctx.lineTo(0, r * 1.15);
+            ctx.lineTo(-r, 0);
+            ctx.closePath();
+            break;
+        case 'star': {
+            for (let i = 0; i < 10; i++) {
+                const a = (i / 10) * TAU - Math.PI / 2;
+                const rad = i % 2 === 0 ? r * 1.15 : r * 0.5;
+                ctx.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
+            }
+            ctx.closePath();
+            break;
+        }
+    }
+}
+function formatScore(n) {
+    return Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+
+/* ------------------------------------------------------------ */
+
+/**
+ * entities.ts — every drawable/updatable object in the game.
+ * All artwork is procedural: gradients, rounded rects and paths, no image files.
+ */
+/* ================================================================== *
+ * BLOCK
+ * ================================================================== */
+class Block {
+    constructor(col, y, color, instant = false) {
+        this.born = 0; // 0..1 spawn-in animation
+        this.hit = 0; // 0..1 rejected-hit wobble
+        this.hitDir = 1;
+        this.pulse = rand(0, TAU);
+        this.col = col;
+        this.y = y;
+        this.drawY = instant ? y : y - ROW_H;
+        this.color = color;
+        this.born = instant ? 1 : 0;
+    }
+    get x() { return colX(this.col); }
+    /** Lattice row. Rows are added at GRID_TOP and everything shifts by ROW_H,
+     *  so the newest row is always row 0 — that row is the ceiling anchor. */
+    get row() { return Math.round((this.y - GRID_TOP) / ROW_H); }
+    get swatch() { return PALETTE[this.color]; }
+    get rect() { return { x: this.x, y: this.drawY, w: BLOCK_W, h: BLOCK_H }; }
+    get bottom() { return this.drawY + BLOCK_H / 2; }
+    reject(dir) {
+        this.hit = 1;
+        this.hitDir = dir >= 0 ? 1 : -1;
+    }
+    update(dt) {
+        this.drawY = damp(this.drawY, this.y, 9, dt);
+        this.born = Math.min(1, this.born + dt * 4);
+        this.hit = Math.max(0, this.hit - dt * 3.2);
+        this.pulse += dt * 1.6;
+    }
+    draw(ctx, danger) {
+        const c = this.swatch.hsl;
+        const grow = 0.6 + 0.4 * this.born;
+        const shove = Math.sin(this.hit * Math.PI * 3) * this.hit * 5 * this.hitDir;
+        const w = BLOCK_W * grow;
+        const h = BLOCK_H * grow;
+        ctx.save();
+        ctx.translate(this.x + shove, this.drawY);
+        ctx.globalAlpha = 0.35 + 0.65 * this.born;
+        // drop shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        roundRect(ctx, -w / 2, -h / 2 + 3, w, h, 7);
+        ctx.fill();
+        // body: dark edge -> light centre -> dark edge
+        const body = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+        body.addColorStop(0, css(c, 14));
+        body.addColorStop(0.5, css(c, 0));
+        body.addColorStop(1, css(c, -16));
+        ctx.fillStyle = body;
+        roundRect(ctx, -w / 2, -h / 2, w, h, 7);
+        ctx.fill();
+        // top bevel
+        ctx.fillStyle = 'rgba(255,255,255,0.22)';
+        roundRect(ctx, -w / 2 + 3, -h / 2 + 2.5, w - 6, h * 0.30, 4);
+        ctx.fill();
+        // rim
+        ctx.strokeStyle = css(c, 22, 0.75);
+        ctx.lineWidth = 1.4;
+        roundRect(ctx, -w / 2 + 0.7, -h / 2 + 0.7, w - 1.4, h - 1.4, 6.5);
+        ctx.stroke();
+        // glyph — the colour-blind-safe half of the matching cue
+        ctx.fillStyle = 'rgba(255,255,255,0.62)';
+        glyphPath(ctx, this.swatch.glyph, 7.2 * grow);
+        ctx.fill();
+        // rejected-hit flash
+        if (this.hit > 0.02) {
+            ctx.fillStyle = `rgba(255,255,255,${this.hit * 0.5})`;
+            roundRect(ctx, -w / 2, -h / 2, w, h, 7);
+            ctx.fill();
+        }
+        ctx.restore();
+        // blocks near the danger line breathe red
+        if (danger > 0.01 && this.bottom > DANGER_Y - 120) {
+            glow(ctx, this.x, this.drawY, 34, 'rgba(255,60,60,0.8)', danger * 0.25 * (0.6 + 0.4 * Math.sin(this.pulse * 3)));
+        }
+    }
+}
+/* ================================================================== *
+ * BALL
+ * ================================================================== */
+class Ball {
+    constructor() {
+        this.x = LAUNCH_X;
+        this.y = LAUNCH_Y;
+        this.vx = 0;
+        this.vy = 0;
+        this.color = 0;
+        this.energy = 0;
+        this.life = 0;
+        this.falling = false; // out of energy — gravity has taken over
+        this.dead = false;
+        this.trail = []; // flat [x, y, x, y, ...], newest last
+        this.spin = 0;
+    }
+    get swatch() { return PALETTE[this.color]; }
+    launch(color, angle, speed, energy) {
+        this.x = LAUNCH_X;
+        this.y = LAUNCH_Y;
+        this.color = color;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.energy = energy;
+        this.life = 0;
+        this.falling = false;
+        this.dead = false;
+        this.trail.length = 0;
+    }
+    get speed() { return Math.hypot(this.vx, this.vy); }
+    pushTrail() {
+        this.trail.push(this.x, this.y);
+        if (this.trail.length > 24)
+            this.trail.splice(0, 2);
+    }
+    draw(ctx) {
+        const c = this.swatch.hsl;
+        // motion trail
+        for (let i = 0; i < this.trail.length; i += 2) {
+            const t = i / Math.max(2, this.trail.length - 2);
+            ctx.globalAlpha = t * 0.4;
+            ctx.fillStyle = css(c, 10);
+            ctx.beginPath();
+            ctx.arc(this.trail[i], this.trail[i + 1], BALL_R * (0.25 + t * 0.7), 0, TAU);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        glow(ctx, this.x, this.y, BALL_R * 4.2, css(c, 18, 0.95), 0.5);
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.spin);
+        const g = ctx.createRadialGradient(-BALL_R * 0.35, -BALL_R * 0.4, 1, 0, 0, BALL_R);
+        g.addColorStop(0, css(c, 34));
+        g.addColorStop(0.55, css(c, 4));
+        g.addColorStop(1, css(c, -22));
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(0, 0, BALL_R, 0, TAU);
+        ctx.fill();
+        ctx.strokeStyle = css(c, 30, 0.8);
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        glyphPath(ctx, this.swatch.glyph, 4.4);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+/* ================================================================== *
+ * LAUNCHER
+ * ================================================================== */
+class Launcher {
+    constructor() {
+        this.angle = -Math.PI / 2;
+        this.recoil = 0;
+        this.charge = 0;
+    }
+    update(dt) {
+        this.recoil = damp(this.recoil, 0, 9, dt);
+        this.charge = damp(this.charge, 0, 6, dt);
+    }
+    kick() { this.recoil = 1; }
+    draw(ctx, color, ready, aiming) {
+        const c = PALETTE[color].hsl;
+        const back = this.recoil * 14;
+        const bx = LAUNCH_X - Math.cos(this.angle) * back;
+        const by = LAUNCH_Y - Math.sin(this.angle) * back;
+        // base plate
+        ctx.save();
+        ctx.translate(LAUNCH_X, LAUNCH_Y + 16);
+        ctx.fillStyle = 'rgba(8,12,24,0.75)';
+        roundRect(ctx, -52, -8, 104, 24, 12);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+        // barrel
+        ctx.save();
+        ctx.translate(bx, by);
+        ctx.rotate(this.angle + Math.PI / 2);
+        const barrel = ctx.createLinearGradient(-14, 0, 14, 0);
+        barrel.addColorStop(0, '#2b3450');
+        barrel.addColorStop(0.45, '#5d6b92');
+        barrel.addColorStop(1, '#242c44');
+        ctx.fillStyle = barrel;
+        roundRect(ctx, -13, -34, 26, 46, 10);
+        ctx.fill();
+        ctx.fillStyle = css(c, 0, ready ? 0.9 : 0.35);
+        roundRect(ctx, -9, -32, 18, 7, 3.5);
+        ctx.fill();
+        ctx.restore();
+        // the loaded ball sitting in the muzzle
+        if (ready) {
+            glow(ctx, bx, by, 44, css(c, 20, 0.9), aiming ? 0.55 : 0.38);
+            const g = ctx.createRadialGradient(bx - 4, by - 5, 1, bx, by, BALL_R + 2);
+            g.addColorStop(0, css(c, 34));
+            g.addColorStop(0.6, css(c, 2));
+            g.addColorStop(1, css(c, -24));
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(bx, by, BALL_R + 2, 0, TAU);
+            ctx.fill();
+            ctx.save();
+            ctx.translate(bx, by);
+            ctx.fillStyle = 'rgba(255,255,255,0.78)';
+            glyphPath(ctx, PALETTE[color].glyph, 5);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+}
+class Particle {
+    constructor() {
+        this.x = 0;
+        this.y = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.life = 0;
+        this.max = 1;
+        this.size = 1;
+        this.rot = 0;
+        this.vr = 0;
+        this.drag = 0.93;
+        this.grav = 0;
+        this.kind = 'spark';
+        this.color = '#fff';
+        this.alive = false;
+    }
+}
+class Particles {
+    constructor(cap = 460) {
+        this.pool = [];
+        this.cursor = 0;
+        for (let i = 0; i < cap; i++)
+            this.pool.push(new Particle());
+    }
+    take() {
+        this.cursor = (this.cursor + 1) % this.pool.length;
+        return this.pool[this.cursor];
+    }
+    clear() { for (const p of this.pool)
+        p.alive = false; }
+    /** A block shattering: coloured shards, sparks and an expanding ring. */
+    shatter(x, y, sw) {
+        for (let i = 0; i < 16; i++) {
+            const p = this.take();
+            p.alive = true;
+            p.kind = 'shard';
+            p.x = x + rand(-BLOCK_W / 2, BLOCK_W / 2);
+            p.y = y + rand(-BLOCK_H / 2, BLOCK_H / 2);
+            p.vx = rand(-230, 230);
+            p.vy = rand(-260, 160);
+            p.life = p.max = rand(0.45, 0.85);
+            p.size = rand(4, 10);
+            p.rot = rand(0, TAU);
+            p.vr = rand(-12, 12);
+            p.drag = 0.95;
+            p.grav = 900;
+            p.color = css(sw.hsl, rand(-12, 18));
+        }
+        for (let i = 0; i < 10; i++) {
+            const a = rand(0, TAU);
+            const p = this.take();
+            p.alive = true;
+            p.kind = 'spark';
+            p.x = x;
+            p.y = y;
+            p.vx = Math.cos(a) * rand(120, 420);
+            p.vy = Math.sin(a) * rand(120, 420);
+            p.life = p.max = rand(0.2, 0.45);
+            p.size = rand(2, 4.5);
+            p.drag = 0.9;
+            p.color = css(sw.hsl, 30);
+        }
+        const r = this.take();
+        r.alive = true;
+        r.kind = 'ring';
+        r.x = x;
+        r.y = y;
+        r.vx = r.vy = 0;
+        r.life = r.max = 0.34;
+        r.size = 6;
+        r.color = css(sw.hsl, 26);
+    }
+    /** A rejected hit: dull grey puff, no colour reward. */
+    puff(x, y) {
+        for (let i = 0; i < 8; i++) {
+            const a = rand(0, TAU);
+            const p = this.take();
+            p.alive = true;
+            p.kind = 'smoke';
+            p.x = x;
+            p.y = y;
+            p.vx = Math.cos(a) * rand(30, 120);
+            p.vy = Math.sin(a) * rand(30, 120);
+            p.life = p.max = rand(0.25, 0.5);
+            p.size = rand(4, 9);
+            p.drag = 0.88;
+            p.color = 'rgba(180,190,215,0.5)';
+        }
+    }
+    sparkle(x, y, color, n = 6) {
+        for (let i = 0; i < n; i++) {
+            const a = rand(0, TAU);
+            const p = this.take();
+            p.alive = true;
+            p.kind = 'spark';
+            p.x = x;
+            p.y = y;
+            p.vx = Math.cos(a) * rand(60, 220);
+            p.vy = Math.sin(a) * rand(60, 220);
+            p.life = p.max = rand(0.18, 0.36);
+            p.size = rand(1.8, 3.6);
+            p.drag = 0.9;
+            p.color = color;
+        }
+    }
+    update(dt) {
+        for (const p of this.pool) {
+            if (!p.alive)
+                continue;
+            const d = Math.pow(p.drag, dt * 60);
+            p.vx *= d;
+            p.vy *= d;
+            p.vy += p.grav * dt;
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.rot += p.vr * dt;
+            if (p.kind === 'smoke')
+                p.size += dt * 18;
+            if (p.kind === 'ring')
+                p.size += dt * 260;
+            p.life -= dt;
+            if (p.life <= 0)
+                p.alive = false;
+        }
+    }
+    draw(ctx) {
+        for (const p of this.pool) {
+            if (!p.alive)
+                continue;
+            const t = clamp(p.life / p.max, 0, 1);
+            ctx.save();
+            if (p.kind === 'ring') {
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.globalAlpha = t * 0.8;
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = 3 * t + 0.5;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, TAU);
+                ctx.stroke();
+            }
+            else if (p.kind === 'spark') {
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.globalAlpha = t;
+                ctx.fillStyle = p.color;
+                ctx.translate(p.x, p.y);
+                ctx.rotate(Math.atan2(p.vy, p.vx));
+                roundRect(ctx, -p.size * 1.8, -p.size * 0.35, p.size * 3.6, p.size * 0.7, p.size * 0.35);
+                ctx.fill();
+            }
+            else if (p.kind === 'shard') {
+                ctx.globalAlpha = t;
+                ctx.fillStyle = p.color;
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rot);
+                roundRect(ctx, -p.size / 2, -p.size / 2, p.size, p.size * 0.75, 2);
+                ctx.fill();
+            }
+            else {
+                ctx.globalAlpha = t * 0.5;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, TAU);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+    }
+}
+/* ================================================================== *
+ * SCORE POP-UPS
+ * ================================================================== */
+class Popup {
+    constructor(x, y, text, color, size = 24, life = 0.75, max = 0.75) {
+        this.x = x;
+        this.y = y;
+        this.text = text;
+        this.color = color;
+        this.size = size;
+        this.life = life;
+        this.max = max;
+    }
+}
+class Popups {
+    constructor() {
+        this.items = [];
+    }
+    add(x, y, text, color = '#ffffff', size = 24) {
+        this.items.push(new Popup(x + rand(-12, 12), y, text, color, size));
+    }
+    clear() { this.items.length = 0; }
+    update(dt) {
+        for (const p of this.items) {
+            p.life -= dt;
+            p.y -= dt * 64;
+        }
+        this.items = this.items.filter((p) => p.life > 0);
+    }
+    draw(ctx) {
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (const p of this.items) {
+            const t = p.life / p.max;
+            ctx.globalAlpha = clamp(t * 1.5, 0, 1);
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            const s = 1 + (1 - t) * 0.3;
+            ctx.scale(s, s);
+            ctx.font = `800 ${p.size}px system-ui, sans-serif`;
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = 'rgba(6,8,18,0.8)';
+            ctx.strokeText(p.text, 0, 0);
+            ctx.fillStyle = p.color;
+            ctx.fillText(p.text, 0, 0);
+            ctx.restore();
+        }
+        ctx.restore();
+    }
+}
+class Background {
+    constructor() {
+        this.blobs = [];
+        this.sky = null;
+        for (let i = 0; i < 7; i++) {
+            this.blobs.push({
+                x: rand(0, VIEW_W),
+                y: rand(0, VIEW_H),
+                r: rand(90, 210),
+                hue: pick([200, 250, 285, 175]),
+                phase: rand(0, TAU),
+                speed: rand(0.05, 0.18),
+            });
+        }
+    }
+    update(dt) {
+        for (const b of this.blobs) {
+            b.phase += dt * b.speed;
+            b.y -= dt * 9;
+            if (b.y < -b.r)
+                b.y = VIEW_H + b.r;
+        }
+    }
+    draw(ctx, danger) {
+        if (!this.sky) {
+            const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);
+            g.addColorStop(0, '#141c34');
+            g.addColorStop(0.55, '#0d1226');
+            g.addColorStop(1, '#080b18');
+            this.sky = g;
+        }
+        ctx.fillStyle = this.sky;
+        ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+        for (const b of this.blobs) {
+            glow(ctx, b.x + Math.sin(b.phase) * 26, b.y, b.r, `hsla(${b.hue}, 70%, 55%, 0.55)`, 0.10);
+        }
+        // playfield well
+        ctx.fillStyle = 'rgba(6,9,20,0.55)';
+        roundRect(ctx, PLAY_X - 8, TOP_WALL - 8, PLAY_W + 16, VIEW_H - TOP_WALL - 40, 16);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // side rails
+        const rail = ctx.createLinearGradient(PLAY_X - 8, 0, PLAY_X + 2, 0);
+        rail.addColorStop(0, 'rgba(255,255,255,0.16)');
+        rail.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = rail;
+        ctx.fillRect(PLAY_X - 8, TOP_WALL, 10, VIEW_H - TOP_WALL - 48);
+        ctx.save();
+        ctx.translate(PLAY_R + 8, 0);
+        ctx.scale(-1, 1);
+        ctx.fillStyle = rail;
+        ctx.fillRect(0, TOP_WALL, 10, VIEW_H - TOP_WALL - 48);
+        ctx.restore();
+        // danger zone wash
+        if (danger > 0.01) {
+            const d = ctx.createLinearGradient(0, DANGER_Y - 150, 0, DANGER_Y + 20);
+            d.addColorStop(0, 'rgba(255,40,60,0)');
+            d.addColorStop(1, `rgba(255,40,60,${0.18 * danger})`);
+            ctx.fillStyle = d;
+            ctx.fillRect(PLAY_X, DANGER_Y - 150, PLAY_W, 170);
+        }
+    }
+}
+/** The line blocks must not cross. Pulses harder as they close in. */
+function drawDangerLine(ctx, danger, time) {
+    const a = 0.25 + danger * 0.6 * (0.55 + 0.45 * Math.sin(time * 6));
+    ctx.save();
+    ctx.strokeStyle = `rgba(255,70,86,${a})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([12, 10]);
+    ctx.lineDashOffset = -time * 26;
+    ctx.beginPath();
+    ctx.moveTo(PLAY_X, DANGER_Y);
+    ctx.lineTo(PLAY_R, DANGER_Y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (danger > 0.35)
+        glow(ctx, VIEW_W / 2, DANGER_Y, 190, 'rgba(255,60,70,0.6)', danger * 0.22, 0.14);
+    ctx.restore();
+}
+/**
+ * Dotted aim preview. Marches a point through the playfield, reflecting off the
+ * side walls, and stops at the first block it enters — so the player can see
+ * exactly which block they are about to test.
+ */
+function traceAim(angle, blocks) {
+    const path = [];
+    let x = LAUNCH_X;
+    let y = LAUNCH_Y - 16;
+    let dx = Math.cos(angle);
+    let dy = Math.sin(angle);
+    const step = 7;
+    let target = null;
+    for (let i = 0; i < 220; i++) {
+        x += dx * step;
+        y += dy * step;
+        if (x < PLAY_X + BALL_R) {
+            x = PLAY_X + BALL_R;
+            dx = -dx;
+        }
+        else if (x > PLAY_R - BALL_R) {
+            x = PLAY_R - BALL_R;
+            dx = -dx;
+        }
+        if (y < TOP_WALL + BALL_R) {
+            y = TOP_WALL + BALL_R;
+            dy = -dy;
+        }
+        if (y > VIEW_H)
+            break;
+        for (const b of blocks) {
+            if (Math.abs(x - b.x) < BLOCK_W / 2 + BALL_R * 0.6 &&
+                Math.abs(y - b.drawY) < BLOCK_H / 2 + BALL_R * 0.6) {
+                target = b;
+                break;
+            }
+        }
+        if (i % 2 === 0)
+            path.push(x, y);
+        if (target)
+            break;
+    }
+    return { path, target };
+}
+function drawAim(ctx, path, target, color, time, group = []) {
+    const c = PALETTE[color].hsl;
+    const n = path.length / 2;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < n; i++) {
+        const t = i / Math.max(1, n - 1);
+        const fade = (1 - t) * 0.85;
+        const twinkle = 0.6 + 0.4 * Math.sin(time * 9 - i * 0.5);
+        ctx.globalAlpha = fade * twinkle;
+        ctx.fillStyle = css(c, 24);
+        ctx.beginPath();
+        ctx.arc(path[i * 2], path[i * 2 + 1], lerp(4.2, 1.6, t), 0, TAU);
+        ctx.fill();
+    }
+    ctx.restore();
+    if (!target)
+        return;
+    const match = target.color === color;
+    const pulse = 0.65 + 0.3 * Math.sin(time * 10);
+    // every block that would go down with this shot
+    if (match && group.length) {
+        ctx.save();
+        ctx.strokeStyle = `rgba(150,255,200,${0.35 + 0.25 * pulse})`;
+        ctx.lineWidth = 2;
+        for (const g of group) {
+            if (g === target)
+                continue;
+            roundRect(ctx, g.x - BLOCK_W / 2 - 2, g.drawY - BLOCK_H / 2 - 2, BLOCK_W + 4, BLOCK_H + 4, 8);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+    ctx.save();
+    ctx.translate(target.x, target.drawY);
+    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = match ? `rgba(140,255,190,${pulse})` : 'rgba(255,255,255,0.30)';
+    roundRect(ctx, -BLOCK_W / 2 - 3, -BLOCK_H / 2 - 3, BLOCK_W + 6, BLOCK_H + 6, 9);
+    ctx.stroke();
+    if (!match) {
+        // a small cross: this shot will bounce, not break
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-6, -6);
+        ctx.lineTo(6, 6);
+        ctx.moveTo(6, -6);
+        ctx.lineTo(-6, 6);
+        ctx.stroke();
+    }
+    ctx.restore();
+    // how many blocks the group is worth, if it's more than one
+    if (match && group.length > 1) {
+        const bx = target.x;
+        const by = target.drawY - BLOCK_H / 2 - 16;
+        ctx.save();
+        ctx.globalAlpha = 0.55 + 0.35 * pulse;
+        ctx.fillStyle = 'rgba(10,30,24,0.9)';
+        roundRect(ctx, bx - 17, by - 10, 34, 20, 10);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(150,255,200,0.7)';
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+        ctx.fillStyle = '#9dfbd0';
+        ctx.font = '800 13px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`x${group.length}`, bx, by + 1);
+        ctx.restore();
+    }
+}
+/* ================================================================== *
+ * FALLING BLOCKS — the ones that lost their support and drop away
+ * ================================================================== */
+/** Shared block face, used by blocks that are no longer on the lattice. */
+function drawBlockFace(ctx, w, h, c, glyph) {
+    const body = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+    body.addColorStop(0, css(c, 14));
+    body.addColorStop(0.5, css(c, 0));
+    body.addColorStop(1, css(c, -16));
+    ctx.fillStyle = body;
+    roundRect(ctx, -w / 2, -h / 2, w, h, 7);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    roundRect(ctx, -w / 2 + 3, -h / 2 + 2.5, w - 6, h * 0.3, 4);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.62)';
+    glyphPath(ctx, glyph, 7.2);
+    ctx.fill();
+}
+class Faller {
+    constructor(x, y, color, vx, vy, rot, vr, life, max, delay) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.vx = vx;
+        this.vy = vy;
+        this.rot = rot;
+        this.vr = vr;
+        this.life = life;
+        this.max = max;
+        this.delay = delay;
+    }
+}
+class Fallers {
+    constructor() {
+        this.items = [];
+    }
+    /** Staggered by distance from the impact so the collapse reads as a cascade. */
+    add(x, y, color, delay) {
+        this.items.push(new Faller(x, y, color, rand(-70, 70), rand(-160, -40), 0, rand(-5, 5), 1.15, 1.15, delay));
+    }
+    clear() { this.items.length = 0; }
+    update(dt) {
+        for (const f of this.items) {
+            if (f.delay > 0) {
+                f.delay -= dt;
+                continue;
+            }
+            f.vy += 1750 * dt;
+            f.x += f.vx * dt;
+            f.y += f.vy * dt;
+            f.rot += f.vr * dt;
+            f.life -= dt;
+        }
+        this.items = this.items.filter((f) => f.life > 0 && f.y < VIEW_H + 80);
+    }
+    draw(ctx) {
+        for (const f of this.items) {
+            if (f.delay > 0)
+                continue;
+            const t = clamp(f.life / f.max, 0, 1);
+            ctx.save();
+            ctx.globalAlpha = Math.min(1, t * 1.6);
+            ctx.translate(f.x, f.y);
+            ctx.rotate(f.rot);
+            drawBlockFace(ctx, BLOCK_W, BLOCK_H, PALETTE[f.color].hsl, PALETTE[f.color].glyph);
+            ctx.restore();
+        }
+    }
+}
+/* ================================================================== *
+ * PRAISE BANNER — big animated call-out for a strong shot
+ * ================================================================== */
+class Banner {
+    constructor() {
+        this.text = '';
+        this.hue = 150;
+        this.size = 46;
+        this.y = 300;
+        this.life = 0;
+        this.max = 1;
+        this.seed = 0;
+    }
+    show(text, hue, size, y, dur = 1.25) {
+        this.text = text;
+        this.hue = hue;
+        this.size = size;
+        this.y = y;
+        this.life = this.max = dur;
+        this.seed = rand(0, 10);
+    }
+    update(dt) {
+        if (this.life > 0)
+            this.life -= dt;
+    }
+    draw(ctx) {
+        if (this.life <= 0)
+            return;
+        const p = 1 - this.life / this.max; // 0..1 progress
+        const inT = clamp(p / 0.20, 0, 1);
+        const outT = clamp((p - 0.70) / 0.30, 0, 1);
+        const scale = (0.35 + easeOutBack(inT) * 0.65) * (1 - outT * 0.18);
+        const alpha = Math.min(1, inT * 2) * (1 - outT);
+        const wob = Math.sin(p * 26 + this.seed) * 0.035 * (1 - inT) + Math.sin(p * 5) * 0.012;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(VIEW_W / 2, this.y - outT * 46);
+        // shockwave behind the text
+        if (inT < 1) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = (1 - inT) * 0.55 * alpha;
+            ctx.strokeStyle = `hsl(${this.hue}, 90%, 68%)`;
+            ctx.lineWidth = 5 * (1 - inT) + 1;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 40 + inT * 210, 18 + inT * 92, 0, 0, TAU);
+            ctx.stroke();
+            ctx.restore();
+        }
+        ctx.rotate(wob);
+        ctx.scale(scale, scale);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `900 ${this.size}px system-ui, sans-serif`;
+        glow(ctx, 0, 0, this.size * 3.4, `hsla(${this.hue}, 95%, 62%, 0.9)`, 0.45 * alpha, 0.42);
+        const w = ctx.measureText(this.text).width;
+        const shimmer = ((p * 1.9) % 1) * 2 - 0.5;
+        const g = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+        g.addColorStop(0, `hsl(${this.hue}, 88%, 58%)`);
+        g.addColorStop(clamp(shimmer - 0.14, 0.001, 0.998), `hsl(${this.hue}, 92%, 66%)`);
+        g.addColorStop(clamp(shimmer, 0.002, 0.999), '#ffffff');
+        g.addColorStop(clamp(shimmer + 0.14, 0.003, 1), `hsl(${this.hue}, 92%, 66%)`);
+        g.addColorStop(1, `hsl(${this.hue}, 88%, 58%)`);
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 9;
+        ctx.strokeStyle = 'rgba(6,9,20,0.85)';
+        ctx.strokeText(this.text, 0, 0);
+        ctx.fillStyle = g;
+        ctx.fillText(this.text, 0, 0);
+        ctx.restore();
+    }
+}
+
+
+/* ------------------------------------------------------------ */
+
+/**
+ * engine.ts — canvas/renderer setup, the fixed-timestep loop, the decoupled
+ * input manager, a Web Audio synth, and the game's finite state machine.
+ */
+/* ================================================================== *
+ * INPUT — raw DOM events in, abstract intents out.
+ * ================================================================== */
+class Input {
+    constructor(canvas, swapBtn) {
+        this.canvas = canvas;
+        this.aiming = false;
+        this.aimX = LAUNCH_X;
+        this.aimY = LAUNCH_Y - 260;
+        this.keyDir = 0;
+        this.onGesture = null;
+        this.fireQ = false;
+        this.swapQ = false;
+        this.confirmQ = false;
+        const toVirtual = (cx, cy) => {
+            const r = this.canvas.getBoundingClientRect();
+            const s = Math.min(r.width / VIEW_W, r.height / VIEW_H) || 1;
+            return {
+                x: (cx - r.left - (r.width - VIEW_W * s) / 2) / s,
+                y: (cy - r.top - (r.height - VIEW_H * s) / 2) / s,
+            };
+        };
+        canvas.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            this.gesture();
+            const p = toVirtual(e.clientX, e.clientY);
+            this.aimX = p.x;
+            this.aimY = p.y;
+            this.aiming = true;
+            canvas.setPointerCapture(e.pointerId);
+        });
+        canvas.addEventListener('pointermove', (e) => {
+            if (!this.aiming)
+                return;
+            const p = toVirtual(e.clientX, e.clientY);
+            this.aimX = p.x;
+            this.aimY = p.y;
+        });
+        const release = () => {
+            if (!this.aiming)
+                return;
+            this.aiming = false;
+            this.fireQ = true;
+            this.confirmQ = true;
+        };
+        canvas.addEventListener('pointerup', release);
+        canvas.addEventListener('pointercancel', () => { this.aiming = false; });
+        window.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === 'arrowleft' || k === 'a') {
+                this.keyDir = -1;
+                e.preventDefault();
+            }
+            else if (k === 'arrowright' || k === 'd') {
+                this.keyDir = 1;
+                e.preventDefault();
+            }
+            else if (k === ' ' || k === 'enter' || k === 'arrowup' || k === 'w') {
+                if (!e.repeat) {
+                    this.fireQ = true;
+                    this.confirmQ = true;
+                }
+                e.preventDefault();
+            }
+            else if (k === 's' || k === 'arrowdown') {
+                if (!e.repeat)
+                    this.swapQ = true;
+                e.preventDefault();
+            }
+            this.gesture();
+        });
+        window.addEventListener('keyup', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === 'arrowleft' || k === 'a' || k === 'arrowright' || k === 'd')
+                this.keyDir = 0;
+        });
+        if (swapBtn) {
+            swapBtn.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                this.gesture();
+                this.swapQ = true;
+                this.confirmQ = true;
+            });
+            swapBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+        }
+    }
+    gesture() {
+        if (this.onGesture) {
+            this.onGesture();
+            this.onGesture = null;
+        }
+    }
+    takeFire() { const v = this.fireQ; this.fireQ = false; return v; }
+    takeSwap() { const v = this.swapQ; this.swapQ = false; return v; }
+    takeConfirm() { const v = this.confirmQ; this.confirmQ = false; return v; }
+    flush() { this.fireQ = this.swapQ = this.confirmQ = false; this.aiming = false; this.keyDir = 0; }
+}
+/* ================================================================== *
+ * AUDIO — everything synthesised, zero asset loading.
+ * ================================================================== */
+class Sfx {
+    constructor() {
+        this.ctx = null;
+        this.master = null;
+        this.padGain = null;
+        this.padFilter = null;
+        this.muted = false;
+    }
+    /** Must be called from a user gesture (autoplay policy). */
+    init() {
+        if (this.ctx)
+            return;
+        const Ctor = window.AudioContext ||
+            window.webkitAudioContext;
+        if (!Ctor)
+            return;
+        const ac = new Ctor();
+        this.ctx = ac;
+        this.master = ac.createGain();
+        this.master.gain.value = this.muted ? 0 : 0.9;
+        this.master.connect(ac.destination);
+        // tension pad — opens up as the stack creeps toward the danger line
+        this.padFilter = ac.createBiquadFilter();
+        this.padFilter.type = 'lowpass';
+        this.padFilter.frequency.value = 260;
+        this.padGain = ac.createGain();
+        this.padGain.gain.value = 0;
+        this.padFilter.connect(this.padGain);
+        this.padGain.connect(this.master);
+        for (const f of [55, 82.5, 110]) {
+            const o = ac.createOscillator();
+            o.type = 'sawtooth';
+            o.frequency.value = f;
+            const g = ac.createGain();
+            g.gain.value = f === 55 ? 0.5 : 0.25;
+            o.connect(g);
+            g.connect(this.padFilter);
+            o.start();
+        }
+    }
+    toggleMute() {
+        this.muted = !this.muted;
+        if (this.master && this.ctx) {
+            this.master.gain.setTargetAtTime(this.muted ? 0 : 0.9, this.ctx.currentTime, 0.05);
+        }
+        return this.muted;
+    }
+    /** danger 0..1 — how close the blocks are to the line. */
+    setTension(danger, alive) {
+        if (!this.ctx || !this.padGain || !this.padFilter)
+            return;
+        const t = this.ctx.currentTime;
+        this.padGain.gain.setTargetAtTime(alive ? 0.012 + danger * 0.075 : 0, t, 0.4);
+        this.padFilter.frequency.setTargetAtTime(200 + danger * 900, t, 0.4);
+    }
+    tone(freq, dur, type, vol, sweep = 1, delay = 0) {
+        if (!this.ctx || !this.master)
+            return;
+        const t = this.ctx.currentTime + delay;
+        const o = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(freq, t);
+        o.frequency.exponentialRampToValueAtTime(Math.max(30, freq * sweep), t + dur);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+        o.connect(g);
+        g.connect(this.master);
+        o.start(t);
+        o.stop(t + dur + 0.03);
+    }
+    noise(dur, vol, from, to, delay = 0) {
+        if (!this.ctx || !this.master)
+            return;
+        const t = this.ctx.currentTime + delay;
+        const len = Math.max(1, Math.floor(this.ctx.sampleRate * dur));
+        const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++)
+            d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 1.5);
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf;
+        const f = this.ctx.createBiquadFilter();
+        f.type = 'lowpass';
+        f.frequency.setValueAtTime(from, t);
+        f.frequency.exponentialRampToValueAtTime(to, t + dur);
+        const g = this.ctx.createGain();
+        g.gain.setValueAtTime(vol, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        src.connect(f);
+        f.connect(g);
+        g.connect(this.master);
+        src.start(t);
+    }
+    fire() {
+        this.tone(240, 0.13, 'sawtooth', 0.10, 3.0);
+        this.noise(0.09, 0.10, 1800, 500);
+    }
+    /** Bright, and climbing with the chain — the reward sound.
+     *  A cluster adds a short upward run, one note per extra block. */
+    match(chain, size = 1) {
+        const base = 523.25 * Math.pow(2, Math.min(chain - 1, 11) / 12);
+        this.tone(base, 0.16, 'triangle', 0.16, 1.0);
+        this.tone(base * 2, 0.11, 'sine', 0.09, 1.0, 0.012);
+        this.noise(0.07, 0.06, 5000, 2200);
+        for (let i = 1; i < Math.min(size, 7); i++) {
+            this.tone(base * Math.pow(2, (i * 2) / 12), 0.12, 'triangle', 0.10, 1.0, i * 0.045);
+        }
+    }
+    /** Blocks losing their support: a tumbling descent. */
+    collapse(count) {
+        const n = Math.min(count, 8);
+        for (let i = 0; i < n; i++) {
+            this.tone(660 * Math.pow(2, -i / 9), 0.16, 'sine', 0.075, 0.55, i * 0.05);
+        }
+        this.noise(0.34, 0.09, 1600, 200, 0.04);
+        this.tone(70, 0.42, 'sine', 0.16, 0.5, 0.1);
+    }
+    /** NICE / GREAT / AMAZING / FABULOUS / UNSTOPPABLE — grander per tier. */
+    praise(tier) {
+        const scale = [0, 4, 7, 12, 16, 19, 24];
+        const notes = 3 + tier;
+        for (let i = 0; i < notes; i++) {
+            const f = 523.25 * Math.pow(2, scale[Math.min(i, scale.length - 1)] / 12);
+            this.tone(f, 0.3, 'triangle', 0.12, 1, i * 0.055);
+            if (tier >= 2)
+                this.tone(f * 2, 0.2, 'sine', 0.05, 1, i * 0.055 + 0.02);
+        }
+        if (tier >= 3) {
+            this.noise(0.5, 0.05, 6000, 1200, 0.05);
+            this.tone(130.81, 0.5, 'sawtooth', 0.09, 1, 0.02);
+        }
+    }
+    combo(step) {
+        const base = 392 * Math.pow(2, Math.min(step - 1, 10) / 12);
+        this.tone(base, 0.12, 'square', 0.075, 1.0);
+        this.tone(base * 1.5, 0.16, 'square', 0.065, 1.0, 0.07);
+    }
+    /** Dull and low — the ball bounced off, nothing broke. */
+    reject() {
+        this.tone(128, 0.10, 'sine', 0.13, 0.6);
+        this.noise(0.07, 0.05, 620, 180);
+    }
+    wall() { this.tone(880, 0.04, 'square', 0.035, 0.75); }
+    swap() {
+        this.tone(660, 0.07, 'triangle', 0.08, 1.5);
+        this.tone(990, 0.07, 'triangle', 0.06, 1.2, 0.05);
+    }
+    drop() {
+        this.tone(320, 0.34, 'sawtooth', 0.11, 0.28);
+        this.noise(0.3, 0.07, 900, 160);
+    }
+    boardClear() {
+        [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.24, 'triangle', 0.13, 1, i * 0.075));
+    }
+    gameOver() {
+        [392, 311, 233, 174].forEach((f, i) => this.tone(f, 0.42, 'sawtooth', 0.12, 0.85, i * 0.13));
+        this.noise(0.5, 0.10, 1200, 120);
+    }
+    win() {
+        [523, 659, 784, 1046, 1318].forEach((f, i) => this.tone(f, 0.32, 'triangle', 0.14, 1, i * 0.1));
+    }
+}
+/* ================================================================== *
+ * GAME — the finite state machine and all world simulation.
+ * ================================================================== */
+class Game {
+    constructor(input, sfx) {
+        this.input = input;
+        this.sfx = sfx;
+        this.state = 'PLAYING';
+        this.bg = new Background();
+        this.particles = new Particles();
+        this.popups = new Popups();
+        this.launcher = new Launcher();
+        this.ball = new Ball();
+        this.blocks = [];
+        this.fallers = new Fallers();
+        this.praiseBanner = new Banner();
+        this.comboBanner = new Banner();
+        this.time = 0;
+        this.score = 0;
+        this.level = 1;
+        this.cleared = 0;
+        this.chain = 0;
+        this.combo = 0;
+        this.shotBroken = 0;
+        this.praiseShown = -1;
+        this.bestBreak = 0;
+        this.shotsLeft = DROP_EVERY_START;
+        this.dropEvery = DROP_EVERY_START;
+        this.current = 0;
+        this.next = 0;
+        this.ballActive = false;
+        this.aimAngle = -Math.PI / 2;
+        this.danger = 0;
+        this.shake = 0;
+        this.flash = 0;
+        this.endTimer = 0;
+        this.best = 0;
+        this.fill(START_ROWS, true);
+        this.current = this.pickColor();
+        this.next = this.pickColor();
+    }
+    /* ---- setup helpers -------------------------------------------- */
+    fill(rows, instant) {
+        for (let r = 0; r < rows; r++) {
+            let prev = randInt(0, PALETTE.length - 1);
+            for (let c = 0; c < COLS; c++) {
+                // clustering keeps chains possible instead of pure noise
+                const color = c > 0 && chance(0.42) ? prev : randInt(0, PALETTE.length - 1);
+                prev = color;
+                this.blocks.push(new Block(c, GRID_TOP + r * ROW_H, color, instant));
+            }
+        }
+    }
+    /**
+     * Only ever loads a colour that exists on the board, weighted toward the
+     * lowest rows — the ones the ball reaches first. Without the weighting the
+     * player regularly gets a colour that is buried three rows deep and
+     * unhittable, which reads as unfair rather than difficult.
+     */
+    pickColor() {
+        if (this.blocks.length === 0)
+            return randInt(0, PALETTE.length - 1);
+        let lowest = 0;
+        for (const b of this.blocks)
+            lowest = Math.max(lowest, b.y);
+        const reachable = this.blocks.filter((b) => b.y >= lowest - ROW_H * 2);
+        return pick(reachable.length ? reachable : this.blocks).color;
+    }
+    restart() {
+        this.state = 'PLAYING';
+        this.blocks.length = 0;
+        this.particles.clear();
+        this.popups.clear();
+        this.fallers.clear();
+        this.praiseBanner.life = 0;
+        this.comboBanner.life = 0;
+        this.fill(START_ROWS, true);
+        this.score = 0;
+        this.level = 1;
+        this.cleared = 0;
+        this.chain = 0;
+        this.combo = 0;
+        this.shotBroken = 0;
+        this.praiseShown = -1;
+        this.bestBreak = 0;
+        this.dropEvery = DROP_EVERY_START;
+        this.shotsLeft = DROP_EVERY_START;
+        this.ballActive = false;
+        this.ball.dead = true;
+        this.aimAngle = -Math.PI / 2;
+        this.shake = 0;
+        this.flash = 0;
+        this.endTimer = 0;
+        this.danger = 0;
+        this.current = this.pickColor();
+        this.next = this.pickColor();
+        this.input.flush();
+    }
+    /* ---- update ---------------------------------------------------- */
+    update(rawDt) {
+        // brief slow-motion after a run ends, easing back to real time
+        const scale = this.state === 'PLAYING' ? 1 : lerp(0.35, 1, clamp(this.endTimer / 1.1, 0, 1));
+        const dt = rawDt * scale;
+        this.time += dt;
+        this.shake = damp(this.shake, 0, 7, rawDt);
+        this.flash = damp(this.flash, 0, 9, rawDt);
+        if (this.state === 'PLAYING')
+            this.updatePlaying(dt);
+        else
+            this.updateEnded(rawDt);
+        for (const b of this.blocks)
+            b.update(dt);
+        this.fallers.update(dt);
+        this.praiseBanner.update(dt);
+        this.comboBanner.update(dt);
+        this.bg.update(dt);
+        this.particles.update(dt);
+        this.popups.update(dt);
+        this.launcher.update(dt);
+        this.launcher.angle = this.aimAngle;
+        // how close the stack is to the line, 0..1
+        let lowest = 0;
+        for (const b of this.blocks)
+            lowest = Math.max(lowest, b.bottom);
+        this.danger = clamp((lowest - (DANGER_Y - 210)) / 210, 0, 1);
+        this.sfx.setTension(this.danger, this.state === 'PLAYING');
+    }
+    updatePlaying(dt) {
+        /* aim */
+        if (this.input.aiming) {
+            const dx = this.input.aimX - LAUNCH_X;
+            const dy = this.input.aimY - LAUNCH_Y;
+            let a = Math.atan2(dy, dx);
+            if (dy > -20)
+                a = dx >= 0 ? -Math.PI / 2 + AIM_LIMIT : -Math.PI / 2 - AIM_LIMIT;
+            this.aimAngle = clamp(a, -Math.PI / 2 - AIM_LIMIT, -Math.PI / 2 + AIM_LIMIT);
+        }
+        else if (this.input.keyDir !== 0) {
+            this.aimAngle = clamp(this.aimAngle + this.input.keyDir * AIM_KEY_RATE * dt, -Math.PI / 2 - AIM_LIMIT, -Math.PI / 2 + AIM_LIMIT);
+        }
+        if (this.input.takeSwap() && !this.ballActive) {
+            const t = this.current;
+            this.current = this.next;
+            this.next = t;
+            this.launcher.charge = 1;
+            this.sfx.swap();
+            this.particles.sparkle(LAUNCH_X, LAUNCH_Y, css(PALETTE[this.current].hsl, 30), 10);
+        }
+        if (this.input.takeFire() && !this.ballActive)
+            this.fire();
+        this.input.takeConfirm();
+        if (this.ballActive)
+            this.stepBall(dt);
+    }
+    updateEnded(rawDt) {
+        this.endTimer += rawDt;
+        this.input.takeSwap();
+        this.input.takeFire();
+        if (this.endTimer > 0.75 && this.input.takeConfirm())
+            this.restart();
+    }
+    /* ---- shooting -------------------------------------------------- */
+    fire() {
+        this.ball.launch(this.current, this.aimAngle, BALL_SPEED, BALL_ENERGY);
+        this.ballActive = true;
+        this.chain = 0;
+        this.shotBroken = 0;
+        this.praiseShown = -1;
+        this.launcher.kick();
+        this.sfx.fire();
+        this.particles.sparkle(LAUNCH_X + Math.cos(this.aimAngle) * 26, LAUNCH_Y + Math.sin(this.aimAngle) * 26, css(PALETTE[this.current].hsl, 30), 8);
+        this.shake = Math.max(this.shake, 3);
+    }
+    /** Sub-stepped so a fast ball can never tunnel through a 27px block. */
+    stepBall(dt) {
+        const b = this.ball;
+        const steps = clamp(Math.ceil((b.speed * dt) / 5), 1, 14);
+        const h = dt / steps;
+        for (let i = 0; i < steps && !b.dead; i++) {
+            if (b.falling)
+                b.vy += 1500 * h;
+            b.x += b.vx * h;
+            b.y += b.vy * h;
+            if (b.x < PLAY_X + BALL_R) {
+                b.x = PLAY_X + BALL_R;
+                b.vx = Math.abs(b.vx);
+                this.onWall(b.x, b.y);
+            }
+            else if (b.x > PLAY_R - BALL_R) {
+                b.x = PLAY_R - BALL_R;
+                b.vx = -Math.abs(b.vx);
+                this.onWall(b.x, b.y);
+            }
+            if (b.y < TOP_WALL + BALL_R) {
+                b.y = TOP_WALL + BALL_R;
+                b.vy = Math.abs(b.vy);
+                this.onWall(b.x, b.y);
+            }
+            if (b.y > VIEW_H + 40) {
+                b.dead = true;
+                break;
+            }
+            if (!b.falling)
+                this.hitBlocks();
+        }
+        b.life += dt;
+        b.spin += dt * 7;
+        b.pushTrail();
+        if (!b.falling && (b.life > BALL_LIFE || b.energy <= 0))
+            b.falling = true;
+        if (b.dead)
+            this.endShot();
+    }
+    onWall(x, y) {
+        if (this.ball.falling)
+            return;
+        this.ball.energy--;
+        this.sfx.wall();
+        this.particles.sparkle(x, y, 'rgba(200,220,255,0.9)', 4);
+    }
+    hitBlocks() {
+        const b = this.ball;
+        for (let i = 0; i < this.blocks.length; i++) {
+            const k = this.blocks[i];
+            if (Math.abs(b.x - k.x) > BLOCK_W / 2 + BALL_R)
+                continue;
+            if (Math.abs(b.y - k.drawY) > BLOCK_H / 2 + BALL_R)
+                continue;
+            const cx = clamp(b.x, k.x - BLOCK_W / 2, k.x + BLOCK_W / 2);
+            const cy = clamp(b.y, k.drawY - BLOCK_H / 2, k.drawY + BLOCK_H / 2);
+            const dx = b.x - cx;
+            const dy = b.y - cy;
+            if (dx * dx + dy * dy > BALL_R * BALL_R)
+                continue;
+            if (k.color === b.color)
+                this.breakBlock(i);
+            else
+                this.bounceOff(k);
+            return;
+        }
+    }
+    /** Lattice key for neighbour lookups. */
+    key(b) { return b.row * 100 + b.col; }
+    indexMap() {
+        const m = new Map();
+        for (let i = 0; i < this.blocks.length; i++)
+            m.set(this.key(this.blocks[i]), i);
+        return m;
+    }
+    /** Flood fill of same-coloured neighbours, in all four directions. */
+    collectCluster(start) {
+        const map = this.indexMap();
+        const color = this.blocks[start].color;
+        const seen = new Set([start]);
+        const stack = [start];
+        while (stack.length) {
+            const i = stack.pop();
+            const b = this.blocks[i];
+            const around = [
+                [b.row - 1, b.col], [b.row + 1, b.col],
+                [b.row, b.col - 1], [b.row, b.col + 1],
+            ];
+            for (const [nr, nc] of around) {
+                if (nc < 0 || nc >= COLS || nr < 0)
+                    continue;
+                const j = map.get(nr * 100 + nc);
+                if (j === undefined || seen.has(j))
+                    continue;
+                if (this.blocks[j].color !== color)
+                    continue;
+                seen.add(j);
+                stack.push(j);
+            }
+        }
+        return seen;
+    }
+    /**
+     * Anything with no path back to the ceiling row is unsupported. Rows always
+     * spawn at GRID_TOP and shift down together, so row 0 is the anchor.
+     */
+    findOrphans() {
+        const map = this.indexMap();
+        const anchored = new Set();
+        const stack = [];
+        for (let i = 0; i < this.blocks.length; i++) {
+            if (this.blocks[i].row <= 0) {
+                anchored.add(i);
+                stack.push(i);
+            }
+        }
+        while (stack.length) {
+            const i = stack.pop();
+            const b = this.blocks[i];
+            const around = [
+                [b.row - 1, b.col], [b.row + 1, b.col],
+                [b.row, b.col - 1], [b.row, b.col + 1],
+            ];
+            for (const [nr, nc] of around) {
+                if (nc < 0 || nc >= COLS || nr < 0)
+                    continue;
+                const j = map.get(nr * 100 + nc);
+                if (j === undefined || anchored.has(j))
+                    continue;
+                anchored.add(j);
+                stack.push(j);
+            }
+        }
+        const orphans = new Set();
+        for (let i = 0; i < this.blocks.length; i++)
+            if (!anchored.has(i))
+                orphans.add(i);
+        return orphans;
+    }
+    /** A matching hit takes the whole connected group, then whatever it was holding up. */
+    breakBlock(idx) {
+        const hit = this.blocks[idx];
+        const cluster = this.collectCluster(idx);
+        this.chain++;
+        const mult = Math.min(this.chain, CHAIN_MAX);
+        let cx = 0;
+        let cy = 0;
+        for (const i of cluster) {
+            const b = this.blocks[i];
+            cx += b.x;
+            cy += b.drawY;
+            this.particles.shatter(b.x, b.drawY, b.swatch);
+        }
+        cx /= cluster.size;
+        cy /= cluster.size;
+        let pts = BLOCK_POINTS * cluster.size * mult;
+        this.blocks = this.blocks.filter((_, i) => !cluster.has(i));
+        // whatever was resting on that group now has nothing holding it up
+        const orphans = this.findOrphans();
+        if (orphans.size) {
+            let n = 0;
+            for (const i of orphans) {
+                const b = this.blocks[i];
+                this.fallers.add(b.x, b.drawY, b.color, n * 0.03);
+                n++;
+            }
+            const bonus = ORPHAN_POINTS * orphans.size * mult;
+            pts += bonus;
+            this.blocks = this.blocks.filter((_, i) => !orphans.has(i));
+            this.popups.add(cx, cy - 36, `SUPPORT GONE  +${bonus}`, '#a8e8ff', 19);
+            this.sfx.collapse(orphans.size);
+            this.shake = Math.min(22, this.shake + 5);
+        }
+        const total = cluster.size + orphans.size;
+        this.shotBroken += total;
+        this.bestBreak = Math.max(this.bestBreak, this.shotBroken);
+        this.cleared += total;
+        this.score += pts;
+        this.popups.add(cx, cy, mult > 1 ? `+${pts}  x${mult}` : `+${pts}`, css(hit.swatch.hsl, 28), total > 3 ? 27 : 21);
+        this.sfx.match(this.chain, cluster.size);
+        this.shake = Math.min(20, this.shake + 3 + Math.min(cluster.size, 7));
+        this.flash = Math.min(0.5, this.flash + 0.08 + cluster.size * 0.02);
+        this.checkPraise();
+        // punching through costs a little speed, but never enough to stall
+        const b = this.ball;
+        b.vx *= MATCH_DRAG;
+        b.vy *= MATCH_DRAG;
+        const s = b.speed;
+        if (s < 400) {
+            b.vx *= 400 / s;
+            b.vy *= 400 / s;
+        }
+    }
+    /** Escalating call-out as a single shot racks up more blocks. */
+    checkPraise() {
+        const tier = praiseTier(this.shotBroken);
+        if (tier <= this.praiseShown)
+            return;
+        this.praiseShown = tier;
+        const p = PRAISE[tier];
+        this.praiseBanner.show(p.text, p.hue, p.size, 302);
+        this.sfx.praise(tier);
+        this.shake = Math.min(24, this.shake + 4);
+        for (let i = 0; i < 3; i++) {
+            this.particles.sparkle(rand(PLAY_X + 40, PLAY_R - 40), rand(250, 350), `hsl(${p.hue}, 92%, 70%)`, 8);
+        }
+    }
+    bounceOff(k) {
+        const b = this.ball;
+        const ox = BLOCK_W / 2 + BALL_R - Math.abs(b.x - k.x);
+        const oy = BLOCK_H / 2 + BALL_R - Math.abs(b.y - k.drawY);
+        if (ox < oy) {
+            const s = b.x >= k.x ? 1 : -1;
+            b.x += s * ox;
+            b.vx = Math.abs(b.vx) * s;
+        }
+        else {
+            const s = b.y >= k.drawY ? 1 : -1;
+            b.y += s * oy;
+            b.vy = Math.abs(b.vy) * s;
+        }
+        k.reject(b.x - k.x);
+        this.particles.puff(b.x, b.y);
+        this.sfx.reject();
+        this.ball.energy--;
+        this.shake = Math.min(9, this.shake + 2.5);
+    }
+    endShot() {
+        this.ballActive = false;
+        if (this.shotBroken > 0) {
+            this.combo++;
+            if (this.combo >= 2) {
+                const bonus = COMBO_BONUS * this.combo;
+                this.score += bonus;
+                this.comboBanner.show(`COMBO x${this.combo}   +${bonus}`, 44, 27, 372, 1.05);
+                this.sfx.combo(this.combo);
+            }
+        }
+        else {
+            this.combo = 0;
+        }
+        this.shotBroken = 0;
+        this.praiseShown = -1;
+        this.current = this.next;
+        this.next = this.pickColor();
+        this.shotsLeft--;
+        if (this.blocks.length === 0)
+            this.clearBoard();
+        else if (this.shotsLeft <= 0)
+            this.dropRow();
+        this.checkEnd();
+    }
+    clearBoard() {
+        this.score += CLEAR_BONUS;
+        this.level++;
+        this.dropEvery = Math.max(DROP_EVERY_MIN, DROP_EVERY_START - (this.level - 1));
+        this.shotsLeft = this.dropEvery;
+        this.popups.add(VIEW_W / 2, VIEW_H * 0.42, `BOARD CLEAR  +${CLEAR_BONUS}`, '#ffe58a', 30);
+        this.sfx.boardClear();
+        this.shake = 18;
+        this.flash = 0.5;
+        this.fill(Math.min(START_ROWS + this.level - 1, 8), false);
+        this.current = this.pickColor();
+        this.next = this.pickColor();
+    }
+    dropRow() {
+        for (const b of this.blocks)
+            b.y += ROW_H;
+        let prev = randInt(0, PALETTE.length - 1);
+        for (let c = 0; c < COLS; c++) {
+            const color = c > 0 && chance(0.42) ? prev : randInt(0, PALETTE.length - 1);
+            prev = color;
+            this.blocks.push(new Block(c, GRID_TOP, color, false));
+        }
+        this.shotsLeft = this.dropEvery;
+        this.sfx.drop();
+        this.shake = Math.max(this.shake, 8);
+    }
+    checkEnd() {
+        if (this.cleared >= GOAL_BLOCKS) {
+            this.win();
+            return;
+        }
+        for (const b of this.blocks) {
+            if (b.y + BLOCK_H / 2 >= DANGER_Y) {
+                this.lose();
+                return;
+            }
+        }
+    }
+    lose() {
+        this.state = 'LOSE';
+        this.endTimer = 0;
+        this.shake = 24;
+        this.flash = 0.7;
+        this.best = Math.max(this.best, this.score);
+        for (const b of this.blocks) {
+            if (b.bottom > DANGER_Y - 80)
+                this.particles.shatter(b.x, b.drawY, b.swatch);
+        }
+        this.sfx.gameOver();
+        this.input.flush();
+    }
+    win() {
+        this.state = 'WIN';
+        this.endTimer = 0;
+        this.flash = 0.55;
+        this.best = Math.max(this.best, this.score);
+        for (let i = 0; i < 5; i++) {
+            this.particles.sparkle(rand(PLAY_X, PLAY_R), rand(200, 500), css(PALETTE[i].hsl, 30), 14);
+        }
+        this.sfx.win();
+        this.input.flush();
+    }
+    /* ---- render ---------------------------------------------------- */
+    render(ctx) {
+        ctx.save();
+        if (this.shake > 0.4) {
+            ctx.translate(rand(-this.shake, this.shake), rand(-this.shake, this.shake));
+        }
+        this.bg.draw(ctx, this.danger);
+        drawDangerLine(ctx, this.danger, this.time);
+        for (const b of this.blocks)
+            b.draw(ctx, this.danger);
+        if (this.state === 'PLAYING' && !this.ballActive) {
+            const { path, target } = traceAim(this.aimAngle, this.blocks);
+            let group = [];
+            if (target && target.color === this.current) {
+                const idx = this.blocks.indexOf(target);
+                if (idx >= 0)
+                    group = Array.from(this.collectCluster(idx)).map((i) => this.blocks[i]);
+            }
+            drawAim(ctx, path, target, this.current, this.time, group);
+        }
+        this.fallers.draw(ctx);
+        this.launcher.draw(ctx, this.current, !this.ballActive && this.state === 'PLAYING', this.input.aiming);
+        if (this.ballActive)
+            this.ball.draw(ctx);
+        this.particles.draw(ctx);
+        this.popups.draw(ctx);
+        this.praiseBanner.draw(ctx);
+        this.comboBanner.draw(ctx);
+        ctx.restore();
+        if (this.flash > 0.01) {
+            ctx.fillStyle = `rgba(255,248,232,${this.flash * 0.5})`;
+            ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+        }
+        this.drawHud(ctx);
+        if (this.state !== 'PLAYING')
+            this.drawEndCard(ctx);
+    }
+    drawHud(ctx) {
+        ctx.save();
+        roundRect(ctx, 12, 12, VIEW_W - 24, 66, 18);
+        ctx.fillStyle = 'rgba(9,12,24,0.55)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.textBaseline = 'alphabetic';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.font = '700 11px system-ui, sans-serif';
+        ctx.fillText('SCORE', 30, 36);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '800 28px system-ui, sans-serif';
+        ctx.fillText(formatScore(this.score), 28, 64);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.font = '700 11px system-ui, sans-serif';
+        ctx.fillText('LEVEL', VIEW_W - 30, 36);
+        ctx.fillStyle = '#9dd8ff';
+        ctx.font = '800 24px system-ui, sans-serif';
+        ctx.fillText(String(this.level), VIEW_W - 28, 60);
+        // progress toward the win goal
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.font = '700 11px system-ui, sans-serif';
+        ctx.fillText(`${this.cleared} / ${GOAL_BLOCKS} BLOCKS`, VIEW_W / 2, 36);
+        const bw = 150;
+        roundRect(ctx, VIEW_W / 2 - bw / 2, 46, bw, 5, 2.5);
+        ctx.fillStyle = 'rgba(255,255,255,0.14)';
+        ctx.fill();
+        roundRect(ctx, VIEW_W / 2 - bw / 2, 46, Math.max(5, bw * clamp(this.cleared / GOAL_BLOCKS, 0, 1)), 5, 2.5);
+        ctx.fillStyle = '#7ef0b6';
+        ctx.fill();
+        ctx.restore();
+        /* next-ball chip and drop counter, beside the launcher */
+        const nx = VIEW_W - 62;
+        const ny = LAUNCH_Y - 4;
+        ctx.save();
+        roundRect(ctx, nx - 34, ny - 30, 68, 62, 16);
+        ctx.fillStyle = 'rgba(9,12,24,0.6)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.font = '700 9px system-ui, sans-serif';
+        ctx.fillText('NEXT', nx, ny - 16);
+        const c = PALETTE[this.next].hsl;
+        glow(ctx, nx, ny + 3, 30, css(c, 20, 0.9), 0.4);
+        const g = ctx.createRadialGradient(nx - 3, ny - 1, 1, nx, ny + 3, 13);
+        g.addColorStop(0, css(c, 30));
+        g.addColorStop(1, css(c, -20));
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(nx, ny + 3, 13, 0, TAU);
+        ctx.fill();
+        ctx.save();
+        ctx.translate(nx, ny + 3);
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        glyphPath(ctx, PALETTE[this.next].glyph, 5.4);
+        ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.font = '700 9px system-ui, sans-serif';
+        ctx.fillText('TAP TO SWAP', nx, ny + 28);
+        ctx.restore();
+        /* how many shots until the next row drops */
+        const px = 62;
+        const py = LAUNCH_Y - 4;
+        ctx.save();
+        roundRect(ctx, px - 34, py - 30, 68, 62, 16);
+        ctx.fillStyle = 'rgba(9,12,24,0.6)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.font = '700 9px system-ui, sans-serif';
+        ctx.fillText('DROP IN', px, py - 16);
+        for (let i = 0; i < this.dropEvery; i++) {
+            const on = i < this.shotsLeft;
+            const dx = px - (this.dropEvery - 1) * 6 + i * 12;
+            ctx.beginPath();
+            ctx.arc(dx, py + 2, 4, 0, TAU);
+            ctx.fillStyle = on ? '#ffd166' : 'rgba(255,255,255,0.16)';
+            ctx.fill();
+        }
+        ctx.fillStyle = this.shotsLeft <= 1 ? '#ff8f7a' : 'rgba(255,255,255,0.5)';
+        ctx.font = '700 9px system-ui, sans-serif';
+        ctx.fillText(this.shotsLeft <= 1 ? 'ROW INCOMING' : `${this.shotsLeft} SHOTS`, px, py + 28);
+        ctx.restore();
+    }
+    drawEndCard(ctx) {
+        const won = this.state === 'WIN';
+        const t = clamp((this.endTimer - 0.3) / 0.5, 0, 1);
+        if (t <= 0)
+            return;
+        ctx.save();
+        ctx.globalAlpha = t;
+        ctx.fillStyle = 'rgba(5,8,18,0.78)';
+        ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+        const pw = 356;
+        const ph = 330;
+        const px = (VIEW_W - pw) / 2;
+        const py = VIEW_H / 2 - ph / 2 - 20;
+        ctx.translate(VIEW_W / 2, py + ph / 2);
+        const s = 0.86 + easeOutBack(t) * 0.14;
+        ctx.scale(s, s);
+        ctx.translate(-VIEW_W / 2, -(py + ph / 2));
+        roundRect(ctx, px, py, pw, ph, 26);
+        const panel = ctx.createLinearGradient(0, py, 0, py + ph);
+        panel.addColorStop(0, 'rgba(30,38,58,0.97)');
+        panel.addColorStop(1, 'rgba(15,19,32,0.97)');
+        ctx.fillStyle = panel;
+        ctx.fill();
+        ctx.strokeStyle = won ? 'rgba(255,214,110,0.6)' : 'rgba(255,110,90,0.45)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.textAlign = 'center';
+        glow(ctx, VIEW_W / 2, py + 62, 150, won ? 'rgba(255,206,84,0.5)' : 'rgba(255,86,64,0.45)', 0.55);
+        ctx.fillStyle = won ? '#ffd75e' : '#ff6b52';
+        ctx.font = `900 ${won ? 36 : 40}px system-ui, sans-serif`;
+        ctx.fillText(won ? 'SPECTRUM MASTER' : 'BLOCKED OUT', VIEW_W / 2, py + 74);
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.font = '700 12px system-ui, sans-serif';
+        ctx.fillText('FINAL SCORE', VIEW_W / 2, py + 108);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 54px system-ui, sans-serif';
+        ctx.fillText(formatScore(this.score), VIEW_W / 2, py + 158);
+        const rows = [
+            ['Blocks broken', String(this.cleared)],
+            ['Biggest break', `${this.bestBreak} blocks`],
+            ['Level reached', String(this.level)],
+            ['Best score', formatScore(this.best)],
+        ];
+        ctx.font = '600 16px system-ui, sans-serif';
+        rows.forEach(([label, value], i) => {
+            const y = py + 194 + i * 29;
+            ctx.textAlign = 'left';
+            ctx.fillStyle = 'rgba(255,255,255,0.55)';
+            ctx.fillText(label, px + 30, y);
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#e8eefc';
+            ctx.fillText(value, px + pw - 30, y);
+        });
+        ctx.textAlign = 'center';
+        ctx.globalAlpha = t * (0.55 + 0.45 * Math.sin(this.time * 5));
+        ctx.fillStyle = '#8ef0c4';
+        ctx.font = '800 15px system-ui, sans-serif';
+        ctx.fillText('TAP  or  SPACE  to play again', VIEW_W / 2, py + ph - 22);
+        ctx.restore();
+    }
+}
+/* ================================================================== *
+ * ENGINE — canvas sizing, DPR handling and the fixed-timestep loop.
+ * ================================================================== */
+class Engine {
+    constructor(canvas, game) {
+        this.canvas = canvas;
+        this.game = game;
+        this.acc = 0;
+        this.last = 0;
+        this.raf = 0;
+        this.step = 1 / 60;
+        const c = canvas.getContext('2d', { alpha: false });
+        if (!c)
+            throw new Error('2D canvas context unavailable');
+        this.ctx = c;
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        window.addEventListener('orientationchange', () => this.resize());
+    }
+    resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+        const rect = this.canvas.getBoundingClientRect();
+        const w = Math.max(1, Math.round(rect.width * dpr));
+        const h = Math.max(1, Math.round(rect.height * dpr));
+        if (this.canvas.width === w && this.canvas.height === h)
+            return;
+        this.canvas.width = w;
+        this.canvas.height = h;
+        const scale = Math.min(w / VIEW_W, h / VIEW_H);
+        this.ctx.setTransform(scale, 0, 0, scale, (w - VIEW_W * scale) / 2, (h - VIEW_H * scale) / 2);
+    }
+    start() {
+        this.last = performance.now();
+        const frame = (now) => {
+            this.raf = requestAnimationFrame(frame);
+            let delta = (now - this.last) / 1000;
+            this.last = now;
+            if (delta > 0.25)
+                delta = 0.25; // tab was backgrounded
+            this.acc += delta;
+            let steps = 0;
+            while (this.acc >= this.step && steps < 5) {
+                this.game.update(this.step);
+                this.acc -= this.step;
+                steps++;
+            }
+            if (steps === 5)
+                this.acc = 0;
+            this.resize();
+            this.ctx.fillStyle = '#080b18';
+            this.ctx.fillRect(-VIEW_W, -VIEW_H, VIEW_W * 3, VIEW_H * 3);
+            this.game.render(this.ctx);
+        };
+        this.raf = requestAnimationFrame(frame);
+    }
+    stop() { cancelAnimationFrame(this.raf); }
+}
+
+
+/* ------------------------------------------------------------ */
+
+/**
+ * main.ts — entry point. Grabs the DOM, wires the input manager, audio and
+ * engine together, and starts the loop. The game begins straight into
+ * PLAYING: no menus, no pause screen.
+ */
+function boot() {
+    const canvas = document.getElementById('game');
+    const swapBtn = document.getElementById('btn-swap');
+    const muteBtn = document.getElementById('btn-mute');
+    if (!canvas)
+        throw new Error('Chroma Breaker: #game canvas is missing');
+    const sfx = new Sfx();
+    const input = new Input(canvas, swapBtn);
+    input.onGesture = () => sfx.init();
+    const game = new Game(input, sfx);
+    const engine = new Engine(canvas, game);
+    engine.start();
+    if (muteBtn) {
+        muteBtn.addEventListener('click', () => {
+            sfx.init();
+            const muted = sfx.toggleMute();
+            muteBtn.textContent = muted ? '🔇' : '🔊';
+            muteBtn.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
+        });
+    }
+    // Stop scroll/zoom gestures from fighting the controls on mobile.
+    document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gesturestart', (e) => e.preventDefault());
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+}
+else {
+    boot();
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "id": "mahjong-imperial-solitaire",
+  "name": "Imperial Mahjong Solitaire",
+  "version": "1.0.0",
+  "description": "AAA luxury Jade & Gold Mahjong Solitaire matching puzzle with rich procedural visual effects and realistic porcelain acoustic synthesis.",
+  "entry": "index.html",
+  "orientation": "any",
+  "sizeBytes": 65158,
+  "sha256": "0bfa43dff014fe1499e67f7f4f32a7e1d0b02b9d4c7e232ec6340618b048c126",
+  "categories": [
+    "puzzle",
+    "board",
+    "arcade",
+    "casual"
+  ],
+  "features": [
+    "offline-capable",
+    "touch-support",
+    "procedural-audio",
+    "responsive"
+  ]
+}

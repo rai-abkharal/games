@@ -1,0 +1,33 @@
+{
+  "id": "water-sort-3d",
+  "name": "Water Sort 3D",
+  "version": "1.0.0",
+  "description": "AAA luxury 3D Liquid Sorting Puzzle with realistic fluid physics, procedural audio synthesis, cold drink bottle morphs, and mystery ghost levels.",
+  "entry": "index.html",
+  "orientation": "portrait",
+  "aspectRatio": "9:16",
+  "sizeBytes": 364512,
+  "sha256": "b16230991d252d812de10baaff36df74c9ff551da8034e606d7307f5cd179488",
+  "author": "Antigravity Games",
+  "tags": [
+    "water-sort",
+    "puzzle",
+    "liquid",
+    "casual",
+    "hyper-casual",
+    "canvas",
+    "mobile",
+    "offline"
+  ],
+  "categories": [
+    "puzzle",
+    "arcade",
+    "casual"
+  ],
+  "features": [
+    "offline-capable",
+    "touch-support",
+    "procedural-audio",
+    "responsive"
+  ]
+}

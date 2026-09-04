@@ -1,0 +1,22 @@
+{
+  "id": "royal-chess",
+  "name": "Royal Chess 3D",
+  "version": "1.0.0",
+  "description": "Hyper-Casual AAA 3D Chess vs AI with realistic sounds, piece animations, and cheering effects",
+  "entry": "index.html",
+  "orientation": "portrait",
+  "aspectRatio": "9:16",
+  "sizeBytes": 79857,
+  "sha256": "cd34858f18a6ae8dabf306ca23a0a9ac69a9202faa370a49bb25661e2176d7b3",
+  "author": "Antigravity Games",
+  "tags": [
+    "chess",
+    "strategy",
+    "board",
+    "ai",
+    "hyper-casual",
+    "canvas",
+    "mobile"
+  ],
+  "thumbnail": "thumbnail.svg"
+}

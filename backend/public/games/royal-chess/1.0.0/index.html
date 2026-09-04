@@ -1,0 +1,2068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Royal 3D Chess - Hyper Casual Grandmaster</title>
+  <!-- Google Fonts: Fredoka & Lilita One -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800;900&family=Lilita+One&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background-color: #06090d;
+      font-family: 'Fredoka', 'Lilita One', 'Nunito', 'Arial Rounded MT Bold', sans-serif;
+    }
+    #gameCanvas {
+      display: block;
+      width: 100vw;
+      width: 100dvw;
+      height: 100vh;
+      height: 100dvh;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+  (function() {
+    'use strict';
+
+    // CONFIG & TUNING
+    const CONFIG = {
+      COLORS: {
+        bgDark: '#080c10',
+        bgGradientTop: '#131c26',
+        bgGradientMid: '#0d131a',
+        bgGradientBottom: '#06090d',
+
+        // Sleek Ivory & Midnight Obsidian Board
+        boardLight: '#f3efe6',
+        boardLightBevel: '#e5dfd3',
+        boardDark: '#262f3d',
+        boardDarkBevel: '#1a212c',
+        boardBorder: '#141a22',
+        boardBorderRim: '#2d3748',
+        boardGoldTrim: '#ffd32a',
+
+        // Highlights & Indicators
+        selectedHalo: '#00d2d3',
+        selectedGlow: 'rgba(0, 210, 211, 0.7)',
+        legalMoveDot: '#00d2d3',
+        legalMoveGlow: 'rgba(0, 210, 211, 0.75)',
+        captureTargetRed: '#ff4757',
+        captureTargetGlow: 'rgba(255, 71, 87, 0.8)',
+        lastMoveTrail: 'rgba(255, 211, 42, 0.38)',
+        checkKingRed: '#ff3838',
+
+        // 3D Piece Palettes (Pearl Porcelain & Midnight Obsidian)
+        whitePieceBody: '#ffffff',
+        whitePieceGrad: '#e8edf0',
+        whitePieceSide: '#cbd5e1',
+        whitePieceTrim: '#f59e0b',
+        whitePieceTrimGlow: '#fbbf24',
+        whitePieceShadow: 'rgba(0, 0, 0, 0.45)',
+
+        blackPieceBody: '#1e293b',
+        blackPieceGrad: '#0f172a',
+        blackPieceSide: '#090d14',
+        blackPieceTrim: '#ec4899',
+        blackPieceTrimGlow: '#f472b6',
+        blackPieceShadow: 'rgba(0, 0, 0, 0.65)',
+
+        // 3 Action Buttons (No Undo)
+        btnHintTop: '#ff9f1a',
+        btnHintBottom: '#e67e22',
+        btnHintShadow: '#a35002',
+
+        btnResetTop: '#ff4757',
+        btnResetBottom: '#ee5253',
+        btnResetShadow: '#b81d2f',
+
+        btnDiffTop: '#8c7ae6',
+        btnDiffBottom: '#6c5ce7',
+        btnDiffShadow: '#4834d4',
+
+        btnGreenTop: '#2ed573',
+        btnGreenBottom: '#10ac84',
+        btnGreenShadow: '#066d51'
+      }
+    };
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function easeOutQuad(x) { return 1 - (1 - x) * (1 - x); }
+    function easeOutBack(x) {
+      const c1 = 1.70158;
+      const c3 = c1 + 1;
+      return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+    }
+
+    let pieceIdCounter = 1;
+
+    function createStartingBoard() {
+      const board = Array(8).fill(null).map(() => Array(8).fill(null));
+      const backRow = (color, r) => {
+        const order = ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'];
+        order.forEach((type, c) => {
+          board[r][c] = { id: pieceIdCounter++, type, color, hasMoved: false };
+        });
+      };
+
+      backRow('b', 0);
+      for (let c = 0; c < 8; c++) board[1][c] = { id: pieceIdCounter++, type: 'p', color: 'b', hasMoved: false };
+      for (let c = 0; c < 8; c++) board[6][c] = { id: pieceIdCounter++, type: 'p', color: 'w', hasMoved: false };
+      backRow('w', 7);
+      return board;
+    }
+
+    function cloneBoard(board) {
+      return board.map(row => row.map(p => (p ? { ...p } : null)));
+    }
+
+    function areSquaresEqual(a, b) {
+      if (!a || !b) return false;
+      return a.r === b.r && a.c === b.c;
+    }
+
+    function squareToAlgebraic(sq) {
+      return `${String.fromCharCode(97 + sq.c)}${8 - sq.r}`;
+    }
+
+    // RULES ENGINE
+    function getPseudoLegalMoves(board, color, castling, enPassant) {
+      const moves = [];
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const piece = board[r][c];
+          if (!piece || piece.color !== color) continue;
+          const from = { r, c };
+          switch (piece.type) {
+            case 'p': getPawnMoves(board, from, piece, enPassant, moves); break;
+            case 'n': getKnightMoves(board, from, piece, moves); break;
+            case 'b': getRayMoves(board, from, piece, [[-1, -1], [-1, 1], [1, -1], [1, 1]], moves); break;
+            case 'r': getRayMoves(board, from, piece, [[-1, 0], [1, 0], [0, -1], [0, 1]], moves); break;
+            case 'q': getRayMoves(board, from, piece, [[-1, -1], [-1, 1], [1, -1], [1, 1], [-1, 0], [1, 0], [0, -1], [0, 1]], moves); break;
+            case 'k': getKingMoves(board, from, piece, castling, moves); break;
+          }
+        }
+      }
+      return moves;
+    }
+
+    function getPawnMoves(board, from, piece, enPassant, moves) {
+      const dir = piece.color === 'w' ? -1 : 1;
+      const startRow = piece.color === 'w' ? 6 : 1;
+      const promoRow = piece.color === 'w' ? 0 : 7;
+
+      const nextR = from.r + dir;
+      if (nextR >= 0 && nextR < 8 && !board[nextR][from.c]) {
+        if (nextR === promoRow) {
+          ['q', 'r', 'b', 'n'].forEach(promo => {
+            moves.push({ from, to: { r: nextR, c: from.c }, piece, promo });
+          });
+        } else {
+          moves.push({ from, to: { r: nextR, c: from.c }, piece });
+          const doubleR = from.r + dir * 2;
+          if (from.r === startRow && !board[doubleR][from.c]) {
+            moves.push({ from, to: { r: doubleR, c: from.c }, piece });
+          }
+        }
+      }
+
+      [-1, 1].forEach(dc => {
+        const targetC = from.c + dc;
+        if (targetC >= 0 && targetC < 8 && nextR >= 0 && nextR < 8) {
+          const targetPiece = board[nextR][targetC];
+          if (targetPiece && targetPiece.color !== piece.color) {
+            if (nextR === promoRow) {
+              ['q', 'r', 'b', 'n'].forEach(promo => {
+                moves.push({ from, to: { r: nextR, c: targetC }, piece, captured: targetPiece, promo });
+              });
+            } else {
+              moves.push({ from, to: { r: nextR, c: targetC }, piece, captured: targetPiece });
+            }
+          } else if (enPassant && enPassant.r === nextR && enPassant.c === targetC) {
+            const epPawn = board[from.r][targetC];
+            if (epPawn && epPawn.color !== piece.color) {
+              moves.push({ from, to: { r: nextR, c: targetC }, piece, captured: epPawn, isEnPassant: true });
+            }
+          }
+        }
+      });
+    }
+
+    function getKnightMoves(board, from, piece, moves) {
+      const deltas = [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]];
+      deltas.forEach(([dr, dc]) => {
+        const tr = from.r + dr;
+        const tc = from.c + dc;
+        if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
+          const dest = board[tr][tc];
+          if (!dest) moves.push({ from, to: { r: tr, c: tc }, piece });
+          else if (dest.color !== piece.color) moves.push({ from, to: { r: tr, c: tc }, piece, captured: dest });
+        }
+      });
+    }
+
+    function getRayMoves(board, from, piece, directions, moves) {
+      directions.forEach(([dr, dc]) => {
+        let tr = from.r + dr;
+        let tc = from.c + dc;
+        while (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
+          const dest = board[tr][tc];
+          if (!dest) moves.push({ from, to: { r: tr, c: tc }, piece });
+          else {
+            if (dest.color !== piece.color) moves.push({ from, to: { r: tr, c: tc }, piece, captured: dest });
+            break;
+          }
+          tr += dr;
+          tc += dc;
+        }
+      });
+    }
+
+    function getKingMoves(board, from, piece, castling, moves) {
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const tr = from.r + dr;
+          const tc = from.c + dc;
+          if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
+            const dest = board[tr][tc];
+            if (!dest) moves.push({ from, to: { r: tr, c: tc }, piece });
+            else if (dest.color !== piece.color) moves.push({ from, to: { r: tr, c: tc }, piece, captured: dest });
+          }
+        }
+      }
+
+      const enemyColor = piece.color === 'w' ? 'b' : 'w';
+      const row = piece.color === 'w' ? 7 : 0;
+
+      if (from.r === row && from.c === 4 && !piece.hasMoved && !isSquareAttacked(board, from, enemyColor)) {
+        const canKingside = piece.color === 'w' ? castling.wKingside : castling.bKingside;
+        if (canKingside && !board[row][5] && !board[row][6]) {
+          const rook = board[row][7];
+          if (rook && rook.type === 'r' && !rook.hasMoved) {
+            if (!isSquareAttacked(board, { r: row, c: 5 }, enemyColor) && !isSquareAttacked(board, { r: row, c: 6 }, enemyColor)) {
+              moves.push({ from, to: { r: row, c: 6 }, piece, isCastling: 'kingside' });
+            }
+          }
+        }
+
+        const canQueenside = piece.color === 'w' ? castling.wQueenside : castling.bQueenside;
+        if (canQueenside && !board[row][1] && !board[row][2] && !board[row][3]) {
+          const rook = board[row][0];
+          if (rook && rook.type === 'r' && !rook.hasMoved) {
+            if (!isSquareAttacked(board, { r: row, c: 2 }, enemyColor) && !isSquareAttacked(board, { r: row, c: 3 }, enemyColor)) {
+              moves.push({ from, to: { r: row, c: 2 }, piece, isCastling: 'queenside' });
+            }
+          }
+        }
+      }
+    }
+
+    function isSquareAttacked(board, sq, byColor) {
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = board[r][c];
+          if (!p || p.color !== byColor) continue;
+          if (p.type === 'p') {
+            const dir = p.color === 'w' ? -1 : 1;
+            if (r + dir === sq.r && (c - 1 === sq.c || c + 1 === sq.c)) return true;
+          } else if (p.type === 'n') {
+            const dr = Math.abs(r - sq.r);
+            const dc = Math.abs(c - sq.c);
+            if ((dr === 1 && dc === 2) || (dr === 2 && dc === 1)) return true;
+          } else if (p.type === 'k') {
+            if (Math.abs(r - sq.r) <= 1 && Math.abs(c - sq.c) <= 1) return true;
+          } else {
+            const isDiagonal = Math.abs(r - sq.r) === Math.abs(c - sq.c);
+            const isOrthogonal = r === sq.r || c === sq.c;
+            if ((p.type === 'b' && isDiagonal) || (p.type === 'r' && isOrthogonal) || (p.type === 'q' && (isDiagonal || isOrthogonal))) {
+              const stepR = r === sq.r ? 0 : r < sq.r ? 1 : -1;
+              const stepC = c === sq.c ? 0 : c < sq.c ? 1 : -1;
+              let currR = r + stepR;
+              let currC = c + stepC;
+              let blocked = false;
+              while (currR !== sq.r || currC !== sq.c) {
+                if (board[currR][currC]) { blocked = true; break; }
+                currR += stepR; currC += stepC;
+              }
+              if (!blocked) return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    function findKingSquare(board, color) {
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = board[r][c];
+          if (p && p.type === 'k' && p.color === color) return { r, c };
+        }
+      }
+      return null;
+    }
+
+    function isKingInCheck(board, color) {
+      const kingSq = findKingSquare(board, color);
+      if (!kingSq) return false;
+      const enemyColor = color === 'w' ? 'b' : 'w';
+      return isSquareAttacked(board, kingSq, enemyColor);
+    }
+
+    function makeSimulatedMove(board, move) {
+      const nextBoard = cloneBoard(board);
+      const p = nextBoard[move.from.r][move.from.c];
+      if (!p) return nextBoard;
+      nextBoard[move.from.r][move.from.c] = null;
+      if (move.promo) {
+        nextBoard[move.to.r][move.to.c] = { id: p.id, type: move.promo, color: p.color, hasMoved: true };
+      } else {
+        nextBoard[move.to.r][move.to.c] = { ...p, hasMoved: true };
+      }
+      if (move.isCastling === 'kingside') {
+        const rook = nextBoard[move.to.r][7];
+        nextBoard[move.to.r][7] = null;
+        nextBoard[move.to.r][5] = rook ? { ...rook, hasMoved: true } : null;
+      } else if (move.isCastling === 'queenside') {
+        const rook = nextBoard[move.to.r][0];
+        nextBoard[move.to.r][0] = null;
+        nextBoard[move.to.r][3] = rook ? { ...rook, hasMoved: true } : null;
+      }
+      if (move.isEnPassant) nextBoard[move.from.r][move.to.c] = null;
+      return nextBoard;
+    }
+
+    function getLegalMoves(board, color, castling, enPassant) {
+      const pseudoMoves = getPseudoLegalMoves(board, color, castling, enPassant);
+      return pseudoMoves.filter(move => {
+        const simBoard = makeSimulatedMove(board, move);
+        return !isKingInCheck(simBoard, color);
+      });
+    }
+
+    // MINIMAX
+    const PIECE_VALUES = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
+    const PST_PAWN = [
+      [0,  0,  0,  0,  0,  0,  0,  0],
+      [50, 50, 50, 50, 50, 50, 50, 50],
+      [10, 10, 20, 30, 30, 20, 10, 10],
+      [5,  5, 10, 25, 25, 10,  5,  5],
+      [0,  0,  0, 20, 20,  0,  0,  0],
+      [5, -5,-10,  0,  0,-10, -5,  5],
+      [5, 10, 10,-20,-20, 10, 10,  5],
+      [0,  0,  0,  0,  0,  0,  0,  0]
+    ];
+    const PST_KNIGHT = [
+      [-50,-40,-30,-30,-30,-30,-40,-50],
+      [-40,-20,  0,  0,  0,  0,-20,-40],
+      [-30,  0, 10, 15, 15, 10,  0,-30],
+      [-30,  5, 15, 20, 20, 15,  5,-30],
+      [-30,  0, 15, 20, 20, 15,  0,-30],
+      [-30,  5, 10, 15, 15, 10,  5,-30],
+      [-40,-20,  0,  5,  5,  0,-20,-40],
+      [-50,-40,-30,-30,-30,-30,-40,-50]
+    ];
+
+    function evaluateBoard(board) {
+      let score = 0;
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = board[r][c];
+          if (!p) continue;
+          let pieceVal = PIECE_VALUES[p.type];
+          let pstVal = 0;
+          const row = p.color === 'w' ? r : 7 - r;
+          if (p.type === 'p') pstVal = PST_PAWN[row][c];
+          else if (p.type === 'n') pstVal = PST_KNIGHT[row][c];
+          const totalVal = pieceVal + pstVal;
+          score += p.color === 'w' ? totalVal : -totalVal;
+        }
+      }
+      return score;
+    }
+
+    function findBestMoveMinimax(board, color, castling, enPassant, depth = 3) {
+      const legalMoves = getLegalMoves(board, color, castling, enPassant);
+      if (legalMoves.length === 0) return null;
+
+      legalMoves.sort((a, b) => {
+        const valA = a.captured ? PIECE_VALUES[a.captured.type] * 10 - PIECE_VALUES[a.piece.type] : 0;
+        const valB = b.captured ? PIECE_VALUES[b.captured.type] * 10 - PIECE_VALUES[b.piece.type] : 0;
+        return valB - valA;
+      });
+
+      let bestMove = legalMoves[0];
+      let isMaximizing = color === 'w';
+      let bestScore = isMaximizing ? -999999 : 999999;
+      let alpha = -999999;
+      let beta = 999999;
+
+      for (const move of legalMoves) {
+        const simBoard = makeSimulatedMove(board, move);
+        const nextCastling = { ...castling };
+        const nextEp = (move.piece.type === 'p' && Math.abs(move.from.r - move.to.r) === 2)
+          ? { r: (move.from.r + move.to.r) / 2, c: move.from.c } : null;
+
+        const score = minimax(simBoard, depth - 1, alpha, beta, !isMaximizing, nextCastling, nextEp);
+        if (isMaximizing) {
+          if (score > bestScore) { bestScore = score; bestMove = move; }
+          alpha = Math.max(alpha, bestScore);
+        } else {
+          if (score < bestScore) { bestScore = score; bestMove = move; }
+          beta = Math.min(beta, bestScore);
+        }
+        if (beta <= alpha) break;
+      }
+      return bestMove;
+    }
+
+    function minimax(board, depth, alpha, beta, isMaximizing, castling, enPassant) {
+      const currentColor = isMaximizing ? 'w' : 'b';
+      const legalMoves = getLegalMoves(board, currentColor, castling, enPassant);
+      if (legalMoves.length === 0) {
+        if (isKingInCheck(board, currentColor)) return isMaximizing ? -100000 - depth : 100000 + depth;
+        return 0;
+      }
+      if (depth === 0) return evaluateBoard(board);
+
+      legalMoves.sort((a, b) => {
+        const valA = a.captured ? PIECE_VALUES[a.captured.type] * 10 - PIECE_VALUES[a.piece.type] : 0;
+        const valB = b.captured ? PIECE_VALUES[b.captured.type] * 10 - PIECE_VALUES[b.piece.type] : 0;
+        return valB - valA;
+      });
+
+      if (isMaximizing) {
+        let maxEval = -999999;
+        for (const move of legalMoves) {
+          const simBoard = makeSimulatedMove(board, move);
+          const nextEp = (move.piece.type === 'p' && Math.abs(move.from.r - move.to.r) === 2)
+            ? { r: (move.from.r + move.to.r) / 2, c: move.from.c } : null;
+          const evalScore = minimax(simBoard, depth - 1, alpha, beta, false, castling, nextEp);
+          maxEval = Math.max(maxEval, evalScore);
+          alpha = Math.max(alpha, evalScore);
+          if (beta <= alpha) break;
+        }
+        return maxEval;
+      } else {
+        let minEval = 999999;
+        for (const move of legalMoves) {
+          const simBoard = makeSimulatedMove(board, move);
+          const nextEp = (move.piece.type === 'p' && Math.abs(move.from.r - move.to.r) === 2)
+            ? { r: (move.from.r + move.to.r) / 2, c: move.from.c } : null;
+          const evalScore = minimax(simBoard, depth - 1, alpha, beta, true, castling, nextEp);
+          minEval = Math.min(minEval, evalScore);
+          beta = Math.min(beta, evalScore);
+          if (beta <= alpha) break;
+        }
+        return minEval;
+      }
+    }
+
+    // AUDIO
+    class RealisticChessAudio {
+      constructor() { this.ctx = null; }
+      initContext() {
+        if (!this.ctx && typeof window !== 'undefined') {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+      }
+      playPieceClack() {
+        this.initContext();
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        const oscThump = this.ctx.createOscillator();
+        const gainThump = this.ctx.createGain();
+        oscThump.type = 'sine';
+        oscThump.frequency.setValueAtTime(160 + Math.random() * 30, t);
+        oscThump.frequency.exponentialRampToValueAtTime(50, t + 0.06);
+        gainThump.gain.setValueAtTime(0.45, t);
+        gainThump.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+        oscThump.connect(gainThump); gainThump.connect(this.ctx.destination);
+        oscThump.start(t); oscThump.stop(t + 0.07);
+
+        const oscSnap = this.ctx.createOscillator();
+        const gainSnap = this.ctx.createGain();
+        oscSnap.type = 'triangle';
+        oscSnap.frequency.setValueAtTime(1100 + Math.random() * 200, t);
+        oscSnap.frequency.exponentialRampToValueAtTime(320, t + 0.035);
+        gainSnap.gain.setValueAtTime(0.35, t);
+        gainSnap.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+        oscSnap.connect(gainSnap); gainSnap.connect(this.ctx.destination);
+        oscSnap.start(t); oscSnap.stop(t + 0.05);
+      }
+      playCapture() {
+        this.playPieceClack();
+        this.initContext();
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime + 0.015;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(380, t);
+        osc.frequency.exponentialRampToValueAtTime(90, t + 0.12);
+        gain.gain.setValueAtTime(0.28, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.start(t); osc.stop(t + 0.13);
+      }
+      playCheckChime() {
+        this.initContext();
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        [440, 659.25, 880].forEach((freq, idx) => {
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const st = t + idx * 0.04;
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, st);
+          gain.gain.setValueAtTime(0.25, st);
+          gain.gain.exponentialRampToValueAtTime(0.001, st + 0.65);
+          osc.connect(gain); gain.connect(this.ctx.destination);
+          osc.start(st); osc.stop(st + 0.7);
+        });
+      }
+      playVictoryFanfare() {
+        this.initContext();
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        const fanfare = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
+        fanfare.forEach((freq, idx) => {
+          if (!this.ctx) return;
+          const st = t + idx * 0.09;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = idx % 2 === 0 ? 'triangle' : 'sine';
+          osc.frequency.setValueAtTime(freq, st);
+          gain.gain.setValueAtTime(0, st);
+          gain.gain.linearRampToValueAtTime(0.3, st + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, st + 0.55);
+          osc.connect(gain); gain.connect(this.ctx.destination);
+          osc.start(st); osc.stop(st + 0.6);
+        });
+      }
+      playButtonPop() {
+        this.initContext();
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(700, t);
+        osc.frequency.exponentialRampToValueAtTime(280, t + 0.04);
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.start(t); osc.stop(t + 0.05);
+      }
+    }
+    const SOUND = new RealisticChessAudio();
+
+    // 3D REDESIGNED PIECES
+    class ChessPieceRenderer {
+      static drawPiece(ctx, piece, cx, cy, size, isElevated = false) {
+        ctx.save();
+        const isWhite = piece.color === 'w';
+        const body = isWhite ? CONFIG.COLORS.whitePieceBody : CONFIG.COLORS.blackPieceBody;
+        const grad = isWhite ? CONFIG.COLORS.whitePieceGrad : CONFIG.COLORS.blackPieceGrad;
+        const side = isWhite ? CONFIG.COLORS.whitePieceSide : CONFIG.COLORS.blackPieceSide;
+        const trim = isWhite ? CONFIG.COLORS.whitePieceTrim : CONFIG.COLORS.blackPieceTrim;
+        const trimGlow = isWhite ? CONFIG.COLORS.whitePieceTrimGlow : CONFIG.COLORS.blackPieceTrimGlow;
+
+        const shadowDist = isElevated ? 12 : 5;
+        ctx.fillStyle = isWhite ? CONFIG.COLORS.whitePieceShadow : CONFIG.COLORS.blackPieceShadow;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + size * 0.38 + shadowDist * 0.4, size * 0.36, size * 0.15, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (isElevated) cy -= 12;
+
+        if (!isWhite) {
+          ctx.shadowColor = 'rgba(236, 72, 153, 0.45)';
+          ctx.shadowBlur = 4;
+        } else {
+          ctx.shadowColor = 'rgba(255, 255, 255, 0.3)';
+          ctx.shadowBlur = 3;
+        }
+
+        switch (piece.type) {
+          case 'p': this.drawPawn(ctx, cx, cy, size, body, grad, side, trim, trimGlow, isWhite); break;
+          case 'n': this.drawKnight(ctx, cx, cy, size, body, grad, side, trim, trimGlow, isWhite); break;
+          case 'b': this.drawBishop(ctx, cx, cy, size, body, grad, side, trim, trimGlow, isWhite); break;
+          case 'r': this.drawRook(ctx, cx, cy, size, body, grad, side, trim, trimGlow, isWhite); break;
+          case 'q': this.drawQueen(ctx, cx, cy, size, body, grad, side, trim, trimGlow, isWhite); break;
+          case 'k': this.drawKing(ctx, cx, cy, size, body, grad, side, trim, trimGlow, isWhite); break;
+        }
+        ctx.restore();
+      }
+
+      static drawPawn(ctx, cx, cy, s, body, grad, side, trim, trimGlow, isWhite) {
+        this.drawPedestal(ctx, cx, cy + s * 0.32, s * 0.32, s * 0.12, body, grad, side, trim);
+
+        const bodyGrad = ctx.createLinearGradient(cx - s * 0.15, cy, cx + s * 0.15, cy);
+        bodyGrad.addColorStop(0, side); bodyGrad.addColorStop(0.35, body); bodyGrad.addColorStop(1, grad);
+        ctx.fillStyle = bodyGrad;
+
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.16, cy + s * 0.22);
+        ctx.quadraticCurveTo(cx - s * 0.08, cy + s * 0.04, cx - s * 0.09, cy - s * 0.04);
+        ctx.lineTo(cx + s * 0.09, cy - s * 0.04);
+        ctx.quadraticCurveTo(cx + s * 0.08, cy + s * 0.04, cx + s * 0.16, cy + s * 0.22);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = trim;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - s * 0.04, s * 0.13, s * 0.04, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        const headGrad = ctx.createRadialGradient(cx - s * 0.05, cy - s * 0.2, 2, cx, cy - s * 0.17, s * 0.16);
+        headGrad.addColorStop(0, isWhite ? '#ffffff' : '#475569');
+        headGrad.addColorStop(0.5, body);
+        headGrad.addColorStop(1, side);
+        ctx.fillStyle = headGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy - s * 0.17, s * 0.14, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.beginPath();
+        ctx.ellipse(cx - s * 0.04, cy - s * 0.22, s * 0.06, s * 0.03, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      static drawKnight(ctx, cx, cy, s, body, grad, side, trim, trimGlow, isWhite) {
+        this.drawPedestal(ctx, cx, cy + s * 0.32, s * 0.34, s * 0.12, body, grad, side, trim);
+
+        const horseGrad = ctx.createLinearGradient(cx - s * 0.24, cy, cx + s * 0.2, cy);
+        horseGrad.addColorStop(0, side); horseGrad.addColorStop(0.4, body); horseGrad.addColorStop(1, grad);
+        ctx.fillStyle = horseGrad;
+
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.16, cy + s * 0.24);
+        ctx.quadraticCurveTo(cx - s * 0.26, cy + s * 0.06, cx - s * 0.22, cy - s * 0.06);
+        ctx.lineTo(cx - s * 0.28, cy - s * 0.02);
+        ctx.lineTo(cx - s * 0.2, cy - s * 0.18);
+        ctx.lineTo(cx - s * 0.06, cy - s * 0.32);
+        ctx.lineTo(cx + s * 0.02, cy - s * 0.24);
+        ctx.quadraticCurveTo(cx + s * 0.22, cy - s * 0.05, cx + s * 0.18, cy + s * 0.24);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = trimGlow;
+        ctx.beginPath();
+        ctx.arc(cx - s * 0.12, cy - s * 0.14, s * 0.032, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = trim;
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(cx + s * 0.04, cy - s * 0.2); ctx.lineTo(cx + s * 0.15, cy - s * 0.12);
+        ctx.moveTo(cx + s * 0.07, cy - s * 0.1); ctx.lineTo(cx + s * 0.17, cy - s * 0.02);
+        ctx.moveTo(cx + s * 0.08, cy); ctx.lineTo(cx + s * 0.16, cy + s * 0.08);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.beginPath();
+        ctx.ellipse(cx - s * 0.16, cy - s * 0.1, s * 0.04, s * 0.02, -0.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      static drawBishop(ctx, cx, cy, s, body, grad, side, trim, trimGlow, isWhite) {
+        this.drawPedestal(ctx, cx, cy + s * 0.32, s * 0.32, s * 0.12, body, grad, side, trim);
+
+        const bodyGrad = ctx.createLinearGradient(cx - s * 0.14, cy, cx + s * 0.14, cy);
+        bodyGrad.addColorStop(0, side); bodyGrad.addColorStop(0.35, body); bodyGrad.addColorStop(1, grad);
+        ctx.fillStyle = bodyGrad;
+
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.14, cy + s * 0.22);
+        ctx.quadraticCurveTo(cx - s * 0.06, cy + s * 0.08, cx - s * 0.08, cy);
+        ctx.lineTo(cx + s * 0.08, cy);
+        ctx.quadraticCurveTo(cx + s * 0.06, cy + s * 0.08, cx + s * 0.14, cy + s * 0.22);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = trim;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, s * 0.13, s * 0.04, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy - s * 0.15, s * 0.15, Math.PI * 0.8, Math.PI * 2.2);
+        ctx.lineTo(cx, cy - s * 0.34);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = isWhite ? '#94a3b8' : '#020617';
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.04, cy - s * 0.26);
+        ctx.lineTo(cx + s * 0.07, cy - s * 0.1);
+        ctx.stroke();
+
+        ctx.fillStyle = trimGlow;
+        ctx.beginPath();
+        ctx.arc(cx, cy - s * 0.34, s * 0.04, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.beginPath();
+        ctx.ellipse(cx - s * 0.04, cy - s * 0.2, s * 0.06, s * 0.03, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      static drawRook(ctx, cx, cy, s, body, grad, side, trim, trimGlow, isWhite) {
+        this.drawPedestal(ctx, cx, cy + s * 0.32, s * 0.34, s * 0.12, body, grad, side, trim);
+
+        const towerGrad = ctx.createLinearGradient(cx - s * 0.16, cy, cx + s * 0.16, cy);
+        towerGrad.addColorStop(0, side); towerGrad.addColorStop(0.35, body); towerGrad.addColorStop(1, grad);
+        ctx.fillStyle = towerGrad;
+
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.16, cy + s * 0.22);
+        ctx.lineTo(cx - s * 0.13, cy - s * 0.08);
+        ctx.lineTo(cx + s * 0.13, cy - s * 0.08);
+        ctx.lineTo(cx + s * 0.16, cy + s * 0.22);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = isWhite ? '#64748b' : '#020617';
+        ctx.fillRect(cx - s * 0.025, cy + s * 0.02, s * 0.05, s * 0.1);
+
+        ctx.fillStyle = trim;
+        ctx.fillRect(cx - s * 0.19, cy - s * 0.12, s * 0.38, s * 0.06);
+
+        ctx.fillStyle = towerGrad;
+        ctx.fillRect(cx - s * 0.19, cy - s * 0.26, s * 0.09, s * 0.14);
+        ctx.fillRect(cx - s * 0.045, cy - s * 0.26, s * 0.09, s * 0.14);
+        ctx.fillRect(cx + s * 0.1, cy - s * 0.26, s * 0.09, s * 0.14);
+      }
+
+      static drawQueen(ctx, cx, cy, s, body, grad, side, trim, trimGlow, isWhite) {
+        this.drawPedestal(ctx, cx, cy + s * 0.32, s * 0.36, s * 0.12, body, grad, side, trim);
+
+        const gownGrad = ctx.createLinearGradient(cx - s * 0.18, cy, cx + s * 0.18, cy);
+        gownGrad.addColorStop(0, side); gownGrad.addColorStop(0.35, body); gownGrad.addColorStop(1, grad);
+        ctx.fillStyle = gownGrad;
+
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.18, cy + s * 0.22);
+        ctx.quadraticCurveTo(cx - s * 0.07, cy + s * 0.05, cx - s * 0.09, cy - s * 0.06);
+        ctx.lineTo(cx + s * 0.09, cy - s * 0.06);
+        ctx.quadraticCurveTo(cx + s * 0.07, cy + s * 0.05, cx + s * 0.18, cy + s * 0.22);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = trim;
+        ctx.fillRect(cx - s * 0.18, cy - s * 0.08, s * 0.36, s * 0.05);
+
+        ctx.fillStyle = gownGrad;
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.18, cy - s * 0.08);
+        ctx.lineTo(cx - s * 0.2, cy - s * 0.26);
+        ctx.lineTo(cx - s * 0.1, cy - s * 0.15);
+        ctx.lineTo(cx - s * 0.09, cy - s * 0.3);
+        ctx.lineTo(cx, cy - s * 0.15);
+        ctx.lineTo(cx + s * 0.09, cy - s * 0.3);
+        ctx.lineTo(cx + s * 0.1, cy - s * 0.15);
+        ctx.lineTo(cx + s * 0.2, cy - s * 0.26);
+        ctx.lineTo(cx + s * 0.18, cy - s * 0.08);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = trimGlow;
+        [-0.2, -0.09, 0, 0.09, 0.2].forEach(dx => {
+          const dy = Math.abs(dx) === 0 ? -0.3 : Math.abs(dx) < 0.12 ? -0.3 : -0.26;
+          ctx.beginPath();
+          ctx.arc(cx + s * dx, cy + s * dy, s * 0.035, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - s * 0.12, s * 0.1, s * 0.025, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      static drawKing(ctx, cx, cy, s, body, grad, side, trim, trimGlow, isWhite) {
+        this.drawPedestal(ctx, cx, cy + s * 0.32, s * 0.38, s * 0.12, body, grad, side, trim);
+
+        const mantleGrad = ctx.createLinearGradient(cx - s * 0.2, cy, cx + s * 0.2, cy);
+        mantleGrad.addColorStop(0, side); mantleGrad.addColorStop(0.35, body); mantleGrad.addColorStop(1, grad);
+        ctx.fillStyle = mantleGrad;
+
+        ctx.beginPath();
+        ctx.moveTo(cx - s * 0.19, cy + s * 0.22);
+        ctx.quadraticCurveTo(cx - s * 0.08, cy + s * 0.05, cx - s * 0.11, cy - s * 0.07);
+        ctx.lineTo(cx + s * 0.11, cy - s * 0.07);
+        ctx.quadraticCurveTo(cx + s * 0.08, cy + s * 0.05, cx + s * 0.19, cy + s * 0.22);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = trim;
+        ctx.fillRect(cx - s * 0.19, cy - s * 0.11, s * 0.38, s * 0.06);
+
+        ctx.fillStyle = mantleGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy - s * 0.19, s * 0.17, Math.PI, 0);
+        ctx.fill();
+
+        ctx.fillStyle = trimGlow;
+        ctx.fillRect(cx - s * 0.035, cy - s * 0.38, s * 0.07, s * 0.18);
+        ctx.fillRect(cx - s * 0.08, cy - s * 0.33, s * 0.16, s * 0.055);
+
+        ctx.fillStyle = isWhite ? '#ff3838' : '#00d2d3';
+        ctx.beginPath();
+        ctx.arc(cx, cy - s * 0.3, s * 0.025, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.beginPath();
+        ctx.ellipse(cx - s * 0.04, cy - s * 0.23, s * 0.08, s * 0.03, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      static drawPedestal(ctx, cx, cy, w, h, body, grad, side, trim) {
+        ctx.fillStyle = side;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + h * 0.4, w * 0.95, h * 0.65, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = trim;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + h * 0.1, w * 0.88, h * 0.48, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        const discGrad = ctx.createLinearGradient(cx - w, cy, cx + w, cy);
+        discGrad.addColorStop(0, side); discGrad.addColorStop(0.4, body); discGrad.addColorStop(1, grad);
+        ctx.fillStyle = discGrad;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - h * 0.1, w * 0.78, h * 0.42, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // VISUAL FX & PARTICLES
+    class VisualFX {
+      constructor() {
+        this.particles = [];
+        this.shakeAmount = 0;
+        this.shakeOffsetX = 0;
+        this.shakeOffsetY = 0;
+      }
+      update(dt) {
+        if (this.shakeAmount > 0.1) {
+          this.shakeOffsetX = (Math.random() - 0.5) * this.shakeAmount;
+          this.shakeOffsetY = (Math.random() - 0.5) * this.shakeAmount;
+          this.shakeAmount *= Math.pow(0.85, dt * 60);
+        } else {
+          this.shakeAmount = 0;
+          this.shakeOffsetX = 0;
+          this.shakeOffsetY = 0;
+        }
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.life += dt;
+          if (p.life >= p.maxLife) {
+            this.particles.splice(i, 1);
+            continue;
+          }
+          p.x += p.vx * dt * 60;
+          p.y += p.vy * dt * 60;
+          p.rotation += p.vRot * dt;
+          if (p.type === 'ambient') {
+            p.vx = Math.sin(p.life * 2) * 0.4;
+          } else if (p.type === 'dust' || p.type === 'spark') {
+            p.vy += dt * 8;
+            p.vx *= 0.96;
+          }
+        }
+      }
+      draw(ctx) {
+        ctx.save();
+        for (const p of this.particles) {
+          const progress = p.life / p.maxLife;
+          const alpha = Math.max(0, 1 - progress);
+          if (p.type === 'ambient') {
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = alpha * 0.45;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (p.type === 'ring') {
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = 3 * (1 - progress);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * (1 + progress * 2.5), 0, Math.PI * 2);
+            ctx.stroke();
+          } else if (p.type === 'star') {
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation);
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = alpha;
+            this.drawStar(ctx, 0, 0, 5, p.size, p.size * 0.45);
+            ctx.restore();
+          } else {
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation);
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = alpha;
+            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+            ctx.restore();
+          }
+        }
+        ctx.restore();
+      }
+      drawStar(ctx, cx, cy, spikes, outerR, innerR) {
+        let rot = Math.PI / 2 * 3;
+        let x = cx;
+        let y = cy;
+        const step = Math.PI / spikes;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - outerR);
+        for (let i = 0; i < spikes; i++) {
+          x = cx + Math.cos(rot) * outerR;
+          y = cy + Math.sin(rot) * outerR;
+          ctx.lineTo(x, y);
+          rot += step;
+          x = cx + Math.cos(rot) * innerR;
+          y = cy + Math.sin(rot) * innerR;
+          ctx.lineTo(x, y);
+          rot += step;
+        }
+        ctx.lineTo(cx, cy - outerR);
+        ctx.closePath();
+        ctx.fill();
+      }
+      spawnAmbientMote(w, h) {
+        if (this.particles.filter(p => p.type === 'ambient').length >= 18) return;
+        this.particles.push({
+          x: Math.random() * w, y: Math.random() * h,
+          vx: (Math.random() - 0.5) * 0.5, vy: -0.3 - Math.random() * 0.5,
+          life: 0, maxLife: 6 + Math.random() * 4, size: 1.5 + Math.random() * 2,
+          color: '#ffd32a', rotation: 0, vRot: 0, type: 'ambient'
+        });
+      }
+      spawnCaptureBlast(x, y, isHighValue = false) {
+        this.shakeAmount = isHighValue ? 9 : 5;
+        this.particles.push({
+          x, y, vx: 0, vy: 0, life: 0, maxLife: 0.35, size: 22,
+          color: '#ffd32a', rotation: 0, vRot: 0, type: 'ring'
+        });
+        const colors = isHighValue
+          ? ['#ffd32a', '#ff4757', '#00d2d3', '#ffffff']
+          : ['#ffffff', '#f3efe6', '#ffd32a', '#262f3d'];
+        const count = isHighValue ? 24 : 14;
+        for (let i = 0; i < count; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const speed = 2 + Math.random() * 6;
+          this.particles.push({
+            x, y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed - 1.5,
+            life: 0, maxLife: 0.4 + Math.random() * 0.35, size: 4 + Math.random() * 4,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            rotation: Math.random() * Math.PI * 2, vRot: (Math.random() - 0.5) * 8,
+            type: i % 3 === 0 ? 'star' : 'dust'
+          });
+        }
+      }
+      spawnCheckmateFireworks(w, h) {
+        const colors = ['#ffd32a', '#ff4757', '#2ed573', '#00d2d3', '#8c7ae6'];
+        const cx = w * 0.2 + Math.random() * (w * 0.6);
+        const cy = h * 0.2 + Math.random() * (h * 0.4);
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        for (let i = 0; i < 36; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const speed = 2 + Math.random() * 7;
+          this.particles.push({
+            x: cx, y: cy, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
+            life: 0, maxLife: 0.7 + Math.random() * 0.4, size: 5 + Math.random() * 4,
+            color, rotation: Math.random() * Math.PI * 2, vRot: (Math.random() - 0.5) * 8, type: 'star'
+          });
+        }
+      }
+    }
+
+    // MAIN GAME CLASS
+    class RoyalChessGame {
+      constructor() {
+        this.state = 'PLAYING';
+        this.board = createStartingBoard();
+        this.turn = 'w';
+        this.castling = { wKingside: true, wQueenside: true, bKingside: true, bQueenside: true };
+        this.enPassantSquare = null;
+        this.moveHistory = [];
+        this.selectedSquare = null;
+        this.legalMovesForSelected = [];
+        this.lastMove = null;
+        this.hintMove = null;
+        this.difficulty = 'CASUAL';
+        this.isAiThinking = false;
+        this.aiTimer = 0;
+        this.activeAnimation = null;
+        this.vfx = new VisualFX();
+        this.floatingTexts = [];
+        this.pendingPromoMove = null;
+        this.capturedWhite = [];
+        this.capturedBlack = [];
+        this.userTimer = 0;
+        this.aiTimerTotal = 0;
+        this.winner = null;
+        this.winModalProgress = 0;
+        this.canvasW = 380;
+        this.canvasH = 760;
+        this.boardX = 20;
+        this.boardY = 100;
+        this.tileSize = 42;
+        this.buttons = [];
+        this.startNewGame();
+      }
+
+      startNewGame() {
+        this.board = createStartingBoard();
+        this.turn = 'w';
+        this.castling = { wKingside: true, wQueenside: true, bKingside: true, bQueenside: true };
+        this.enPassantSquare = null;
+        this.moveHistory = [];
+        this.selectedSquare = null;
+        this.legalMovesForSelected = [];
+        this.lastMove = null;
+        this.hintMove = null;
+        this.isAiThinking = false;
+        this.activeAnimation = null;
+        this.pendingPromoMove = null;
+        this.capturedWhite = [];
+        this.capturedBlack = [];
+        this.userTimer = 0;
+        this.aiTimerTotal = 0;
+        this.winner = null;
+        this.winModalProgress = 0;
+        this.state = 'PLAYING';
+        SOUND.playPieceClack();
+        this.addFloatingText('ROYAL CHESS 3D', this.canvasW / 2, this.canvasH * 0.45, CONFIG.COLORS.goldPrimary, 24);
+      }
+
+      toggleDifficulty() {
+        this.difficulty = this.difficulty === 'CASUAL' ? 'MASTER' : 'CASUAL';
+        SOUND.playButtonPop();
+        this.addFloatingText(`DIFFICULTY: ${this.difficulty}`, this.canvasW / 2, this.canvasH * 0.45, '#8c7ae6', 20);
+      }
+
+      showHint() {
+        if (this.state !== 'PLAYING' || this.turn !== 'w' || this.isAiThinking) return;
+        SOUND.playButtonPop();
+        const bestMove = findBestMoveMinimax(this.board, 'w', this.castling, this.enPassantSquare, 3);
+        if (bestMove) {
+          this.hintMove = bestMove;
+          this.selectedSquare = bestMove.from;
+          this.legalMovesForSelected = getLegalMoves(this.board, 'w', this.castling, this.enPassantSquare).filter(
+            m => m.from.r === bestMove.from.r && m.from.c === bestMove.from.c
+          );
+          this.addFloatingText(`HINT: ${squareToAlgebraic(bestMove.from)} → ${squareToAlgebraic(bestMove.to)}`, this.canvasW / 2, this.canvasH * 0.45, CONFIG.COLORS.goldPrimary, 20);
+        }
+      }
+
+      recalculateCaptured() {
+        const remainingW = [];
+        const remainingB = [];
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            const p = this.board[r][c];
+            if (p) {
+              if (p.color === 'w') remainingW.push(p);
+              else remainingB.push(p);
+            }
+          }
+        }
+        this.capturedBlack = [];
+        this.capturedWhite = [];
+        const countRemaining = (list, type) => list.filter(p => p.type === type).length;
+        ['q', 'r', 'b', 'n', 'p'].forEach(type => {
+          const expected = type === 'p' ? 8 : type === 'q' ? 1 : 2;
+          const diffW = expected - countRemaining(remainingW, type);
+          for (let i = 0; i < diffW; i++) this.capturedWhite.push({ id: 0, type, color: 'w' });
+          const diffB = expected - countRemaining(remainingB, type);
+          for (let i = 0; i < diffB; i++) this.capturedBlack.push({ id: 0, type, color: 'b' });
+        });
+      }
+
+      handleSquareClick(sq) {
+        if (this.state !== 'PLAYING' || this.turn !== 'w' || this.isAiThinking || this.activeAnimation) return;
+        this.hintMove = null;
+
+        if (this.selectedSquare && areSquaresEqual(this.selectedSquare, sq)) {
+          this.selectedSquare = null;
+          this.legalMovesForSelected = [];
+          SOUND.playButtonPop();
+          return;
+        }
+
+        if (this.selectedSquare) {
+          const move = this.legalMovesForSelected.find(m => areSquaresEqual(m.to, sq));
+          if (move) {
+            if (move.promo) {
+              this.pendingPromoMove = move;
+              this.state = 'PROMOTION';
+              SOUND.playButtonPop();
+              return;
+            }
+            this.executeMove(move);
+            return;
+          }
+        }
+
+        const clickedPiece = this.board[sq.r][sq.c];
+        if (clickedPiece && clickedPiece.color === 'w') {
+          this.selectedSquare = sq;
+          this.legalMovesForSelected = getLegalMoves(this.board, 'w', this.castling, this.enPassantSquare).filter(
+            m => m.from.r === sq.r && m.from.c === sq.c
+          );
+          SOUND.playButtonPop();
+        } else {
+          this.selectedSquare = null;
+          this.legalMovesForSelected = [];
+        }
+      }
+
+      selectPromotionPiece(promoType) {
+        if (!this.pendingPromoMove) return;
+        const move = { ...this.pendingPromoMove, promo: promoType };
+        this.pendingPromoMove = null;
+        this.state = 'PLAYING';
+        this.executeMove(move);
+      }
+
+      executeMove(move) {
+        this.moveHistory.push({
+          board: cloneBoard(this.board),
+          castling: { ...this.castling },
+          enPassant: this.enPassantSquare ? { ...this.enPassantSquare } : null,
+          lastMove: this.lastMove
+        });
+
+        this.selectedSquare = null;
+        this.legalMovesForSelected = [];
+        this.hintMove = null;
+
+        const fromPixel = this.squareToPixel(move.from);
+        const toPixel = this.squareToPixel(move.to);
+
+        this.activeAnimation = {
+          piece: move.piece,
+          fromX: fromPixel.x,
+          fromY: fromPixel.y,
+          toX: toPixel.x,
+          toY: toPixel.y,
+          fromSq: move.from,
+          toSq: move.to,
+          progress: 0,
+          duration: 0.26,
+          onComplete: () => this.finishMoveExecution(move)
+        };
+      }
+
+      finishMoveExecution(move) {
+        if (move.captured) {
+          SOUND.playCapture();
+          const targetPos = this.squareToPixel(move.to);
+          const isHighValue = move.captured.type === 'q' || move.captured.type === 'r';
+          this.vfx.spawnCaptureBlast(targetPos.x, targetPos.y, isHighValue);
+
+          if (move.captured.type === 'q') {
+            this.addFloatingText('QUEEN CAPTURE! 👑', targetPos.x, targetPos.y - 20, CONFIG.COLORS.goldPrimary, 22);
+          } else {
+            const cheering = ['NICE TAKE!', 'STRIKE!', 'GREAT MOVE!', 'CRUSH!'];
+            this.addFloatingText(cheering[Math.floor(Math.random() * cheering.length)], targetPos.x, targetPos.y - 15, CONFIG.COLORS.goldPrimary, 18);
+          }
+        } else {
+          SOUND.playPieceClack();
+        }
+
+        this.board = makeSimulatedMove(this.board, move);
+        this.lastMove = move;
+
+        if (move.piece.type === 'k') {
+          if (move.piece.color === 'w') {
+            this.castling.wKingside = false;
+            this.castling.wQueenside = false;
+          } else {
+            this.castling.bKingside = false;
+            this.castling.bQueenside = false;
+          }
+        } else if (move.piece.type === 'r') {
+          if (move.piece.color === 'w') {
+            if (move.from.r === 7 && move.from.c === 0) this.castling.wQueenside = false;
+            if (move.from.r === 7 && move.from.c === 7) this.castling.wKingside = false;
+          } else {
+            if (move.from.r === 0 && move.from.c === 0) this.castling.bQueenside = false;
+            if (move.from.r === 0 && move.from.c === 7) this.castling.bKingside = false;
+          }
+        }
+
+        if (move.piece.type === 'p' && Math.abs(move.from.r - move.to.r) === 2) {
+          this.enPassantSquare = { r: (move.from.r + move.to.r) / 2, c: move.from.c };
+        } else {
+          this.enPassantSquare = null;
+        }
+
+        this.recalculateCaptured();
+
+        const nextColor = this.turn === 'w' ? 'b' : 'w';
+        this.turn = nextColor;
+
+        const nextLegalMoves = getLegalMoves(this.board, nextColor, this.castling, this.enPassantSquare);
+        const inCheck = isKingInCheck(this.board, nextColor);
+
+        if (inCheck) {
+          SOUND.playCheckChime();
+          const kingSq = findKingSquare(this.board, nextColor);
+          if (kingSq) {
+            const kPos = this.squareToPixel(kingSq);
+            this.addFloatingText('CHECK! ⚠️', kPos.x, kPos.y - 25, CONFIG.COLORS.captureTargetRed, 24);
+          }
+        }
+
+        if (nextLegalMoves.length === 0) {
+          this.state = 'GAME_OVER';
+          if (inCheck) {
+            this.winner = this.turn === 'w' ? 'b' : 'w';
+            if (this.winner === 'w') {
+              SOUND.playVictoryFanfare();
+              this.addFloatingText('VICTORY! CHECKMATE! 🏆', this.canvasW / 2, this.canvasH * 0.45, CONFIG.COLORS.goldPrimary, 30);
+            } else {
+              this.addFloatingText('CHECKMATE! AI WON', this.canvasW / 2, this.canvasH * 0.45, '#ff4757', 26);
+            }
+          } else {
+            this.winner = 'draw';
+            this.addFloatingText('STALEMATE! DRAW', this.canvasW / 2, this.canvasH * 0.45, '#00d2d3', 26);
+          }
+          return;
+        }
+
+        if (this.turn === 'b' && this.state === 'PLAYING') {
+          this.isAiThinking = true;
+          this.aiTimer = 0.45;
+        }
+      }
+
+      update(dt) {
+        if (this.state === 'PLAYING') {
+          if (this.turn === 'w') this.userTimer += dt;
+          else this.aiTimerTotal += dt;
+
+          if (this.isAiThinking && !this.activeAnimation) {
+            this.aiTimer -= dt;
+            if (this.aiTimer <= 0) {
+              this.isAiThinking = false;
+              const depth = this.difficulty === 'CASUAL' ? 2 : 3;
+              const bestMove = findBestMoveMinimax(this.board, 'b', this.castling, this.enPassantSquare, depth);
+              if (bestMove) this.executeMove(bestMove);
+            }
+          }
+        } else if (this.state === 'GAME_OVER') {
+          this.winModalProgress = Math.min(1, this.winModalProgress + dt * 3.5);
+          if (this.winner === 'w' && Math.random() < 0.08) {
+            this.vfx.spawnCheckmateFireworks(this.canvasW, this.canvasH);
+          }
+        }
+
+        if (Math.random() < 0.05) {
+          this.vfx.spawnAmbientMote(this.canvasW, this.canvasH);
+        }
+
+        if (this.activeAnimation) {
+          this.activeAnimation.progress += dt / this.activeAnimation.duration;
+          if (this.activeAnimation.progress >= 1) {
+            const cb = this.activeAnimation.onComplete;
+            this.activeAnimation = null;
+            if (cb) cb();
+          }
+        }
+
+        this.buttons.forEach(b => {
+          if (b.pressProgress > 0) b.pressProgress = Math.max(0, b.pressProgress - dt * 7);
+        });
+
+        this.vfx.update(dt);
+
+        for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+          const ft = this.floatingTexts[i];
+          ft.life += dt;
+          ft.y -= dt * 28;
+          if (ft.life >= ft.maxLife) this.floatingTexts.splice(i, 1);
+        }
+      }
+
+      render(ctx, width, height) {
+        this.canvasW = width;
+        this.canvasH = height;
+
+        this.drawAtmosphericBackground(ctx, width, height);
+
+        ctx.save();
+        ctx.translate(this.vfx.shakeOffsetX, this.vfx.shakeOffsetY);
+        this.computeMobileBoardLayout(width, height);
+
+        this.drawBoard(ctx);
+        this.drawBoardHighlights(ctx);
+        this.drawPieces(ctx);
+
+        if (this.activeAnimation) this.drawActiveMovingPiece(ctx);
+        if (this.hintMove) this.drawHintArrow(ctx, this.hintMove);
+
+        this.vfx.draw(ctx);
+        this.drawFloatingTexts(ctx);
+        ctx.restore();
+
+        this.drawHUD(ctx, width, height);
+
+        if (this.state === 'PROMOTION') this.drawPromotionModal(ctx, width, height);
+        if (this.state === 'GAME_OVER') this.drawGameOverModal(ctx, width, height);
+      }
+
+      computeMobileBoardLayout(w, h) {
+        const headerH = 110;
+        const footerH = 92;
+        const marginX = 14;
+        const usableW = Math.max(260, w - marginX * 2);
+        const usableH = Math.max(260, h - headerH - footerH - 10);
+        const maxBoardDimension = Math.min(usableW, usableH, 440);
+        this.tileSize = Math.floor(maxBoardDimension / 8);
+
+        const totalBoardPx = this.tileSize * 8;
+        this.boardX = Math.floor((w - totalBoardPx) / 2);
+        this.boardY = Math.floor(headerH + (usableH - totalBoardPx) / 2);
+      }
+
+      drawAtmosphericBackground(ctx, w, h) {
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, '#131c26');
+        grad.addColorStop(0.4, '#0d131a');
+        grad.addColorStop(1, '#06090d');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+
+        const spotX = w / 2;
+        const spotY = h * 0.46;
+        const spotRadius = Math.max(w, h) * 0.48;
+        const spotGrad = ctx.createRadialGradient(spotX, spotY, 20, spotX, spotY, spotRadius);
+        spotGrad.addColorStop(0, 'rgba(255, 215, 0, 0.08)');
+        spotGrad.addColorStop(0.5, 'rgba(0, 210, 211, 0.03)');
+        spotGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = spotGrad;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
+        const spacing = 36;
+        for (let x = spacing / 2; x < w; x += spacing) {
+          for (let y = spacing / 2; y < h; y += spacing) {
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      drawBoard(ctx) {
+        const border = 14;
+        const totalW = this.tileSize * 8;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+        this.roundRect(ctx, this.boardX - border + 6, this.boardY - border + 12, totalW + border * 2, totalW + border * 2, 18);
+        ctx.fill();
+
+        const borderGrad = ctx.createLinearGradient(this.boardX, this.boardY, this.boardX + totalW, this.boardY + totalW);
+        borderGrad.addColorStop(0, '#1e293b');
+        borderGrad.addColorStop(1, '#0f172a');
+        ctx.fillStyle = borderGrad;
+        this.roundRect(ctx, this.boardX - border, this.boardY - border, totalW + border * 2, totalW + border * 2, 18);
+        ctx.fill();
+
+        ctx.strokeStyle = '#ffd32a';
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            const isLight = (r + c) % 2 === 0;
+            const sqX = this.boardX + c * this.tileSize;
+            const sqY = this.boardY + r * this.tileSize;
+            ctx.fillStyle = isLight ? CONFIG.COLORS.boardLight : CONFIG.COLORS.boardDark;
+            ctx.fillRect(sqX, sqY, this.tileSize, this.tileSize);
+
+            ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.04)';
+            ctx.fillRect(sqX, sqY, this.tileSize, 1.5);
+          }
+        }
+
+        ctx.font = `900 11px "Fredoka", "Nunito", sans-serif`;
+        ctx.fillStyle = 'rgba(255, 211, 42, 0.85)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        for (let i = 0; i < 8; i++) {
+          const letter = String.fromCharCode(65 + i);
+          const number = String(8 - i);
+          ctx.fillText(letter, this.boardX + i * this.tileSize + this.tileSize / 2, this.boardY + totalW + 7);
+          ctx.fillText(number, this.boardX - 7, this.boardY + i * this.tileSize + this.tileSize / 2);
+        }
+      }
+
+      drawBoardHighlights(ctx) {
+        if (this.lastMove) {
+          ctx.fillStyle = CONFIG.COLORS.lastMoveTrail;
+          const fX = this.boardX + this.lastMove.from.c * this.tileSize;
+          const fY = this.boardY + this.lastMove.from.r * this.tileSize;
+          ctx.fillRect(fX, fY, this.tileSize, this.tileSize);
+
+          const tX = this.boardX + this.lastMove.to.c * this.tileSize;
+          const tY = this.boardY + this.lastMove.to.r * this.tileSize;
+          ctx.fillRect(tX, tY, this.tileSize, this.tileSize);
+        }
+
+        const kingInCheck = isKingInCheck(this.board, this.turn);
+        if (kingInCheck) {
+          const kingSq = findKingSquare(this.board, this.turn);
+          if (kingSq) {
+            const kX = this.boardX + kingSq.c * this.tileSize;
+            const kY = this.boardY + kingSq.r * this.tileSize;
+            ctx.fillStyle = 'rgba(255, 56, 56, 0.45)';
+            ctx.fillRect(kX, kY, this.tileSize, this.tileSize);
+
+            ctx.strokeStyle = CONFIG.COLORS.checkKingRed;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(kX + 1, kY + 1, this.tileSize - 2, this.tileSize - 2);
+          }
+        }
+
+        if (this.selectedSquare) {
+          const sX = this.boardX + this.selectedSquare.c * this.tileSize;
+          const sY = this.boardY + this.selectedSquare.r * this.tileSize;
+          ctx.fillStyle = 'rgba(0, 210, 211, 0.35)';
+          ctx.fillRect(sX, sY, this.tileSize, this.tileSize);
+
+          ctx.strokeStyle = CONFIG.COLORS.selectedHalo;
+          ctx.lineWidth = 3;
+          ctx.shadowColor = CONFIG.COLORS.selectedGlow;
+          ctx.shadowBlur = 12;
+          ctx.strokeRect(sX + 1, sY + 1, this.tileSize - 2, this.tileSize - 2);
+          ctx.shadowBlur = 0;
+        }
+
+        this.legalMovesForSelected.forEach(m => {
+          const mX = this.boardX + m.to.c * this.tileSize + this.tileSize / 2;
+          const mY = this.boardY + m.to.r * this.tileSize + this.tileSize / 2;
+
+          if (m.captured) {
+            ctx.strokeStyle = CONFIG.COLORS.captureTargetRed;
+            ctx.lineWidth = 3;
+            ctx.shadowColor = CONFIG.COLORS.captureTargetGlow;
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(mX, mY, this.tileSize * 0.42, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+          } else {
+            ctx.fillStyle = CONFIG.COLORS.legalMoveDot;
+            ctx.shadowColor = CONFIG.COLORS.legalMoveGlow;
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(mX, mY, this.tileSize * 0.16, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          }
+        });
+      }
+
+      drawPieces(ctx) {
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            const piece = this.board[r][c];
+            if (!piece) continue;
+            if (this.activeAnimation && this.activeAnimation.fromSq.r === r && this.activeAnimation.fromSq.c === c) continue;
+
+            const isSelected = this.selectedSquare && this.selectedSquare.r === r && this.selectedSquare.c === c;
+            const cx = this.boardX + c * this.tileSize + this.tileSize / 2;
+            const cy = this.boardY + r * this.tileSize + this.tileSize / 2;
+            ChessPieceRenderer.drawPiece(ctx, piece, cx, cy, this.tileSize, isSelected || false);
+          }
+        }
+      }
+
+      drawActiveMovingPiece(ctx) {
+        if (!this.activeAnimation) return;
+        const p = easeOutQuad(this.activeAnimation.progress);
+        const currentX = lerp(this.activeAnimation.fromX, this.activeAnimation.toX, p);
+        const hopHeight = Math.sin(p * Math.PI) * 26;
+        const currentY = lerp(this.activeAnimation.fromY, this.activeAnimation.toY, p) - hopHeight;
+        ChessPieceRenderer.drawPiece(ctx, this.activeAnimation.piece, currentX, currentY, this.tileSize, true);
+      }
+
+      drawHintArrow(ctx, move) {
+        const from = this.squareToPixel(move.from);
+        const to = this.squareToPixel(move.to);
+
+        ctx.save();
+        ctx.strokeStyle = '#ffd32a';
+        ctx.fillStyle = '#ffd32a';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = 'rgba(255, 211, 42, 0.85)';
+        ctx.shadowBlur = 12;
+
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.stroke();
+
+        const ang = Math.atan2(to.y - from.y, to.x - from.x);
+        const headLen = 14;
+        ctx.beginPath();
+        ctx.moveTo(to.x, to.y);
+        ctx.lineTo(to.x - headLen * Math.cos(ang - Math.PI / 6), to.y - headLen * Math.sin(ang - Math.PI / 6));
+        ctx.lineTo(to.x - headLen * Math.cos(ang + Math.PI / 6), to.y - headLen * Math.sin(ang + Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      drawHUD(ctx, w, h) {
+        ctx.save();
+        const capH = 76;
+        const capMargin = 12;
+        const capW = w - capMargin * 2;
+        const capY = 10;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.roundRect(ctx, capMargin, capY + 4, capW, capH, 22);
+        ctx.fill();
+
+        const capGrad = ctx.createLinearGradient(0, capY, 0, capY + capH);
+        capGrad.addColorStop(0, '#1e293b');
+        capGrad.addColorStop(1, '#0f172a');
+        ctx.fillStyle = capGrad;
+        this.roundRect(ctx, capMargin, capY, capW, capH, 22);
+        ctx.fill();
+
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        this.drawAnimatedTitle(ctx, capMargin + 14, capY + 22);
+
+        const uTimeStr = `${Math.floor(this.userTimer / 60)}:${Math.floor(this.userTimer % 60).toString().padStart(2, '0')}`;
+        ctx.textAlign = 'left';
+        ctx.font = `800 12px "Fredoka", "Nunito", sans-serif`;
+        ctx.fillStyle = this.turn === 'w' ? '#ffd32a' : '#94a3b8';
+        ctx.fillText(`YOU 👑 ${uTimeStr} ${this.turn === 'w' ? '• YOUR TURN' : ''}`, capMargin + 14, capY + 44);
+
+        this.drawMiniTray(ctx, capMargin + 14, capY + 60, this.capturedBlack, 'b');
+
+        const aTimeStr = `${Math.floor(this.aiTimerTotal / 60)}:${Math.floor(this.aiTimerTotal % 60).toString().padStart(2, '0')}`;
+        ctx.textAlign = 'right';
+        ctx.font = `800 12px "Fredoka", "Nunito", sans-serif`;
+        ctx.fillStyle = this.turn === 'b' ? '#ec4899' : '#94a3b8';
+        const aiLabel = this.isAiThinking ? 'AI THINKING... 🤖' : `AI MASTER 🤖 ${aTimeStr}`;
+        ctx.fillText(aiLabel, w - capMargin - 14, capY + 22);
+
+        this.drawMiniTrayRight(ctx, w - capMargin - 14, capY + 60, this.capturedWhite, 'w');
+
+        // Bottom 3 Action Buttons (HINT, RESET, DIFFICULTY) - NO UNDO
+        this.buttons = [];
+        const btnCount = 3;
+        const paddingX = 14;
+        const gap = 12;
+        const btnW = Math.floor((w - paddingX * 2 - gap * (btnCount - 1)) / btnCount);
+        const btnH = 56;
+        const pillRadius = 18;
+        const startY = h - btnH - 16;
+
+        const btnConfig = [
+          { id: 'hint', label: 'HINT', bgGradTop: CONFIG.COLORS.btnHintTop, bgGradBottom: CONFIG.COLORS.btnHintBottom, shadowColor: CONFIG.COLORS.btnHintShadow, action: () => this.showHint() },
+          { id: 'reset', label: 'RESET', bgGradTop: CONFIG.COLORS.btnResetTop, bgGradBottom: CONFIG.COLORS.btnResetBottom, shadowColor: CONFIG.COLORS.btnResetShadow, action: () => this.startNewGame() },
+          { id: 'diff', label: this.difficulty, bgGradTop: CONFIG.COLORS.btnDiffTop, bgGradBottom: CONFIG.COLORS.btnDiffBottom, shadowColor: CONFIG.COLORS.btnDiffShadow, action: () => this.toggleDifficulty() }
+        ];
+
+        btnConfig.forEach((b, i) => {
+          const curX = paddingX + i * (btnW + gap);
+          this.buttons.push({
+            id: b.id, label: b.label, x: curX, y: startY, w: btnW, h: btnH,
+            bgGradTop: b.bgGradTop, bgGradBottom: b.bgGradBottom, shadowColor: b.shadowColor,
+            pressProgress: 0, action: b.action
+          });
+
+          ctx.fillStyle = b.shadowColor;
+          this.roundRect(ctx, curX, startY + 5, btnW, btnH, pillRadius);
+          ctx.fill();
+
+          const btnGrad = ctx.createLinearGradient(curX, startY, curX, startY + btnH);
+          btnGrad.addColorStop(0, b.bgGradTop);
+          btnGrad.addColorStop(1, b.bgGradBottom);
+          ctx.fillStyle = btnGrad;
+          this.roundRect(ctx, curX, startY, btnW, btnH - 3, pillRadius);
+          ctx.fill();
+
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.42)';
+          this.roundRect(ctx, curX + 4, startY + 2, btnW - 8, (btnH - 3) * 0.42, pillRadius - 4);
+          ctx.fill();
+
+          const btnCenterX = curX + btnW / 2;
+          const iconCenterY = startY + 18;
+
+          if (b.id === 'hint') this.drawVectorBulb(ctx, btnCenterX, iconCenterY, 20);
+          else if (b.id === 'reset') this.drawVectorLoop(ctx, btnCenterX, iconCenterY, 20);
+          else if (b.id === 'diff') this.drawVectorCrown(ctx, btnCenterX, iconCenterY, 20);
+
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = `900 13px "Fredoka", "Lilita One", sans-serif`;
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+          ctx.fillText(b.label, btnCenterX, startY + 41);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(b.label, btnCenterX, startY + 40);
+        });
+
+        ctx.restore();
+      }
+
+      drawMiniTray(ctx, startX, y, pieces, color) {
+        const symbolMap = { q: '♛', r: '♜', b: '♝', n: '♞', p: '♟', k: '♚' };
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.font = `14px serif`;
+        ctx.fillStyle = color === 'b' ? '#475569' : '#ffffff';
+        const text = pieces.slice(0, 8).map(p => symbolMap[p.type]).join(' ');
+        ctx.fillText(text, startX, y);
+      }
+
+      drawMiniTrayRight(ctx, rightX, y, pieces, color) {
+        const symbolMap = { q: '♛', r: '♜', b: '♝', n: '♞', p: '♟', k: '♚' };
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.font = `14px serif`;
+        ctx.fillStyle = color === 'w' ? '#ffffff' : '#475569';
+        const text = pieces.slice(0, 8).map(p => symbolMap[p.type]).join(' ');
+        ctx.fillText(text, rightX, y);
+      }
+
+      drawVectorBulb(ctx, cx, cy, size) {
+        ctx.save();
+        ctx.strokeStyle = '#ffffff';
+        ctx.fillStyle = '#ffffff';
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(cx, cy - 2, size * 0.34, Math.PI * 0.78, Math.PI * 2.22, false);
+        ctx.lineTo(cx + size * 0.14, cy + size * 0.2);
+        ctx.lineTo(cx - size * 0.14, cy + size * 0.2);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.fillRect(cx - size * 0.11, cy + size * 0.24, size * 0.22, size * 0.07);
+        ctx.beginPath();
+        ctx.arc(cx, cy - 2, size * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = 1.8;
+        const rayDist = size * 0.44;
+        const rayLen = size * 0.14;
+        for (let i = -2; i <= 2; i++) {
+          const ang = -Math.PI / 2 + i * 0.46;
+          ctx.beginPath();
+          ctx.moveTo(cx + Math.cos(ang) * rayDist, (cy - 2) + Math.sin(ang) * rayDist);
+          ctx.lineTo(cx + Math.cos(ang) * (rayDist + rayLen), (cy - 2) + Math.sin(ang) * (rayDist + rayLen));
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      drawVectorLoop(ctx, cx, cy, size) {
+        ctx.save();
+        ctx.strokeStyle = '#ffffff';
+        ctx.fillStyle = '#ffffff';
+        ctx.lineWidth = 2.4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(cx, cy, size * 0.34, 0.2 * Math.PI, 1.7 * Math.PI);
+        ctx.stroke();
+
+        const arrowX = cx + Math.cos(1.7 * Math.PI) * (size * 0.34);
+        const arrowY = cy + Math.sin(1.7 * Math.PI) * (size * 0.34);
+        ctx.beginPath();
+        ctx.moveTo(arrowX - size * 0.1, arrowY - size * 0.16);
+        ctx.lineTo(arrowX + size * 0.16, arrowY);
+        ctx.lineTo(arrowX - size * 0.1, arrowY + size * 0.16);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      drawVectorCrown(ctx, cx, cy, size) {
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(cx - size * 0.32, cy + size * 0.2);
+        ctx.lineTo(cx - size * 0.34, cy - size * 0.14);
+        ctx.lineTo(cx - size * 0.16, cy);
+        ctx.lineTo(cx, cy - size * 0.26);
+        ctx.lineTo(cx + size * 0.16, cy);
+        ctx.lineTo(cx + size * 0.34, cy - size * 0.14);
+        ctx.lineTo(cx + size * 0.32, cy + size * 0.2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      drawAnimatedTitle(ctx, startX, startY) {
+        ctx.save();
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const text = 'ROYAL CHESS';
+        ctx.font = `900 17px "Fredoka", "Lilita One", sans-serif`;
+
+        let curX = startX;
+        for (let i = 0; i < text.length; i++) {
+          const char = text[i];
+          const charW = ctx.measureText(char).width;
+          const letterWave = Math.sin(this.userTimer * 4.2 + i * 0.55) * 2.2;
+
+          ctx.fillStyle = '#06090d';
+          ctx.fillText(char, curX, startY + letterWave + 1.5);
+
+          const charGrad = ctx.createLinearGradient(curX, startY - 8, curX, startY + 8);
+          charGrad.addColorStop(0, '#ffffff');
+          charGrad.addColorStop(0.35, '#fffae6');
+          charGrad.addColorStop(1, '#ffd32a');
+          ctx.fillStyle = charGrad;
+          ctx.fillText(char, curX, startY + letterWave);
+          curX += charW + 0.5;
+        }
+        ctx.restore();
+      }
+
+      drawPromotionModal(ctx, w, h) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(0, 0, w, h);
+
+        const mw = Math.min(340, w * 0.88);
+        const mh = 160;
+        const mx = (w - mw) / 2;
+        const my = (h - mh) / 2;
+
+        const bgGrad = ctx.createLinearGradient(mx, my, mx, my + mh);
+        bgGrad.addColorStop(0, '#1e293b');
+        bgGrad.addColorStop(1, '#0f172a');
+        ctx.fillStyle = bgGrad;
+        this.roundRect(ctx, mx, my, mw, mh, 20);
+        ctx.fill();
+
+        ctx.strokeStyle = '#ffd32a';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `900 20px "Fredoka", "Lilita One", sans-serif`;
+        ctx.fillStyle = '#ffd32a';
+        ctx.fillText('PAWN PROMOTION', mx + mw / 2, my + 30);
+
+        const promos = ['q', 'r', 'b', 'n'];
+        const pSize = 56;
+        const gap = 12;
+        const totalW = promos.length * pSize + (promos.length - 1) * gap;
+        const startX = mx + (mw - totalW) / 2;
+
+        promos.forEach((type, idx) => {
+          const px = startX + idx * (pSize + gap);
+          const py = my + 70;
+
+          ctx.fillStyle = '#334155';
+          this.roundRect(ctx, px, py, pSize, pSize, 14);
+          ctx.fill();
+
+          ctx.strokeStyle = '#ffd32a';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ChessPieceRenderer.drawPiece(ctx, { id: 0, type, color: 'w' }, px + pSize / 2, py + pSize / 2, pSize * 0.75, false);
+        });
+      }
+
+      drawGameOverModal(ctx, w, h) {
+        ctx.fillStyle = `rgba(0, 0, 0, ${0.85 * this.winModalProgress})`;
+        ctx.fillRect(0, 0, w, h);
+
+        const mw = Math.min(360, w * 0.88);
+        const mh = 310;
+        const mx = (w - mw) / 2;
+        const my = (h - mh) / 2;
+
+        const scale = easeOutBack(this.winModalProgress);
+        ctx.save();
+        ctx.translate(mx + mw / 2, my + mh / 2);
+        ctx.scale(scale, scale);
+        ctx.translate(-(mx + mw / 2), -(my + mh / 2));
+
+        const cardGrad = ctx.createLinearGradient(mx, my, mx, my + mh);
+        cardGrad.addColorStop(0, '#1e293b');
+        cardGrad.addColorStop(1, '#0f172a');
+        ctx.fillStyle = cardGrad;
+        this.roundRect(ctx, mx, my, mw, mh, 28);
+        ctx.fill();
+
+        ctx.strokeStyle = '#ffd32a';
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `38px "Segoe UI Emoji", sans-serif`;
+        ctx.fillText(this.winner === 'w' ? '⭐⭐⭐' : '⚔️', mx + mw / 2, my + 44);
+
+        ctx.font = `900 24px "Fredoka", "Lilita One", sans-serif`;
+        ctx.fillStyle = this.winner === 'w' ? '#ffd32a' : '#ff4757';
+        const winTitle = this.winner === 'w' ? 'VICTORY! YOU WON!' : this.winner === 'b' ? 'CHECKMATE! AI WON' : 'STALEMATE! DRAW';
+        ctx.fillText(winTitle, mx + mw / 2, my + 90);
+
+        const boxW = mw - 36;
+        const boxH = 80;
+        const boxX = mx + 18;
+        const boxY = my + 120;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+        this.roundRect(ctx, boxX, boxY, boxW, boxH, 18);
+        ctx.fill();
+
+        ctx.font = `800 15px "Fredoka", "Nunito", sans-serif`;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(`Your Time: ${Math.floor(this.userTimer)}s`, mx + mw / 2, boxY + 26);
+        ctx.fillText(`AI Difficulty: ${this.difficulty}`, mx + mw / 2, boxY + 54);
+
+        const pw = 190;
+        const ph = 52;
+        const px = mx + (mw - pw) / 2;
+        const py = my + 228;
+        const pRadius = ph / 2;
+
+        ctx.fillStyle = CONFIG.COLORS.btnGreenShadow;
+        this.roundRect(ctx, px, py + 4, pw, ph, pRadius);
+        ctx.fill();
+
+        const playGrad = ctx.createLinearGradient(px, py, px, py + ph);
+        playGrad.addColorStop(0, CONFIG.COLORS.btnGreenTop);
+        playGrad.addColorStop(1, CONFIG.COLORS.btnGreenBottom);
+        ctx.fillStyle = playGrad;
+        this.roundRect(ctx, px, py, pw, ph - 3, pRadius);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        this.roundRect(ctx, px + 8, py + 2, pw - 16, (ph - 3) * 0.42, pRadius - 4);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `900 17px "Fredoka", "Lilita One", sans-serif`;
+        ctx.fillText('PLAY AGAIN', px + pw / 2, py + (ph - 3) / 2);
+
+        ctx.restore();
+      }
+
+      squareToPixel(sq) {
+        return {
+          x: this.boardX + sq.c * this.tileSize + this.tileSize / 2,
+          y: this.boardY + sq.r * this.tileSize + this.tileSize / 2
+        };
+      }
+
+      pixelToSquare(px, py) {
+        if (
+          px < this.boardX || px >= this.boardX + this.tileSize * 8 ||
+          py < this.boardY || py >= this.boardY + this.tileSize * 8
+        ) return null;
+        return {
+          c: Math.floor((px - this.boardX) / this.tileSize),
+          r: Math.floor((py - this.boardY) / this.tileSize)
+        };
+      }
+
+      handlePointerDown(px, py) {
+        if (this.state === 'PROMOTION') {
+          const mw = Math.min(340, this.canvasW * 0.88);
+          const mh = 160;
+          const mx = (this.canvasW - mw) / 2;
+          const my = (this.canvasH - mh) / 2;
+
+          const promos = ['q', 'r', 'b', 'n'];
+          const pSize = 56;
+          const gap = 12;
+          const totalW = promos.length * pSize + (promos.length - 1) * gap;
+          const startX = mx + (mw - totalW) / 2;
+
+          promos.forEach((type, idx) => {
+            const pX = startX + idx * (pSize + gap);
+            const pY = my + 70;
+            if (px >= pX && px <= pX + pSize && py >= pY && py <= pY + pSize) {
+              this.selectPromotionPiece(type);
+            }
+          });
+          return;
+        }
+
+        if (this.state === 'GAME_OVER') {
+          const mw = Math.min(360, this.canvasW * 0.88);
+          const mh = 310;
+          const mx = (this.canvasW - mw) / 2;
+          const my = (this.canvasH - mh) / 2;
+          const pw = 190;
+          const ph = 52;
+          const pX = mx + (mw - pw) / 2;
+          const pY = my + 228;
+
+          if (px >= pX && px <= pX + pw && py >= pY && py <= pY + ph) {
+            this.startNewGame();
+          }
+          return;
+        }
+
+        for (const btn of this.buttons) {
+          if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
+            btn.action();
+            return;
+          }
+        }
+
+        const sq = this.pixelToSquare(px, py);
+        if (sq) this.handleSquareClick(sq);
+      }
+
+      addFloatingText(text, x, y, color, size = 22) {
+        this.floatingTexts.push({ text, x, y, life: 0, maxLife: 1.2, color, size });
+      }
+
+      drawFloatingTexts(ctx) {
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (const ft of this.floatingTexts) {
+          const alpha = Math.max(0, 1 - (ft.life / ft.maxLife));
+          const scale = 1 + Math.sin((ft.life / ft.maxLife) * Math.PI) * 0.25;
+          ctx.save();
+          ctx.translate(ft.x, ft.y);
+          ctx.scale(scale, scale);
+          ctx.globalAlpha = alpha;
+
+          ctx.font = `900 ${ft.size}px "Fredoka", "Lilita One", sans-serif`;
+          ctx.strokeStyle = '#06090d';
+          ctx.lineWidth = 4;
+          ctx.strokeText(ft.text, 0, 0);
+
+          ctx.fillStyle = ft.color;
+          ctx.fillText(ft.text, 0, 0);
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+
+      roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+      }
+    }
+
+    // BOOTSTRAPPER
+    window.addEventListener('DOMContentLoaded', () => {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx) return;
+
+      const game = new RoyalChessGame();
+      let lastTime = performance.now();
+
+      function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const vv = window.visualViewport;
+        const w = vv ? vv.width : window.innerWidth;
+        const h = vv ? vv.height : window.innerHeight;
+
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      window.addEventListener('resize', resize);
+      window.addEventListener('orientationchange', () => setTimeout(resize, 100));
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+      resize();
+
+      function getCoords(e) {
+        const rect = canvas.getBoundingClientRect();
+        return [e.clientX - rect.left, e.clientY - rect.top];
+      }
+
+      canvas.addEventListener('mousedown', (e) => {
+        const [x, y] = getCoords(e);
+        game.handlePointerDown(x, y);
+      });
+
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (e.touches.length > 0) {
+          const [x, y] = getCoords(e.touches[0]);
+          game.handlePointerDown(x, y);
+        }
+      }, { passive: false });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'h' || e.key === 'H') game.showHint();
+        if (e.key === 'r' || e.key === 'R') game.startNewGame();
+        if (e.key === 'd' || e.key === 'D') game.toggleDifficulty();
+      });
+
+      function loop(now) {
+        const dt = Math.min(0.1, (now - lastTime) / 1000);
+        lastTime = now;
+        const curW = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+        const curH = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        game.update(dt);
+        game.render(ctx, curW, curH);
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+    });
+  })();
+  </script>
+</body>
+</html>

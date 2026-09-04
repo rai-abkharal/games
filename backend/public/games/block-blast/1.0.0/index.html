@@ -1,0 +1,2210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Block Blast! - Jewel Puzzle</title>
+  <meta name="application-name" content="Block Blast! - Jewel Puzzle">
+  <meta name="apple-mobile-web-app-title" content="Block Blast!">
+  <meta name="game-title" content="Block Blast! - Jewel Puzzle">
+  <meta name="game-id" content="block-blast">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700;800;900&family=Lilita+One&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #28469a;
+      font-family: 'Fredoka', 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      touch-action: none;
+    }
+    #gameCanvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+(function() {
+  'use strict';
+  var exports = typeof exports !== 'undefined' ? exports : {};
+
+const BLOCK_COLORS = {
+    BLUE: {
+        name: 'BLUE',
+        base: '#3b82f6',
+        highlight: '#60a5fa',
+        shadow: '#1d4ed8',
+        lightHighlight: '#93c5fd',
+        darkShadow: '#1e3a8a',
+        glow: 'rgba(59, 130, 246, 0.6)'
+    },
+    GREEN: {
+        name: 'GREEN',
+        base: '#22c55e',
+        highlight: '#4ade80',
+        shadow: '#15803d',
+        lightHighlight: '#86efac',
+        darkShadow: '#14532d',
+        glow: 'rgba(34, 197, 94, 0.6)'
+    },
+    PURPLE: {
+        name: 'PURPLE',
+        base: '#a855f7',
+        highlight: '#c084fc',
+        shadow: '#7e22ce',
+        lightHighlight: '#e9d5ff',
+        darkShadow: '#581c87',
+        glow: 'rgba(168, 85, 247, 0.6)'
+    },
+    YELLOW: {
+        name: 'YELLOW',
+        base: '#f59e0b',
+        highlight: '#fbbf24',
+        shadow: '#d97706',
+        lightHighlight: '#fef08a',
+        darkShadow: '#b45309',
+        glow: 'rgba(245, 158, 11, 0.6)'
+    },
+    ORANGE: {
+        name: 'ORANGE',
+        base: '#ea580c',
+        highlight: '#fb923c',
+        shadow: '#c2410c',
+        lightHighlight: '#fed7aa',
+        darkShadow: '#9a3412',
+        glow: 'rgba(234, 88, 12, 0.6)'
+    },
+    CYAN: {
+        name: 'CYAN',
+        base: '#06b6d4',
+        highlight: '#22d3ee',
+        shadow: '#0891b2',
+        lightHighlight: '#cffafe',
+        darkShadow: '#155e75',
+        glow: 'rgba(6, 182, 212, 0.6)'
+    },
+    RED: {
+        name: 'RED',
+        base: '#ef4444',
+        highlight: '#f87171',
+        shadow: '#b91c1c',
+        lightHighlight: '#fecaca',
+        darkShadow: '#7f1d1d',
+        glow: 'rgba(239, 68, 68, 0.6)'
+    }
+};
+const COLOR_LIST = Object.values(BLOCK_COLORS);
+function draw3DBlock(ctx, x, y, size, color, alpha = 1.0, scale = 1.0, isGhost = false, isClearing = false, pulseGlow = 0) {
+    if (size <= 0 || alpha <= 0)
+        return;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+    const cx = x + size / 2;
+    const cy = y + size / 2;
+    const renderSize = size * scale;
+    const rx = cx - renderSize / 2;
+    const ry = cy - renderSize / 2;
+    if (isGhost) {
+        ctx.fillStyle = color.glow;
+        ctx.strokeStyle = color.highlight;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        roundRectPath(ctx, rx + 2, ry + 2, renderSize - 4, renderSize - 4, 4);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        return;
+    }
+    if (pulseGlow > 0) {
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 12 * pulseGlow;
+    }
+    const cornerR = Math.max(2, renderSize * 0.12);
+    const bevel = Math.max(3, renderSize * 0.22);
+    ctx.beginPath();
+    roundRectPath(ctx, rx, ry, renderSize, renderSize, cornerR);
+    ctx.clip();
+    ctx.fillStyle = color.base;
+    ctx.fillRect(rx, ry, renderSize, renderSize);
+    ctx.fillStyle = color.lightHighlight;
+    ctx.beginPath();
+    ctx.moveTo(rx, ry);
+    ctx.lineTo(rx + renderSize, ry);
+    ctx.lineTo(rx + renderSize - bevel, ry + bevel);
+    ctx.lineTo(rx + bevel, ry + bevel);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = color.highlight;
+    ctx.beginPath();
+    ctx.moveTo(rx, ry);
+    ctx.lineTo(rx + bevel, ry + bevel);
+    ctx.lineTo(rx + bevel, ry + renderSize - bevel);
+    ctx.lineTo(rx, ry + renderSize);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = color.shadow;
+    ctx.beginPath();
+    ctx.moveTo(rx + renderSize, ry);
+    ctx.lineTo(rx + renderSize, ry + renderSize);
+    ctx.lineTo(rx + renderSize - bevel, ry + renderSize - bevel);
+    ctx.lineTo(rx + renderSize - bevel, ry + bevel);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = color.darkShadow;
+    ctx.beginPath();
+    ctx.moveTo(rx, ry + renderSize);
+    ctx.lineTo(rx + bevel, ry + renderSize - bevel);
+    ctx.lineTo(rx + renderSize - bevel, ry + renderSize - bevel);
+    ctx.lineTo(rx + renderSize, ry + renderSize);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = color.base;
+    ctx.fillRect(rx + bevel, ry + bevel, renderSize - bevel * 2, renderSize - bevel * 2);
+    const sheenGrad = ctx.createLinearGradient(rx + bevel, ry + bevel, rx + renderSize - bevel, ry + renderSize - bevel);
+    sheenGrad.addColorStop(0, 'rgba(255, 255, 255, 0.28)');
+    sheenGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.0)');
+    sheenGrad.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+    ctx.fillStyle = sheenGrad;
+    ctx.fillRect(rx + bevel, ry + bevel, renderSize - bevel * 2, renderSize - bevel * 2);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(rx, ry, renderSize, renderSize);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.beginPath();
+    ctx.arc(rx + bevel * 0.9, ry + bevel * 0.9, Math.max(1, renderSize * 0.04), 0, Math.PI * 2);
+    ctx.fill();
+    if (isClearing) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.fillRect(rx, ry, renderSize, renderSize);
+    }
+    ctx.restore();
+}
+function roundRectPath(ctx, x, y, w, h, r) {
+    const radius = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + w - radius, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    ctx.lineTo(x + w, y + h - radius);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    ctx.lineTo(x + radius, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+}
+class SoundSynthesizer {
+    constructor() {
+        this.ctx = null;
+        this.soundEnabled = true;
+        this.vibrationEnabled = true;
+        this.soundEnabled = localStorage.getItem('BB_SOUND_ENABLED') !== 'false';
+        this.vibrationEnabled = localStorage.getItem('BB_VIBE_ENABLED') !== 'false';
+    }
+    initCtx() {
+        if (!this.ctx && typeof window !== 'undefined') {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+                this.ctx = new AudioCtx();
+            }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => { });
+        }
+        return this.ctx;
+    }
+    toggleSound() {
+        this.soundEnabled = !this.soundEnabled;
+        localStorage.setItem('BB_SOUND_ENABLED', String(this.soundEnabled));
+        if (this.soundEnabled)
+            this.playPop(520, 0.08);
+        return this.soundEnabled;
+    }
+    toggleVibration() {
+        this.vibrationEnabled = !this.vibrationEnabled;
+        localStorage.setItem('BB_VIBE_ENABLED', String(this.vibrationEnabled));
+        if (this.vibrationEnabled)
+            this.vibrate(30);
+        return this.vibrationEnabled;
+    }
+    isSoundOn() {
+        return this.soundEnabled;
+    }
+    isVibrationOn() {
+        return this.vibrationEnabled;
+    }
+    vibrate(pattern) {
+        if (!this.vibrationEnabled)
+            return;
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            try {
+                navigator.vibrate(pattern);
+            }
+            catch (e) { }
+        }
+    }
+    playPop(freq = 440, duration = 0.06) {
+        if (!this.soundEnabled)
+            return;
+        const ac = this.initCtx();
+        if (!ac)
+            return;
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        const now = ac.currentTime;
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.5, now + duration);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain);
+        gain.connect(ac.destination);
+        osc.start(now);
+        osc.stop(now + duration);
+    }
+    playPickup() {
+        if (!this.soundEnabled)
+            return;
+        const ac = this.initCtx();
+        if (!ac)
+            return;
+        const now = ac.currentTime;
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(480, now + 0.07);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+        osc.connect(gain);
+        gain.connect(ac.destination);
+        osc.start(now);
+        osc.stop(now + 0.07);
+        this.vibrate(10);
+    }
+    playSnap() {
+        if (!this.soundEnabled)
+            return;
+        const ac = this.initCtx();
+        if (!ac)
+            return;
+        const now = ac.currentTime;
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(260, now);
+        osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.connect(gain);
+        gain.connect(ac.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
+        const osc2 = ac.createOscillator();
+        const gain2 = ac.createGain();
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(800, now);
+        osc2.frequency.exponentialRampToValueAtTime(300, now + 0.03);
+        gain2.gain.setValueAtTime(0.2, now);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+        osc2.connect(gain2);
+        gain2.connect(ac.destination);
+        osc2.start(now);
+        osc2.stop(now + 0.03);
+        this.vibrate(18);
+    }
+    playLineClear(lineCount = 1) {
+        if (!this.soundEnabled)
+            return;
+        const ac = this.initCtx();
+        if (!ac)
+            return;
+        const now = ac.currentTime;
+        const baseFreqs = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+        for (let i = 0; i < Math.min(lineCount + 2, 5); i++) {
+            const osc = ac.createOscillator();
+            const gain = ac.createGain();
+            const noteTime = now + i * 0.04;
+            const freq = baseFreqs[i % baseFreqs.length];
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, noteTime);
+            gain.gain.setValueAtTime(0.25, noteTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.28);
+            osc.connect(gain);
+            gain.connect(ac.destination);
+            osc.start(noteTime);
+            osc.stop(noteTime + 0.28);
+        }
+        this.vibrate([25, 30, 45]);
+    }
+    playCombo(comboNum) {
+        if (!this.soundEnabled)
+            return;
+        const ac = this.initCtx();
+        if (!ac)
+            return;
+        const now = ac.currentTime;
+        const scale = [523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, 1046.50, 1174.66, 1318.51, 1567.98];
+        const startIndex = Math.min(comboNum, scale.length - 4);
+        for (let i = 0; i < 4; i++) {
+            const osc = ac.createOscillator();
+            const gain = ac.createGain();
+            const noteTime = now + i * 0.05;
+            const freq = scale[(startIndex + i) % scale.length];
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, noteTime);
+            gain.gain.setValueAtTime(0.3, noteTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.35);
+            osc.connect(gain);
+            gain.connect(ac.destination);
+            osc.start(noteTime);
+            osc.stop(noteTime + 0.35);
+        }
+        this.vibrate([35, 20, 35, 20, 50]);
+    }
+    playGameOver() {
+        if (!this.soundEnabled)
+            return;
+        const ac = this.initCtx();
+        if (!ac)
+            return;
+        const now = ac.currentTime;
+        const notes = [440, 392, 349.23, 293.66];
+        notes.forEach((freq, idx) => {
+            const osc = ac.createOscillator();
+            const gain = ac.createGain();
+            const noteTime = now + idx * 0.12;
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, noteTime);
+            gain.gain.setValueAtTime(0.2, noteTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.22);
+            osc.connect(gain);
+            gain.connect(ac.destination);
+            osc.start(noteTime);
+            osc.stop(noteTime + 0.22);
+        });
+        this.vibrate([80, 50, 120]);
+    }
+    playHighScore() {
+        if (!this.soundEnabled)
+            return;
+        const ac = this.initCtx();
+        if (!ac)
+            return;
+        const now = ac.currentTime;
+        const fanfare = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
+        fanfare.forEach((freq, idx) => {
+            const osc = ac.createOscillator();
+            const gain = ac.createGain();
+            const noteTime = now + idx * 0.08;
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, noteTime);
+            gain.gain.setValueAtTime(0.28, noteTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.4);
+            osc.connect(gain);
+            gain.connect(ac.destination);
+            osc.start(noteTime);
+            osc.stop(noteTime + 0.4);
+        });
+    }
+}
+const Sound = new SoundSynthesizer();
+class ScreenShake {
+    constructor() {
+        this.intensity = 0;
+        this.duration = 0;
+        this.timer = 0;
+        this.offsetX = 0;
+        this.offsetY = 0;
+    }
+    trigger(intensity = 6, duration = 0.2) {
+        this.intensity = intensity;
+        this.duration = duration;
+        this.timer = duration;
+    }
+    update(dt) {
+        if (this.timer > 0) {
+            this.timer -= dt;
+            const progress = this.timer / this.duration;
+            const currentIntensity = this.intensity * progress;
+            this.offsetX = (Math.random() * 2 - 1) * currentIntensity;
+            this.offsetY = (Math.random() * 2 - 1) * currentIntensity;
+        }
+        else {
+            this.offsetX = 0;
+            this.offsetY = 0;
+        }
+    }
+}
+function easeOutBack(t) {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+function easeOutQuad(t) {
+    return 1 - (1 - t) * (1 - t);
+}
+function easeInQuad(t) {
+    return t * t;
+}
+function lerp(a, b, t) {
+    return a + (b - a) * t;
+}
+function clamp(val, min, max) {
+    return Math.max(min, Math.min(max, val));
+}
+const BEST_SCORE_KEY = 'BLOCK_BLAST_BEST_SCORE';
+function getBestScore() {
+    try {
+        const val = localStorage.getItem(BEST_SCORE_KEY);
+        return val ? parseInt(val, 10) || 0 : 0;
+    }
+    catch (e) {
+        return 0;
+    }
+}
+function saveBestScore(score) {
+    try {
+        const current = getBestScore();
+        if (score > current) {
+            localStorage.setItem(BEST_SCORE_KEY, score.toString());
+            return true;
+        }
+    }
+    catch (e) { }
+    return false;
+}
+class GameBridge {
+    static sendReady() {
+        try {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'GAME_READY',
+                    id: 'block-blast',
+                    gameId: 'block-blast',
+                    title: 'Block Blast! - Jewel Puzzle',
+                    name: 'Block Blast! - Jewel Puzzle'
+                }, '*');
+                window.parent.postMessage({
+                    type: 'ready',
+                    id: 'block-blast',
+                    gameId: 'block-blast',
+                    title: 'Block Blast! - Jewel Puzzle',
+                    name: 'Block Blast! - Jewel Puzzle'
+                }, '*');
+            }
+        }
+        catch { }
+    }
+    static sendGameStart() {
+        try {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'GAME_START', id: 'block-blast' }, '*');
+                window.parent.postMessage({ type: 'game_start', id: 'block-blast' }, '*');
+            }
+        }
+        catch { }
+    }
+    static sendGameOver(score) {
+        try {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'GAME_OVER', id: 'block-blast', score }, '*');
+                window.parent.postMessage({ type: 'game_over', id: 'block-blast', score }, '*');
+            }
+        }
+        catch { }
+    }
+}
+const RAW_SHAPES = [
+    {
+        name: 'dot_1x1',
+        matrix: [[1]],
+        color: BLOCK_COLORS.YELLOW
+    },
+    {
+        name: 'line_1x2_h',
+        matrix: [[1, 1]],
+        color: BLOCK_COLORS.CYAN
+    },
+    {
+        name: 'line_1x2_v',
+        matrix: [[1], [1]],
+        color: BLOCK_COLORS.CYAN
+    },
+    {
+        name: 'line_1x3_h',
+        matrix: [[1, 1, 1]],
+        color: BLOCK_COLORS.BLUE
+    },
+    {
+        name: 'line_1x3_v',
+        matrix: [[1], [1], [1]],
+        color: BLOCK_COLORS.BLUE
+    },
+    {
+        name: 'line_1x4_h',
+        matrix: [[1, 1, 1, 1]],
+        color: BLOCK_COLORS.BLUE
+    },
+    {
+        name: 'line_1x4_v',
+        matrix: [[1], [1], [1], [1]],
+        color: BLOCK_COLORS.BLUE
+    },
+    {
+        name: 'line_1x5_h',
+        matrix: [[1, 1, 1, 1, 1]],
+        color: BLOCK_COLORS.BLUE
+    },
+    {
+        name: 'line_1x5_v',
+        matrix: [[1], [1], [1], [1], [1]],
+        color: BLOCK_COLORS.BLUE
+    },
+    {
+        name: 'square_2x2',
+        matrix: [
+            [1, 1],
+            [1, 1]
+        ],
+        color: BLOCK_COLORS.GREEN
+    },
+    {
+        name: 'square_3x3',
+        matrix: [
+            [1, 1, 1],
+            [1, 1, 1],
+            [1, 1, 1]
+        ],
+        color: BLOCK_COLORS.RED
+    },
+    {
+        name: 'rect_2x3_h',
+        matrix: [
+            [1, 1, 1],
+            [1, 1, 1]
+        ],
+        color: BLOCK_COLORS.YELLOW
+    },
+    {
+        name: 'rect_2x3_v',
+        matrix: [
+            [1, 1],
+            [1, 1],
+            [1, 1]
+        ],
+        color: BLOCK_COLORS.YELLOW
+    },
+    {
+        name: 'corner_small_tl',
+        matrix: [
+            [1, 1],
+            [1, 0]
+        ],
+        color: BLOCK_COLORS.PURPLE
+    },
+    {
+        name: 'corner_small_tr',
+        matrix: [
+            [1, 1],
+            [0, 1]
+        ],
+        color: BLOCK_COLORS.PURPLE
+    },
+    {
+        name: 'corner_small_bl',
+        matrix: [
+            [1, 0],
+            [1, 1]
+        ],
+        color: BLOCK_COLORS.PURPLE
+    },
+    {
+        name: 'corner_small_br',
+        matrix: [
+            [0, 1],
+            [1, 1]
+        ],
+        color: BLOCK_COLORS.PURPLE
+    },
+    {
+        name: 'corner_large_tl',
+        matrix: [
+            [1, 1, 1],
+            [1, 0, 0],
+            [1, 0, 0]
+        ],
+        color: BLOCK_COLORS.BLUE
+    },
+    {
+        name: 'corner_large_tr',
+        matrix: [
+            [1, 1, 1],
+            [0, 0, 1],
+            [0, 0, 1]
+        ],
+        color: BLOCK_COLORS.BLUE
+    },
+    {
+        name: 'corner_large_bl',
+        matrix: [
+            [1, 0, 0],
+            [1, 0, 0],
+            [1, 1, 1]
+        ],
+        color: BLOCK_COLORS.BLUE
+    },
+    {
+        name: 'corner_large_br',
+        matrix: [
+            [0, 0, 1],
+            [0, 0, 1],
+            [1, 1, 1]
+        ],
+        color: BLOCK_COLORS.BLUE
+    },
+    {
+        name: 'l_shape_1',
+        matrix: [
+            [1, 0],
+            [1, 0],
+            [1, 1]
+        ],
+        color: BLOCK_COLORS.ORANGE
+    },
+    {
+        name: 'l_shape_2',
+        matrix: [
+            [0, 1],
+            [0, 1],
+            [1, 1]
+        ],
+        color: BLOCK_COLORS.ORANGE
+    },
+    {
+        name: 'l_shape_3',
+        matrix: [
+            [1, 1, 1],
+            [1, 0, 0]
+        ],
+        color: BLOCK_COLORS.ORANGE
+    },
+    {
+        name: 'l_shape_4',
+        matrix: [
+            [1, 1, 1],
+            [0, 0, 1]
+        ],
+        color: BLOCK_COLORS.ORANGE
+    },
+    {
+        name: 'l_shape_5',
+        matrix: [
+            [1, 1],
+            [1, 0],
+            [1, 0]
+        ],
+        color: BLOCK_COLORS.ORANGE
+    },
+    {
+        name: 'l_shape_6',
+        matrix: [
+            [1, 1],
+            [0, 1],
+            [0, 1]
+        ],
+        color: BLOCK_COLORS.ORANGE
+    },
+    {
+        name: 't_shape_up',
+        matrix: [
+            [0, 1, 0],
+            [1, 1, 1]
+        ],
+        color: BLOCK_COLORS.GREEN
+    },
+    {
+        name: 't_shape_down',
+        matrix: [
+            [1, 1, 1],
+            [0, 1, 0]
+        ],
+        color: BLOCK_COLORS.GREEN
+    },
+    {
+        name: 't_shape_left',
+        matrix: [
+            [1, 0],
+            [1, 1],
+            [1, 0]
+        ],
+        color: BLOCK_COLORS.GREEN
+    },
+    {
+        name: 't_shape_right',
+        matrix: [
+            [0, 1],
+            [1, 1],
+            [0, 1]
+        ],
+        color: BLOCK_COLORS.GREEN
+    },
+    {
+        name: 'z_shape_h',
+        matrix: [
+            [1, 1, 0],
+            [0, 1, 1]
+        ],
+        color: BLOCK_COLORS.PURPLE
+    },
+    {
+        name: 's_shape_h',
+        matrix: [
+            [0, 1, 1],
+            [1, 1, 0]
+        ],
+        color: BLOCK_COLORS.PURPLE
+    },
+    {
+        name: 'z_shape_v',
+        matrix: [
+            [0, 1],
+            [1, 1],
+            [1, 0]
+        ],
+        color: BLOCK_COLORS.PURPLE
+    },
+    {
+        name: 's_shape_v',
+        matrix: [
+            [1, 0],
+            [1, 1],
+            [0, 1]
+        ],
+        color: BLOCK_COLORS.PURPLE
+    }
+];
+let shapeUidCounter = 1;
+function createShape(raw) {
+    let count = 0;
+    for (let r = 0; r < raw.matrix.length; r++) {
+        for (let c = 0; c < raw.matrix[r].length; c++) {
+            if (raw.matrix[r][c])
+                count++;
+        }
+    }
+    return {
+        id: `shape_${shapeUidCounter++}_${raw.name}`,
+        name: raw.name,
+        matrix: raw.matrix.map(row => [...row]),
+        color: raw.color,
+        width: raw.matrix[0].length,
+        height: raw.matrix.length,
+        blockCount: count
+    };
+}
+function canShapeFitOnBoard(shape, grid) {
+    const shapeH = shape.height;
+    const shapeW = shape.width;
+    for (let gy = 0; gy <= 8 - shapeH; gy++) {
+        for (let gx = 0; gx <= 8 - shapeW; gx++) {
+            let canPlace = true;
+            for (let r = 0; r < shapeH; r++) {
+                for (let c = 0; c < shapeW; c++) {
+                    if (shape.matrix[r][c] === 1) {
+                        if (grid[gy + r][gx + c].filled) {
+                            canPlace = false;
+                            break;
+                        }
+                    }
+                }
+                if (!canPlace)
+                    break;
+            }
+            if (canPlace)
+                return true;
+        }
+    }
+    return false;
+}
+function generateNextTrayPieces(grid) {
+    let filledCount = 0;
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            if (grid[r][c].filled)
+                filledCount++;
+        }
+    }
+    const fillRatio = filledCount / 64;
+    const results = [];
+    const smallShapes = RAW_SHAPES.filter(s => {
+        const cells = s.matrix.flat().filter(x => x === 1).length;
+        return cells <= 3;
+    });
+    const mediumShapes = RAW_SHAPES.filter(s => {
+        const cells = s.matrix.flat().filter(x => x === 1).length;
+        return cells === 4;
+    });
+    const largeShapes = RAW_SHAPES.filter(s => {
+        const cells = s.matrix.flat().filter(x => x === 1).length;
+        return cells >= 5;
+    });
+    for (let i = 0; i < 3; i++) {
+        let pool;
+        const rand = Math.random();
+        if (fillRatio > 0.6) {
+            if (rand < 0.6)
+                pool = smallShapes;
+            else if (rand < 0.9)
+                pool = mediumShapes;
+            else
+                pool = largeShapes;
+        }
+        else if (fillRatio > 0.35) {
+            if (rand < 0.35)
+                pool = smallShapes;
+            else if (rand < 0.75)
+                pool = mediumShapes;
+            else
+                pool = largeShapes;
+        }
+        else {
+            if (rand < 0.25)
+                pool = smallShapes;
+            else if (rand < 0.65)
+                pool = mediumShapes;
+            else
+                pool = largeShapes;
+        }
+        const chosen = pool[Math.floor(Math.random() * pool.length)];
+        results.push(createShape(chosen));
+    }
+    const anyFit = results.some(shape => canShapeFitOnBoard(shape, grid));
+    if (!anyFit) {
+        const fittingSmall = smallShapes.find(s => canShapeFitOnBoard(createShape(s), grid));
+        if (fittingSmall) {
+            results[0] = createShape(fittingSmall);
+        }
+    }
+    return results;
+}
+class ParticleSystem {
+    constructor() {
+        this.particles = [];
+        this.floatingTexts = [];
+        this.auras = [];
+        this.ambientDust = [];
+        for (let i = 0; i < 25; i++) {
+            this.ambientDust.push({
+                x: Math.random() * 500,
+                y: Math.random() * 900,
+                size: Math.random() * 2.5 + 1,
+                speed: Math.random() * 15 + 10,
+                alpha: Math.random() * 0.4 + 0.15
+            });
+        }
+    }
+    addGemBurst(cx, cy, colorHex, count = 12) {
+        const palette = [
+            colorHex,
+            '#ffffff',
+            '#fde047',
+            '#38bdf8',
+            '#f472b6',
+            '#fb923c',
+            '#4ade80'
+        ];
+        for (let i = 0; i < count; i++) {
+            const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.8;
+            const speed = Math.random() * 220 + 80;
+            const shapeRand = Math.random();
+            let shape = 'square';
+            if (shapeRand < 0.3)
+                shape = 'sparkle';
+            else if (shapeRand < 0.6)
+                shape = 'shard';
+            else if (shapeRand < 0.8)
+                shape = 'circle';
+            this.particles.push({
+                x: cx,
+                y: cy,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - Math.random() * 60,
+                size: Math.random() * 7 + 4,
+                color: palette[Math.floor(Math.random() * palette.length)],
+                alpha: 1.0,
+                life: 0,
+                maxLife: Math.random() * 0.45 + 0.35,
+                shape,
+                rotation: Math.random() * Math.PI * 2,
+                vRot: (Math.random() - 0.5) * 12,
+                gravity: 450
+            });
+        }
+    }
+    addLineClearAura(type, index, x, y, w, h) {
+        this.auras.push({
+            type,
+            index,
+            x,
+            y,
+            w,
+            h,
+            alpha: 1.0,
+            life: 0,
+            maxLife: 0.42
+        });
+    }
+    addFloatingScore(text, x, y, color = '#ffffff', strokeColor = '#1e293b', isCombo = false, comboNum = 0) {
+        this.floatingTexts.push({
+            text,
+            x,
+            y,
+            alpha: 1.0,
+            scale: 0.2,
+            life: 0,
+            maxLife: isCombo ? 1.3 : 0.85,
+            color,
+            strokeColor,
+            isCombo,
+            comboNum
+        });
+    }
+    update(dt, screenW, screenH) {
+        for (const dust of this.ambientDust) {
+            dust.y -= dust.speed * dt;
+            dust.x += Math.sin(dust.y * 0.02) * 8 * dt;
+            if (dust.y < -10) {
+                dust.y = screenH + 10;
+                dust.x = Math.random() * screenW;
+            }
+        }
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.life += dt;
+            if (p.life >= p.maxLife) {
+                this.particles.splice(i, 1);
+                continue;
+            }
+            const progress = p.life / p.maxLife;
+            p.alpha = 1 - progress;
+            p.vy += p.gravity * dt;
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.rotation += p.vRot * dt;
+            p.vx *= 0.96;
+        }
+        for (let i = this.auras.length - 1; i >= 0; i--) {
+            const a = this.auras[i];
+            a.life += dt;
+            if (a.life >= a.maxLife) {
+                this.auras.splice(i, 1);
+                continue;
+            }
+            const progress = a.life / a.maxLife;
+            a.alpha = Math.sin(progress * Math.PI);
+        }
+        for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+            const ft = this.floatingTexts[i];
+            ft.life += dt;
+            if (ft.life >= ft.maxLife) {
+                this.floatingTexts.splice(i, 1);
+                continue;
+            }
+            const progress = ft.life / ft.maxLife;
+            if (progress < 0.2) {
+                ft.scale = easeOutBack(progress / 0.2);
+            }
+            else {
+                ft.scale = 1.0 + (progress - 0.2) * 0.15;
+            }
+            const floatSpeed = ft.isCombo ? 25 : 55;
+            ft.y -= floatSpeed * dt;
+            if (progress > 0.65) {
+                ft.alpha = 1 - (progress - 0.65) / 0.35;
+            }
+            else {
+                ft.alpha = 1.0;
+            }
+        }
+    }
+    drawBackgroundDust(ctx) {
+        ctx.save();
+        for (const dust of this.ambientDust) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${dust.alpha})`;
+            ctx.beginPath();
+            ctx.arc(dust.x, dust.y, dust.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+    drawAuras(ctx) {
+        ctx.save();
+        for (const a of this.auras) {
+            if (a.alpha <= 0)
+                continue;
+            ctx.globalAlpha = a.alpha;
+            const grad = ctx.createLinearGradient(a.x, a.y, a.x + a.w, a.y + a.h);
+            grad.addColorStop(0.0, '#ff0055');
+            grad.addColorStop(0.18, '#ff9900');
+            grad.addColorStop(0.36, '#ffee00');
+            grad.addColorStop(0.54, '#00ff66');
+            grad.addColorStop(0.72, '#00ddff');
+            grad.addColorStop(0.88, '#9900ff');
+            grad.addColorStop(1.0, '#ff00cc');
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 18 * a.alpha;
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 5;
+            ctx.strokeRect(a.x - 2, a.y - 2, a.w + 4, a.h + 4);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.fillRect(a.x, a.y, a.w, a.h);
+        }
+        ctx.restore();
+    }
+    drawParticles(ctx) {
+        ctx.save();
+        for (const p of this.particles) {
+            if (p.alpha <= 0)
+                continue;
+            ctx.save();
+            ctx.globalAlpha = p.alpha;
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation);
+            ctx.fillStyle = p.color;
+            if (p.shape === 'square') {
+                ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+            }
+            else if (p.shape === 'circle') {
+                ctx.beginPath();
+                ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            else if (p.shape === 'shard') {
+                ctx.beginPath();
+                ctx.moveTo(0, -p.size);
+                ctx.lineTo(p.size * 0.6, p.size * 0.8);
+                ctx.lineTo(-p.size * 0.6, p.size * 0.8);
+                ctx.closePath();
+                ctx.fill();
+            }
+            else if (p.shape === 'sparkle') {
+                const r = p.size;
+                ctx.beginPath();
+                ctx.moveTo(0, -r);
+                ctx.quadraticCurveTo(0, 0, r, 0);
+                ctx.quadraticCurveTo(0, 0, 0, r);
+                ctx.quadraticCurveTo(0, 0, -r, 0);
+                ctx.quadraticCurveTo(0, 0, 0, -r);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+        ctx.restore();
+    }
+    drawFloatingTexts(ctx) {
+        ctx.save();
+        for (const ft of this.floatingTexts) {
+            if (ft.alpha <= 0)
+                continue;
+            ctx.save();
+            ctx.globalAlpha = ft.alpha;
+            ctx.translate(ft.x, ft.y);
+            ctx.scale(ft.scale, ft.scale);
+            if (ft.isCombo && ft.comboNum) {
+                ctx.font = '900 28px "Fredoka", "Lilita One", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#fb923c';
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetY = 2;
+                ctx.fillText(ft.text, 0, -32);
+                const comboText = 'Combo';
+                const numText = `${ft.comboNum}`;
+                ctx.font = 'italic 900 46px "Fredoka", "Lilita One", sans-serif';
+                const comboW = ctx.measureText(comboText).width;
+                ctx.font = 'italic 900 54px "Fredoka", "Lilita One", sans-serif';
+                const numW = ctx.measureText(numText).width;
+                const totalW = comboW + numW + 6;
+                const startX = -totalW / 2;
+                ctx.font = 'italic 900 46px "Fredoka", "Lilita One", sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.lineWidth = 10;
+                ctx.strokeStyle = '#1d4ed8';
+                ctx.lineJoin = 'round';
+                ctx.strokeText(comboText, startX, 4);
+                ctx.lineWidth = 6;
+                ctx.strokeStyle = '#3b82f6';
+                ctx.strokeText(comboText, startX, 0);
+                const comboGrad = ctx.createLinearGradient(0, -20, 0, 20);
+                comboGrad.addColorStop(0, '#ffffff');
+                comboGrad.addColorStop(1, '#dbeafe');
+                ctx.fillStyle = comboGrad;
+                ctx.fillText(comboText, startX, 0);
+                const numX = startX + comboW + 6;
+                ctx.font = 'italic 900 54px "Fredoka", "Lilita One", sans-serif';
+                ctx.lineWidth = 10;
+                ctx.strokeStyle = '#b45309';
+                ctx.strokeText(numText, numX, 4);
+                ctx.lineWidth = 6;
+                ctx.strokeStyle = '#d97706';
+                ctx.strokeText(numText, numX, 0);
+                const numGrad = ctx.createLinearGradient(0, -20, 0, 20);
+                numGrad.addColorStop(0, '#fef08a');
+                numGrad.addColorStop(1, '#facc15');
+                ctx.fillStyle = numGrad;
+                ctx.fillText(numText, numX, 0);
+            }
+            else {
+                ctx.font = '900 32px "Fredoka", "Outfit", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.lineWidth = 6;
+                ctx.strokeStyle = ft.strokeColor;
+                ctx.lineJoin = 'round';
+                ctx.strokeText(ft.text, 0, 0);
+                ctx.fillStyle = ft.color;
+                ctx.fillText(ft.text, 0, 0);
+            }
+            ctx.restore();
+        }
+        ctx.restore();
+    }
+}
+const GRID_SIZE = 8;
+class Board {
+    constructor() {
+        this.grid = [];
+        this.boardX = 0;
+        this.boardY = 0;
+        this.boardSize = 0;
+        this.cellSize = 0;
+        this.cellGap = 3;
+        this.padding = 8;
+        this.clearingCells = [];
+        this.reset();
+    }
+    reset() {
+        this.grid = [];
+        for (let r = 0; r < GRID_SIZE; r++) {
+            const row = [];
+            for (let c = 0; c < GRID_SIZE; c++) {
+                row.push({
+                    filled: false,
+                    color: null,
+                    scale: 1.0,
+                    opacity: 1.0,
+                    glow: 0,
+                    shatterProgress: 0
+                });
+            }
+            this.grid.push(row);
+        }
+        this.clearingCells = [];
+    }
+    resize(screenWidth, screenHeight, topHudHeight, bottomTrayHeight) {
+        const availableW = screenWidth - 32;
+        const availableH = screenHeight - topHudHeight - bottomTrayHeight - 20;
+        this.boardSize = Math.min(availableW, availableH, 380);
+        this.boardX = (screenWidth - this.boardSize) / 2;
+        this.boardY = topHudHeight + Math.max(10, (availableH - this.boardSize) / 2);
+        const innerSize = this.boardSize - this.padding * 2;
+        const totalGaps = (GRID_SIZE - 1) * this.cellGap;
+        this.cellSize = (innerSize - totalGaps) / GRID_SIZE;
+    }
+    gridToPixel(gx, gy) {
+        const px = this.boardX + this.padding + gx * (this.cellSize + this.cellGap);
+        const py = this.boardY + this.padding + gy * (this.cellSize + this.cellGap);
+        return { x: px, y: py };
+    }
+    pixelToGrid(px, py) {
+        const relX = px - (this.boardX + this.padding);
+        const relY = py - (this.boardY + this.padding);
+        const step = this.cellSize + this.cellGap;
+        const gx = Math.round(relX / step);
+        const gy = Math.round(relY / step);
+        return { gx, gy };
+    }
+    canPlace(shape, gridX, gridY) {
+        if (gridX < 0 || gridY < 0)
+            return false;
+        if (gridX + shape.width > GRID_SIZE || gridY + shape.height > GRID_SIZE)
+            return false;
+        for (let r = 0; r < shape.height; r++) {
+            for (let c = 0; c < shape.width; c++) {
+                if (shape.matrix[r][c] === 1) {
+                    const gx = gridX + c;
+                    const gy = gridY + r;
+                    if (gx >= GRID_SIZE || gy >= GRID_SIZE)
+                        return false;
+                    if (this.grid[gy][gx].filled)
+                        return false;
+                }
+            }
+        }
+        return true;
+    }
+    getProspectiveClears(shape, gridX, gridY) {
+        if (!this.canPlace(shape, gridX, gridY)) {
+            return { rows: [], cols: [] };
+        }
+        const virtual = [];
+        for (let r = 0; r < GRID_SIZE; r++) {
+            virtual.push(this.grid[r].map(cell => cell.filled));
+        }
+        for (let r = 0; r < shape.height; r++) {
+            for (let c = 0; c < shape.width; c++) {
+                if (shape.matrix[r][c] === 1) {
+                    virtual[gridY + r][gridX + c] = true;
+                }
+            }
+        }
+        const rows = [];
+        for (let r = 0; r < GRID_SIZE; r++) {
+            if (virtual[r].every(val => val === true)) {
+                rows.push(r);
+            }
+        }
+        const cols = [];
+        for (let c = 0; c < GRID_SIZE; c++) {
+            let full = true;
+            for (let r = 0; r < GRID_SIZE; r++) {
+                if (!virtual[r][c]) {
+                    full = false;
+                    break;
+                }
+            }
+            if (full)
+                cols.push(c);
+        }
+        return { rows, cols };
+    }
+    placeShape(shape, gridX, gridY) {
+        for (let r = 0; r < shape.height; r++) {
+            for (let c = 0; c < shape.width; c++) {
+                if (shape.matrix[r][c] === 1) {
+                    const gx = gridX + c;
+                    const gy = gridY + r;
+                    this.grid[gy][gx].filled = true;
+                    this.grid[gy][gx].color = shape.color;
+                    this.grid[gy][gx].scale = 1.0;
+                    this.grid[gy][gx].opacity = 1.0;
+                    this.grid[gy][gx].shatterProgress = 0;
+                }
+            }
+        }
+    }
+    detectFullLines() {
+        const fullRows = [];
+        for (let r = 0; r < GRID_SIZE; r++) {
+            if (this.grid[r].every(c => c.filled)) {
+                fullRows.push(r);
+            }
+        }
+        const fullCols = [];
+        for (let c = 0; c < GRID_SIZE; c++) {
+            let full = true;
+            for (let r = 0; r < GRID_SIZE; r++) {
+                if (!this.grid[r][c].filled) {
+                    full = false;
+                    break;
+                }
+            }
+            if (full)
+                fullCols.push(c);
+        }
+        return { rows: fullRows, cols: fullCols };
+    }
+    startLineClear(rows, cols) {
+        const clearedCoords = [];
+        const visited = new Set();
+        for (const r of rows) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+                const key = `${r},${c}`;
+                if (!visited.has(key) && this.grid[r][c].color) {
+                    visited.add(key);
+                    clearedCoords.push({ r, c, color: this.grid[r][c].color });
+                    this.clearingCells.push({
+                        r,
+                        c,
+                        timer: 0,
+                        maxTime: 0.32,
+                        color: this.grid[r][c].color
+                    });
+                }
+            }
+        }
+        for (const c of cols) {
+            for (let r = 0; r < GRID_SIZE; r++) {
+                const key = `${r},${c}`;
+                if (!visited.has(key) && this.grid[r][c].color) {
+                    visited.add(key);
+                    clearedCoords.push({ r, c, color: this.grid[r][c].color });
+                    this.clearingCells.push({
+                        r,
+                        c,
+                        timer: 0,
+                        maxTime: 0.32,
+                        color: this.grid[r][c].color
+                    });
+                }
+            }
+        }
+        return clearedCoords;
+    }
+    updateClearing(dt) {
+        if (this.clearingCells.length === 0)
+            return false;
+        let allFinished = true;
+        for (let i = this.clearingCells.length - 1; i >= 0; i--) {
+            const item = this.clearingCells[i];
+            item.timer += dt;
+            const progress = Math.min(1.0, item.timer / item.maxTime);
+            this.grid[item.r][item.c].shatterProgress = progress;
+            this.grid[item.r][item.c].scale = 1.0 - progress * 0.4;
+            this.grid[item.r][item.c].opacity = 1.0 - progress;
+            if (progress >= 1.0) {
+                this.grid[item.r][item.c].filled = false;
+                this.grid[item.r][item.c].color = null;
+                this.grid[item.r][item.c].scale = 1.0;
+                this.grid[item.r][item.c].opacity = 1.0;
+                this.grid[item.r][item.c].shatterProgress = 0;
+                this.clearingCells.splice(i, 1);
+            }
+            else {
+                allFinished = false;
+            }
+        }
+        return allFinished;
+    }
+    draw(ctx, ghostShape, ghostGridX, ghostGridY, prospectiveLines) {
+        ctx.save();
+        ctx.fillStyle = '#17224d';
+        ctx.strokeStyle = '#22326b';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 16;
+        ctx.shadowOffsetY = 6;
+        ctx.beginPath();
+        roundRectPath(ctx, this.boardX, this.boardY, this.boardSize, this.boardSize, 16);
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+        for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+                const { x, y } = this.gridToPixel(c, r);
+                const isProspective = prospectiveLines.rows.includes(r) || prospectiveLines.cols.includes(c);
+                if (isProspective) {
+                    ctx.fillStyle = '#2d448a';
+                }
+                else {
+                    ctx.fillStyle = '#1d2b5c';
+                }
+                ctx.beginPath();
+                roundRectPath(ctx, x, y, this.cellSize, this.cellSize, 4);
+                ctx.fill();
+            }
+        }
+        for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+                const cell = this.grid[r][c];
+                if (cell.filled && cell.color) {
+                    const { x, y } = this.gridToPixel(c, r);
+                    const isProspective = prospectiveLines.rows.includes(r) || prospectiveLines.cols.includes(c);
+                    draw3DBlock(ctx, x, y, this.cellSize, cell.color, cell.opacity, cell.scale, false, cell.shatterProgress > 0, isProspective ? 0.8 : 0);
+                }
+            }
+        }
+        if (ghostShape && this.canPlace(ghostShape, ghostGridX, ghostGridY)) {
+            for (let r = 0; r < ghostShape.height; r++) {
+                for (let c = 0; c < ghostShape.width; c++) {
+                    if (ghostShape.matrix[r][c] === 1) {
+                        const gx = ghostGridX + c;
+                        const gy = ghostGridY + r;
+                        const { x, y } = this.gridToPixel(gx, gy);
+                        draw3DBlock(ctx, x, y, this.cellSize, ghostShape.color, 0.75, 1.0, true);
+                    }
+                }
+            }
+        }
+        ctx.restore();
+    }
+}
+class GameEngine {
+    constructor() {
+        this.state = 'PLAYING';
+        this.width = 390;
+        this.height = 844;
+        this.score = 0;
+        this.bestScore = 0;
+        this.scorePulseTimer = 0;
+        this.combo = 0;
+        this.newBestAchieved = false;
+        this.traySlots = [];
+        this.draggedPiece = null;
+        this.isSettingsOpen = false;
+        this.showGameOverModal = false;
+        this.gameOverAnimProgress = 0;
+        this.settingsBtnRect = { x: 0, y: 0, w: 44, h: 44 };
+        this.restartBtnRect = { x: 0, y: 0, w: 220, h: 56 };
+        this.soundToggleRect = { x: 0, y: 0, w: 220, h: 48 };
+        this.vibeToggleRect = { x: 0, y: 0, w: 220, h: 48 };
+        this.closeSettingsRect = { x: 0, y: 0, w: 40, h: 40 };
+        this.board = new Board();
+        this.particles = new ParticleSystem();
+        this.screenShake = new ScreenShake();
+        this.bestScore = getBestScore();
+        this.initTraySlots();
+        this.startNewGame();
+        GameBridge.sendReady();
+    }
+    initTraySlots() {
+        this.traySlots = [
+            {
+                shape: null,
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+                baseX: 0,
+                baseY: 0,
+                scale: 0.62,
+                targetScale: 0.62,
+                available: false,
+                isDimmed: false,
+                spawnProgress: 1.0
+            },
+            {
+                shape: null,
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+                baseX: 0,
+                baseY: 0,
+                scale: 0.62,
+                targetScale: 0.62,
+                available: false,
+                isDimmed: false,
+                spawnProgress: 1.0
+            },
+            {
+                shape: null,
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+                baseX: 0,
+                baseY: 0,
+                scale: 0.62,
+                targetScale: 0.62,
+                available: false,
+                isDimmed: false,
+                spawnProgress: 1.0
+            }
+        ];
+    }
+    startNewGame() {
+        this.board.reset();
+        this.score = 0;
+        this.combo = 0;
+        this.newBestAchieved = false;
+        this.state = 'PLAYING';
+        this.showGameOverModal = false;
+        this.gameOverAnimProgress = 0;
+        this.draggedPiece = null;
+        this.bestScore = getBestScore();
+        this.spawnNextRoundPieces();
+        GameBridge.sendGameStart();
+    }
+    spawnNextRoundPieces() {
+        const newPieces = generateNextTrayPieces(this.board.grid);
+        for (let i = 0; i < 3; i++) {
+            this.traySlots[i].shape = newPieces[i] || null;
+            this.traySlots[i].available = !!newPieces[i];
+            this.traySlots[i].spawnProgress = 0;
+            this.traySlots[i].scale = 0.1;
+        }
+        this.updateDimmedStates();
+    }
+    updateDimmedStates() {
+        let anyCanFit = false;
+        for (const slot of this.traySlots) {
+            if (slot.available && slot.shape) {
+                const fits = canShapeFitOnBoard(slot.shape, this.board.grid);
+                slot.isDimmed = !fits;
+                if (fits)
+                    anyCanFit = true;
+            }
+        }
+        const hasRemaining = this.traySlots.some(s => s.available && s.shape);
+        if (hasRemaining && !anyCanFit && this.state === 'PLAYING') {
+            this.triggerGameOver();
+        }
+    }
+    triggerGameOver() {
+        this.state = 'GAME_OVER';
+        this.showGameOverModal = true;
+        this.gameOverAnimProgress = 0;
+        Sound.playGameOver();
+        GameBridge.sendGameOver(this.score);
+        if (this.score > this.bestScore) {
+            this.newBestAchieved = true;
+            saveBestScore(this.score);
+            this.bestScore = this.score;
+            setTimeout(() => Sound.playHighScore(), 400);
+        }
+    }
+    resize(w, h) {
+        this.width = w;
+        this.height = h;
+        const topHudH = 140;
+        const trayH = 160;
+        this.board.resize(w, h, topHudH, trayH);
+        const slotW = (w - 32) / 3;
+        const trayY = h - trayH + 15;
+        for (let i = 0; i < 3; i++) {
+            const slotX = 16 + i * slotW;
+            this.traySlots[i].x = slotX;
+            this.traySlots[i].y = trayY;
+            this.traySlots[i].baseX = slotX + slotW / 2;
+            this.traySlots[i].baseY = trayY + trayH / 2 - 20;
+            this.traySlots[i].width = slotW;
+            this.traySlots[i].height = trayH - 30;
+        }
+        this.settingsBtnRect = { x: w - 56, y: 32, w: 42, h: 42 };
+        this.restartBtnRect = { x: (w - 220) / 2, y: h / 2 + 110, w: 220, h: 56 };
+    }
+    onPointerDown(px, py) {
+        if (px >= this.settingsBtnRect.x &&
+            px <= this.settingsBtnRect.x + this.settingsBtnRect.w &&
+            py >= this.settingsBtnRect.y &&
+            py <= this.settingsBtnRect.y + this.settingsBtnRect.h) {
+            Sound.playPop(600, 0.05);
+            this.isSettingsOpen = !this.isSettingsOpen;
+            return;
+        }
+        if (this.isSettingsOpen) {
+            if (px >= this.soundToggleRect.x &&
+                px <= this.soundToggleRect.x + this.soundToggleRect.w &&
+                py >= this.soundToggleRect.y &&
+                py <= this.soundToggleRect.y + this.soundToggleRect.h) {
+                Sound.toggleSound();
+                return;
+            }
+            if (px >= this.vibeToggleRect.x &&
+                px <= this.vibeToggleRect.x + this.vibeToggleRect.w &&
+                py >= this.vibeToggleRect.y &&
+                py <= this.vibeToggleRect.y + this.vibeToggleRect.h) {
+                Sound.toggleVibration();
+                return;
+            }
+            if (px >= this.closeSettingsRect.x &&
+                px <= this.closeSettingsRect.x + this.closeSettingsRect.w &&
+                py >= this.closeSettingsRect.y &&
+                py <= this.closeSettingsRect.y + this.closeSettingsRect.h) {
+                Sound.playPop(480, 0.04);
+                this.isSettingsOpen = false;
+                return;
+            }
+            this.isSettingsOpen = false;
+            return;
+        }
+        if (this.state === 'GAME_OVER' && this.showGameOverModal) {
+            if (px >= this.restartBtnRect.x &&
+                px <= this.restartBtnRect.x + this.restartBtnRect.w &&
+                py >= this.restartBtnRect.y &&
+                py <= this.restartBtnRect.y + this.restartBtnRect.h) {
+                Sound.playPop(550, 0.08);
+                this.startNewGame();
+                return;
+            }
+            return;
+        }
+        if (this.state !== 'PLAYING')
+            return;
+        for (let i = 0; i < 3; i++) {
+            const slot = this.traySlots[i];
+            if (!slot.available || !slot.shape)
+                continue;
+            const hitMargin = 15;
+            if (px >= slot.x - hitMargin &&
+                px <= slot.x + slot.width + hitMargin &&
+                py >= slot.y - hitMargin &&
+                py <= slot.y + slot.height + hitMargin) {
+                const touchOffsetY = 72;
+                const cellSize = this.board.cellSize;
+                const pieceW = slot.shape.width * cellSize;
+                const pieceH = slot.shape.height * cellSize;
+                this.draggedPiece = {
+                    shape: slot.shape,
+                    slotIndex: i,
+                    currentX: px,
+                    currentY: py,
+                    touchOffsetX: 0,
+                    grabOffsetX: pieceW / 2,
+                    grabOffsetY: pieceH / 2,
+                    scale: slot.scale,
+                    targetGridX: -1,
+                    targetGridY: -1,
+                    isValidPlacement: false
+                };
+                slot.available = false;
+                Sound.playPickup();
+                this.updateDragSnap(px, py, touchOffsetY);
+                break;
+            }
+        }
+    }
+    onPointerMove(px, py) {
+        if (!this.draggedPiece)
+            return;
+        this.draggedPiece.currentX = px;
+        this.draggedPiece.currentY = py;
+        this.updateDragSnap(px, py, 72);
+    }
+    updateDragSnap(px, py, touchOffsetY) {
+        if (!this.draggedPiece)
+            return;
+        const cellSize = this.board.cellSize;
+        const step = cellSize + this.board.cellGap;
+        const pieceTopLeftX = px - this.draggedPiece.grabOffsetX;
+        const pieceTopLeftY = py - this.draggedPiece.grabOffsetY - touchOffsetY;
+        const { gx, gy } = this.board.pixelToGrid(pieceTopLeftX + cellSize * 0.3, pieceTopLeftY + cellSize * 0.3);
+        if (this.board.canPlace(this.draggedPiece.shape, gx, gy)) {
+            this.draggedPiece.targetGridX = gx;
+            this.draggedPiece.targetGridY = gy;
+            this.draggedPiece.isValidPlacement = true;
+        }
+        else {
+            this.draggedPiece.targetGridX = -1;
+            this.draggedPiece.targetGridY = -1;
+            this.draggedPiece.isValidPlacement = false;
+        }
+    }
+    onPointerUp() {
+        if (!this.draggedPiece)
+            return;
+        const { shape, slotIndex, isValidPlacement, targetGridX, targetGridY } = this.draggedPiece;
+        if (isValidPlacement && targetGridX >= 0 && targetGridY >= 0) {
+            this.board.placeShape(shape, targetGridX, targetGridY);
+            this.traySlots[slotIndex].shape = null;
+            this.traySlots[slotIndex].available = false;
+            const placementPoints = shape.blockCount;
+            this.score += placementPoints;
+            this.scorePulseTimer = 0.25;
+            const { x: placePx, y: placePy } = this.board.gridToPixel(targetGridX, targetGridY);
+            this.particles.addFloatingScore(`+${placementPoints}`, placePx + (shape.width * this.board.cellSize) / 2, placePy + (shape.height * this.board.cellSize) / 2, '#ffffff', '#1e293b');
+            Sound.playSnap();
+            this.screenShake.trigger(3.5, 0.1);
+            const fullLines = this.board.detectFullLines();
+            const totalLines = fullLines.rows.length + fullLines.cols.length;
+            if (totalLines > 0) {
+                this.combo++;
+                this.state = 'CLEARING';
+                let lineScore = totalLines * 10;
+                if (totalLines > 1)
+                    lineScore += totalLines * 15;
+                if (this.combo > 1)
+                    lineScore += this.combo * 15;
+                this.score += lineScore;
+                this.scorePulseTimer = 0.35;
+                const clearedBlocks = this.board.startLineClear(fullLines.rows, fullLines.cols);
+                for (const r of fullLines.rows) {
+                    const p = this.board.gridToPixel(0, r);
+                    this.particles.addLineClearAura('row', r, this.board.boardX + this.board.padding, p.y, this.board.boardSize - this.board.padding * 2, this.board.cellSize);
+                }
+                for (const c of fullLines.cols) {
+                    const p = this.board.gridToPixel(c, 0);
+                    this.particles.addLineClearAura('col', c, p.x, this.board.boardY + this.board.padding, this.board.cellSize, this.board.boardSize - this.board.padding * 2);
+                }
+                for (const blk of clearedBlocks) {
+                    const p = this.board.gridToPixel(blk.c, blk.r);
+                    this.particles.addGemBurst(p.x + this.board.cellSize / 2, p.y + this.board.cellSize / 2, blk.color.base, 12);
+                }
+                const centerPx = this.board.boardX + this.board.boardSize / 2;
+                const centerPy = this.board.boardY + this.board.boardSize / 2;
+                if (this.combo > 1) {
+                    Sound.playCombo(this.combo);
+                    this.particles.addFloatingScore(`+${lineScore}`, centerPx, centerPy, '#fbbf24', '#1e3a8a', true, this.combo);
+                }
+                else {
+                    Sound.playLineClear(totalLines);
+                    this.particles.addFloatingScore(`+${lineScore}`, centerPx, centerPy, '#ffffff', '#0f172a');
+                }
+                this.screenShake.trigger(Math.min(10, 5 + this.combo * 1.5), 0.28);
+            }
+            else {
+                this.combo = 0;
+            }
+            const anyTrayLeft = this.traySlots.some(s => s.available && s.shape);
+            if (!anyTrayLeft) {
+                this.spawnNextRoundPieces();
+            }
+            else {
+                this.updateDimmedStates();
+            }
+        }
+        else {
+            this.traySlots[slotIndex].available = true;
+        }
+        this.draggedPiece = null;
+    }
+    update(dt) {
+        this.screenShake.update(dt);
+        this.particles.update(dt, this.width, this.height);
+        if (this.scorePulseTimer > 0) {
+            this.scorePulseTimer -= dt;
+        }
+        for (const slot of this.traySlots) {
+            if (slot.spawnProgress < 1.0) {
+                slot.spawnProgress = Math.min(1.0, slot.spawnProgress + dt * 4.5);
+                slot.scale = lerp(0.1, 0.62, easeOutBack(slot.spawnProgress));
+            }
+        }
+        if (this.draggedPiece) {
+            this.draggedPiece.scale = lerp(this.draggedPiece.scale, 1.0, dt * 16);
+        }
+        if (this.state === 'CLEARING') {
+            const finished = this.board.updateClearing(dt);
+            if (finished) {
+                this.state = 'PLAYING';
+                this.updateDimmedStates();
+            }
+        }
+        if (this.showGameOverModal && this.gameOverAnimProgress < 1.0) {
+            this.gameOverAnimProgress = Math.min(1.0, this.gameOverAnimProgress + dt * 3.5);
+        }
+    }
+    render(ctx) {
+        ctx.save();
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, this.height);
+        bgGrad.addColorStop(0.0, '#28469a');
+        bgGrad.addColorStop(0.5, '#3556b2');
+        bgGrad.addColorStop(1.0, '#3f65c9');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, this.width, this.height);
+        this.particles.drawBackgroundDust(ctx);
+        ctx.save();
+        ctx.translate(this.screenShake.offsetX, this.screenShake.offsetY);
+        this.drawTopHUD(ctx);
+        let prospective = { rows: [], cols: [] };
+        if (this.draggedPiece &&
+            this.draggedPiece.isValidPlacement &&
+            this.draggedPiece.targetGridX >= 0) {
+            prospective = this.board.getProspectiveClears(this.draggedPiece.shape, this.draggedPiece.targetGridX, this.draggedPiece.targetGridY);
+        }
+        this.board.draw(ctx, this.draggedPiece ? this.draggedPiece.shape : null, this.draggedPiece ? this.draggedPiece.targetGridX : -1, this.draggedPiece ? this.draggedPiece.targetGridY : -1, prospective);
+        this.particles.drawAuras(ctx);
+        this.particles.drawParticles(ctx);
+        this.drawTray(ctx);
+        this.drawDraggedPiece(ctx);
+        this.particles.drawFloatingTexts(ctx);
+        ctx.restore();
+        if (this.isSettingsOpen) {
+            this.drawSettingsModal(ctx);
+        }
+        if (this.showGameOverModal) {
+            this.drawGameOverModal(ctx);
+        }
+        ctx.restore();
+    }
+    drawTopHUD(ctx) {
+        ctx.save();
+        const crownX = 24;
+        const crownY = 48;
+        this.drawCrownIcon(ctx, crownX, crownY, 24);
+        ctx.font = '900 24px "Fredoka", "Outfit", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fbbf24';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
+        ctx.fillText(`${Math.max(this.score, this.bestScore)}`, crownX + 30, crownY + 2);
+        ctx.restore();
+        ctx.save();
+        const { x: sx, y: sy, w: sw, h: sh } = this.settingsBtnRect;
+        this.drawGearIcon(ctx, sx + sw / 2, sy + sh / 2, 16);
+        const badgeX = sx + sw - 6;
+        const badgeY = sy + 6;
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(badgeX, badgeY, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(badgeX, badgeY, 3.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        ctx.save();
+        const scoreCenterX = this.width / 2;
+        const scoreCenterY = 82;
+        const pulseScale = this.scorePulseTimer > 0 ? 1.15 : 1.0;
+        ctx.translate(scoreCenterX, scoreCenterY);
+        ctx.scale(pulseScale, pulseScale);
+        ctx.save();
+        ctx.rotate(Math.PI / 4);
+        const diamondGrad = ctx.createLinearGradient(-18, -18, 18, 18);
+        diamondGrad.addColorStop(0.0, '#38bdf8');
+        diamondGrad.addColorStop(1.0, '#1d4ed8');
+        ctx.fillStyle = diamondGrad;
+        ctx.shadowColor = 'rgba(56, 189, 248, 0.6)';
+        ctx.shadowBlur = 14;
+        ctx.fillRect(-16, -16, 32, 32);
+        ctx.restore();
+        ctx.font = '900 52px "Fredoka", "Lilita One", "Outfit", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 4;
+        ctx.fillText(`${this.score}`, 0, 2);
+        ctx.restore();
+    }
+    drawCrownIcon(ctx, cx, cy, size) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        const crownGrad = ctx.createLinearGradient(0, -size / 2, 0, size / 2);
+        crownGrad.addColorStop(0, '#fef08a');
+        crownGrad.addColorStop(0.5, '#f59e0b');
+        crownGrad.addColorStop(1, '#b45309');
+        ctx.fillStyle = crownGrad;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetY = 2;
+        const w = size;
+        const h = size * 0.75;
+        ctx.beginPath();
+        ctx.moveTo(-w / 2, h / 2);
+        ctx.lineTo(-w / 2 - 2, -h / 4);
+        ctx.lineTo(-w / 4, 0);
+        ctx.lineTo(0, -h / 2);
+        ctx.lineTo(w / 4, 0);
+        ctx.lineTo(w / 2 + 2, -h / 4);
+        ctx.lineTo(w / 2, h / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(-w / 2 - 2, -h / 4, 2, 0, Math.PI * 2);
+        ctx.arc(0, -h / 2, 2.5, 0, Math.PI * 2);
+        ctx.arc(w / 2 + 2, -h / 4, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+    drawGearIcon(ctx, cx, cy, radius) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.fillStyle = '#cbd5e1';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 4;
+        const teeth = 8;
+        const innerR = radius * 0.7;
+        const outerR = radius;
+        ctx.beginPath();
+        for (let i = 0; i < teeth * 2; i++) {
+            const r = i % 2 === 0 ? outerR : innerR;
+            const a = (Math.PI * i) / teeth;
+            const x = Math.cos(a) * r;
+            const y = Math.sin(a) * r;
+            if (i === 0)
+                ctx.moveTo(x, y);
+            else
+                ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#28469a';
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+    drawTray(ctx) {
+        for (let i = 0; i < 3; i++) {
+            const slot = this.traySlots[i];
+            if (!slot.available || !slot.shape)
+                continue;
+            ctx.save();
+            const cellSize = this.board.cellSize * slot.scale;
+            const pieceW = slot.shape.width * cellSize;
+            const pieceH = slot.shape.height * cellSize;
+            const px = slot.baseX - pieceW / 2;
+            const py = slot.baseY - pieceH / 2;
+            const alpha = slot.isDimmed ? 0.38 : 1.0;
+            for (let r = 0; r < slot.shape.height; r++) {
+                for (let c = 0; c < slot.shape.width; c++) {
+                    if (slot.shape.matrix[r][c] === 1) {
+                        const bx = px + c * cellSize;
+                        const by = py + r * cellSize;
+                        draw3DBlock(ctx, bx, by, cellSize, slot.shape.color, alpha, 1.0, false);
+                    }
+                }
+            }
+            ctx.restore();
+        }
+    }
+    drawDraggedPiece(ctx) {
+        if (!this.draggedPiece)
+            return;
+        ctx.save();
+        const cellSize = this.board.cellSize * this.draggedPiece.scale;
+        const touchOffsetY = 72;
+        const pieceTopLeftX = this.draggedPiece.currentX - this.draggedPiece.grabOffsetX;
+        const pieceTopLeftY = this.draggedPiece.currentY - this.draggedPiece.grabOffsetY - touchOffsetY;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetY = 12;
+        for (let r = 0; r < this.draggedPiece.shape.height; r++) {
+            for (let c = 0; c < this.draggedPiece.shape.width; c++) {
+                if (this.draggedPiece.shape.matrix[r][c] === 1) {
+                    const bx = pieceTopLeftX + c * cellSize;
+                    const by = pieceTopLeftY + r * cellSize;
+                    draw3DBlock(ctx, bx, by, cellSize, this.draggedPiece.shape.color, 1.0, 1.0, false);
+                }
+            }
+        }
+        ctx.restore();
+    }
+    drawSettingsModal(ctx) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(10, 18, 42, 0.75)';
+        ctx.fillRect(0, 0, this.width, this.height);
+        const cardW = Math.min(this.width - 48, 320);
+        const cardH = 260;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+        ctx.fillStyle = '#17224d';
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        ctx.shadowBlur = 24;
+        ctx.beginPath();
+        roundRectPath(ctx, cardX, cardY, cardW, cardH, 20);
+        ctx.fill();
+        ctx.stroke();
+        ctx.font = '900 26px "Fredoka", "Outfit", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('Settings', this.width / 2, cardY + 24);
+        const btnW = cardW - 48;
+        const btnH = 46;
+        const soundY = cardY + 76;
+        this.soundToggleRect = { x: (this.width - btnW) / 2, y: soundY, w: btnW, h: btnH };
+        ctx.fillStyle = Sound.isSoundOn() ? '#22c55e' : '#475569';
+        ctx.beginPath();
+        roundRectPath(ctx, this.soundToggleRect.x, soundY, btnW, btnH, 12);
+        ctx.fill();
+        ctx.font = '800 18px "Fredoka", sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`Sound: ${Sound.isSoundOn() ? 'ON 🔊' : 'OFF 🔇'}`, this.width / 2, soundY + btnH / 2);
+        const vibeY = soundY + 58;
+        this.vibeToggleRect = { x: (this.width - btnW) / 2, y: vibeY, w: btnW, h: btnH };
+        ctx.fillStyle = Sound.isVibrationOn() ? '#3b82f6' : '#475569';
+        ctx.beginPath();
+        roundRectPath(ctx, this.vibeToggleRect.x, vibeY, btnW, btnH, 12);
+        ctx.fill();
+        ctx.fillText(`Vibration: ${Sound.isVibrationOn() ? 'ON 📳' : 'OFF 📴'}`, this.width / 2, vibeY + btnH / 2);
+        this.closeSettingsRect = { x: cardX + cardW - 42, y: cardY + 12, w: 30, h: 30 };
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(this.closeSettingsRect.x + 15, this.closeSettingsRect.y + 15, 14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = '900 16px sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('✕', this.closeSettingsRect.x + 15, this.closeSettingsRect.y + 15);
+        ctx.restore();
+    }
+    drawGameOverModal(ctx) {
+        ctx.save();
+        const alpha = easeOutBack(Math.min(1.0, this.gameOverAnimProgress));
+        ctx.globalAlpha = Math.min(1.0, this.gameOverAnimProgress);
+        ctx.fillStyle = 'rgba(10, 18, 42, 0.85)';
+        ctx.fillRect(0, 0, this.width, this.height);
+        const cardW = Math.min(this.width - 40, 340);
+        const cardH = 360;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2 - 20;
+        ctx.save();
+        ctx.translate(this.width / 2, this.height / 2 - 20);
+        ctx.scale(alpha, alpha);
+        ctx.translate(-this.width / 2, -(this.height / 2 - 20));
+        ctx.fillStyle = '#17224d';
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        ctx.shadowBlur = 30;
+        ctx.beginPath();
+        roundRectPath(ctx, cardX, cardY, cardW, cardH, 24);
+        ctx.fill();
+        ctx.stroke();
+        this.drawCrownIcon(ctx, this.width / 2, cardY + 36, 36);
+        ctx.font = '900 32px "Fredoka", "Lilita One", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('GAME OVER', this.width / 2, cardY + 70);
+        if (this.newBestAchieved) {
+            ctx.font = '900 18px "Fredoka", sans-serif';
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillText('🎉 NEW BEST SCORE! 🎉', this.width / 2, cardY + 112);
+        }
+        const scoreBoxY = cardY + (this.newBestAchieved ? 142 : 125);
+        ctx.font = '700 16px "Fredoka", sans-serif';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('FINAL SCORE', this.width / 2, scoreBoxY);
+        ctx.font = '900 48px "Fredoka", "Lilita One", sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(`${this.score}`, this.width / 2, scoreBoxY + 32);
+        ctx.font = '700 16px "Fredoka", sans-serif';
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillText(`BEST: ${this.bestScore}`, this.width / 2, scoreBoxY + 84);
+        const btnW = 230;
+        const btnH = 54;
+        const btnX = (this.width - btnW) / 2;
+        const btnY = cardY + cardH - 74;
+        this.restartBtnRect = { x: btnX, y: btnY, w: btnW, h: btnH };
+        ctx.fillStyle = '#15803d';
+        ctx.beginPath();
+        roundRectPath(ctx, btnX, btnY + 4, btnW, btnH, 16);
+        ctx.fill();
+        const btnGrad = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
+        btnGrad.addColorStop(0, '#4ade80');
+        btnGrad.addColorStop(1, '#22c55e');
+        ctx.fillStyle = btnGrad;
+        ctx.beginPath();
+        roundRectPath(ctx, btnX, btnY, btnW, btnH, 16);
+        ctx.fill();
+        ctx.font = '900 22px "Fredoka", "Outfit", sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
+        ctx.fillText('PLAY AGAIN', this.width / 2, btnY + btnH / 2);
+        ctx.restore();
+        ctx.restore();
+    }
+}
+window.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('gameCanvas');
+    if (!canvas)
+        return;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx)
+        return;
+    const engine = new GameEngine();
+    let dpr = 1;
+    let cssWidth = 390;
+    let cssHeight = 844;
+    function resizeCanvas() {
+        const vv = window.visualViewport;
+        cssWidth = vv ? vv.width : window.innerWidth;
+        cssHeight = vv ? vv.height : window.innerHeight;
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(cssWidth * dpr);
+        canvas.height = Math.floor(cssHeight * dpr);
+        canvas.style.width = `${cssWidth}px`;
+        canvas.style.height = `${cssHeight}px`;
+        ctx.resetTransform();
+        ctx.scale(dpr, dpr);
+        engine.resize(cssWidth, cssHeight);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', resizeCanvas);
+    }
+    resizeCanvas();
+    function getPointerPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+    }
+    let isPointerDown = false;
+    canvas.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        isPointerDown = true;
+        const { x, y } = getPointerPos(e);
+        engine.onPointerDown(x, y);
+    });
+    window.addEventListener('mousemove', (e) => {
+        if (!isPointerDown)
+            return;
+        const { x, y } = getPointerPos(e);
+        engine.onPointerMove(x, y);
+    });
+    window.addEventListener('mouseup', (e) => {
+        if (!isPointerDown)
+            return;
+        isPointerDown = false;
+        engine.onPointerUp();
+    });
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (e.touches.length > 0) {
+            isPointerDown = true;
+            const { x, y } = getPointerPos(e.touches[0]);
+            engine.onPointerDown(x, y);
+        }
+    }, { passive: false });
+    window.addEventListener('touchmove', (e) => {
+        if (!isPointerDown)
+            return;
+        e.preventDefault();
+        if (e.touches.length > 0) {
+            const { x, y } = getPointerPos(e.touches[0]);
+            engine.onPointerMove(x, y);
+        }
+    }, { passive: false });
+    window.addEventListener('touchend', (e) => {
+        if (!isPointerDown)
+            return;
+        isPointerDown = false;
+        engine.onPointerUp();
+    }, { passive: false });
+    window.addEventListener('touchcancel', () => {
+        isPointerDown = false;
+        engine.onPointerUp();
+    }, { passive: false });
+    let lastTime = performance.now();
+    function loop(currentTime) {
+        const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+        lastTime = currentTime;
+        engine.update(dt);
+        engine.render(ctx);
+        requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+});
+})();
+  </script>
+</body>
+</html>

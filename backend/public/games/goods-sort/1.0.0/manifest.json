@@ -1,0 +1,33 @@
+{
+  "id": "goods-sort",
+  "name": "Goods Puzzle: Sort Challenge™",
+  "version": "1.0.0",
+  "description": "Juicy 2.5D supermarket goods organizing and Match-3 puzzle game with 12 distinct 3D items, procedural sound synthesis, and guaranteed solvable levels.",
+  "entry": "index.html",
+  "orientation": "portrait",
+  "aspectRatio": "9:16",
+  "sizeBytes": 79351,
+  "sha256": "160dddc29c5d28f950fb0751c357d4874df565b33f7a8d86b8a660c0be113cfb",
+  "author": "Antigravity Games",
+  "tags": [
+    "goods-sort",
+    "match-3",
+    "sorting",
+    "supermarket",
+    "puzzle",
+    "hyper-casual",
+    "canvas",
+    "offline"
+  ],
+  "categories": [
+    "puzzle",
+    "arcade",
+    "casual"
+  ],
+  "features": [
+    "offline-capable",
+    "touch-support",
+    "procedural-audio",
+    "responsive"
+  ]
+}

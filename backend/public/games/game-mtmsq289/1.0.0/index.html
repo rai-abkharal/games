@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#7fdcf5">
+<title>BasketBall 3d</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="lib/babylon.js"></script>
+</head>
+<body>
+<div id="stage">
+  <canvas id="view"></canvas>
+
+  <!-- top-right utilities -->
+  <div id="topbar">
+    <span id="engineTag" class="tag">Babylon.js</span>
+    <span id="fps" class="tag">– fps</span>
+    <button id="mute" class="icon-btn" title="Sound on/off" aria-label="Toggle sound">🔊</button>
+  </div>
+
+  <!-- in-round HUD -->
+  <div id="hud">
+    <div id="score">0</div>
+    <div id="streak"></div>
+    <div id="joystickZone" class="joystick-zone">
+      <div id="joystickBase" class="joystick-base">
+        <div class="joystick-ring"></div>
+        <div class="joystick-arrow joystick-up">▲</div>
+        <div id="joystickKnob" class="joystick-knob">
+          <div class="knob-core"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="turn"><span>Your turn!</span></div>
+
+  <!-- main menu -->
+  <div id="menu" class="panel-layer show">
+    <div class="menu-card">
+      <div class="menu-hero">
+        <h1>BASKETBALL<br>3D</h1>
+        <p>Score as many hoops as you can<br>before the timer runs out!</p>
+      </div>
+      <div class="menu-body">
+        <div id="diffEmoji" class="emoji">😎</div>
+        <div id="diffLabel" class="difficulty">MEDIUM</div>
+        <input id="difficulty" type="range" min="0" max="100" value="50" aria-label="Difficulty">
+        <div class="hint">Drag to adjust difficulty</div>
+        <div class="menu-actions">
+          <button id="play" class="btn btn-play">PLAY</button>
+          <button id="helpBtn" class="btn btn-round" aria-label="How to play">?</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- help sheet -->
+  <div id="help" class="panel-layer">
+    <div class="sheet">
+      <h2>How to play</h2>
+      <ul>
+        <li>Use the <b>joystick</b> at the bottom to aim and shoot in any direction.</li>
+        <li>Push <b>upward</b> to throw away toward the hoop; use less deflection for near throws.</li>
+        <li>Angle the joystick left or right to direct your shot.</li>
+        <li><b>Release</b> the joystick to fire the basketball.</li>
+        <li>Nothing but net scores a <b>SWISH</b>, and back-to-back baskets build a streak.</li>
+        <li>You have <b>45 seconds</b> on the shot clock.</li>
+      </ul>
+      <button id="helpClose" class="btn btn-play">GOT IT</button>
+    </div>
+  </div>
+
+  <!-- game over -->
+  <div id="gameover" class="panel-layer">
+    <div class="over-card">
+      <h2>GAME OVER</h2>
+      <div class="over-score-label">Score</div>
+      <div id="overScore" class="over-score">0</div>
+      <div class="mode-row">
+        <span id="overMode">MEDIUM</span>
+        <span id="overEmoji" class="emoji-sm">😎</span>
+        <span>MODE</span>
+      </div>
+      <div class="bests">
+        <div class="best-row gold"><span>🏆 Today's best</span><b id="bestToday">0</b></div>
+        <div class="best-row pink"><span>🏆 Week's best</span><b id="bestWeek">0</b></div>
+        <div class="best-row blue"><span>🏆 All-time best</span><b id="bestAll">0</b></div>
+      </div>
+      <div class="over-actions">
+        <button id="home" class="btn btn-round green" aria-label="Back to menu">🏠</button>
+        <button id="again" class="btn btn-play green">PLAY AGAIN</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="game.bundle.js"></script>
+</body>
+</html>

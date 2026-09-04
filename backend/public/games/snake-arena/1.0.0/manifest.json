@@ -1,0 +1,24 @@
+{
+  "id": "snake-arena",
+  "title": "Snake Arena - Worm Survival",
+  "name": "Snake Arena",
+  "version": "1.0.0",
+  "entry": "index.html",
+  "orientation": "portrait",
+  "aspectRatio": "9:16",
+  "category": "Hyper-Casual",
+  "tags": [
+    "snake",
+    "worm",
+    "arena",
+    "survival",
+    "multiplayer",
+    "arcade",
+    "hyper-casual"
+  ],
+  "description": "Control a stylish matte snake in a giant survival arena with 120 snakes! Eat glowing pellets, boost to cut off enemies, climb the live top 10 leaderboard to claim the Golden Crown, and survive!",
+  "author": "Antigravity Team",
+  "sizeBytes": 94168,
+  "sha256": "acc85a342e7302cfcc1142d0130af24418c66f052ed7a86736f972c97573e528",
+  "created": "2026-09-03T12:49:00.000Z"
+}

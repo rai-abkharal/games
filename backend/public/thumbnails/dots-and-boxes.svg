@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A2332"/>
+      <stop offset="100%" stop-color="#0B1320"/>
+    </linearGradient>
+    <linearGradient id="p1Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B81"/>
+      <stop offset="100%" stop-color="#FF4757"/>
+    </linearGradient>
+    <linearGradient id="p2Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#48DBFB"/>
+      <stop offset="100%" stop-color="#00D2D3"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="64" fill="url(#bgGrad)"/>
+
+  <!-- Board background -->
+  <rect x="64" y="64" width="384" height="384" rx="36" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="6"/>
+
+  <!-- Completed Boxes -->
+  <rect x="100" y="100" width="144" height="144" rx="14" fill="url(#p1Grad)"/>
+  <text x="172" y="185" font-family="sans-serif" font-weight="900" font-size="44" fill="#FFFFFF" text-anchor="middle">P1</text>
+
+  <rect x="268" y="268" width="144" height="144" rx="14" fill="url(#p2Grad)"/>
+  <text x="340" y="353" font-family="sans-serif" font-weight="900" font-size="44" fill="#FFFFFF" text-anchor="middle">P2</text>
+
+  <!-- Connecting Lines -->
+  <line x1="100" y1="100" x2="244" y2="100" stroke="#FF4757" stroke-width="12" stroke-linecap="round"/>
+  <line x1="100" y1="100" x2="100" y2="244" stroke="#FF4757" stroke-width="12" stroke-linecap="round"/>
+  <line x1="244" y1="100" x2="244" y2="244" stroke="#FF4757" stroke-width="12" stroke-linecap="round"/>
+  <line x1="100" y1="244" x2="244" y2="244" stroke="#FF4757" stroke-width="12" stroke-linecap="round"/>
+
+  <line x1="268" y1="268" x2="412" y2="268" stroke="#00D2D3" stroke-width="12" stroke-linecap="round"/>
+  <line x1="268" y1="268" x2="268" y2="412" stroke="#00D2D3" stroke-width="12" stroke-linecap="round"/>
+  <line x1="412" y1="268" x2="412" y2="412" stroke="#00D2D3" stroke-width="12" stroke-linecap="round"/>
+  <line x1="268" y1="412" x2="412" y2="412" stroke="#00D2D3" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- Matrix of Dots -->
+  <circle cx="100" cy="100" r="14" fill="#1E293B"/>
+  <circle cx="244" cy="100" r="14" fill="#1E293B"/>
+  <circle cx="412" cy="100" r="14" fill="#1E293B"/>
+  <circle cx="100" cy="244" r="14" fill="#1E293B"/>
+  <circle cx="244" cy="244" r="14" fill="#1E293B"/>
+  <circle cx="412" cy="244" r="14" fill="#1E293B"/>
+  <circle cx="100" cy="412" r="14" fill="#1E293B"/>
+  <circle cx="244" cy="412" r="14" fill="#1E293B"/>
+  <circle cx="412" cy="412" r="14" fill="#1E293B"/>
+</svg>

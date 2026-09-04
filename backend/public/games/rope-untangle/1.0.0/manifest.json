@@ -1,0 +1,32 @@
+{
+  "id": "rope-untangle",
+  "gameId": "rope-untangle",
+  "name": "Rope Untangle - 3D Puzzle",
+  "title": "Rope Untangle - 3D Puzzle",
+  "slug": "rope-untangle",
+  "version": "1.0.0",
+  "type": "hyper-casual",
+  "orientation": "portrait",
+  "targetFrameRate": 60,
+  "dimensions": {
+    "width": 480,
+    "height": 800
+  },
+  "entry": "index.html",
+  "sizeBytes": 83041,
+  "sha256": "fea64ce7e31d9cd56d3e2690ccf2da3684f6214a50d7a6d00f9967fb9262d9ef",
+  "author": "Antigravity Game Studios",
+  "description": "Rope Untangle (3D Rope Puzzle) - Highly addictive line and rope untangling brain puzzle. Move colored endpoint pins across the grid so that no ropes intersect or cross over each other. Features realistic 3D braided ropes, spring snap physics, metallic anchor obstacles, and progressive difficulty.",
+  "categories": [
+    "puzzle",
+    "brain",
+    "casual",
+    "logic"
+  ],
+  "features": [
+    "offline-capable",
+    "touch-support",
+    "procedural-audio",
+    "responsive"
+  ]
+}

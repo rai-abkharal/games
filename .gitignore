@@ -26,3 +26,7 @@ Thumbs.db
 
 # System Generated
 .system_generated/
+
+# Runtime catalogue state (admin uploads must survive Git deployments)
+backend/catalog/games.runtime.json
+backend/catalog/deleted_games.json
