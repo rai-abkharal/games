@@ -156,10 +156,16 @@ export class Launcher {
 
     AudioManager.playBreak();
 
-    // 1. Remove Matter physics collision body so caps pass freely through this space
-    if (this.sprite.body) {
-      this.scene.matter.world.remove(this.sprite.body);
-      (this.sprite as any).body = null;
+    const posX = this.sprite.x;
+    const posY = this.sprite.y;
+
+    // 1. Completely disable physics collision so caps pass freely through this space
+    if (this.sprite && this.sprite.body) {
+      this.sprite.setCollisionCategory(0);
+      this.sprite.setCollidesWith(0);
+      this.sprite.setSensor(true);
+      this.sprite.setStatic(true);
+      (this.sprite.body as any).label = 'broken_debris';
     }
 
     // 2. Disable further interaction
@@ -170,16 +176,16 @@ export class Launcher {
 
     // 4. Dynamic exploding glass shard particles with gravity
     this.particleManager.emitGlassShards(
-      this.sprite.x,
-      this.sprite.y + (this.config.type === 'bottle' ? 35 : 15),
+      posX,
+      posY + (this.config.type === 'bottle' ? 35 : 15),
       this.config.color
     );
 
     // 5. Liquid splash droplets
     for (let i = 0; i < 7; i++) {
       this.particleManager.emitBubble(
-        this.sprite.x + (Math.random() - 0.5) * 34,
-        this.sprite.y + 15 + Math.random() * 35,
+        posX + (Math.random() - 0.5) * 34,
+        posY + 15 + Math.random() * 35,
         this.config.color,
         (Math.random() - 0.5) * 75,
         35 + Math.random() * 75
