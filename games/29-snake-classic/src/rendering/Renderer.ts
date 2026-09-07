@@ -188,7 +188,7 @@ export class Renderer {
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${diffConfig.badgeLabel} ▾`, mb.x + mb.w / 2, mb.y + mb.h * 0.33);
+    ctx.fillText(`${diffConfig.badgeLabel} â–¾`, mb.x + mb.w / 2, mb.y + mb.h * 0.33);
 
     // Current Score
     ctx.font = `900 ${Math.round(mb.h * 0.42)}px Fredoka, Nunito, sans-serif`;
@@ -363,311 +363,128 @@ export class Renderer {
   // --------------------------------------------------------------------------
   // SNAKE RENDERING: Articulated Stretched Segments, Oversized Eyes, Seamless Leaf Tail
   // --------------------------------------------------------------------------
-  private renderSnake(
-    ctx: CanvasRenderingContext2D,
-    segments: VisualPos[],
-    dir: Direction
-  ): void {
-    if (segments.length === 0) return;
-
+  private renderSnake(ctx: CanvasRenderingContext2D, segments: VisualPos[], dir: Direction): void {
+    if (!segments.length) return;
     const cs = THEME.cellSize;
-    // Stretched segment dimensions: slightly compressed along motion (rX), wider across motion (rY)
-    const rX = cs * 0.38;
-    const rY = cs * 0.48;
-
-    // Convert all segment positions to pixel coordinates
-    const pixelPoints = segments.map(s => ({
-      x: THEME.boardX + (s.x + 0.5) * cs,
-      y: THEME.boardY + (s.y + 0.5) * cs
-    }));
-
-    // 1. Snake Under-Shadow (Soft translucent shadow offset to bottom-right)
+    const points = segments.map(p => ({ x: THEME.boardX + (p.x + 0.5) * cs, y: THEME.boardY + (p.y + 0.5) * cs }));
+    const headAngle = { [Direction.UP]: -Math.PI / 2, [Direction.DOWN]: Math.PI / 2, [Direction.LEFT]: Math.PI, [Direction.RIGHT]: 0 }[dir];
+    // One shadow silhouette avoids dark seams where the round segments overlap.
     ctx.save();
-    for (let i = pixelPoints.length - 1; i >= 0; i--) {
-      const pt = pixelPoints[i];
-      const isTail = i === pixelPoints.length - 1;
-      const isHead = i === 0;
-
-      let angle = 0;
-      if (isHead) {
-        switch (dir) {
-          case Direction.UP: angle = -Math.PI / 2; break;
-          case Direction.DOWN: angle = Math.PI / 2; break;
-          case Direction.LEFT: angle = Math.PI; break;
-          case Direction.RIGHT: angle = 0; break;
+    ctx.translate(-cs * 0.08, cs * 0.09);
+    ctx.beginPath();
+    for (const p of points) {
+      ctx.moveTo(p.x + cs * 0.70, p.y);
+      ctx.arc(p.x, p.y, cs * 0.70, 0, Math.PI * 2);
+    }
+    ctx.fillStyle = THEME.snakeShadow;
+    ctx.fill();
+    ctx.restore();
+    for (let i = points.length - 1; i >= 0; i--) {
+      const p = points[i];
+      let front = points[Math.max(0, i - 1)];
+      // A growing tail can share its center with the preceding segment.
+      // Use the nearest distinct point to retain its direction at that instant.
+      if (i === points.length - 1 && i > 0) {
+        for (let j = i - 1; j >= 0; j--) {
+          front = points[j];
+          if (Math.hypot(p.x - front.x, p.y - front.y) > 0.001) break;
         }
-      } else if (isTail && pixelPoints.length > 1) {
-        const prevPt = pixelPoints[i - 1];
-        angle = Math.atan2(pt.y - prevPt.y, pt.x - prevPt.x);
-      } else {
-        const prevPt = pixelPoints[i - 1];
-        const nextPt = pixelPoints[i + 1];
-        angle = Math.atan2(prevPt.y - nextPt.y, prevPt.x - nextPt.x);
       }
-
+      const back = points[i + 1];
+      // The local tangent makes the lime pattern diagonal at corners.
+      const angle = i === 0 ? headAngle : back
+        ? Math.atan2(front.y - back.y, front.x - back.x)
+        : Math.atan2(p.y - front.y, p.x - front.x);
       ctx.save();
-      ctx.translate(pt.x + cs * 0.08, pt.y + cs * 0.09);
+      ctx.translate(p.x, p.y);
       ctx.rotate(angle);
-      ctx.beginPath();
-      (ctx as any).roundRect(-rX, -rY, rX * 2, rY * 2, rX * 0.72);
-      ctx.fillStyle = THEME.snakeShadow;
-      ctx.fill();
+      if (i === points.length - 1 && i > 0) this.drawTaperedTail(ctx);
+      if (i === 0) this.drawHead(ctx);
+      else this.drawBodySegment(ctx);
       ctx.restore();
     }
-    ctx.restore();
-
-    // 2. Draw Segments from Tail to Head
-    for (let i = pixelPoints.length - 1; i >= 0; i--) {
-      const pt = pixelPoints[i];
-      const isHead = i === 0;
-      const isTail = i === pixelPoints.length - 1;
-
-      if (isTail && pixelPoints.length > 1) {
-        // Seamless Pointed Tail Segment (Zero gap with preceding segment)
-        const prevPt = pixelPoints[i - 1];
-        this.drawTaperedTail(ctx, pt, prevPt, rX, rY);
-      } else if (!isHead) {
-        // Stretched Body Segment: Rounded rectangle oriented with movement flow
-        const prevPt = pixelPoints[i - 1];
-        const nextPt = pixelPoints[i + 1];
-
-        // Tangent angle along body direction (prevPt towards nextPt)
-        const dx = prevPt.x - nextPt.x;
-        const dy = prevPt.y - nextPt.y;
-        const angle = Math.atan2(dy, dx);
-
-        this.drawBodySegment(ctx, pt, angle, rX, rY);
-      }
-    }
-
-    // 3. Draw Head with Oversized Cartoon Eyes & Directional Alignment
-    const headPt = pixelPoints[0];
-    this.drawHead(ctx, headPt, dir, rX, rY);
   }
 
-  // Draw an articulated slightly stretched rounded rectangle body segment
-  private drawBodySegment(
-    ctx: CanvasRenderingContext2D,
-    pt: { x: number; y: number },
-    angle: number,
-    rX: number,
-    rY: number
-  ): void {
+  private drawBodySegment(ctx: CanvasRenderingContext2D): void {
     const cs = THEME.cellSize;
-
-    ctx.save();
-    ctx.translate(pt.x, pt.y);
-    ctx.rotate(angle);
-
-    // Stretched rounded rectangle body segment (wider across motion, compressed along motion)
     ctx.beginPath();
-    (ctx as any).roundRect(-rX, -rY, rX * 2, rY * 2, rX * 0.72);
+    ctx.arc(0, 0, cs * 0.54, 0, Math.PI * 2);
     ctx.fillStyle = THEME.snakeMain;
     ctx.fill();
-    ctx.lineWidth = Math.max(2, cs * 0.08);
     ctx.strokeStyle = THEME.snakeOutline;
+    ctx.lineWidth = cs * 0.12;
     ctx.stroke();
-
-    // Central dividing spine line along the flow direction (local X-axis)
-    ctx.beginPath();
-    ctx.moveTo(-rX * 0.95, 0);
-    ctx.lineTo(rX * 0.95, 0);
-    ctx.strokeStyle = THEME.snakeOutline;
-    ctx.lineWidth = Math.max(2, cs * 0.08);
+    ctx.strokeStyle = THEME.snakeLight;
+    ctx.lineWidth = cs * 0.15;
     ctx.lineCap = 'round';
-    ctx.stroke();
-
-    // Two symmetrical capsule spots on either side of the dividing line
-    const spotDistY = rY * 0.50;
-    const spotRadiusX = rX * 0.55;
-    const spotRadiusY = rY * 0.28;
-
-    for (const sign of [-1, 1]) {
-      const sy = sign * spotDistY;
-
-      // Light green capsule spot
+    for (const side of [-1, 0, 1]) {
+      const halfLength = cs * (side === 0 ? 0.29 : 0.095);
       ctx.beginPath();
-      ctx.ellipse(0, sy, spotRadiusX, spotRadiusY, 0, 0, Math.PI * 2);
-      ctx.fillStyle = THEME.snakeLight;
-      ctx.fill();
-      ctx.lineWidth = Math.max(1.4, cs * 0.055);
-      ctx.strokeStyle = THEME.snakeOutline;
+      ctx.moveTo(-halfLength, side * cs * 0.245);
+      ctx.lineTo(halfLength, side * cs * 0.245);
       ctx.stroke();
-
-      // Dark center seed dot inside the capsule
-      ctx.beginPath();
-      ctx.arc(0, sy, Math.max(1.8, cs * 0.07), 0, Math.PI * 2);
-      ctx.fillStyle = THEME.snakeOutline;
-      ctx.fill();
     }
-
-    ctx.restore();
   }
 
-  // Draw seamless tapered pointed tail with zero gap connecting directly into previous segment
-  private drawTaperedTail(
-    ctx: CanvasRenderingContext2D,
-    tailPt: { x: number; y: number },
-    prevPt: { x: number; y: number },
-    rX: number,
-    rY: number
-  ): void {
-    const dx = tailPt.x - prevPt.x;
-    const dy = tailPt.y - prevPt.y;
-    const dist = Math.hypot(dx, dy);
-    const angle = Math.atan2(dy, dx);
+  private drawTaperedTail(ctx: CanvasRenderingContext2D): void {
     const cs = THEME.cellSize;
-
-    ctx.save();
-    ctx.translate(tailPt.x, tailPt.y);
-    ctx.rotate(angle);
-
-    // Seamless Leaf Tail geometry:
-    // Starts at -dist * 0.55 (deeply overlapping preceding segment base with full width ±rY),
-    // and smoothly tapers down to a sharp tip at +dist * 1.35
+    // Fixed length keeps the tip intact while new tail segments grow.
     ctx.beginPath();
-    ctx.moveTo(-dist * 0.55, -rY);
-    ctx.lineTo(-rX * 0.25, -rY);
-    ctx.quadraticCurveTo(dist * 0.35, -rY * 0.88, dist * 1.35, 0);
-    ctx.quadraticCurveTo(dist * 0.35, rY * 0.88, -rX * 0.25, rY);
-    ctx.lineTo(-dist * 0.55, rY);
+    ctx.moveTo(0, -cs * 0.49);
+    ctx.quadraticCurveTo(cs * 0.82, -cs * 0.28, cs * 1.38, 0);
+    ctx.quadraticCurveTo(cs * 0.82, cs * 0.28, 0, cs * 0.49);
     ctx.closePath();
-
     ctx.fillStyle = THEME.snakeMain;
     ctx.fill();
-    ctx.lineWidth = Math.max(2, cs * 0.08);
+    ctx.lineWidth = cs * 0.12;
+    ctx.lineJoin = 'round';
     ctx.strokeStyle = THEME.snakeOutline;
     ctx.stroke();
-
-    // Central dark spine running seamlessly from base to the tapered tip
     ctx.beginPath();
-    ctx.moveTo(-dist * 0.5, 0);
-    ctx.lineTo(dist * 1.3, 0);
-    ctx.strokeStyle = THEME.snakeOutline;
-    ctx.lineWidth = Math.max(2, cs * 0.085);
+    ctx.moveTo(cs * 0.48, 0);
+    ctx.lineTo(cs * 1.02, 0);
+    ctx.lineWidth = cs * 0.15;
     ctx.lineCap = 'round';
+    ctx.strokeStyle = THEME.snakeLight;
     ctx.stroke();
-
-    // Two symmetrical spots near the base of the tail
-    const spotDistY = rY * 0.50;
-    const spotRadiusX = rX * 0.52;
-    const spotRadiusY = rY * 0.26;
-
-    for (const sign of [-1, 1]) {
-      const sy = sign * spotDistY;
-      ctx.beginPath();
-      ctx.ellipse(0, sy, spotRadiusX, spotRadiusY, 0, 0, Math.PI * 2);
-      ctx.fillStyle = THEME.snakeLight;
-      ctx.fill();
-      ctx.lineWidth = Math.max(1.4, cs * 0.055);
-      ctx.strokeStyle = THEME.snakeOutline;
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(0, sy, Math.max(1.6, cs * 0.065), 0, Math.PI * 2);
-      ctx.fillStyle = THEME.snakeOutline;
-      ctx.fill();
-    }
-
-    ctx.restore();
   }
 
-  // Draw cute cartoon head with oversized expressive eyes and directional snout
-  private drawHead(
-    ctx: CanvasRenderingContext2D,
-    pt: { x: number; y: number },
-    dir: Direction,
-    rX: number,
-    rY: number
-  ): void {
+  private drawHead(ctx: CanvasRenderingContext2D): void {
     const cs = THEME.cellSize;
-    let headAngle = 0;
-    switch (dir) {
-      case Direction.UP: headAngle = -Math.PI / 2; break;
-      case Direction.DOWN: headAngle = Math.PI / 2; break;
-      case Direction.LEFT: headAngle = Math.PI; break;
-      case Direction.RIGHT: headAngle = 0; break;
-    }
-
-    ctx.save();
-    ctx.translate(pt.x, pt.y);
-    ctx.rotate(headAngle);
-
-    // Head base stretched rounded unit
     ctx.beginPath();
-    (ctx as any).roundRect(-rX * 0.8, -rY, rX * 1.8, rY * 2, rX * 0.72);
-    ctx.fillStyle = THEME.snakeMain;
+    ctx.ellipse(cs * 0.08, 0, cs * 0.53, cs * 0.55, 0, 0, Math.PI * 2);
+    ctx.fillStyle = THEME.snakeLight;
     ctx.fill();
-    ctx.lineWidth = Math.max(2, cs * 0.085);
+    ctx.lineWidth = cs * 0.11;
     ctx.strokeStyle = THEME.snakeOutline;
     ctx.stroke();
-
-    // Snout spine line towards the front (+X)
-    ctx.beginPath();
-    ctx.moveTo(-rX * 0.3, 0);
-    ctx.lineTo(rX * 0.95, 0);
-    ctx.strokeStyle = THEME.snakeOutline;
-    ctx.lineWidth = Math.max(2, cs * 0.08);
-    ctx.lineCap = 'round';
-    ctx.stroke();
-
-    // Symmetrical snout spots on sides
-    const spotDistY = rY * 0.50;
-    for (const sign of [-1, 1]) {
-      const sy = sign * spotDistY;
+    ctx.fillStyle = THEME.snakeMain;
+    for (const side of [-1, 1]) {
       ctx.beginPath();
-      ctx.ellipse(rX * 0.15, sy, rX * 0.45, rY * 0.24, 0, 0, Math.PI * 2);
-      ctx.fillStyle = THEME.snakeLight;
-      ctx.fill();
-      ctx.lineWidth = Math.max(1.4, cs * 0.055);
-      ctx.strokeStyle = THEME.snakeOutline;
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(rX * 0.15, sy, Math.max(1.6, cs * 0.065), 0, Math.PI * 2);
-      ctx.fillStyle = THEME.snakeOutline;
+      ctx.ellipse(cs * 0.42, side * cs * 0.30, cs * 0.12, cs * 0.15, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-
-    // Oversized cartoon eyes mounted on top of the head!
-    const eyeR = rY * 0.52;
-    const pupilR = eyeR * 0.45;
-    const eyeSeparation = rY * 0.48;
-
-    const eyes = [
-      { x: rX * 0.15, y: -eyeSeparation },
-      { x: rX * 0.15, y: eyeSeparation }
-    ];
-
-    const pupilDx = eyeR * 0.35;
-    const pupilDy = 0;
-
-    for (const e of eyes) {
-      // White eye sphere with black border
+    // Oversized eyes sit behind the snout and look along the travel direction.
+    for (const side of [-1, 1]) {
+      const ex = -cs * 0.48;
+      const ey = side * cs * 0.38;
       ctx.beginPath();
-      ctx.arc(e.x, e.y, eyeR, 0, Math.PI * 2);
+      ctx.arc(ex, ey, cs * 0.38, 0, Math.PI * 2);
       ctx.fillStyle = '#FFFFFF';
       ctx.fill();
-      ctx.lineWidth = Math.max(1.8, cs * 0.075);
-      ctx.strokeStyle = '#0F172A';
+      ctx.strokeStyle = '#101510';
+      ctx.lineWidth = cs * 0.095;
       ctx.stroke();
-
-      // Black cartoon pupil looking towards front (+X)
       ctx.beginPath();
-      ctx.arc(e.x + pupilDx, e.y + pupilDy, pupilR, 0, Math.PI * 2);
-      ctx.fillStyle = '#000000';
+      ctx.arc(ex + cs * 0.13, ey - side * cs * 0.035, cs * 0.185, 0, Math.PI * 2);
+      ctx.fillStyle = '#050805';
       ctx.fill();
-
-      // White reflection glint
       ctx.beginPath();
-      ctx.arc(e.x + pupilDx - pupilR * 0.3, e.y + pupilDy - pupilR * 0.35, pupilR * 0.35, 0, Math.PI * 2);
+      ctx.arc(ex + cs * 0.08, ey - cs * 0.06, cs * 0.055, 0, Math.PI * 2);
       ctx.fillStyle = '#FFFFFF';
       ctx.fill();
     }
-
-    ctx.restore();
   }
-
   // --------------------------------------------------------------------------
   // IMPACT VFX: Multi-Point Star Burst & Particle Sparks
   // --------------------------------------------------------------------------
@@ -1156,13 +973,13 @@ export class Renderer {
     ctx.fill();
     ctx.restore();
 
-    // Close button (✕) top right
+    // Close button (âœ•) top right
     ctx.save();
     ctx.font = '700 18px Fredoka, Inter, sans-serif';
     ctx.fillStyle = '#94A3B8';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('✕', bounds.cardX + bounds.cardW - 24, bounds.cardY + 26);
+    ctx.fillText('âœ•', bounds.cardX + bounds.cardW - 24, bounds.cardY + 26);
     ctx.restore();
 
     // Dialog Header Title
@@ -1237,7 +1054,7 @@ export class Renderer {
     ctx.fillText('MEDIUM', bounds.trackX + bounds.trackW / 2, bounds.trackY + 28);
     ctx.fillText('HARD', bounds.trackX + bounds.trackW - bounds.knobR, bounds.trackY + 28);
 
-    // [ PLAY ▶ ] Button
+    // [ PLAY â–¶ ] Button
     ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
     ctx.shadowBlur = 10;
     ctx.shadowOffsetY = 3;
@@ -1250,7 +1067,7 @@ export class Renderer {
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('PLAY ▶', bounds.playX + bounds.playW / 2, bounds.playY + bounds.playH / 2);
+    ctx.fillText('PLAY â–¶', bounds.playX + bounds.playW / 2, bounds.playY + bounds.playH / 2);
     ctx.restore();
   }
 

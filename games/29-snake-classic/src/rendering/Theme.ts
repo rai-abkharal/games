@@ -8,10 +8,10 @@ export const THEME = {
   boardDark: '#FDDE9E',
 
   // Snake
-  snakeMain: '#2BA340',
-  snakeLight: '#6DBD3B',
-  snakeOutline: '#277B3C',
-  snakeShadow: 'rgba(20, 49, 78, 0.25)',
+  snakeMain: '#40AC46',
+  snakeLight: '#83CC43',
+  snakeOutline: '#508D43',
+  snakeShadow: 'rgba(91, 91, 52, 0.25)',
 
   // Food
   foodBase: '#FF5C4D',
