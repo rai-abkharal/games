@@ -1,6 +1,6 @@
 {
   "version": 29,
-  "updatedAt": "2026-09-07T09:48:46.357Z",
+  "updatedAt": "2026-09-07T10:04:12.176Z",
   "games": [
     {
       "id": "game-mtmsq289",
@@ -959,14 +959,14 @@
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/four-in-a-row/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/four-in-a-row.webp",
-      "sizeBytes": 33881,
+      "sizeBytes": 32956,
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/four-in-a-row/1.0.0/manifest.json",
       "feedOrder": 48,
       "category": "Board",
       "description": "Classic 4 In A Row challenge against smart AI. Drop your discs, connect four in a line horizontally, vertically, or diagonally, and outsmart the bot across Easy, Medium, and Hard tiers!",
-      "sha256": "de288fa4bf9ab5d022c1bc6a251fbf73b603a4c9bc3d224477ce60e84ea2efc0",
+      "sha256": "a71aed84ce54d201fc8f2a6c499cd081f3f4072e969bdd9d8bd868687b6edf99",
       "status": "published",
       "touchZones": [],
       "features": {

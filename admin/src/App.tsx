@@ -1017,7 +1017,7 @@ export default function App() {
                     {uploading ? 'Processing & Validating Build...' : 'Drag and Drop New Game .ZIP Package Here'}
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '6px' }}>
-                    HTML5 / Canvas2D / Phaser bundle (&lt; 10 MB)
+                    HTML5 / Canvas2D / Phaser bundle (.ZIP)
                   </div>
                 </div>
 

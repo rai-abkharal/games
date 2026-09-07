@@ -2,8 +2,6 @@ import { spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-const MAX_GAME_PACKAGE_BYTES = 5 * 1024 * 1024;
-
 function listFilesRecursive(directory: string): string[] {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const fullPath = path.join(directory, entry.name);
@@ -90,13 +88,11 @@ async function buildAll() {
 
       const packageBytes = listFilesRecursive(distDir)
         .reduce((total, filePath) => total + fs.statSync(filePath).size, 0);
-      if (packageBytes > MAX_GAME_PACKAGE_BYTES) {
-        throw new Error(
-          `${dirName} package is ${(packageBytes / 1024 / 1024).toFixed(2)} MB; the MVP budget is ${MAX_GAME_PACKAGE_BYTES / 1024 / 1024} MB.`,
-        );
-      }
+      const packageDisplay = packageBytes >= 1024 * 1024
+        ? `${(packageBytes / 1024 / 1024).toFixed(2)} MB`
+        : `${(packageBytes / 1024).toFixed(1)} KB`;
 
-      console.log(`${dirName}: ${(packageBytes / 1024).toFixed(1)} KB production package\n`);
+      console.log(`${dirName}: ${packageDisplay} production package\n`);
     } catch (err) {
       console.error(`Failed building ${dirName}:`, err);
       process.exit(1);

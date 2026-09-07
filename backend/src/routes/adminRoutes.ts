@@ -8,8 +8,7 @@ import { CatalogService } from '../services/catalogService';
 import { normalizeGameFeatures } from '../utils/gameFeatures';
 
 const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 } // 25MB max
+  storage: multer.memoryStorage()
 });
 
 export function createAdminRouter(catalogService: CatalogService, publicDir: string, catalogPath: string): Router {
@@ -162,15 +161,11 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
       checks.push({ rule: 'Entry Point (index.html)', passed: false, message: 'Missing a non-empty production index.html entry point in ZIP package' });
     }
 
-    // Rule 5: Package Size Constraint (< 10MB)
+    // Rule 5: Package Size Info (No size limit)
     const sizeMb = fileSizeBytes / (1024 * 1024);
     const sizeKb = fileSizeBytes / 1024;
-    if (sizeMb <= 10) {
-      const perfTag = sizeKb < 60 ? ' [Optimal Micro-Engine]' : '';
-      checks.push({ rule: 'Bundle Size Budget (<10MB)', passed: true, message: `${sizeKb.toFixed(1)} KB${perfTag} (Passed)` });
-    } else {
-      checks.push({ rule: 'Bundle Size Budget (<10MB)', passed: false, message: `${sizeMb.toFixed(2)} MB exceeds 10 MB maximum limit` });
-    }
+    const sizeDisplay = sizeMb >= 1 ? `${sizeMb.toFixed(2)} MB` : `${sizeKb.toFixed(1)} KB`;
+    checks.push({ rule: 'Package Size', passed: true, message: `${sizeDisplay} (Verified)` });
 
     // Rule 6: Orientation & Display Format
     if (manifest && manifest.orientation) {
@@ -250,9 +245,11 @@ export function createAdminRouter(catalogService: CatalogService, publicDir: str
         checks.push({ rule: 'Entry Point (index.html)', passed: false, message: 'Missing index.html on disk' });
       }
 
-      // Check size
+      // Package size info
+      const sizeMb = game.sizeBytes / (1024 * 1024);
       const sizeKb = game.sizeBytes / 1024;
-      checks.push({ rule: 'Bundle Size Budget (<10MB)', passed: sizeKb <= 10240, message: `${sizeKb.toFixed(1)} KB (Passed)` });
+      const sizeDisplay = sizeMb >= 1 ? `${sizeMb.toFixed(2)} MB` : `${sizeKb.toFixed(1)} KB`;
+      checks.push({ rule: 'Package Size', passed: true, message: `${sizeDisplay}` });
       checks.push({ rule: 'Required Metadata (id, title, version)', passed: true, message: `ID: ${game.id} (v${game.version})` });
       checks.push({ rule: 'Orientation Configuration', passed: true, message: `Orientation: ${game.orientation || 'portrait'}` });
       checks.push({ rule: 'Touch Zones Configuration', passed: true, message: `${(game as any).touchZones?.length || 0} active touch lock zones` });

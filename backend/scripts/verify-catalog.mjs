@@ -16,8 +16,6 @@ const bundledCatalogPath = path.join(
 );
 const publicGamesDir = path.join(backendDir, 'public', 'games');
 const productionMode = process.argv.includes('--production');
-// Keep this aligned with the admin upload validation contract.
-const maxPackageBytes = 10 * 1024 * 1024;
 
 function hashPublishedPackage(directory) {
   const hash = crypto.createHash('sha256');
@@ -83,9 +81,6 @@ for (const game of catalog.games) {
     fail(
       `${game.id}: size mismatch; catalog=${game.sizeBytes}, actual=${actual.sizeBytes}`,
     );
-  }
-  if (actual.sizeBytes > maxPackageBytes) {
-    fail(`${game.id}: package exceeds the 10 MB upload budget.`);
   }
 
   for (const field of ['entryUrl', 'thumbnailUrl', 'manifestUrl']) {
