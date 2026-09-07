@@ -70,9 +70,9 @@ export const LEVELS: LevelDefinition[] = [
       { id: 'c1', type: 'can', color: 'red', x: 95, y: 360, rotation: 0, launchAngle: 27, launchSpeed: 24 }
     ],
     stars: [
-      { x: 202, y: 395 },
-      { x: 309, y: 475 },
-      { x: 395, y: 565 }
+      { x: 200, y: 375 },
+      { x: 310, y: 440 },
+      { x: 400, y: 500 }
     ]
   },
 
@@ -148,8 +148,8 @@ export const LEVELS: LevelDefinition[] = [
     ],
     launchers: [
       { id: 'b1', type: 'bottle', color: 'orange', x: 239, y: 240, rotation: 180, launchAngle: 90, launchSpeed: 22 },
-      { id: 'b2', type: 'bottle', color: 'orange', x: 205, y: 605, rotation: 0, launchAngle: -86, launchSpeed: 26 },
-      { id: 'b3', type: 'bottle', color: 'orange', x: 273, y: 605, rotation: 0, launchAngle: -94, launchSpeed: 26 }
+      { id: 'b2', type: 'bottle', color: 'orange', x: 205, y: 605, rotation: 0, launchAngle: -96.5, launchSpeed: 23 },
+      { id: 'b3', type: 'bottle', color: 'orange', x: 273, y: 605, rotation: 0, launchAngle: -83.5, launchSpeed: 23 }
     ],
     stars: [
       { x: 110, y: 460 },
@@ -167,7 +167,7 @@ export const LEVELS: LevelDefinition[] = [
       { x: 320, y: 560, width: 220, height: 34, type: 'wood' }
     ],
     launchers: [
-      { id: 'b1', type: 'bottle', color: 'orange', x: 170, y: 405, rotation: -90, launchAngle: -10, launchSpeed: 23 },
+      { id: 'b1', type: 'bottle', color: 'orange', x: 170, y: 405, rotation: 90, launchAngle: 5, launchSpeed: 18 },
       { id: 'b2', type: 'bottle', color: 'yellow', x: 300, y: 465, rotation: 0, launchAngle: -90, launchSpeed: 24 }
     ],
     stars: [
@@ -208,12 +208,12 @@ export const LEVELS: LevelDefinition[] = [
     ],
     launchers: [
       { id: 'b1', type: 'bottle', color: 'orange', x: 100, y: 585, rotation: 0, launchAngle: -90, launchSpeed: 24 },
-      { id: 'b2', type: 'bottle', color: 'yellow', x: 240, y: 645, rotation: 90, launchAngle: 180, launchSpeed: 22 },
+      { id: 'b2', type: 'bottle', color: 'yellow', x: 240, y: 645, rotation: 90, launchAngle: -4, launchSpeed: 22 },
       { id: 'b3', type: 'bottle', color: 'green', x: 378, y: 585, rotation: 0, launchAngle: -90, launchSpeed: 24 }
     ],
     stars: [
-      { x: 70, y: 230 },
-      { x: 350, y: 230 },
+      { x: 100, y: 230 },
+      { x: 378, y: 230 },
       { x: 440, y: 620 }
     ]
   },
@@ -226,14 +226,15 @@ export const LEVELS: LevelDefinition[] = [
       { x: 239, y: 680, width: 420, height: 36, type: 'blue' }
     ],
     launchers: [
-      { id: 'b1', type: 'bottle', color: 'orange', x: 70, y: 645, rotation: -90, launchAngle: 0, launchSpeed: 22 },
+      { id: 'b1', type: 'bottle', color: 'orange', x: 70, y: 645, rotation: 90, launchAngle: 0, launchSpeed: 22 },
       { id: 'b2', type: 'bottle', color: 'orange', x: 180, y: 585, rotation: 0, launchAngle: -90, launchSpeed: 24 },
       { id: 'b3', type: 'bottle', color: 'green', x: 245, y: 585, rotation: 0, launchAngle: -90, launchSpeed: 24 },
       { id: 'b4', type: 'bottle', color: 'orange', x: 310, y: 585, rotation: 0, launchAngle: -90, launchSpeed: 24 }
     ],
     stars: [
       { x: 180, y: 250 },
-      { x: 320, y: 250 },
+      { x: 245, y: 210 },
+      { x: 310, y: 250 },
       { x: 440, y: 620 }
     ]
   },
@@ -248,9 +249,9 @@ export const LEVELS: LevelDefinition[] = [
       { x: 358, y: 630, width: 140, height: 30, rotation: -25, type: 'blue' }
     ],
     launchers: [
-      { id: 'b1', type: 'bottle', color: 'yellow', x: 85, y: 630, rotation: -25, launchAngle: -65, launchSpeed: 24 },
+      { id: 'b1', type: 'bottle', color: 'yellow', x: 85, y: 630, rotation: 25, launchAngle: -65, launchSpeed: 24 },
       { id: 'b2', type: 'bottle', color: 'green', x: 239, y: 605, rotation: 0, launchAngle: -90, launchSpeed: 24 },
-      { id: 'b3', type: 'bottle', color: 'orange', x: 393, y: 630, rotation: 25, launchAngle: -115, launchSpeed: 24 }
+      { id: 'b3', type: 'bottle', color: 'orange', x: 393, y: 630, rotation: -25, launchAngle: -115, launchSpeed: 24 }
     ],
     stars: [
       { x: 239, y: 320 },
@@ -372,14 +373,11 @@ export const LEVELS: LevelDefinition[] = [
     id: 19,
     theme: 'pink',
     platforms: [
-      { x: 239, y: 680, width: 420, height: 36, type: 'blue' },
-      { x: 120, y: 600, width: 80, height: 26, rotation: 35, type: 'blue' },
-      { x: 120, y: 390, width: 80, height: 26, rotation: 35, type: 'blue' },
-      { x: 358, y: 600, width: 80, height: 26, rotation: -35, type: 'blue' }
+      { x: 239, y: 680, width: 420, height: 36, type: 'blue' }
     ],
     launchers: [
-      { id: 'b1', type: 'bottle', color: 'orange', x: 60, y: 585, rotation: 0, launchAngle: -70, launchSpeed: 24 },
-      { id: 'b2', type: 'bottle', color: 'orange', x: 418, y: 585, rotation: 0, launchAngle: -110, launchSpeed: 24 }
+      { id: 'b1', type: 'bottle', color: 'orange', x: 60, y: 585, rotation: 25, launchAngle: -65, launchSpeed: 18.5 },
+      { id: 'b2', type: 'bottle', color: 'orange', x: 418, y: 585, rotation: -25, launchAngle: -115, launchSpeed: 18.5 }
     ],
     stars: [
       { x: 239, y: 290 },
@@ -398,14 +396,14 @@ export const LEVELS: LevelDefinition[] = [
       { x: 239, y: 680, width: 180, height: 28, type: 'blue' }
     ],
     launchers: [
-      { id: 'b1', type: 'bottle', color: 'orange', x: 239, y: 245, rotation: -90, launchAngle: 0, launchSpeed: 23 },
-      { id: 'b2', type: 'bottle', color: 'yellow', x: 239, y: 445, rotation: 90, launchAngle: 180, launchSpeed: 23 },
-      { id: 'b3', type: 'bottle', color: 'green', x: 239, y: 645, rotation: -90, launchAngle: 0, launchSpeed: 23 }
+      { id: 'b1', type: 'bottle', color: 'orange', x: 239, y: 245, rotation: 90, launchAngle: 0, launchSpeed: 23 },
+      { id: 'b2', type: 'bottle', color: 'yellow', x: 239, y: 445, rotation: -90, launchAngle: 180, launchSpeed: 23 },
+      { id: 'b3', type: 'bottle', color: 'green', x: 239, y: 645, rotation: 90, launchAngle: 0, launchSpeed: 23 }
     ],
     stars: [
-      { x: 70, y: 480 },
-      { x: 408, y: 270 },
-      { x: 408, y: 680 }
+      { x: 70, y: 465 },
+      { x: 408, y: 265 },
+      { x: 408, y: 665 }
     ]
   },
 
@@ -485,7 +483,7 @@ export const LEVELS: LevelDefinition[] = [
     ],
     portals: [
       { id: 'p1', pairId: 'p2', x: 50, y: 320, rotation: 90 },
-      { id: 'p2', pairId: 'p1', x: 190, y: 660, rotation: 0 }
+      { id: 'p2', pairId: 'p1', x: 214, y: 634, rotation: 0 }
     ],
     launchers: [
       { id: 'c1', type: 'can', color: 'red', x: 90, y: 605, rotation: 0, launchAngle: 28, launchSpeed: 24 }

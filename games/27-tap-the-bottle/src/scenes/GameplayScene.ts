@@ -10,6 +10,7 @@ import { AudioManager } from '../systems/AudioManager';
 import { Hud } from '../ui/Hud';
 import { TutorialHand } from '../ui/TutorialHand';
 import { createSceneBackground } from '../ui/SceneBackground';
+import { TrajectoryGuide } from '../ui/TrajectoryGuide';
 import { GameBridge } from '../../../shared/GameBridge';
 
 interface GameplayData {
@@ -22,6 +23,7 @@ export class GameplayScene extends Phaser.Scene {
   private particleManager!: ParticleManager;
   private hud!: Hud;
   private tutorialHand: TutorialHand | null = null;
+  private trajectoryGuide: TrajectoryGuide | null = null;
   private launchers: Launcher[] = [];
   private platforms: Platform[] = [];
   private stars: Star[] = [];
@@ -67,6 +69,7 @@ export class GameplayScene extends Phaser.Scene {
     this.failTimer = 0;
     this.elapsedMs = 0;
     this.tutorialHand = null;
+    this.trajectoryGuide = null;
   }
 
   create(): void {
@@ -139,6 +142,7 @@ export class GameplayScene extends Phaser.Scene {
       const launcher = new Launcher(this, lConfig, this.particleManager);
       launcher.onLaunch = (projectile: Projectile) => {
         this.projectiles.push(projectile);
+        this.trajectoryGuide?.hideForLauncher(launcher.config.id);
         if (this.tutorialHand) {
           this.tutorialHand.hide();
           this.tutorialHand = null;
@@ -147,7 +151,15 @@ export class GameplayScene extends Phaser.Scene {
       this.launchers.push(launcher);
     }
 
-    // 8. Tutorial Glove (Level 1 only)
+    // 8. Trajectory Guide Paths (Cyan/blue arcade guide dots synchronized with stars)
+    this.trajectoryGuide = new TrajectoryGuide(
+      this,
+      this.levelDef.launchers,
+      this.levelDef.platforms,
+      this.levelDef.portals
+    );
+
+    // 9. Tutorial Glove (Level 1 only)
     if (this.levelDef.tutorial && this.launchers.length > 0) {
       const firstLauncher = this.launchers[0];
       this.tutorialHand = new TutorialHand(this, firstLauncher.config.x, firstLauncher.config.y);
@@ -338,6 +350,8 @@ export class GameplayScene extends Phaser.Scene {
     GameBridge.offRestart(this.restartCurrentLevel);
     GameBridge.offSoundChange(this.handleSoundChange);
     this.particleManager?.clear();
+    this.trajectoryGuide?.destroy();
+    this.trajectoryGuide = null;
 
     // Phaser tears down the Matter world and display list before this callback
     // completes. Do not remove bodies here: on mobile that race stopped the
