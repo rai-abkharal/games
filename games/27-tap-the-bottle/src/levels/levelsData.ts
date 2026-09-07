@@ -162,6 +162,7 @@ export const LEVELS: LevelDefinition[] = [
   {
     id: 9,
     theme: 'blue',
+    tutorial: true,
     platforms: [
       { x: 150, y: 440, width: 220, height: 34, type: 'wood' },
       { x: 320, y: 560, width: 220, height: 34, type: 'wood' }

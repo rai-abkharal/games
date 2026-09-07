@@ -12,6 +12,7 @@ export class Launcher {
   public broken: boolean = false;
   public sprite: Phaser.Physics.Matter.Sprite;
   public onLaunch?: (projectile: Projectile) => void;
+  public onBreak?: () => void;
   private scene: Phaser.Scene;
   private particleManager: ParticleManager;
   private sealedKey: string;
@@ -224,6 +225,10 @@ export class Launcher {
         (Math.random() - 0.5) * 75,
         35 + Math.random() * 75
       );
+    }
+
+    if (this.onBreak) {
+      this.onBreak();
     }
   }
 

@@ -139,19 +139,16 @@ export class GameplayScene extends Phaser.Scene {
       const launcher = new Launcher(this, lConfig, this.particleManager);
       launcher.onLaunch = (projectile: Projectile) => {
         this.projectiles.push(projectile);
-        if (this.tutorialHand) {
-          this.tutorialHand.hide();
-          this.tutorialHand = null;
-        }
+        this.handleLauncherLaunch(launcher);
+      };
+      launcher.onBreak = () => {
+        this.handleLauncherBreak(launcher);
       };
       this.launchers.push(launcher);
     }
 
-    // 8. Tutorial Glove (Level 1 only)
-    if (this.levelDef.tutorial && this.launchers.length > 0) {
-      const firstLauncher = this.launchers[0];
-      this.tutorialHand = new TutorialHand(this, firstLauncher.config.x, firstLauncher.config.y);
-    }
+    // 8. Level Tutorial Hints
+    this.initTutorial();
 
     // 9. Physics Collisions
     this.matter.world.on('collisionstart', this.handleCollisionStart);
@@ -171,6 +168,73 @@ export class GameplayScene extends Phaser.Scene {
     this.input.on('pointerdown', () => {
       AudioManager.unlock();
     });
+  }
+
+  private initTutorial(): void {
+    if (!this.levelDef.tutorial || this.launchers.length === 0) return;
+
+    if (this.currentLevel === 1) {
+      const firstLauncher = this.launchers[0];
+      this.tutorialHand = new TutorialHand(this, firstLauncher.config.x, firstLauncher.config.y);
+    } else if (this.currentLevel === 9) {
+      // Level 9: First guide the player to vertical bottle b2 to collect top stars
+      const b2 = this.launchers.find(l => l.config.id === 'b2') || this.launchers[1];
+      if (b2) {
+        this.tutorialHand = new TutorialHand(this, b2.config.x, b2.config.y, 'TAP TO OPEN!');
+      }
+    }
+  }
+
+  private handleLauncherLaunch(launcher: Launcher): void {
+    if (this.tutorialHand) {
+      this.tutorialHand.hide();
+      this.tutorialHand = null;
+    }
+
+    // On Level 9: After b2 fires its cap upward, guide user to tap it again to smash/break it!
+    if (this.currentLevel === 9 && launcher.config.id === 'b2') {
+      this.time.delayedCall(400, () => {
+        if (!launcher.broken && this.scene.isActive()) {
+          if (this.tutorialHand) {
+            this.tutorialHand.destroy();
+          }
+          this.tutorialHand = new TutorialHand(
+            this,
+            launcher.sprite.x,
+            launcher.sprite.y,
+            'TAP AGAIN TO BREAK! 💥'
+          );
+        }
+      });
+    }
+  }
+
+  private handleLauncherBreak(launcher: Launcher): void {
+    if (this.tutorialHand) {
+      this.tutorialHand.hide();
+      this.tutorialHand = null;
+    }
+
+    // On Level 9: After b2 breaks, path is clear for b1! Guide user to tap b1!
+    if (this.currentLevel === 9 && launcher.config.id === 'b2') {
+      const b1 = this.launchers.find(l => l.config.id === 'b1');
+      if (b1 && !b1.opened) {
+        this.time.delayedCall(300, () => {
+          if (!b1.opened && this.scene.isActive()) {
+            if (this.tutorialHand) {
+              this.tutorialHand.destroy();
+            }
+            this.tutorialHand = new TutorialHand(
+              this,
+              b1.sprite.x,
+              b1.sprite.y,
+              'TAP TO SHOOT! ⭐',
+              -80
+            );
+          }
+        });
+      }
+    }
   }
 
   private handleCollision(bodyA: MatterJS.BodyType, bodyB: MatterJS.BodyType): void {
@@ -239,6 +303,10 @@ export class GameplayScene extends Phaser.Scene {
 
     if (this.remainingStars <= 0 && !this.isLevelWon) {
       this.isLevelWon = true;
+      if (this.tutorialHand) {
+        this.tutorialHand.hide();
+        this.tutorialHand = null;
+      }
       const score = this.currentLevel * 1000 + this.collectedStarsCount * 100;
       const nextUnlockedLevel = Math.min(MAX_LEVELS, this.currentLevel + 1);
       localStorage.setItem('tap-the-bottle-unlocked-level', String(nextUnlockedLevel));
@@ -347,6 +415,9 @@ export class GameplayScene extends Phaser.Scene {
     this.platforms = [];
     this.stars = [];
     this.portals = [];
-    this.tutorialHand = null;
+    if (this.tutorialHand) {
+      this.tutorialHand.destroy();
+      this.tutorialHand = null;
+    }
   }
 }
