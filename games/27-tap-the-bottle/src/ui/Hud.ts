@@ -11,8 +11,8 @@ export class Hud {
   constructor(scene: Phaser.Scene, levelNumber: number, onHome: () => void, onRestart: () => void) {
     this.scene = scene;
 
-    // 1. Home Button (Top-Left hugging edge like reference video)
-    this.homeBtn = scene.add.image(28, 48, 'btn_home')
+    // 1. Home Button (Top-Left corner)
+    this.homeBtn = scene.add.image(38, 48, 'btn_home')
       .setScale(1 / RENDER_SCALE)
       .setDepth(20)
       .setInteractive({ useHandCursor: true });
@@ -37,8 +37,8 @@ export class Hud {
       resolution: RENDER_SCALE
     }).setOrigin(0.5, 0.5).setDepth(20);
 
-    // 3. Restart Button (Top-Right hugging edge like reference video)
-    this.restartBtn = scene.add.image(DESIGN_WIDTH - 28, 48, 'btn_restart')
+    // 3. Restart Button (Top-Right corner)
+    this.restartBtn = scene.add.image(DESIGN_WIDTH - 38, 48, 'btn_restart')
       .setScale(1 / RENDER_SCALE)
       .setDepth(20)
       .setInteractive({ useHandCursor: true });

@@ -156,50 +156,75 @@ export class Launcher {
 
     AudioManager.playBreak();
 
+    const scale = this.config.scale || 0.82;
+    const currentRot = this.sprite.rotation;
+    const origH = (this.config.type === 'bottle' ? 210 : 140) * scale;
+    const debrisDisplayW = 72 * scale;
+    const debrisDisplayH = (this.config.type === 'bottle' ? 36 : 32) * scale;
+
     const posX = this.sprite.x;
     const posY = this.sprite.y;
 
-    // 1. Completely disable physics collision so caps pass freely through this space
-    if (this.sprite && this.sprite.body) {
-      this.sprite.setCollisionCategory(0);
-      this.sprite.setCollidesWith(0);
-      this.sprite.setSensor(true);
-      this.sprite.setStatic(true);
-      (this.sprite.body as any).label = 'broken_debris';
-    }
+    // 1. Calculate bottom contact point so debris rests naturally on its surface
+    const bottomX = posX - Math.sin(currentRot) * (origH / 2);
+    const bottomY = posY + Math.cos(currentRot) * (origH / 2);
+
+    const newX = bottomX + Math.sin(currentRot) * (debrisDisplayH / 2);
+    const newY = bottomY - Math.cos(currentRot) * (debrisDisplayH / 2);
 
     // 2. Disable further interaction
     this.sprite.disableInteractive();
 
-    // 3. Swap to shattered glass shards / crushed metal texture
+    // 3. Move sprite to ground contact position and switch to compact broken debris texture
+    this.sprite.setPosition(newX, newY);
     this.sprite.setTexture(this.brokenKey);
+    this.sprite.setDisplaySize(debrisDisplayW, debrisDisplayH);
 
-    // 4. Dynamic exploding glass shard particles with gravity
+    // 4. Dynamic Matter physics body for broken debris:
+    // Has real gravity and slides/tumbles down ramps or rests on platforms,
+    // but caps pass freely through (category LAUNCHER, mask PLATFORM | LAUNCHER)
+    this.sprite.setRectangle(debrisDisplayW * 0.85, debrisDisplayH * 0.75, {
+      label: 'broken_debris',
+      isStatic: false,
+      friction: 0.55,
+      frictionAir: 0.02,
+      restitution: 0.20,
+      density: 0.004,
+      chamfer: { radius: 4 },
+      collisionFilter: {
+        category: COLLISION_CATEGORIES.LAUNCHER,
+        mask: COLLISION_CATEGORIES.PLATFORM | COLLISION_CATEGORIES.LAUNCHER
+      }
+    });
+
+    // Re-ensure display size and rotation after body recreation
+    this.sprite.setDisplaySize(debrisDisplayW, debrisDisplayH);
+    this.sprite.setRotation(currentRot);
+
+    // 5. Dynamic scatter impulse so debris tumbles and settles naturally
+    const scatterVx = (Math.random() - 0.5) * 1.5;
+    const scatterVy = -1.2;
+    const scatterAngVel = (Math.random() - 0.5) * 0.12;
+    this.sprite.setVelocity(scatterVx, scatterVy);
+    this.sprite.setAngularVelocity(scatterAngVel);
+
+    // 6. Dynamic exploding glass shard particles with gravity
     this.particleManager.emitGlassShards(
       posX,
-      posY + (this.config.type === 'bottle' ? 35 : 15),
+      bottomY - 10,
       this.config.color
     );
 
-    // 5. Liquid splash droplets
+    // 7. Liquid splash droplets
     for (let i = 0; i < 7; i++) {
       this.particleManager.emitBubble(
         posX + (Math.random() - 0.5) * 34,
-        posY + 15 + Math.random() * 35,
+        bottomY - 15 + Math.random() * 20,
         this.config.color,
         (Math.random() - 0.5) * 75,
         35 + Math.random() * 75
       );
     }
-
-    this.scene.tweens.add({
-      targets: this.sprite,
-      scaleX: ((this.config.scale || 0.82) * 1.06) / RENDER_SCALE,
-      scaleY: ((this.config.scale || 0.82) * 0.94) / RENDER_SCALE,
-      duration: 90,
-      yoyo: true,
-      ease: 'Back.easeOut'
-    });
   }
 
   public destroy(): void {

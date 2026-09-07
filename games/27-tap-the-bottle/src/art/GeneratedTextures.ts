@@ -475,10 +475,11 @@ export class GeneratedTextures {
       ctx.restore();
       scene.textures.addCanvas(`bottle_${colorKey}_opened`, canvas);
 
-      // Second-tap state: Container shatters completely into broken glass shards
-      // at the bottom base; upper container body is completely gone/transparent.
-      const { canvas: brokenCanvas, ctx: brokenCtx } = this.createArtCanvas(w, h);
-      const baseY = 202;
+      // Second-tap state: Compact broken glass shards debris lying flat
+      const debrisW = 72, debrisH = 36;
+      const { canvas: brokenCanvas, ctx: brokenCtx } = this.createArtCanvas(debrisW, debrisH);
+      const dcx = debrisW / 2;
+      const baseY = 32;
 
       brokenCtx.save();
 
@@ -486,24 +487,24 @@ export class GeneratedTextures {
       brokenCtx.fillStyle = hexColor;
       brokenCtx.globalAlpha = 0.45;
       brokenCtx.beginPath();
-      brokenCtx.ellipse(cx, baseY, 36, 6, 0, 0, Math.PI * 2);
+      brokenCtx.ellipse(dcx, baseY, 30, 4, 0, 0, Math.PI * 2);
       brokenCtx.fill();
       brokenCtx.globalAlpha = 1.0;
 
       // Shattered jagged bottle bottom base
       brokenCtx.beginPath();
-      brokenCtx.moveTo(cx - 24, baseY);
-      brokenCtx.lineTo(cx - 25, baseY - 18);
-      brokenCtx.lineTo(cx - 16, baseY - 38); // sharp glass shard peak
-      brokenCtx.lineTo(cx - 9, baseY - 20);
-      brokenCtx.lineTo(cx - 1, baseY - 44);  // tall central glass spike
-      brokenCtx.lineTo(cx + 7, baseY - 22);
-      brokenCtx.lineTo(cx + 17, baseY - 36); // sharp glass shard peak
-      brokenCtx.lineTo(cx + 25, baseY - 16);
-      brokenCtx.lineTo(cx + 24, baseY);
+      brokenCtx.moveTo(dcx - 22, baseY);
+      brokenCtx.lineTo(dcx - 23, baseY - 12);
+      brokenCtx.lineTo(dcx - 15, baseY - 24); // sharp glass shard peak
+      brokenCtx.lineTo(dcx - 8, baseY - 14);
+      brokenCtx.lineTo(dcx, baseY - 28);      // tall central glass spike
+      brokenCtx.lineTo(dcx + 8, baseY - 16);
+      brokenCtx.lineTo(dcx + 16, baseY - 26); // sharp glass shard peak
+      brokenCtx.lineTo(dcx + 23, baseY - 10);
+      brokenCtx.lineTo(dcx + 22, baseY);
       brokenCtx.closePath();
 
-      const shardGrad = brokenCtx.createLinearGradient(cx - 24, 0, cx + 24, 0);
+      const shardGrad = brokenCtx.createLinearGradient(dcx - 22, 0, dcx + 22, 0);
       shardGrad.addColorStop(0, hexColor);
       shardGrad.addColorStop(0.5, '#FFFFFF');
       shardGrad.addColorStop(0.8, hexColor);
@@ -511,59 +512,59 @@ export class GeneratedTextures {
       brokenCtx.fill();
 
       brokenCtx.strokeStyle = '#181818';
-      brokenCtx.lineWidth = 3.2;
+      brokenCtx.lineWidth = 2.8;
       brokenCtx.lineCap = 'round';
       brokenCtx.lineJoin = 'round';
       brokenCtx.stroke();
 
       // Sharp glass facets / internal fracture lines
       brokenCtx.beginPath();
-      brokenCtx.moveTo(cx - 16, baseY - 38);
-      brokenCtx.lineTo(cx - 10, baseY - 10);
-      brokenCtx.moveTo(cx - 1, baseY - 44);
-      brokenCtx.lineTo(cx + 3, baseY - 8);
-      brokenCtx.moveTo(cx + 17, baseY - 36);
-      brokenCtx.lineTo(cx + 12, baseY - 12);
+      brokenCtx.moveTo(dcx - 15, baseY - 24);
+      brokenCtx.lineTo(dcx - 8, baseY - 8);
+      brokenCtx.moveTo(dcx, baseY - 28);
+      brokenCtx.lineTo(dcx + 3, baseY - 6);
+      brokenCtx.moveTo(dcx + 16, baseY - 26);
+      brokenCtx.lineTo(dcx + 10, baseY - 8);
       brokenCtx.stroke();
 
       // Glossy white reflective glass glints
       brokenCtx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-      brokenCtx.lineWidth = 2.0;
+      brokenCtx.lineWidth = 1.8;
       brokenCtx.beginPath();
-      brokenCtx.moveTo(cx - 18, baseY - 34);
-      brokenCtx.lineTo(cx - 22, baseY - 20);
-      brokenCtx.moveTo(cx - 3, baseY - 40);
-      brokenCtx.lineTo(cx - 6, baseY - 22);
+      brokenCtx.moveTo(dcx - 16, baseY - 22);
+      brokenCtx.lineTo(dcx - 20, baseY - 12);
+      brokenCtx.moveTo(dcx - 2, baseY - 26);
+      brokenCtx.lineTo(dcx - 5, baseY - 14);
       brokenCtx.stroke();
 
       // Detached sharp glass shards scattered on the left
       brokenCtx.fillStyle = hexColor;
       brokenCtx.strokeStyle = '#181818';
-      brokenCtx.lineWidth = 2.4;
+      brokenCtx.lineWidth = 2.0;
       brokenCtx.beginPath();
-      brokenCtx.moveTo(cx - 38, baseY - 4);
-      brokenCtx.lineTo(cx - 27, baseY - 14);
-      brokenCtx.lineTo(cx - 28, baseY);
+      brokenCtx.moveTo(dcx - 32, baseY - 2);
+      brokenCtx.lineTo(dcx - 24, baseY - 10);
+      brokenCtx.lineTo(dcx - 25, baseY + 1);
       brokenCtx.closePath();
       brokenCtx.fill();
       brokenCtx.stroke();
 
       // Detached sharp glass shards scattered on the right
       brokenCtx.beginPath();
-      brokenCtx.moveTo(cx + 27, baseY - 2);
-      brokenCtx.lineTo(cx + 38, baseY - 12);
-      brokenCtx.lineTo(cx + 34, baseY + 1);
+      brokenCtx.moveTo(dcx + 24, baseY - 2);
+      brokenCtx.lineTo(dcx + 33, baseY - 9);
+      brokenCtx.lineTo(dcx + 30, baseY + 1);
       brokenCtx.closePath();
       brokenCtx.fill();
       brokenCtx.stroke();
 
-      // Small diamond crystalline fragments
+      // Small diamond crystalline fragment
       brokenCtx.fillStyle = '#FFFFFF';
       brokenCtx.beginPath();
-      brokenCtx.moveTo(cx - 8, baseY + 1);
-      brokenCtx.lineTo(cx - 4, baseY - 3);
-      brokenCtx.lineTo(cx, baseY + 1);
-      brokenCtx.lineTo(cx - 4, baseY + 5);
+      brokenCtx.moveTo(dcx - 6, baseY);
+      brokenCtx.lineTo(dcx - 3, baseY - 3);
+      brokenCtx.lineTo(dcx, baseY);
+      brokenCtx.lineTo(dcx - 3, baseY + 3);
       brokenCtx.closePath();
       brokenCtx.fill();
       brokenCtx.stroke();
@@ -726,8 +727,10 @@ export class GeneratedTextures {
       scene.textures.addCanvas('can_red_opened', canvas);
 
       // Second-tap state: Can is crushed flat into squashed metal debris on the platform
-      const { canvas: brokenCanvas, ctx: brokenCtx } = this.createArtCanvas(w, h);
-      const baseY = 132;
+      const debrisW = 72, debrisH = 32;
+      const { canvas: brokenCanvas, ctx: brokenCtx } = this.createArtCanvas(debrisW, debrisH);
+      const dcx = debrisW / 2;
+      const baseY = 28;
 
       brokenCtx.save();
 
@@ -735,22 +738,22 @@ export class GeneratedTextures {
       brokenCtx.fillStyle = COLORS.HEX_RED_CAN;
       brokenCtx.globalAlpha = 0.40;
       brokenCtx.beginPath();
-      brokenCtx.ellipse(cx, baseY, 36, 5, 0, 0, Math.PI * 2);
+      brokenCtx.ellipse(dcx, baseY, 30, 4, 0, 0, Math.PI * 2);
       brokenCtx.fill();
       brokenCtx.globalAlpha = 1.0;
 
       // Squashed jagged accordion can body
       brokenCtx.beginPath();
-      brokenCtx.moveTo(cx - 34, baseY);
-      brokenCtx.lineTo(cx - 32, baseY - 16);
-      brokenCtx.lineTo(cx - 18, baseY - 24);
-      brokenCtx.lineTo(cx - 4, baseY - 14);
-      brokenCtx.lineTo(cx + 12, baseY - 22);
-      brokenCtx.lineTo(cx + 30, baseY - 15);
-      brokenCtx.lineTo(cx + 34, baseY);
+      brokenCtx.moveTo(dcx - 28, baseY);
+      brokenCtx.lineTo(dcx - 26, baseY - 12);
+      brokenCtx.lineTo(dcx - 14, baseY - 20);
+      brokenCtx.lineTo(dcx - 3, baseY - 11);
+      brokenCtx.lineTo(dcx + 10, baseY - 18);
+      brokenCtx.lineTo(dcx + 24, baseY - 12);
+      brokenCtx.lineTo(dcx + 28, baseY);
       brokenCtx.closePath();
 
-      const canGrad = brokenCtx.createLinearGradient(cx - 34, 0, cx + 34, 0);
+      const canGrad = brokenCtx.createLinearGradient(dcx - 28, 0, dcx + 28, 0);
       canGrad.addColorStop(0, '#FF3B30');
       canGrad.addColorStop(0.5, '#F1221C');
       canGrad.addColorStop(1, '#990E0A');
@@ -758,30 +761,30 @@ export class GeneratedTextures {
       brokenCtx.fill();
 
       brokenCtx.strokeStyle = '#181818';
-      brokenCtx.lineWidth = 3.2;
+      brokenCtx.lineWidth = 2.8;
       brokenCtx.lineCap = 'round';
       brokenCtx.lineJoin = 'round';
       brokenCtx.stroke();
 
       // Metal crease lines
       brokenCtx.beginPath();
-      brokenCtx.moveTo(cx - 18, baseY - 24);
-      brokenCtx.lineTo(cx - 10, baseY - 6);
-      brokenCtx.moveTo(cx + 12, baseY - 22);
-      brokenCtx.lineTo(cx + 6, baseY - 4);
+      brokenCtx.moveTo(dcx - 14, baseY - 20);
+      brokenCtx.lineTo(dcx - 8, baseY - 5);
+      brokenCtx.moveTo(dcx + 10, baseY - 18);
+      brokenCtx.lineTo(dcx + 5, baseY - 3);
       brokenCtx.stroke();
 
       // Crushed silver lid rim tilted sideways
       brokenCtx.fillStyle = '#CBD5E1';
       brokenCtx.beginPath();
-      brokenCtx.ellipse(cx + 4, baseY - 20, 20, 5, 0.2, 0, Math.PI * 2);
+      brokenCtx.ellipse(dcx + 3, baseY - 16, 16, 4, 0.2, 0, Math.PI * 2);
       brokenCtx.fill();
       brokenCtx.stroke();
 
       // Silver pull-tab bent upwards
       brokenCtx.fillStyle = '#E2E8F0';
       brokenCtx.beginPath();
-      brokenCtx.roundRect(cx - 6, baseY - 29, 12, 7, 2);
+      brokenCtx.roundRect(dcx - 5, baseY - 23, 10, 6, 2);
       brokenCtx.fill();
       brokenCtx.stroke();
 
@@ -1074,15 +1077,15 @@ export class GeneratedTextures {
       ctx.lineWidth = 5.5;
       ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.arc(c, c, 13, -Math.PI * 0.7, Math.PI * 0.85);
+      ctx.arc(c, c, 13.5, Math.PI * 0.1, Math.PI * 1.42);
       ctx.stroke();
 
-      // Arrow head
+      // Arrow head at top perimeter pointing clockwise
       ctx.fillStyle = COLORS.UI_GREEN;
       ctx.beginPath();
-      ctx.moveTo(c + 11, c - 14);
-      ctx.lineTo(c + 20, c - 5);
-      ctx.lineTo(c + 6, c - 5);
+      ctx.moveTo(c + 7, c - 13.5);
+      ctx.lineTo(c - 3, c - 20);
+      ctx.lineTo(c - 3, c - 7);
       ctx.closePath();
       ctx.fill();
 
@@ -1148,15 +1151,15 @@ export class GeneratedTextures {
       ctx.lineWidth = 12;
       ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.arc(c, c, 34, -Math.PI * 0.7, Math.PI * 0.85);
+      ctx.arc(c, c, 34, Math.PI * 0.1, Math.PI * 1.42);
       ctx.stroke();
 
-      // Arrow head
+      // Arrow head at top perimeter pointing clockwise
       ctx.fillStyle = COLORS.UI_GREEN;
       ctx.beginPath();
-      ctx.moveTo(c + 24, c - 34);
-      ctx.lineTo(c + 46, c - 12);
-      ctx.lineTo(c + 12, c - 12);
+      ctx.moveTo(c + 18, c - 34);
+      ctx.lineTo(c - 8, c - 50);
+      ctx.lineTo(c - 8, c - 18);
       ctx.closePath();
       ctx.fill();
 
