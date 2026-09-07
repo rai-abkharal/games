@@ -44,7 +44,8 @@ export class Game {
   public renderer: Renderer;
   public synth: SoundSynth;
 
-  public state: GameState = GameState.PLAYER_AIMING;
+  // Ask difficulty on startup
+  public state: GameState = GameState.DIFF_SELECT;
   public board: Cell[][] = Rules.createEmptyBoard();
   public difficulty: Difficulty = Difficulty.Easy;
   public sliderPos: number = 0;
@@ -99,12 +100,13 @@ export class Game {
     } catch {}
 
     this.initEvents();
-    this.startNewMatch(this.difficulty);
+
+    // Start with difficulty selection prompt on load
+    this.state = GameState.DIFF_SELECT;
   }
 
   public startNewMatch(diff?: Difficulty): void {
     this.matchId++;
-    const currentId = this.matchId;
 
     if (diff) {
       this.difficulty = diff;
@@ -160,7 +162,7 @@ export class Game {
 
     this.synth.playTurn();
 
-    // Async delay matching the video's realistic cadence
+    // Async delay matching the video's cadence
     setTimeout(() => {
       if (id !== this.matchId || this.state !== GameState.BOT_THINKING) return;
       this.executeBotMove();
@@ -190,7 +192,7 @@ export class Game {
       x: startX,
       y: startY,
       targetY,
-      velocityY: 140, // Initial push
+      velocityY: 140,
       bounceCount: 0,
       settled: false
     };
@@ -265,10 +267,10 @@ export class Game {
       this.botThinkingTimer += dt;
     }
 
-    // 4. Gravity & Multi-Bounce Falling Piece Physics
+    // 4. Gravity & Falling Piece Physics (Single precise metallic landing sound)
     if (this.fallingPiece && !this.fallingPiece.settled) {
       const p = this.fallingPiece;
-      const gravity = 2700; // Realistic acceleration (pixels/sec^2)
+      const gravity = 2700; // pixels/sec^2
 
       p.velocityY += gravity * dt;
       p.y += p.velocityY * dt;
@@ -277,17 +279,15 @@ export class Game {
         p.y = p.targetY;
         p.bounceCount++;
 
-        // Landing Impact Sound
+        // Single precise metallic impact sound when piece lands
         if (p.bounceCount === 1) {
-          this.synth.playImpact(Math.min(1.0, Math.abs(p.velocityY) / 750));
-        } else {
-          this.synth.playBounce();
+          this.synth.playMetallicImpact();
         }
+        // No secondary bounce noise (single clean sound)
 
-        // Rebound with restitution
+        // Physical rebound
         p.velocityY = -p.velocityY * 0.28;
 
-        // Settling threshold
         if (p.bounceCount >= 3 || Math.abs(p.velocityY) < 45) {
           p.y = p.targetY;
           p.settled = true;
@@ -300,7 +300,6 @@ export class Game {
     if (this.state === GameState.WIN_LINE_ANIMATION) {
       this.winLineProgress = Math.min(1.0, this.winLineProgress + dt / 0.23);
       if (this.winLineProgress >= 1.0) {
-        // Hold for ~950ms
         this.winHoldTimer -= dt;
         if (this.winHoldTimer <= 0) {
           this.state = GameState.RESULT_TRANSITION;
@@ -314,7 +313,6 @@ export class Game {
       if (this.resultOverlayOpacity >= 1.0) {
         this.state = GameState.RESULT_SCREEN;
 
-        // Post Game Completed bridge
         const diffConfig = DIFFICULTIES.find(d => d.id === this.difficulty) || DIFFICULTIES[0];
         Host.post('onGameCompleted', {
           score: this.winner === Cell.Player ? 100 : 10,
@@ -359,7 +357,7 @@ export class Game {
       const px = pos.x;
       const py = pos.y;
 
-      // 1. Difficulty Modal Input
+      // 1. Difficulty Modal Input (Open at start & when tapped)
       if (this.state === GameState.DIFF_SELECT) {
         const bounds = this.renderer.getDifficultyDialogBounds();
 
@@ -367,7 +365,12 @@ export class Game {
         if (px >= bounds.cardX + bounds.cardW - 40 && px <= bounds.cardX + bounds.cardW &&
             py >= bounds.cardY && py <= bounds.cardY + 45) {
           this.synth.playButton();
-          this.state = GameState.PLAYER_AIMING;
+          // If a game was already started, return to aiming, otherwise start match
+          if (Rules.isBoardFull(this.board) || this.winner !== null) {
+            this.startNewMatch(this.difficulty);
+          } else {
+            this.state = GameState.PLAYER_AIMING;
+          }
           return;
         }
 
@@ -396,14 +399,6 @@ export class Game {
           return;
         }
 
-        // Tap outside card to dismiss
-        if (px < bounds.cardX || px > bounds.cardX + bounds.cardW ||
-            py < bounds.cardY || py > bounds.cardY + bounds.cardH) {
-          this.synth.playButton();
-          this.state = GameState.PLAYER_AIMING;
-          return;
-        }
-
         return;
       }
 
@@ -415,16 +410,8 @@ export class Game {
       }
 
       // 3. Top Header Navigation Buttons
-      // Top Left: Back button
-      if (Math.hypot(px - 46, py - 72) <= 28) {
-        this.synth.playButton();
-        Host.post('onBack');
-        this.state = GameState.DIFF_SELECT;
-        return;
-      }
-
-      // Difficulty Pill Banner
-      if (px >= 96 && px <= 232 && py >= 53 && py <= 91) {
+      // Difficulty Pill Banner (Centered/Left prominent)
+      if (px >= 100 && px <= 244 && py >= 54 && py <= 94) {
         this.synth.playButton();
         this.sliderPos = DIFFICULTIES.findIndex(d => d.id === this.difficulty);
         this.state = GameState.DIFF_SELECT;
@@ -432,41 +419,34 @@ export class Game {
       }
 
       // Sound Toggle Button
-      if (px >= 244 && px <= 290 && py >= 53 && py <= 91) {
+      if (px >= 260 && px <= 304 && py >= 54 && py <= 94) {
         this.synth.toggleMute();
         return;
       }
 
-      // Top Right: Restart Button
-      if (Math.hypot(px - 354, py - 72) <= 28) {
+      // Restart Button (Top Right circular button)
+      if (Math.hypot(px - 348, py - 74) <= 26) {
         this.synth.playButton();
         this.startNewMatch(this.difficulty);
         return;
       }
 
-      // 4. Result Screen Buttons
+      // 4. Result Screen Buttons (Only Settings & Play Again - No Home button)
       if (this.state === GameState.RESULT_SCREEN) {
-        const btnY = 730;
+        const btnY = 725;
 
-        // Home Button
-        if (px >= 50 && px <= 108 && py >= btnY && py <= btnY + 58) {
+        // Difficulty / Settings Button (Purple Square)
+        if (px >= 68 && px <= 126 && py >= btnY && py <= btnY + 58) {
           this.synth.playButton();
-          Host.post('onBack');
+          this.sliderPos = DIFFICULTIES.findIndex(d => d.id === this.difficulty);
           this.state = GameState.DIFF_SELECT;
           return;
         }
 
-        // PLAY AGAIN Button
-        if (px >= 124 && px <= 276 && py >= btnY && py <= btnY + 58) {
+        // PLAY AGAIN Button (Green Rectangle)
+        if (px >= 142 && px <= 332 && py >= btnY && py <= btnY + 58) {
           this.synth.playButton();
           this.startNewMatch(this.difficulty);
-          return;
-        }
-
-        // Difficulty / Settings Button
-        if (px >= 292 && px <= 350 && py >= btnY && py <= btnY + 58) {
-          this.synth.playButton();
-          this.state = GameState.DIFF_SELECT;
           return;
         }
 

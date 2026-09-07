@@ -61,7 +61,7 @@ export class Renderer {
   public offsetY: number = 0;
   public dpr: number = 1;
 
-  // Cached pre-rendered board front plate canvas for maximum performance & zero masking glitches
+  // Cached pre-rendered board front plate canvas
   private plateCanvas: HTMLCanvasElement | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -93,7 +93,6 @@ export class Renderer {
     this.ctx.imageSmoothingEnabled = true;
     this.ctx.imageSmoothingQuality = 'high';
 
-    // Invalidate pre-rendered plate on resize
     this.plateCanvas = null;
   }
 
@@ -115,7 +114,7 @@ export class Renderer {
     const h = THEME.boardH;
 
     const plate = document.createElement('canvas');
-    plate.width = Math.round(w * 2); // 2x resolution for razor sharpness
+    plate.width = Math.round(w * 2);
     plate.height = Math.round(h * 2);
     const pctx = plate.getContext('2d')!;
     pctx.scale(2, 2);
@@ -165,7 +164,7 @@ export class Renderer {
     board: Cell[][],
     difficulty: Difficulty,
     sliderPos: number,
-    turnProgress: number, // 0 = Player (Coral), 1 = Bot (Cyan)
+    turnProgress: number,
     yourTurnProgress: number,
     botThinkingTime: number,
     fallingPiece: FallingPiece | null,
@@ -177,61 +176,58 @@ export class Renderer {
     synth: SoundSynth
   ): void {
     const ctx = this.ctx;
-    const w = this.canvas.width / this.dpr;
-    const h = this.canvas.height / this.dpr;
+    const screenW = this.canvas.width / this.dpr;
+    const screenH = this.canvas.height / this.dpr;
 
-    // Clear whole screen
+    // 1. FULL-BLEED BACKGROUND: Fill the ENTIRE viewport screen edge-to-edge
+    // Absolutely NO black space, black bars, or letterboxing on left/right/top/bottom!
+    this.renderFullBleedBackground(ctx, turnProgress, screenW, screenH);
+
+    // 2. Apply centered viewport transform for board & interactive UI
     ctx.save();
-    ctx.fillStyle = '#0F141A';
-    ctx.fillRect(0, 0, w, h);
-
-    // Apply viewport transform (Centered 400x860 virtual space)
     ctx.translate(this.offsetX, this.offsetY);
     ctx.scale(this.scale, this.scale);
 
-    // 1. Background Crossfade (Coral <-> Cyan)
-    this.renderBackground(ctx, turnProgress);
-
-    // 2. HUD: "Your turn" bottom circle or "Bot thinking" top panel
+    // 3. HUD: "Your turn" bottom circle or "Bot thinking" top panel
     this.renderHUD(ctx, state, yourTurnProgress, botThinkingTime);
 
-    // 3. Behind Board: Empty Hole Slate Backgrounds
+    // 4. Behind Board: Empty Hole Slate Backgrounds
     this.renderHoleBackgrounds(ctx);
 
-    // 4. Behind Board: Settled Pieces
+    // 5. Behind Board: Settled Pieces
     this.renderSettledPieces(ctx, board);
 
-    // 5. Behind Board: Currently Falling Piece (Masked when behind front plate!)
+    // 6. Behind Board: Currently Falling Piece (Masked behind front plate!)
     if (fallingPiece) {
       this.renderDisc(ctx, fallingPiece.x, fallingPiece.y, fallingPiece.player);
     }
 
-    // 6. Board Front Face Plate (Punched with 42 transparent apertures)
+    // 7. Board Front Face Plate (Punched with 42 transparent apertures)
     const plate = this.getFrontPlate();
     ctx.drawImage(plate, THEME.boardX, THEME.boardY, THEME.boardW, THEME.boardH);
 
-    // 7. On Top of Board: Thick Black Outlines around each of the 42 cells
+    // 8. On Top of Board: Thick Black Outlines around each of the 42 cells
     this.renderHoleOutlines(ctx);
 
-    // 8. On Top of Board: Preview Aiming Piece (resting right on top rim of board)
+    // 9. On Top of Board: Preview Aiming Piece (resting right on top rim of board)
     if (previewPiece.visible && (state === GameState.PLAYER_AIMING || state === GameState.PLAYER_TURN_INTRO)) {
       this.renderDisc(ctx, previewPiece.x, previewPiece.y, Cell.Player, true);
     }
 
-    // 9. Winning Animated White Line
+    // 10. Winning Animated White Line
     if (winningCells && winningCells.length >= 4 && winLineProgress > 0) {
       this.renderWinningLine(ctx, winningCells, winLineProgress);
     }
 
-    // 10. Top Navigation Header & Sudoku Pro Difficulty Banner
+    // 11. Top Navigation Header (Sudoku Pro Difficulty Banner, Sound, Restart - No Back Button)
     this.renderHeader(ctx, difficulty, synth);
 
-    // 11. Result Overlay Screen
+    // 12. Result Overlay Screen (Settings & Play Again buttons only - No Home button)
     if (resultOverlayOpacity > 0) {
       this.renderResultScreen(ctx, winner, resultOverlayOpacity);
     }
 
-    // 12. Sudoku Pro Style "SELECT DIFFICULTY" Modal
+    // 13. Sudoku Pro Style "SELECT DIFFICULTY" Modal
     if (state === GameState.DIFF_SELECT) {
       this.renderDifficultyDialog(ctx, sliderPos);
     } else if (state === GameState.TUTORIAL) {
@@ -241,24 +237,28 @@ export class Renderer {
     ctx.restore();
   }
 
-  // Smooth background color interpolation between Coral and Cyan
-  private renderBackground(ctx: CanvasRenderingContext2D, turnProgress: number): void {
-    // Coral: [249, 153, 117] -> Cyan: [90, 167, 212]
+  // Full-bleed background extending edge-to-edge across entire screen (Zero black borders)
+  private renderFullBleedBackground(
+    ctx: CanvasRenderingContext2D,
+    turnProgress: number,
+    w: number,
+    h: number
+  ): void {
     const r = Math.round(249 + (90 - 249) * turnProgress);
     const g = Math.round(153 + (167 - 153) * turnProgress);
     const b = Math.round(117 + (212 - 117) * turnProgress);
     const bgColor = `rgb(${r}, ${g}, ${b})`;
 
     ctx.fillStyle = bgColor;
-    ctx.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
+    ctx.fillRect(0, 0, w, h);
 
-    // Subtle side sheen
-    const sideSheen = ctx.createLinearGradient(0, 0, DESIGN_WIDTH, 0);
-    sideSheen.addColorStop(0, 'rgba(0, 0, 0, 0.025)');
-    sideSheen.addColorStop(0.5, 'rgba(255, 255, 255, 0.035)');
-    sideSheen.addColorStop(1, 'rgba(0, 0, 0, 0.025)');
-    ctx.fillStyle = sideSheen;
-    ctx.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
+    // Subtle ambient lighting gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0.05)');
+    grad.addColorStop(0.5, 'rgba(0, 0, 0, 0)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0.06)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
   }
 
   // "Your turn" bottom circle & "Bot thinking" rounded panel
@@ -333,7 +333,7 @@ export class Renderer {
     }
   }
 
-  // Stationary pieces committed to board (Flat solid colors from screenshot)
+  // Stationary pieces committed to board (Flat solid colors)
   private renderSettledPieces(ctx: CanvasRenderingContext2D, board: Cell[][]): void {
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
@@ -418,7 +418,7 @@ export class Renderer {
     ctx.restore();
   }
 
-  // Top Header: Back Arrow, Sudoku Pro Difficulty Pill, Sound Toggle, and Restart
+  // Top Header: Sudoku Pro Difficulty Pill, Sound Toggle, and Restart (Back button removed)
   private renderHeader(
     ctx: CanvasRenderingContext2D,
     difficulty: Difficulty,
@@ -426,35 +426,18 @@ export class Renderer {
   ): void {
     const diffObj = DIFFICULTIES.find(d => d.id === difficulty) || DIFFICULTIES[0];
 
-    // 1. Back Button (Top Left - Circular diameter 52px)
-    ctx.save();
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 3;
-    ctx.beginPath();
-    ctx.arc(46, 72, 26, 0, Math.PI * 2);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fill();
-    ctx.restore();
-
-    ctx.font = '900 26px Fredoka, Nunito, Inter, sans-serif';
-    ctx.fillStyle = '#E87063';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('‹', 45, 70);
-
-    // 2. Sudoku Pro Difficulty Pill Banner (Top Center)
-    const pillX = 96;
-    const pillY = 53;
-    const pillW = 136;
-    const pillH = 38;
+    // 1. Sudoku Pro Difficulty Pill Banner (Centered/Left prominent)
+    const pillX = 100;
+    const pillY = 54;
+    const pillW = 144;
+    const pillH = 40;
 
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
     ctx.shadowBlur = 8;
     ctx.shadowOffsetY = 2;
     ctx.beginPath();
-    (ctx as any).roundRect(pillX, pillY, pillW, pillH, 19);
+    (ctx as any).roundRect(pillX, pillY, pillW, pillH, 20);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     ctx.strokeStyle = '#E2E8F0';
@@ -463,22 +446,22 @@ export class Renderer {
 
     // Colored difficulty indicator dot
     ctx.beginPath();
-    ctx.arc(pillX + 20, pillY + pillH / 2, 5.5, 0, Math.PI * 2);
+    ctx.arc(pillX + 22, pillY + pillH / 2, 6, 0, Math.PI * 2);
     ctx.fillStyle = diffObj.color;
     ctx.fill();
 
-    ctx.font = '800 13px Fredoka, Nunito, Inter, sans-serif';
+    ctx.font = '800 13.5px Fredoka, Nunito, Inter, sans-serif';
     ctx.fillStyle = '#1E293B';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${diffObj.label} ▼`, pillX + 34, pillY + pillH / 2);
+    ctx.fillText(`${diffObj.label} ▼`, pillX + 36, pillY + pillH / 2);
     ctx.restore();
 
-    // 3. Sound Toggle Button (Pill 46x38)
-    const soundX = 244;
-    const soundY = 53;
-    const soundW = 46;
-    const soundH = 38;
+    // 2. Sound Toggle Button (Pill 44x40)
+    const soundX = 260;
+    const soundY = 54;
+    const soundW = 44;
+    const soundH = 40;
 
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
@@ -498,13 +481,13 @@ export class Renderer {
     ctx.fillText(synth.muted ? '🔇' : '🔊', soundX + soundW / 2, soundY + soundH / 2);
     ctx.restore();
 
-    // 4. Restart Button (Top Right - Circular diameter 52px)
+    // 3. Restart Button (Top Right - Circular diameter 52px)
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
     ctx.shadowBlur = 10;
     ctx.shadowOffsetY = 3;
     ctx.beginPath();
-    ctx.arc(354, 72, 26, 0, Math.PI * 2);
+    ctx.arc(348, 74, 25, 0, Math.PI * 2);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     ctx.restore();
@@ -513,10 +496,10 @@ export class Renderer {
     ctx.fillStyle = '#E87063';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('↺', 354, 71);
+    ctx.fillText('↺', 348, 73);
   }
 
-  // Translucent dark purple overlay and result popup
+  // Result Overlay Screen (Settings & Play Again buttons only - Home removed)
   private renderResultScreen(
     ctx: CanvasRenderingContext2D,
     winner: Cell | null,
@@ -553,17 +536,20 @@ export class Renderer {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
     ctx.fillText(sub, DESIGN_WIDTH / 2, 275);
 
-    // Three Bottom Result Action Buttons
-    const btnY = 730;
+    // Two Bottom Result Action Buttons: Settings (Purple) + PLAY AGAIN (Green)
+    const btnY = 725;
 
-    // 1. Home (Coral Square)
+    // 1. Difficulty / Settings Button (Purple Square)
+    const settingsX = 68;
+    const settingsW = 58;
+    const settingsH = 58;
     ctx.save();
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+    ctx.shadowColor = 'rgba(139, 92, 246, 0.35)';
     ctx.shadowBlur = 12;
     ctx.shadowOffsetY = 4;
     ctx.beginPath();
-    (ctx as any).roundRect(50, btnY, 58, 58, 16);
-    ctx.fillStyle = THEME.btnHome;
+    (ctx as any).roundRect(settingsX, btnY, settingsW, settingsH, 18);
+    ctx.fillStyle = THEME.btnStats;
     ctx.fill();
     ctx.restore();
 
@@ -571,15 +557,18 @@ export class Renderer {
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('🏠', 50 + 29, btnY + 29);
+    ctx.fillText('⚙', settingsX + settingsW / 2, btnY + settingsH / 2);
 
-    // 2. PLAY AGAIN (Wide Green Rectangle)
+    // 2. PLAY AGAIN Button (Wide Green Rectangle)
+    const playAgainX = 142;
+    const playAgainW = 190;
+    const playAgainH = 58;
     ctx.save();
     ctx.shadowColor = 'rgba(34, 197, 94, 0.35)';
     ctx.shadowBlur = 14;
     ctx.shadowOffsetY = 4;
     ctx.beginPath();
-    (ctx as any).roundRect(124, btnY, 152, 58, 16);
+    (ctx as any).roundRect(playAgainX, btnY, playAgainW, playAgainH, 18);
     ctx.fillStyle = THEME.btnPlayAgain;
     ctx.fill();
     ctx.restore();
@@ -588,24 +577,7 @@ export class Renderer {
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('PLAY AGAIN ▶', 124 + 76, btnY + 29);
-
-    // 3. Difficulty / Settings (Purple Square)
-    ctx.save();
-    ctx.shadowColor = 'rgba(139, 92, 246, 0.35)';
-    ctx.shadowBlur = 12;
-    ctx.shadowOffsetY = 4;
-    ctx.beginPath();
-    (ctx as any).roundRect(292, btnY, 58, 58, 16);
-    ctx.fillStyle = THEME.btnStats;
-    ctx.fill();
-    ctx.restore();
-
-    ctx.font = '22px sans-serif';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('⚙', 292 + 29, btnY + 29);
+    ctx.fillText('PLAY AGAIN ▶', playAgainX + playAgainW / 2, btnY + playAgainH / 2);
 
     ctx.restore();
   }
@@ -637,7 +609,6 @@ export class Renderer {
 
   public renderDifficultyDialog(ctx: CanvasRenderingContext2D, sliderPos: number): void {
     ctx.save();
-    // Backdrop
     ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
     ctx.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
 
