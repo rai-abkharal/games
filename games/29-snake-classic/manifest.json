@@ -1,0 +1,16 @@
+{
+  "id": "snake-classic",
+  "title": "Cute Snake",
+  "version": "1.0.0",
+  "description": "Cute cartoon snake arcade adventure! Slither across the 13x21 checkerboard arena, gobble tasty berries, grow your tail, and smash all-time high scores across Easy, Medium, and Hard tiers!",
+  "orientation": "portrait",
+  "engine": "canvas2d",
+  "category": "Arcade",
+  "feedOrder": 49,
+  "status": "published",
+  "touchZones": [],
+  "features": {
+    "sound": true,
+    "vibration": true
+  }
+}

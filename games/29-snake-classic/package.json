@@ -1,0 +1,17 @@
+{
+  "name": "snake-classic",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cute Snake Classic - Endless 13x21 cartoon snake game with smooth interpolation and multi-tier difficulty",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vite": "^6.1.1",
+    "vite-plugin-singlefile": "^2.1.0"
+  }
+}
