@@ -15,28 +15,28 @@ export class AI {
     if (validCols.length === 1) return validCols[0];
 
     // Difficulty settings
-    // Easy: Friendly & casual, misses 80% of blocks and 65% of wins so players win easily
-    // Medium: Balanced & beatable, misses 50% of blocks and allows player setups and forks to win
-    // Hard: Capable opponent, but toned down to depth 3 and misses 30% of blocks so players can win
+    // Easy: Casual & fun, blocks ~40% of direct threats so user gets a real game but wins easily
+    // Medium: Balanced & beatable, blocks ~55% of threats, allows tactics & forks to succeed
+    // Hard: Capable opponent at depth 3, blocks ~72% of single threats, beatable with strategy
     let depth = 2;
-    let mistakeChance = 0.30;
-    let winChance = 0.65;
-    let blockChance = 0.50;
-    let candidateTolerance = 30;
+    let mistakeChance = 0.25;
+    let winChance = 0.68;
+    let blockChance = 0.55;
+    let candidateTolerance = 25;
     let centerWeight = 2;
 
     if (difficulty === Difficulty.Easy) {
-      depth = 1;
-      mistakeChance = 0.50;
-      winChance = 0.35;
-      blockChance = 0.20;
-      candidateTolerance = 50;
+      depth = 2;
+      mistakeChance = 0.30;
+      winChance = 0.55;
+      blockChance = 0.40;
+      candidateTolerance = 35;
       centerWeight = 1;
     } else if (difficulty === Difficulty.Hard) {
       depth = 3;
-      mistakeChance = 0.18;
-      winChance = 0.80;
-      blockChance = 0.70;
+      mistakeChance = 0.15;
+      winChance = 0.82;
+      blockChance = 0.72;
       candidateTolerance = 18;
       centerWeight = 3;
     }

@@ -76,8 +76,8 @@ export const DIFFICULTIES: DifficultyConfig[] = [
     emblem: 'leaf',
     subtitle: 'Relaxed & Fun',
     description: 'Casual AI • Friendly & easy to win',
-    depth: 1,
-    mistakeChance: 0.65
+    depth: 2,
+    mistakeChance: 0.30
   },
   {
     id: Difficulty.Medium,
@@ -88,7 +88,7 @@ export const DIFFICULTIES: DifficultyConfig[] = [
     subtitle: 'Balanced Logic',
     description: 'Balanced AI • Fun & beatable challenge',
     depth: 2,
-    mistakeChance: 0.40
+    mistakeChance: 0.25
   },
   {
     id: Difficulty.Hard,
@@ -99,7 +99,7 @@ export const DIFFICULTIES: DifficultyConfig[] = [
     subtitle: 'Deep Strategy',
     description: 'Strategic AI • Smart but beatable',
     depth: 3,
-    mistakeChance: 0.20
+    mistakeChance: 0.15
   }
 ];
 
