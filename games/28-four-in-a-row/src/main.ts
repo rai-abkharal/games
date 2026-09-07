@@ -190,7 +190,7 @@ export class Game {
       x: startX,
       y: startY,
       targetY,
-      velocityY: 120, // Initial push
+      velocityY: 140, // Initial push
       bounceCount: 0,
       settled: false
     };
@@ -250,13 +250,10 @@ export class Game {
     if (this.yourTurnTimer > 0) {
       this.yourTurnTimer -= dt;
       if (this.yourTurnTimer > 0.7) {
-        // Pop up (0 -> 1)
         this.yourTurnProgress = (1.0 - this.yourTurnTimer) / 0.3;
       } else if (this.yourTurnTimer > 0.3) {
-        // Hold at 1.0
         this.yourTurnProgress = 1.0;
       } else {
-        // Fade out
         this.yourTurnProgress = Math.max(0, this.yourTurnTimer / 0.3);
       }
     } else {
@@ -419,15 +416,15 @@ export class Game {
 
       // 3. Top Header Navigation Buttons
       // Top Left: Back button
-      if (Math.hypot(px - 42, py - 62) <= 26) {
+      if (Math.hypot(px - 46, py - 72) <= 28) {
         this.synth.playButton();
         Host.post('onBack');
         this.state = GameState.DIFF_SELECT;
         return;
       }
 
-      // Difficulty Pill Button
-      if (px >= 82 && px <= 200 && py >= 44 && py <= 80) {
+      // Difficulty Pill Banner
+      if (px >= 96 && px <= 232 && py >= 53 && py <= 91) {
         this.synth.playButton();
         this.sliderPos = DIFFICULTIES.findIndex(d => d.id === this.difficulty);
         this.state = GameState.DIFF_SELECT;
@@ -435,13 +432,13 @@ export class Game {
       }
 
       // Sound Toggle Button
-      if (px >= 212 && px <= 258 && py >= 44 && py <= 80) {
+      if (px >= 244 && px <= 290 && py >= 53 && py <= 91) {
         this.synth.toggleMute();
         return;
       }
 
       // Top Right: Restart Button
-      if (Math.hypot(px - 342, py - 62) <= 26) {
+      if (Math.hypot(px - 354, py - 72) <= 28) {
         this.synth.playButton();
         this.startNewMatch(this.difficulty);
         return;
@@ -449,10 +446,10 @@ export class Game {
 
       // 4. Result Screen Buttons
       if (this.state === GameState.RESULT_SCREEN) {
-        const btnY = 705;
+        const btnY = 730;
 
         // Home Button
-        if (px >= 46 && px <= 104 && py >= btnY && py <= btnY + 58) {
+        if (px >= 50 && px <= 108 && py >= btnY && py <= btnY + 58) {
           this.synth.playButton();
           Host.post('onBack');
           this.state = GameState.DIFF_SELECT;
@@ -460,14 +457,14 @@ export class Game {
         }
 
         // PLAY AGAIN Button
-        if (px >= 118 && px <= 266 && py >= btnY && py <= btnY + 58) {
+        if (px >= 124 && px <= 276 && py >= btnY && py <= btnY + 58) {
           this.synth.playButton();
           this.startNewMatch(this.difficulty);
           return;
         }
 
         // Difficulty / Settings Button
-        if (px >= 280 && px <= 338 && py >= btnY && py <= btnY + 58) {
+        if (px >= 292 && px <= 350 && py >= btnY && py <= btnY + 58) {
           this.synth.playButton();
           this.state = GameState.DIFF_SELECT;
           return;

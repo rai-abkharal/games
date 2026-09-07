@@ -1,6 +1,6 @@
 {
   "version": 29,
-  "updatedAt": "2026-09-07T08:13:33.880Z",
+  "updatedAt": "2026-09-07T08:34:01.954Z",
   "games": [
     {
       "id": "game-mtmsq289",
@@ -959,15 +959,34 @@
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/four-in-a-row/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/four-in-a-row.webp",
-      "sizeBytes": 34281,
+      "sizeBytes": 34595,
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/four-in-a-row/1.0.0/manifest.json",
       "feedOrder": 48,
       "category": "Board",
       "description": "Classic 4 In A Row challenge against smart AI. Drop your discs, connect four in a line horizontally, vertically, or diagonally, and outsmart the bot across Easy, Medium, and Hard tiers!",
-      "sha256": "ca057f4a5b8e09bdd3969190aedb6bb7021385be5baea458b3645e74bf82efe4",
+      "sha256": "7fa288ee9c0fb62d5fa0a7d07fd0b48770e257df82b90f4b82b07a5fba39296e",
       "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true
+      }
+    },
+    {
+      "id": "water-sort",
+      "title": "Water Sort 3D",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/water-sort/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/water-sort.webp",
+      "sizeBytes": 15000,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/water-sort/1.0.0/manifest.json",
+      "feedOrder": 49,
+      "category": "Puzzle",
+      "description": "AAA luxury 3D Liquid Sorting Puzzle with realistic fluid physics, procedural audio synthesis, and guaranteed solvable levels.",
       "touchZones": [],
       "features": {
         "sound": true,
@@ -1151,25 +1170,6 @@
       "features": {
         "sound": true,
         "vibration": false
-      }
-    },
-    {
-      "id": "water-sort",
-      "title": "Water Sort 3D",
-      "version": "1.0.0",
-      "entryUrl": "http://localhost:8080/games/water-sort/1.0.0/index.html",
-      "thumbnailUrl": "http://localhost:8080/thumbnails/water-sort.webp",
-      "sizeBytes": 15000,
-      "orientation": "portrait",
-      "engine": "canvas2d",
-      "manifestUrl": "http://localhost:8080/games/water-sort/1.0.0/manifest.json",
-      "feedOrder": 49,
-      "category": "Puzzle",
-      "description": "AAA luxury 3D Liquid Sorting Puzzle with realistic fluid physics, procedural audio synthesis, and guaranteed solvable levels.",
-      "touchZones": [],
-      "features": {
-        "sound": true,
-        "vibration": true
       }
     }
   ]

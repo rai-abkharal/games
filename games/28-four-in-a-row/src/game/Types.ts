@@ -2,8 +2,8 @@ export const ROWS = 6;
 export const COLS = 7;
 export const WIN_COUNT = 4;
 
-export const DESIGN_WIDTH = 384;
-export const DESIGN_HEIGHT = 850;
+export const DESIGN_WIDTH = 400;
+export const DESIGN_HEIGHT = 860;
 
 export enum Cell {
   Empty = 0,

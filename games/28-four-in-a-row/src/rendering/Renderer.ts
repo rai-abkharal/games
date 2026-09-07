@@ -61,6 +61,9 @@ export class Renderer {
   public offsetY: number = 0;
   public dpr: number = 1;
 
+  // Cached pre-rendered board front plate canvas for maximum performance & zero masking glitches
+  private plateCanvas: HTMLCanvasElement | null = null;
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     const context = canvas.getContext('2d', { alpha: false });
@@ -89,6 +92,9 @@ export class Renderer {
     this.ctx.scale(this.dpr, this.dpr);
     this.ctx.imageSmoothingEnabled = true;
     this.ctx.imageSmoothingQuality = 'high';
+
+    // Invalidate pre-rendered plate on resize
+    this.plateCanvas = null;
   }
 
   public toVirtual(clientX: number, clientY: number): { x: number; y: number } {
@@ -101,6 +107,58 @@ export class Renderer {
     };
   }
 
+  // Generate physically punched front plate with 42 transparent holes using destination-out
+  private getFrontPlate(): HTMLCanvasElement {
+    if (this.plateCanvas) return this.plateCanvas;
+
+    const w = THEME.boardW;
+    const h = THEME.boardH;
+
+    const plate = document.createElement('canvas');
+    plate.width = Math.round(w * 2); // 2x resolution for razor sharpness
+    plate.height = Math.round(h * 2);
+    const pctx = plate.getContext('2d')!;
+    pctx.scale(2, 2);
+
+    // 1. Fill entire board plate in deep slate (#1F2630) with rounded top corners
+    pctx.beginPath();
+    (pctx as any).roundRect(0, 0, w, h, [THEME.boardRadius, THEME.boardRadius, 4, 4]);
+    pctx.fillStyle = THEME.boardFace;
+    pctx.fill();
+
+    // 2. Punch out the 42 circular holes cleanly using destination-out
+    pctx.globalCompositeOperation = 'destination-out';
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const cx = THEME.slotCentersX[c] - THEME.boardX;
+        const cy = THEME.slotCentersY[r] - THEME.boardY;
+        pctx.beginPath();
+        pctx.arc(cx, cy, THEME.slotRadius, 0, Math.PI * 2);
+        pctx.fill();
+      }
+    }
+    pctx.globalCompositeOperation = 'source-over';
+
+    // 3. Bottom Base Bar (Dark Charcoal #151C23)
+    const baseBarH = 38;
+    const baseBarY = h - baseBarH;
+    pctx.beginPath();
+    (pctx as any).roundRect(0, baseBarY, w, baseBarH, [0, 0, 4, 4]);
+    pctx.fillStyle = THEME.baseBar;
+    pctx.fill();
+
+    // Subtle horizontal divider line above base bar
+    pctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    pctx.lineWidth = 1;
+    pctx.beginPath();
+    pctx.moveTo(0, baseBarY);
+    pctx.lineTo(w, baseBarY);
+    pctx.stroke();
+
+    this.plateCanvas = plate;
+    return plate;
+  }
+
   // Main Render Routine
   public render(
     state: GameState,
@@ -108,7 +166,7 @@ export class Renderer {
     difficulty: Difficulty,
     sliderPos: number,
     turnProgress: number, // 0 = Player (Coral), 1 = Bot (Cyan)
-    yourTurnProgress: number, // 0 to 1 for "Your turn" entrance/fade
+    yourTurnProgress: number,
     botThinkingTime: number,
     fallingPiece: FallingPiece | null,
     previewPiece: PreviewPiece,
@@ -127,50 +185,53 @@ export class Renderer {
     ctx.fillStyle = '#0F141A';
     ctx.fillRect(0, 0, w, h);
 
-    // Apply viewport transform (Centered 384x850 virtual space)
+    // Apply viewport transform (Centered 400x860 virtual space)
     ctx.translate(this.offsetX, this.offsetY);
     ctx.scale(this.scale, this.scale);
 
-    // 1. Animated Background Crossfade
+    // 1. Background Crossfade (Coral <-> Cyan)
     this.renderBackground(ctx, turnProgress);
 
     // 2. HUD: "Your turn" bottom circle or "Bot thinking" top panel
     this.renderHUD(ctx, state, yourTurnProgress, botThinkingTime);
 
-    // 3. Board Elements (With Physical Front-Plate Hole Masking)
-    this.renderBoardHolesBackground(ctx);
+    // 3. Behind Board: Empty Hole Slate Backgrounds
+    this.renderHoleBackgrounds(ctx);
+
+    // 4. Behind Board: Settled Pieces
     this.renderSettledPieces(ctx, board);
 
-    // 4. Falling Piece (Renders Behind Front Plate)
+    // 5. Behind Board: Currently Falling Piece (Masked when behind front plate!)
     if (fallingPiece) {
-      this.renderDisc(ctx, fallingPiece.x, fallingPiece.y, fallingPiece.player, 1.0);
+      this.renderDisc(ctx, fallingPiece.x, fallingPiece.y, fallingPiece.player);
     }
 
-    // 5. Board Front Plate with 42 Transparent Holes Cut Out (Even-Odd Fill)
-    this.renderBoardFrontPlate(ctx);
+    // 6. Board Front Face Plate (Punched with 42 transparent apertures)
+    const plate = this.getFrontPlate();
+    ctx.drawImage(plate, THEME.boardX, THEME.boardY, THEME.boardW, THEME.boardH);
 
-    // 6. Black Rims around all 42 holes
+    // 7. On Top of Board: Thick Black Outlines around each of the 42 cells
     this.renderHoleOutlines(ctx);
 
-    // 7. Preview Aiming Piece Above Board
+    // 8. On Top of Board: Preview Aiming Piece (resting right on top rim of board)
     if (previewPiece.visible && (state === GameState.PLAYER_AIMING || state === GameState.PLAYER_TURN_INTRO)) {
-      this.renderDisc(ctx, previewPiece.x, previewPiece.y, Cell.Player, 1.0, true);
+      this.renderDisc(ctx, previewPiece.x, previewPiece.y, Cell.Player, true);
     }
 
-    // 8. Winning Animated White Line
+    // 9. Winning Animated White Line
     if (winningCells && winningCells.length >= 4 && winLineProgress > 0) {
       this.renderWinningLine(ctx, winningCells, winLineProgress);
     }
 
-    // 9. Top Navigation Header & Sudoku Pro Difficulty Pill
+    // 10. Top Navigation Header & Sudoku Pro Difficulty Banner
     this.renderHeader(ctx, difficulty, synth);
 
-    // 10. Result Overlay Screen
+    // 11. Result Overlay Screen
     if (resultOverlayOpacity > 0) {
       this.renderResultScreen(ctx, winner, resultOverlayOpacity);
     }
 
-    // 11. Sudoku Pro Style "SELECT DIFFICULTY" Modal
+    // 12. Sudoku Pro Style "SELECT DIFFICULTY" Modal
     if (state === GameState.DIFF_SELECT) {
       this.renderDifficultyDialog(ctx, sliderPos);
     } else if (state === GameState.TUTORIAL) {
@@ -182,25 +243,20 @@ export class Renderer {
 
   // Smooth background color interpolation between Coral and Cyan
   private renderBackground(ctx: CanvasRenderingContext2D, turnProgress: number): void {
-    // Coral: [253, 157, 115] -> Cyan: [90, 167, 212]
-    const r = Math.round(253 + (90 - 253) * turnProgress);
-    const g = Math.round(157 + (167 - 157) * turnProgress);
-    const b = Math.round(115 + (212 - 115) * turnProgress);
+    // Coral: [249, 153, 117] -> Cyan: [90, 167, 212]
+    const r = Math.round(249 + (90 - 249) * turnProgress);
+    const g = Math.round(153 + (167 - 153) * turnProgress);
+    const b = Math.round(117 + (212 - 117) * turnProgress);
     const bgColor = `rgb(${r}, ${g}, ${b})`;
 
-    // Fill background with subtle depth gradient
-    const grad = ctx.createLinearGradient(0, 0, 0, DESIGN_HEIGHT);
-    grad.addColorStop(0, bgColor);
-    grad.addColorStop(1, `rgba(${Math.max(0, r - 15)}, ${Math.max(0, g - 15)}, ${Math.max(0, b - 15)}, 1)`);
-
-    ctx.fillStyle = grad;
+    ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
 
-    // Subtle side sheen from reference video
+    // Subtle side sheen
     const sideSheen = ctx.createLinearGradient(0, 0, DESIGN_WIDTH, 0);
-    sideSheen.addColorStop(0, 'rgba(0, 0, 0, 0.03)');
-    sideSheen.addColorStop(0.5, 'rgba(255, 255, 255, 0.04)');
-    sideSheen.addColorStop(1, 'rgba(0, 0, 0, 0.03)');
+    sideSheen.addColorStop(0, 'rgba(0, 0, 0, 0.025)');
+    sideSheen.addColorStop(0.5, 'rgba(255, 255, 255, 0.035)');
+    sideSheen.addColorStop(1, 'rgba(0, 0, 0, 0.025)');
     ctx.fillStyle = sideSheen;
     ctx.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
   }
@@ -217,8 +273,8 @@ export class Renderer {
       ctx.save();
       ctx.globalAlpha = Math.min(1.0, yourTurnProgress);
 
-      const circleY = 840 - yourTurnProgress * 15;
-      const circleR = 98;
+      const circleY = 850 - yourTurnProgress * 14;
+      const circleR = 96;
 
       ctx.beginPath();
       ctx.arc(DESIGN_WIDTH / 2, circleY, circleR, 0, Math.PI * 2);
@@ -237,8 +293,8 @@ export class Renderer {
     // 2. "Bot thinking" rounded panel from reference video
     if (state === GameState.BOT_THINKING || state === GameState.BOT_DROPPING) {
       ctx.save();
-      const panelX = 44;
-      const panelY = 148;
+      const panelX = (DESIGN_WIDTH - 296) / 2;
+      const panelY = 160;
       const panelW = 296;
       const panelH = 72;
 
@@ -252,7 +308,6 @@ export class Renderer {
       ctx.fill();
       ctx.restore();
 
-      // Animated pulsing dots
       const dotCount = Math.floor((botThinkingTime * 4) % 4);
       const dots = '.'.repeat(dotCount);
 
@@ -266,8 +321,8 @@ export class Renderer {
     }
   }
 
-  // 42 Empty Hole Backings (Dark Gray)
-  private renderBoardHolesBackground(ctx: CanvasRenderingContext2D): void {
+  // 42 Empty Hole Backings (Clean slate gray #545B64)
+  private renderHoleBackgrounds(ctx: CanvasRenderingContext2D): void {
     ctx.fillStyle = THEME.emptyHole;
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
@@ -278,85 +333,44 @@ export class Renderer {
     }
   }
 
-  // Stationary pieces committed to board
+  // Stationary pieces committed to board (Flat solid colors from screenshot)
   private renderSettledPieces(ctx: CanvasRenderingContext2D, board: Cell[][]): void {
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const cell = board[r][c];
         if (cell !== Cell.Empty) {
-          this.renderDisc(ctx, THEME.slotCentersX[c], THEME.slotCentersY[r], cell, 1.0);
+          this.renderDisc(ctx, THEME.slotCentersX[c], THEME.slotCentersY[r], cell);
         }
       }
     }
   }
 
-  // Disc rendering with vibrant flat tone and subtle glossy bevel
+  // Solid flat disc rendering with optional black outline (used for preview piece)
   public renderDisc(
     ctx: CanvasRenderingContext2D,
     x: number,
     y: number,
     player: Cell,
-    alpha: number = 1.0,
-    hasAimOutline: boolean = false
+    hasBlackOutline: boolean = false
   ): void {
     ctx.save();
-    ctx.globalAlpha = alpha;
-
     const color = player === Cell.Player ? THEME.playerDisc : THEME.botDisc;
     const r = THEME.slotRadius;
 
-    // Disc fill
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
 
-    // Subtle glossy crescent highlight
-    ctx.beginPath();
-    ctx.arc(x, y, r * 0.85, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-
-    // Heavy outline for preview aiming token
-    if (hasAimOutline) {
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
+    if (hasBlackOutline) {
       ctx.strokeStyle = THEME.holeOutline;
       ctx.lineWidth = THEME.slotOutlineWidth;
       ctx.stroke();
     }
-
     ctx.restore();
   }
 
-  // The Magic Video Feature: Board Front Plate with 42 Holes Cut Out (Even-Odd Fill)
-  private renderBoardFrontPlate(ctx: CanvasRenderingContext2D): void {
-    ctx.save();
-    ctx.beginPath();
-
-    // Outer Board Housing with rounded top corners
-    (ctx as any).roundRect(
-      THEME.boardX,
-      THEME.boardY,
-      THEME.boardW,
-      THEME.boardH,
-      [THEME.boardRadius, THEME.boardRadius, 10, 10]
-    );
-
-    // Cut out 42 transparent circular apertures
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        ctx.arc(THEME.slotCentersX[c], THEME.slotCentersY[r], THEME.slotRadius, 0, Math.PI * 2);
-      }
-    }
-
-    ctx.fillStyle = THEME.boardFace;
-    ctx.fill('evenodd');
-    ctx.restore();
-  }
-
-  // Heavy Black Outlines around each of the 42 slots
+  // Heavy Pure Black Outlines around each of the 42 cells
   private renderHoleOutlines(ctx: CanvasRenderingContext2D): void {
     ctx.save();
     ctx.strokeStyle = THEME.holeOutline;
@@ -412,35 +426,35 @@ export class Renderer {
   ): void {
     const diffObj = DIFFICULTIES.find(d => d.id === difficulty) || DIFFICULTIES[0];
 
-    // 1. Back Button (Top Left - Circular 50px)
+    // 1. Back Button (Top Left - Circular diameter 52px)
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
     ctx.shadowBlur = 10;
     ctx.shadowOffsetY = 3;
     ctx.beginPath();
-    ctx.arc(42, 62, 25, 0, Math.PI * 2);
+    ctx.arc(46, 72, 26, 0, Math.PI * 2);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     ctx.restore();
 
     ctx.font = '900 26px Fredoka, Nunito, Inter, sans-serif';
-    ctx.fillStyle = THEME.playerDisc;
+    ctx.fillStyle = '#E87063';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('‹', 41, 60);
+    ctx.fillText('‹', 45, 70);
 
-    // 2. Sudoku Pro Difficulty Pill Button
-    const pillX = 82;
-    const pillY = 44;
-    const pillW = 118;
-    const pillH = 36;
+    // 2. Sudoku Pro Difficulty Pill Banner (Top Center)
+    const pillX = 96;
+    const pillY = 53;
+    const pillW = 136;
+    const pillH = 38;
 
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
     ctx.shadowBlur = 8;
     ctx.shadowOffsetY = 2;
     ctx.beginPath();
-    (ctx as any).roundRect(pillX, pillY, pillW, pillH, 18);
+    (ctx as any).roundRect(pillX, pillY, pillW, pillH, 19);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     ctx.strokeStyle = '#E2E8F0';
@@ -449,7 +463,7 @@ export class Renderer {
 
     // Colored difficulty indicator dot
     ctx.beginPath();
-    ctx.arc(pillX + 18, pillY + pillH / 2, 5, 0, Math.PI * 2);
+    ctx.arc(pillX + 20, pillY + pillH / 2, 5.5, 0, Math.PI * 2);
     ctx.fillStyle = diffObj.color;
     ctx.fill();
 
@@ -457,14 +471,14 @@ export class Renderer {
     ctx.fillStyle = '#1E293B';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${diffObj.label} ▼`, pillX + 30, pillY + pillH / 2);
+    ctx.fillText(`${diffObj.label} ▼`, pillX + 34, pillY + pillH / 2);
     ctx.restore();
 
-    // 3. Sound Button (Pill 44x36)
-    const soundX = 212;
-    const soundY = 44;
+    // 3. Sound Toggle Button (Pill 46x38)
+    const soundX = 244;
+    const soundY = 53;
     const soundW = 46;
-    const soundH = 36;
+    const soundH = 38;
 
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
@@ -484,22 +498,22 @@ export class Renderer {
     ctx.fillText(synth.muted ? '🔇' : '🔊', soundX + soundW / 2, soundY + soundH / 2);
     ctx.restore();
 
-    // 4. Restart Button (Top Right - Circular 50px)
+    // 4. Restart Button (Top Right - Circular diameter 52px)
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
     ctx.shadowBlur = 10;
     ctx.shadowOffsetY = 3;
     ctx.beginPath();
-    ctx.arc(342, 62, 25, 0, Math.PI * 2);
+    ctx.arc(354, 72, 26, 0, Math.PI * 2);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     ctx.restore();
 
     ctx.font = '800 24px sans-serif';
-    ctx.fillStyle = THEME.playerDisc;
+    ctx.fillStyle = '#E87063';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('↺', 342, 61);
+    ctx.fillText('↺', 354, 71);
   }
 
   // Translucent dark purple overlay and result popup
@@ -513,7 +527,6 @@ export class Renderer {
     ctx.fillStyle = THEME.resultOverlay;
     ctx.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
 
-    // Title: YOU WON! / YOU LOST! / DRAW!
     let title = 'YOU LOST!';
     let sub = 'The bot connected 4 in a row!';
     let titleColor = '#FFFFFF';
@@ -541,14 +554,15 @@ export class Renderer {
     ctx.fillText(sub, DESIGN_WIDTH / 2, 275);
 
     // Three Bottom Result Action Buttons
+    const btnY = 730;
+
     // 1. Home (Coral Square)
-    const btnY = 705;
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
     ctx.shadowBlur = 12;
     ctx.shadowOffsetY = 4;
     ctx.beginPath();
-    (ctx as any).roundRect(46, btnY, 58, 58, 16);
+    (ctx as any).roundRect(50, btnY, 58, 58, 16);
     ctx.fillStyle = THEME.btnHome;
     ctx.fill();
     ctx.restore();
@@ -557,7 +571,7 @@ export class Renderer {
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('🏠', 46 + 29, btnY + 29);
+    ctx.fillText('🏠', 50 + 29, btnY + 29);
 
     // 2. PLAY AGAIN (Wide Green Rectangle)
     ctx.save();
@@ -565,7 +579,7 @@ export class Renderer {
     ctx.shadowBlur = 14;
     ctx.shadowOffsetY = 4;
     ctx.beginPath();
-    (ctx as any).roundRect(118, btnY, 148, 58, 16);
+    (ctx as any).roundRect(124, btnY, 152, 58, 16);
     ctx.fillStyle = THEME.btnPlayAgain;
     ctx.fill();
     ctx.restore();
@@ -574,7 +588,7 @@ export class Renderer {
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('PLAY AGAIN ▶', 118 + 74, btnY + 29);
+    ctx.fillText('PLAY AGAIN ▶', 124 + 76, btnY + 29);
 
     // 3. Difficulty / Settings (Purple Square)
     ctx.save();
@@ -582,7 +596,7 @@ export class Renderer {
     ctx.shadowBlur = 12;
     ctx.shadowOffsetY = 4;
     ctx.beginPath();
-    (ctx as any).roundRect(280, btnY, 58, 58, 16);
+    (ctx as any).roundRect(292, btnY, 58, 58, 16);
     ctx.fillStyle = THEME.btnStats;
     ctx.fill();
     ctx.restore();
@@ -591,25 +605,25 @@ export class Renderer {
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('⚙', 280 + 29, btnY + 29);
+    ctx.fillText('⚙', 292 + 29, btnY + 29);
 
     ctx.restore();
   }
 
   // Exact Sudoku Pro Style "SELECT DIFFICULTY" Modal
   public getDifficultyDialogBounds() {
-    const cardW = 328;
+    const cardW = 336;
     const cardH = 430;
     const cardX = (DESIGN_WIDTH - cardW) / 2;
     const cardY = (DESIGN_HEIGHT - cardH) / 2 - 10;
 
-    const trackW = 250;
+    const trackW = 254;
     const trackH = 14;
     const trackX = (DESIGN_WIDTH - trackW) / 2;
     const trackY = cardY + 265;
     const knobR = 14;
 
-    const playW = 190;
+    const playW = 196;
     const playH = 50;
     const playX = cardX + 24;
     const playY = cardY + 345;
@@ -798,7 +812,6 @@ export class Renderer {
     ctx.strokeStyle = color;
 
     if (type === 'leaf') {
-      // Leaf emblem for Easy
       ctx.beginPath();
       ctx.moveTo(0, 16);
       ctx.bezierCurveTo(18, 12, 18, -12, 0, -18);
@@ -812,7 +825,6 @@ export class Renderer {
       ctx.lineWidth = 2;
       ctx.stroke();
     } else if (type === 'spark') {
-      // 4-Point Star Spark for Medium
       ctx.beginPath();
       for (let i = 0; i < 8; i++) {
         const angle = (i * Math.PI) / 4;
@@ -825,7 +837,6 @@ export class Renderer {
       ctx.closePath();
       ctx.fill();
     } else {
-      // Diamond emblem for Hard
       ctx.beginPath();
       ctx.moveTo(0, -18);
       ctx.lineTo(16, 0);
@@ -834,7 +845,6 @@ export class Renderer {
       ctx.closePath();
       ctx.fill();
 
-      // Inner gem facets
       ctx.beginPath();
       ctx.moveTo(0, -18);
       ctx.lineTo(0, 18);
@@ -854,7 +864,7 @@ export class Renderer {
     ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
     ctx.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
 
-    const modalW = 328;
+    const modalW = 336;
     const modalH = 460;
     const modalX = (DESIGN_WIDTH - modalW) / 2;
     const modalY = (DESIGN_HEIGHT - modalH) / 2;
@@ -899,7 +909,7 @@ export class Renderer {
     ctx.fill();
 
     for (let i = 0; i < 4; i++) {
-      const dx = modalX + 74 + i * 48;
+      const dx = modalX + 74 + i * 50;
       const dy = diagramY + 35;
       ctx.beginPath();
       ctx.arc(dx, dy, 16, 0, Math.PI * 2);
@@ -913,7 +923,7 @@ export class Renderer {
     // White connection line through illustration
     ctx.beginPath();
     ctx.moveTo(modalX + 74, diagramY + 35);
-    ctx.lineTo(modalX + 74 + 3 * 48, diagramY + 35);
+    ctx.lineTo(modalX + 74 + 3 * 50, diagramY + 35);
     ctx.strokeStyle = '#FFFFFF';
     ctx.lineWidth = 5;
     ctx.lineCap = 'round';
