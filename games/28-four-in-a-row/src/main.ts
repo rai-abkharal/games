@@ -277,9 +277,9 @@ export class Game {
         p.y = p.targetY;
         p.bounceCount++;
 
-        // Single precise metallic landing impact sound on first touch
+        // Light and classy disc landing sound on first touch
         if (p.bounceCount === 1) {
-          this.synth.playMetallicImpact();
+          this.synth.playDiscLand();
         }
 
         // Physical subtle rebound
@@ -399,25 +399,15 @@ export class Game {
       }
 
       // 3. Top Header Navigation Buttons
-      // Difficulty Pill Banner (Prominent banner)
-      const pillW = 136;
+      // Difficulty Pill Banner (Centered)
+      const pillW = 140;
       const pillH = 38;
-      const pillX = Math.max(16, (w - pillW) / 2 - 24);
+      const pillX = Math.round((w - pillW) / 2);
       const pillY = 32;
       if (px >= pillX && px <= pillX + pillW && py >= pillY && py <= pillY + pillH) {
         this.synth.playButton();
         this.sliderPos = DIFFICULTIES.findIndex(d => d.id === this.difficulty);
         this.state = GameState.DIFF_SELECT;
-        return;
-      }
-
-      // Sound Toggle Button
-      const soundW = 40;
-      const soundH = 38;
-      const soundX = w - 92;
-      const soundY = 32;
-      if (px >= soundX && px <= soundX + soundW && py >= soundY && py <= soundY + soundH) {
-        this.synth.toggleMute();
         return;
       }
 

@@ -34,85 +34,74 @@ export class SoundSynth {
     return this.muted;
   }
 
-  // Precise single metallic disc landing impact sound
-  public playMetallicImpact(): void {
+  // Light, classy, acoustic wooden/ceramic disc landing sound
+  // Smooth pure sine waves with warm organic resonance (Zero harsh square-wave clicks)
+  public playDiscLand(): void {
     if (this.muted) return;
     this.init();
     if (!this.ctx) return;
 
     const t = this.ctx.currentTime;
 
-    // 1. Metal fundamental tone (F#5 ~740 Hz dropping to 380 Hz)
+    // 1. Primary warm tone (Pure sine gliding smoothly from 420 Hz down to 210 Hz)
     const osc1 = this.ctx.createOscillator();
     const gain1 = this.ctx.createGain();
-    osc1.type = 'triangle';
-    osc1.frequency.setValueAtTime(740, t);
-    osc1.frequency.exponentialRampToValueAtTime(360, t + 0.08);
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(420, t);
+    osc1.frequency.exponentialRampToValueAtTime(210, t + 0.065);
 
-    gain1.gain.setValueAtTime(0.6, t);
-    gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+    // Smooth gentle envelope: 2ms linear attack prevents digital pops, exponential decay
+    gain1.gain.setValueAtTime(0.001, t);
+    gain1.gain.linearRampToValueAtTime(0.30, t + 0.003);
+    gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
 
     osc1.connect(gain1);
     gain1.connect(this.ctx.destination);
     osc1.start(t);
-    osc1.stop(t + 0.1);
+    osc1.stop(t + 0.075);
 
-    // 2. High metallic ring overtone (~1420 Hz)
+    // 2. Soft acoustic hollow body resonance (170 Hz warm low-mid thock)
     const osc2 = this.ctx.createOscillator();
     const gain2 = this.ctx.createGain();
     osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(1420, t);
-    osc2.frequency.exponentialRampToValueAtTime(920, t + 0.07);
+    osc2.frequency.setValueAtTime(170, t);
+    osc2.frequency.exponentialRampToValueAtTime(110, t + 0.05);
 
-    gain2.gain.setValueAtTime(0.35, t);
-    gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    gain2.gain.setValueAtTime(0.001, t);
+    gain2.gain.linearRampToValueAtTime(0.18, t + 0.003);
+    gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
 
     osc2.connect(gain2);
     gain2.connect(this.ctx.destination);
     osc2.start(t);
-    osc2.stop(t + 0.09);
+    osc2.stop(t + 0.06);
 
-    // 3. Crisp metallic snap click (2800 Hz)
-    const snapOsc = this.ctx.createOscillator();
-    const snapGain = this.ctx.createGain();
-    snapOsc.type = 'square';
-    snapOsc.frequency.setValueAtTime(2800, t);
-    snapOsc.frequency.exponentialRampToValueAtTime(700, t + 0.012);
+    // 3. Delicate high overtone for tactile presence (Pure sine ~760 Hz, zero harshness)
+    const osc3 = this.ctx.createOscillator();
+    const gain3 = this.ctx.createGain();
+    osc3.type = 'sine';
+    osc3.frequency.setValueAtTime(760, t);
+    osc3.frequency.exponentialRampToValueAtTime(380, t + 0.025);
 
-    snapGain.gain.setValueAtTime(0.2, t);
-    snapGain.gain.exponentialRampToValueAtTime(0.001, t + 0.016);
+    gain3.gain.setValueAtTime(0.001, t);
+    gain3.gain.linearRampToValueAtTime(0.09, t + 0.002);
+    gain3.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
 
-    snapOsc.connect(snapGain);
-    snapGain.connect(this.ctx.destination);
-    snapOsc.start(t);
-    snapOsc.stop(t + 0.02);
+    osc3.connect(gain3);
+    gain3.connect(this.ctx.destination);
+    osc3.start(t);
+    osc3.stop(t + 0.03);
   }
 
-  // Short whoosh when piece begins falling
-  public playDrop(): void {
-    if (this.muted) return;
-    this.init();
-    if (!this.ctx) return;
-
-    const t = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(540, t);
-    osc.frequency.exponentialRampToValueAtTime(180, t + 0.09);
-
-    gain.gain.setValueAtTime(0.12, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(t);
-    osc.stop(t + 0.11);
+  // Alias for backward compatibility
+  public playMetallicImpact(): void {
+    this.playDiscLand();
   }
 
-  // UI button click
+  // Muted during disc fall (single clean sound only upon landing)
+  public playDrop(): void {}
+
+  // UI button click: soft, subtle acoustic tap
   public playButton(): void {
     if (this.muted) return;
     this.init();
@@ -123,44 +112,24 @@ export class SoundSynth {
     const gain = this.ctx.createGain();
 
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(620, t);
-    osc.frequency.exponentialRampToValueAtTime(320, t + 0.035);
+    osc.frequency.setValueAtTime(560, t);
+    osc.frequency.exponentialRampToValueAtTime(420, t + 0.03);
 
-    gain.gain.setValueAtTime(0.25, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(t);
-    osc.stop(t + 0.045);
-  }
-
-  // Turn transition sound
-  public playTurn(): void {
-    if (this.muted) return;
-    this.init();
-    if (!this.ctx) return;
-
-    const t = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(500, t);
-    osc.frequency.exponentialRampToValueAtTime(650, t + 0.12);
-
-    gain.gain.setValueAtTime(0.15, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.14, t + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
 
     osc.start(t);
-    osc.stop(t + 0.16);
+    osc.stop(t + 0.04);
   }
 
-  // Victory fanfare chime
+  // Silent turn transition so gameplay stays quiet and focused on the disc drops
+  public playTurn(): void {}
+
+  // Victory fanfare chime (light, elegant arpeggio)
   public playWin(): void {
     if (this.muted) return;
     this.init();
@@ -175,10 +144,11 @@ export class SoundSynth {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
 
-      osc.type = 'triangle';
+      osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, noteTime);
 
-      gain.gain.setValueAtTime(0.35, noteTime);
+      gain.gain.setValueAtTime(0.001, noteTime);
+      gain.gain.linearRampToValueAtTime(0.28, noteTime + 0.004);
       gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.35);
 
       osc.connect(gain);
@@ -207,7 +177,8 @@ export class SoundSynth {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, noteTime);
 
-      gain.gain.setValueAtTime(0.28, noteTime);
+      gain.gain.setValueAtTime(0.001, noteTime);
+      gain.gain.linearRampToValueAtTime(0.20, noteTime + 0.004);
       gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.28);
 
       osc.connect(gain);

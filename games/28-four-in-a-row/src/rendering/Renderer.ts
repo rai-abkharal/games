@@ -245,8 +245,8 @@ export class Renderer {
       this.renderWinningLine(ctx, winningCells, winLineProgress);
     }
 
-    // 10. Top Navigation Header (Sudoku Pro Difficulty Banner, Sound, Restart - No Back Button)
-    this.renderHeader(ctx, difficulty, synth);
+    // 10. Top Navigation Header (Sudoku Pro Difficulty Banner and Restart - Audio button removed)
+    this.renderHeader(ctx, difficulty);
 
     // 11. Result Overlay Screen (Settings & Play Again buttons only - No Home button)
     if (resultOverlayOpacity > 0) {
@@ -445,19 +445,18 @@ export class Renderer {
     ctx.restore();
   }
 
-  // Top Header: Sudoku Pro Difficulty Pill, Sound Toggle, and Restart (Back button removed)
+  // Top Header: Sudoku Pro Difficulty Pill Banner and Restart (Audio button removed per user request)
   private renderHeader(
     ctx: CanvasRenderingContext2D,
-    difficulty: Difficulty,
-    synth: SoundSynth
+    difficulty: Difficulty
   ): void {
     const diffObj = DIFFICULTIES.find(d => d.id === difficulty) || DIFFICULTIES[0];
     const w = this.width;
 
-    // 1. Sudoku Pro Difficulty Pill Banner (Prominent top banner)
-    const pillW = 136;
+    // 1. Sudoku Pro Difficulty Pill Banner (Centered)
+    const pillW = 140;
     const pillH = 38;
-    const pillX = Math.max(16, (w - pillW) / 2 - 24);
+    const pillX = Math.round((w - pillW) / 2);
     const pillY = 32;
 
     ctx.save();
@@ -474,7 +473,7 @@ export class Renderer {
 
     // Colored difficulty indicator dot
     ctx.beginPath();
-    ctx.arc(pillX + 20, pillY + pillH / 2, 5.5, 0, Math.PI * 2);
+    ctx.arc(pillX + 22, pillY + pillH / 2, 5.5, 0, Math.PI * 2);
     ctx.fillStyle = diffObj.color;
     ctx.fill();
 
@@ -482,34 +481,10 @@ export class Renderer {
     ctx.fillStyle = '#1E293B';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${diffObj.label} ▼`, pillX + 33, pillY + pillH / 2);
+    ctx.fillText(`${diffObj.label} ▼`, pillX + 36, pillY + pillH / 2);
     ctx.restore();
 
-    // 2. Sound Toggle Button
-    const soundW = 40;
-    const soundH = 38;
-    const soundX = w - 92;
-    const soundY = 32;
-
-    ctx.save();
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetY = 2;
-    ctx.beginPath();
-    (ctx as any).roundRect(soundX, soundY, soundW, soundH, 14);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fill();
-    ctx.strokeStyle = '#E2E8F0';
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-
-    ctx.font = '15px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(synth.muted ? '🔇' : '🔊', soundX + soundW / 2, soundY + soundH / 2);
-    ctx.restore();
-
-    // 3. Restart Button (Top Right matching user phone reference screenshot)
+    // 2. Restart Button (Top Right matching user phone reference screenshot)
     const restartR = 21;
     const restartX = w - 40;
     const restartY = 51;
