@@ -15,45 +15,87 @@ export class AI {
     if (validCols.length === 1) return validCols[0];
 
     // Difficulty settings
-    let depth = 4;
-    let mistakeChance = 0.10;
+    // Easy: Friendly & casual, misses 80% of blocks and 65% of wins so players win easily
+    // Medium: Balanced & beatable, misses 50% of blocks and allows player setups and forks to win
+    // Hard: Capable opponent, but toned down to depth 3 and misses 30% of blocks so players can win
+    let depth = 2;
+    let mistakeChance = 0.30;
+    let winChance = 0.65;
+    let blockChance = 0.50;
+    let candidateTolerance = 30;
+    let centerWeight = 2;
 
     if (difficulty === Difficulty.Easy) {
-      depth = 2;
-      mistakeChance = 0.35;
+      depth = 1;
+      mistakeChance = 0.50;
+      winChance = 0.35;
+      blockChance = 0.20;
+      candidateTolerance = 50;
+      centerWeight = 1;
     } else if (difficulty === Difficulty.Hard) {
-      depth = 6;
-      mistakeChance = 0.0;
+      depth = 3;
+      mistakeChance = 0.18;
+      winChance = 0.80;
+      blockChance = 0.70;
+      candidateTolerance = 18;
+      centerWeight = 3;
     }
 
-    // Occasional mistake on lower difficulties to feel human/casual
+    // Occasional casual/mistake move so the game feels human and enjoyable
     if (mistakeChance > 0 && Math.random() < mistakeChance) {
-      // Pick a random valid column
       return validCols[Math.floor(Math.random() * validCols.length)];
     }
 
-    // 1. Immediate Win: If bot can win right now, always take it
+    // Check immediate winning columns for bot
+    const botWinningCols: number[] = [];
     for (const c of validCols) {
       const r = Rules.getAvailableRow(board, c);
       if (r >= 0) {
         board[r][c] = botPlayer;
-        const win = Rules.getConnectedCells(board, r, c, botPlayer);
+        if (Rules.getConnectedCells(board, r, c, botPlayer)) {
+          botWinningCols.push(c);
+        }
         board[r][c] = Cell.Empty;
-        if (win) return c;
       }
     }
 
-    // 2. Immediate Block: If human could win on next turn, block them (unless easy mistake)
-    if (difficulty !== Difficulty.Easy || Math.random() > 0.15) {
-      for (const c of validCols) {
-        const r = Rules.getAvailableRow(board, c);
-        if (r >= 0) {
-          board[r][c] = humanPlayer;
-          const win = Rules.getConnectedCells(board, r, c, humanPlayer);
-          board[r][c] = Cell.Empty;
-          if (win) return c;
-        }
+    // 1. Bot immediate win handling
+    if (botWinningCols.length > 0) {
+      if (Math.random() < winChance) {
+        return botWinningCols[Math.floor(Math.random() * botWinningCols.length)];
       }
+      // Overlooked win: filter out the winning column so it plays elsewhere
+      const otherCols = validCols.filter(c => !botWinningCols.includes(c));
+      if (otherCols.length > 0) {
+        return otherCols[Math.floor(Math.random() * otherCols.length)];
+      }
+      return botWinningCols[0];
+    }
+
+    // Check immediate winning columns for human
+    const humanWinningCols: number[] = [];
+    for (const c of validCols) {
+      const r = Rules.getAvailableRow(board, c);
+      if (r >= 0) {
+        board[r][c] = humanPlayer;
+        if (Rules.getConnectedCells(board, r, c, humanPlayer)) {
+          humanWinningCols.push(c);
+        }
+        board[r][c] = Cell.Empty;
+      }
+    }
+
+    // 2. Human immediate win handling (blocking)
+    if (humanWinningCols.length > 0) {
+      if (Math.random() < blockChance) {
+        return humanWinningCols[Math.floor(Math.random() * humanWinningCols.length)];
+      }
+      // Deliberately missed block: choose from other columns to allow player to win!
+      const otherCols = validCols.filter(c => !humanWinningCols.includes(c));
+      if (otherCols.length > 0) {
+        return otherCols[Math.floor(Math.random() * otherCols.length)];
+      }
+      return humanWinningCols[0];
     }
 
     // 3. Minimax with Alpha-Beta Pruning
@@ -72,7 +114,8 @@ export class AI {
         Infinity,
         false,
         botPlayer,
-        humanPlayer
+        humanPlayer,
+        centerWeight
       );
       board[r][col] = Cell.Empty;
 
@@ -82,9 +125,9 @@ export class AI {
       }
     }
 
-    // Candidate randomization among near-optimal moves (+/- 5 points)
-    // Prevents robotic identical opening sequences
-    const candidates = scoredMoves.filter(m => m.score >= bestScore - 5);
+    // Candidate randomization among near-optimal moves
+    // Prevents robotic identical opening sequences and gives human-like play
+    const candidates = scoredMoves.filter(m => m.score >= bestScore - candidateTolerance);
     const chosen = candidates[Math.floor(Math.random() * candidates.length)];
     return chosen ? chosen.col : validCols[0];
   }
@@ -96,13 +139,14 @@ export class AI {
     beta: number,
     isMaximizing: boolean,
     botPlayer: Cell,
-    humanPlayer: Cell
+    humanPlayer: Cell,
+    centerWeight: number = 2
   ): number {
     const validCols = Rules.getValidColumns(board);
     const isFull = validCols.length === 0;
 
     if (depth === 0 || isFull) {
-      return this.evaluateBoard(board, botPlayer, humanPlayer);
+      return this.evaluateBoard(board, botPlayer, humanPlayer, centerWeight);
     }
 
     if (isMaximizing) {
@@ -118,7 +162,7 @@ export class AI {
           return 100000 + depth;
         }
 
-        const score = this.minimax(board, depth - 1, alpha, beta, false, botPlayer, humanPlayer);
+        const score = this.minimax(board, depth - 1, alpha, beta, false, botPlayer, humanPlayer, centerWeight);
         board[row][col] = Cell.Empty;
 
         maxEval = Math.max(maxEval, score);
@@ -139,7 +183,7 @@ export class AI {
           return -100000 - depth;
         }
 
-        const score = this.minimax(board, depth - 1, alpha, beta, true, botPlayer, humanPlayer);
+        const score = this.minimax(board, depth - 1, alpha, beta, true, botPlayer, humanPlayer, centerWeight);
         board[row][col] = Cell.Empty;
 
         minEval = Math.min(minEval, score);
@@ -150,15 +194,20 @@ export class AI {
     }
   }
 
-  private static evaluateBoard(board: Cell[][], botPlayer: Cell, humanPlayer: Cell): number {
+  private static evaluateBoard(
+    board: Cell[][],
+    botPlayer: Cell,
+    humanPlayer: Cell,
+    centerWeight: number = 2
+  ): number {
     let score = 0;
 
-    // Center Column Control Bonus (Center column 3 is strategically dominant)
+    // Center Column Control Bonus (Scaled by difficulty)
     let centerCount = 0;
     for (let r = 0; r < ROWS; r++) {
       if (board[r][3] === botPlayer) centerCount++;
     }
-    score += centerCount * 6;
+    score += centerCount * centerWeight;
 
     // 1. Horizontal Windows
     for (let r = 0; r < ROWS; r++) {
@@ -207,12 +256,12 @@ export class AI {
     }
 
     if (bot === 4) return 100000;
-    if (bot === 3 && empty === 1) return 120;
-    if (bot === 2 && empty === 2) return 15;
+    if (bot === 3 && empty === 1) return 80;
+    if (bot === 2 && empty === 2) return 10;
 
     if (human === 4) return -100000;
-    if (human === 3 && empty === 1) return -170;
-    if (human === 2 && empty === 2) return -15;
+    if (human === 3 && empty === 1) return -90;
+    if (human === 2 && empty === 2) return -10;
 
     return 0;
   }

@@ -75,9 +75,9 @@ export const DIFFICULTIES: DifficultyConfig[] = [
     color: '#22C55E',
     emblem: 'leaf',
     subtitle: 'Relaxed & Fun',
-    description: 'Casual AI • Makes frequent mistakes',
-    depth: 2,
-    mistakeChance: 0.35
+    description: 'Casual AI • Friendly & easy to win',
+    depth: 1,
+    mistakeChance: 0.65
   },
   {
     id: Difficulty.Medium,
@@ -86,9 +86,9 @@ export const DIFFICULTIES: DifficultyConfig[] = [
     color: '#F59E0B',
     emblem: 'spark',
     subtitle: 'Balanced Logic',
-    description: 'Smart AI • 4-step forward strategy',
-    depth: 4,
-    mistakeChance: 0.10
+    description: 'Balanced AI • Fun & beatable challenge',
+    depth: 2,
+    mistakeChance: 0.40
   },
   {
     id: Difficulty.Hard,
@@ -97,9 +97,9 @@ export const DIFFICULTIES: DifficultyConfig[] = [
     color: '#EF4444',
     emblem: 'diamond',
     subtitle: 'Deep Strategy',
-    description: 'Master AI • Deep 6-step search & defense',
-    depth: 6,
-    mistakeChance: 0.0
+    description: 'Strategic AI • Smart but beatable',
+    depth: 3,
+    mistakeChance: 0.20
   }
 ];
 
