@@ -475,43 +475,99 @@ export class GeneratedTextures {
       ctx.restore();
       scene.textures.addCanvas(`bottle_${colorKey}_opened`, canvas);
 
-      // Second-tap state: the opened container remains visible but gains a
-      // clear shattered silhouette and cracks instead of launching again.
+      // Second-tap state: Container shatters completely into broken glass shards
+      // at the bottom base; upper container body is completely gone/transparent.
       const { canvas: brokenCanvas, ctx: brokenCtx } = this.createArtCanvas(w, h);
-      brokenCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h);
+      const baseY = 202;
 
       brokenCtx.save();
+
+      // Translucent liquid puddle spilled at base
+      brokenCtx.fillStyle = hexColor;
+      brokenCtx.globalAlpha = 0.45;
+      brokenCtx.beginPath();
+      brokenCtx.ellipse(cx, baseY, 36, 6, 0, 0, Math.PI * 2);
+      brokenCtx.fill();
+      brokenCtx.globalAlpha = 1.0;
+
+      // Shattered jagged bottle bottom base
+      brokenCtx.beginPath();
+      brokenCtx.moveTo(cx - 24, baseY);
+      brokenCtx.lineTo(cx - 25, baseY - 18);
+      brokenCtx.lineTo(cx - 16, baseY - 38); // sharp glass shard peak
+      brokenCtx.lineTo(cx - 9, baseY - 20);
+      brokenCtx.lineTo(cx - 1, baseY - 44);  // tall central glass spike
+      brokenCtx.lineTo(cx + 7, baseY - 22);
+      brokenCtx.lineTo(cx + 17, baseY - 36); // sharp glass shard peak
+      brokenCtx.lineTo(cx + 25, baseY - 16);
+      brokenCtx.lineTo(cx + 24, baseY);
+      brokenCtx.closePath();
+
+      const shardGrad = brokenCtx.createLinearGradient(cx - 24, 0, cx + 24, 0);
+      shardGrad.addColorStop(0, hexColor);
+      shardGrad.addColorStop(0.5, '#FFFFFF');
+      shardGrad.addColorStop(0.8, hexColor);
+      brokenCtx.fillStyle = shardGrad;
+      brokenCtx.fill();
+
       brokenCtx.strokeStyle = '#181818';
       brokenCtx.lineWidth = 3.2;
       brokenCtx.lineCap = 'round';
       brokenCtx.lineJoin = 'round';
-      brokenCtx.beginPath();
-      brokenCtx.moveTo(cx - 6, 70);
-      brokenCtx.lineTo(cx + 5, 88);
-      brokenCtx.lineTo(cx - 5, 105);
-      brokenCtx.lineTo(cx + 8, 124);
-      brokenCtx.lineTo(cx - 2, 145);
-      brokenCtx.moveTo(cx + 5, 88);
-      brokenCtx.lineTo(cx + 22, 80);
-      brokenCtx.moveTo(cx - 5, 105);
-      brokenCtx.lineTo(cx - 24, 116);
-      brokenCtx.moveTo(cx + 8, 124);
-      brokenCtx.lineTo(cx + 27, 136);
       brokenCtx.stroke();
 
-      brokenCtx.globalCompositeOperation = 'destination-out';
+      // Sharp glass facets / internal fracture lines
       brokenCtx.beginPath();
-      brokenCtx.moveTo(cx - 34, 126);
-      brokenCtx.lineTo(cx - 23, 134);
-      brokenCtx.lineTo(cx - 34, 144);
+      brokenCtx.moveTo(cx - 16, baseY - 38);
+      brokenCtx.lineTo(cx - 10, baseY - 10);
+      brokenCtx.moveTo(cx - 1, baseY - 44);
+      brokenCtx.lineTo(cx + 3, baseY - 8);
+      brokenCtx.moveTo(cx + 17, baseY - 36);
+      brokenCtx.lineTo(cx + 12, baseY - 12);
+      brokenCtx.stroke();
+
+      // Glossy white reflective glass glints
+      brokenCtx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+      brokenCtx.lineWidth = 2.0;
+      brokenCtx.beginPath();
+      brokenCtx.moveTo(cx - 18, baseY - 34);
+      brokenCtx.lineTo(cx - 22, baseY - 20);
+      brokenCtx.moveTo(cx - 3, baseY - 40);
+      brokenCtx.lineTo(cx - 6, baseY - 22);
+      brokenCtx.stroke();
+
+      // Detached sharp glass shards scattered on the left
+      brokenCtx.fillStyle = hexColor;
+      brokenCtx.strokeStyle = '#181818';
+      brokenCtx.lineWidth = 2.4;
+      brokenCtx.beginPath();
+      brokenCtx.moveTo(cx - 38, baseY - 4);
+      brokenCtx.lineTo(cx - 27, baseY - 14);
+      brokenCtx.lineTo(cx - 28, baseY);
       brokenCtx.closePath();
       brokenCtx.fill();
+      brokenCtx.stroke();
+
+      // Detached sharp glass shards scattered on the right
       brokenCtx.beginPath();
-      brokenCtx.moveTo(cx + 34, 151);
-      brokenCtx.lineTo(cx + 23, 160);
-      brokenCtx.lineTo(cx + 34, 170);
+      brokenCtx.moveTo(cx + 27, baseY - 2);
+      brokenCtx.lineTo(cx + 38, baseY - 12);
+      brokenCtx.lineTo(cx + 34, baseY + 1);
       brokenCtx.closePath();
       brokenCtx.fill();
+      brokenCtx.stroke();
+
+      // Small diamond crystalline fragments
+      brokenCtx.fillStyle = '#FFFFFF';
+      brokenCtx.beginPath();
+      brokenCtx.moveTo(cx - 8, baseY + 1);
+      brokenCtx.lineTo(cx - 4, baseY - 3);
+      brokenCtx.lineTo(cx, baseY + 1);
+      brokenCtx.lineTo(cx - 4, baseY + 5);
+      brokenCtx.closePath();
+      brokenCtx.fill();
+      brokenCtx.stroke();
+
       brokenCtx.restore();
 
       scene.textures.addCanvas(`bottle_${colorKey}_broken`, brokenCanvas);
@@ -669,30 +725,66 @@ export class GeneratedTextures {
       ctx.restore();
       scene.textures.addCanvas('can_red_opened', canvas);
 
+      // Second-tap state: Can is crushed flat into squashed metal debris on the platform
       const { canvas: brokenCanvas, ctx: brokenCtx } = this.createArtCanvas(w, h);
-      brokenCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, w, h);
+      const baseY = 132;
+
       brokenCtx.save();
+
+      // Liquid puddle at bottom
+      brokenCtx.fillStyle = COLORS.HEX_RED_CAN;
+      brokenCtx.globalAlpha = 0.40;
+      brokenCtx.beginPath();
+      brokenCtx.ellipse(cx, baseY, 36, 5, 0, 0, Math.PI * 2);
+      brokenCtx.fill();
+      brokenCtx.globalAlpha = 1.0;
+
+      // Squashed jagged accordion can body
+      brokenCtx.beginPath();
+      brokenCtx.moveTo(cx - 34, baseY);
+      brokenCtx.lineTo(cx - 32, baseY - 16);
+      brokenCtx.lineTo(cx - 18, baseY - 24);
+      brokenCtx.lineTo(cx - 4, baseY - 14);
+      brokenCtx.lineTo(cx + 12, baseY - 22);
+      brokenCtx.lineTo(cx + 30, baseY - 15);
+      brokenCtx.lineTo(cx + 34, baseY);
+      brokenCtx.closePath();
+
+      const canGrad = brokenCtx.createLinearGradient(cx - 34, 0, cx + 34, 0);
+      canGrad.addColorStop(0, '#FF3B30');
+      canGrad.addColorStop(0.5, '#F1221C');
+      canGrad.addColorStop(1, '#990E0A');
+      brokenCtx.fillStyle = canGrad;
+      brokenCtx.fill();
+
       brokenCtx.strokeStyle = '#181818';
       brokenCtx.lineWidth = 3.2;
       brokenCtx.lineCap = 'round';
-      brokenCtx.beginPath();
-      brokenCtx.moveTo(cx - 5, 32);
-      brokenCtx.lineTo(cx + 7, 49);
-      brokenCtx.lineTo(cx - 5, 67);
-      brokenCtx.lineTo(cx + 10, 86);
-      brokenCtx.lineTo(cx - 3, 112);
-      brokenCtx.moveTo(cx + 7, 49);
-      brokenCtx.lineTo(cx + 27, 56);
-      brokenCtx.moveTo(cx - 5, 67);
-      brokenCtx.lineTo(cx - 28, 77);
+      brokenCtx.lineJoin = 'round';
       brokenCtx.stroke();
-      brokenCtx.globalCompositeOperation = 'destination-out';
+
+      // Metal crease lines
       brokenCtx.beginPath();
-      brokenCtx.moveTo(cx - 33, 90);
-      brokenCtx.lineTo(cx - 22, 98);
-      brokenCtx.lineTo(cx - 33, 108);
-      brokenCtx.closePath();
+      brokenCtx.moveTo(cx - 18, baseY - 24);
+      brokenCtx.lineTo(cx - 10, baseY - 6);
+      brokenCtx.moveTo(cx + 12, baseY - 22);
+      brokenCtx.lineTo(cx + 6, baseY - 4);
+      brokenCtx.stroke();
+
+      // Crushed silver lid rim tilted sideways
+      brokenCtx.fillStyle = '#CBD5E1';
+      brokenCtx.beginPath();
+      brokenCtx.ellipse(cx + 4, baseY - 20, 20, 5, 0.2, 0, Math.PI * 2);
       brokenCtx.fill();
+      brokenCtx.stroke();
+
+      // Silver pull-tab bent upwards
+      brokenCtx.fillStyle = '#E2E8F0';
+      brokenCtx.beginPath();
+      brokenCtx.roundRect(cx - 6, baseY - 29, 12, 7, 2);
+      brokenCtx.fill();
+      brokenCtx.stroke();
+
       brokenCtx.restore();
       scene.textures.addCanvas('can_red_broken', brokenCanvas);
     }
@@ -815,52 +907,97 @@ export class GeneratedTextures {
     scene.textures.addCanvas('portal', canvas);
   }
 
-  // 10. Tutorial White Cartoon Glove / Hand
+  // 10. Tutorial White Pointing Hand Emoji (👆)
   private static createTutorialHand(scene: Phaser.Scene): void {
     if (scene.textures.exists('tutorial_hand')) return;
 
-    const w = 90, h = 90;
+    const w = 84, h = 96;
     const { canvas, ctx } = this.createArtCanvas(w, h);
 
     ctx.save();
-    ctx.translate(w / 2, h / 2);
+    ctx.translate(w / 2, h / 2 + 4);
 
-    // White cartoon glove pointing down/right
-    ctx.fillStyle = '#FFFFFF';
-    ctx.strokeStyle = '#181818';
-    ctx.lineWidth = 4.5;
+    // Subtle drop shadow behind emoji hand
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+    ctx.beginPath();
+    ctx.ellipse(0, 32, 22, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // White pointing hand emoji silhouette (Index finger pointing straight UP)
+    ctx.beginPath();
+
+    // Fingertip of index finger at top
+    ctx.moveTo(-7, -12);
+    ctx.lineTo(-7, -42);
+    ctx.arc(0, -42, 7, Math.PI, 0, false); // rounded tip of index finger
+    ctx.lineTo(7, -12);
+
+    // Curled middle finger knuckle
+    ctx.arc(15, -6, 8, -Math.PI * 0.5, Math.PI * 0.4, false);
+
+    // Curled ring finger knuckle
+    ctx.arc(15, 8, 8, -Math.PI * 0.4, Math.PI * 0.4, false);
+
+    // Curled pinky knuckle
+    ctx.arc(14, 21, 7, -Math.PI * 0.4, Math.PI * 0.5, false);
+
+    // Wrist base
+    ctx.quadraticCurveTo(8, 36, -6, 36);
+    ctx.quadraticCurveTo(-16, 36, -18, 28);
+
+    // Outer thumb base and curve
+    ctx.quadraticCurveTo(-24, 20, -22, 6);
+    ctx.quadraticCurveTo(-20, -4, -10, -2);
+    ctx.quadraticCurveTo(-7, -4, -7, -12);
+    ctx.closePath();
+
+    // 3D Soft white gradient fill
+    const handGrad = ctx.createLinearGradient(-15, -45, 15, 35);
+    handGrad.addColorStop(0, '#FFFFFF');
+    handGrad.addColorStop(0.65, '#FFFFFF');
+    handGrad.addColorStop(1, '#E2E8F0');
+    ctx.fillStyle = handGrad;
+    ctx.fill();
+
+    // Clean dark cartoon outline
+    ctx.strokeStyle = '#1E293B';
+    ctx.lineWidth = 3.6;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+    ctx.stroke();
 
+    // Thumb folded across the palm
     ctx.beginPath();
-    // Index pointing finger
-    ctx.moveTo(0, -32);
-    ctx.lineTo(10, -32);
-    ctx.quadraticCurveTo(14, -32, 14, -20);
-    ctx.lineTo(14, 5);
-
-    // Other fingers folded
-    ctx.quadraticCurveTo(24, 6, 24, 16);
-    ctx.quadraticCurveTo(24, 24, 14, 26);
-    ctx.quadraticCurveTo(18, 30, 10, 36);
-    ctx.quadraticCurveTo(-4, 38, -12, 30);
-
-    // Thumb
-    ctx.quadraticCurveTo(-26, 24, -24, 10);
-    ctx.quadraticCurveTo(-22, -2, -10, 4);
-    ctx.lineTo(-4, -15);
-    ctx.quadraticCurveTo(-4, -32, 0, -32);
-    ctx.closePath();
+    ctx.moveTo(-18, 12);
+    ctx.quadraticCurveTo(-14, -1, -3, 0);
+    ctx.quadraticCurveTo(5, 1, 5, 8);
+    ctx.quadraticCurveTo(5, 15, -4, 18);
+    ctx.quadraticCurveTo(-12, 20, -18, 12);
+    ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     ctx.stroke();
 
-    // Finger crease lines
+    // Crease line between index finger and folded fingers
     ctx.beginPath();
-    ctx.moveTo(8, 12);
-    ctx.lineTo(16, 12);
-    ctx.moveTo(4, 22);
-    ctx.lineTo(14, 22);
+    ctx.moveTo(7, -12);
+    ctx.quadraticCurveTo(4, -4, 4, 3);
     ctx.stroke();
+
+    // Crease lines between curled knuckles
+    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = '#64748B';
+    ctx.beginPath();
+    ctx.moveTo(7, 1);
+    ctx.lineTo(17, 1);
+    ctx.moveTo(6, 15);
+    ctx.lineTo(16, 15);
+    ctx.stroke();
+
+    // Subtle nail highlight on pointing index finger
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.beginPath();
+    ctx.ellipse(0, -41, 3.5, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
 
     ctx.restore();
     scene.textures.addCanvas('tutorial_hand', canvas);
@@ -1073,5 +1210,54 @@ export class GeneratedTextures {
     makeBubble('bubble_yellow', COLORS.HEX_YELLOW);
     makeBubble('bubble_green', COLORS.HEX_GREEN);
     makeBubble('bubble_red', COLORS.HEX_RED_CAN);
+
+    // Sharp glass shard particles for bottle shattering
+    const makeShard = (key: string, hexColor: string) => {
+      if (scene.textures.exists(key)) return;
+      const size = 26;
+      const { canvas, ctx } = this.createArtCanvas(size, size);
+      const c = size / 2;
+
+      ctx.save();
+      ctx.translate(c, c);
+
+      // Sharp triangular jagged glass fragment
+      ctx.beginPath();
+      ctx.moveTo(-10, 8);
+      ctx.lineTo(2, -11);
+      ctx.lineTo(10, 4);
+      ctx.lineTo(3, 10);
+      ctx.closePath();
+
+      const shardGrad = ctx.createLinearGradient(-10, -10, 10, 10);
+      shardGrad.addColorStop(0, '#FFFFFF');
+      shardGrad.addColorStop(0.35, hexColor);
+      shardGrad.addColorStop(1, hexColor);
+      ctx.fillStyle = shardGrad;
+      ctx.fill();
+
+      ctx.strokeStyle = '#181818';
+      ctx.lineWidth = 1.8;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+
+      // Sharp reflective highlight edge
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(-7, 6);
+      ctx.lineTo(1, -9);
+      ctx.stroke();
+
+      ctx.restore();
+      scene.textures.addCanvas(key, canvas);
+    };
+
+    makeShard('particle_shard_white', '#E2E8F0');
+    makeShard('particle_shard_orange', COLORS.HEX_ORANGE);
+    makeShard('particle_shard_yellow', COLORS.HEX_YELLOW);
+    makeShard('particle_shard_green', COLORS.HEX_GREEN);
+    makeShard('particle_shard_red', COLORS.HEX_RED_CAN);
   }
 }

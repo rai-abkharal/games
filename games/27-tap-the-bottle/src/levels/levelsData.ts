@@ -249,9 +249,9 @@ export const LEVELS: LevelDefinition[] = [
       { x: 358, y: 630, width: 140, height: 30, rotation: -25, type: 'blue' }
     ],
     launchers: [
-      { id: 'b1', type: 'bottle', color: 'yellow', x: 85, y: 630, rotation: 25, launchAngle: -65, launchSpeed: 24 },
-      { id: 'b2', type: 'bottle', color: 'green', x: 239, y: 605, rotation: 0, launchAngle: -90, launchSpeed: 24 },
-      { id: 'b3', type: 'bottle', color: 'orange', x: 393, y: 630, rotation: -25, launchAngle: -115, launchSpeed: 24 }
+      { id: 'b1', type: 'bottle', color: 'yellow', x: 85, y: 630, rotation: 25, launchAngle: -65, launchSpeed: 24, isStatic: true },
+      { id: 'b2', type: 'bottle', color: 'green', x: 239, y: 605, rotation: 0, launchAngle: -90, launchSpeed: 24, isStatic: true },
+      { id: 'b3', type: 'bottle', color: 'orange', x: 393, y: 630, rotation: -25, launchAngle: -115, launchSpeed: 24, isStatic: true }
     ],
     stars: [
       { x: 239, y: 320 },
@@ -306,19 +306,21 @@ export const LEVELS: LevelDefinition[] = [
     id: 16,
     theme: 'pink',
     platforms: [
-      { x: 239, y: 330, width: 400, height: 34, type: 'blue' },
+      { x: 80, y: 330, width: 130, height: 34, type: 'blue' },
+      { x: 398, y: 330, width: 130, height: 34, type: 'blue' },
       { x: 239, y: 680, width: 400, height: 34, type: 'blue' }
     ],
     launchers: [
       { id: 'b1', type: 'bottle', color: 'yellow', x: 80, y: 235, rotation: 0, launchAngle: -90, launchSpeed: 24 },
-      { id: 'c1', type: 'can', color: 'red', x: 185, y: 255, rotation: 0, launchAngle: 25, launchSpeed: 23 },
-      { id: 'c2', type: 'can', color: 'red', x: 290, y: 255, rotation: 0, launchAngle: 155, launchSpeed: 23 },
-      { id: 'b2', type: 'bottle', color: 'orange', x: 395, y: 235, rotation: 0, launchAngle: -90, launchSpeed: 24 },
+      { id: 'c1', type: 'can', color: 'red', x: 130, y: 255, rotation: 0, launchAngle: 25, launchSpeed: 23 },
+      { id: 'c2', type: 'can', color: 'red', x: 348, y: 255, rotation: 0, launchAngle: 155, launchSpeed: 23 },
+      { id: 'b2', type: 'bottle', color: 'orange', x: 398, y: 235, rotation: 0, launchAngle: -90, launchSpeed: 24 },
       { id: 'b3', type: 'bottle', color: 'green', x: 239, y: 585, rotation: 0, launchAngle: -90, launchSpeed: 24 }
     ],
     stars: [
       { x: 239, y: 440 },
-      { x: 430, y: 470 }
+      { x: 80, y: 120 },
+      { x: 398, y: 120 }
     ]
   },
 

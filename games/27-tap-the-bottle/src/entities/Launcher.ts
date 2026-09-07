@@ -6,6 +6,7 @@ import { ParticleManager } from '../systems/ParticleManager';
 import { AudioManager } from '../systems/AudioManager';
 
 export class Launcher {
+  private static nextGroupId: number = 1;
   public config: LauncherConfig;
   public opened: boolean = false;
   public broken: boolean = false;
@@ -17,11 +18,13 @@ export class Launcher {
   private openedKey: string;
   private brokenKey: string;
   private openedAt: number = 0;
+  private groupId: number;
 
   constructor(scene: Phaser.Scene, config: LauncherConfig, particleManager: ParticleManager) {
     this.scene = scene;
     this.config = config;
     this.particleManager = particleManager;
+    this.groupId = -(Launcher.nextGroupId++);
 
     if (config.type === 'bottle') {
       this.sealedKey = `bottle_${config.color}_sealed`;
@@ -49,7 +52,8 @@ export class Launcher {
       chamfer: { radius: 6 },
       collisionFilter: {
         category: COLLISION_CATEGORIES.LAUNCHER,
-        mask: COLLISION_CATEGORIES.PLATFORM | COLLISION_CATEGORIES.LAUNCHER
+        mask: COLLISION_CATEGORIES.PLATFORM | COLLISION_CATEGORIES.LAUNCHER | COLLISION_CATEGORIES.PROJECTILE,
+        group: this.groupId
       }
     });
 
@@ -111,7 +115,8 @@ export class Launcher {
       launchX,
       launchY,
       projectileType,
-      this.config.color
+      this.config.color,
+      this.groupId
     );
 
     projectile.setVelocity(dirX * speed, dirY * speed);
@@ -145,13 +150,32 @@ export class Launcher {
     return projectile;
   }
 
-  private breakOpenContainer(): void {
-    if (this.broken || this.scene.time.now - this.openedAt < 160) return;
+  public breakOpenContainer(): void {
+    if (this.broken || this.scene.time.now - this.openedAt < 100) return;
     this.broken = true;
 
     AudioManager.playBreak();
+
+    // 1. Remove Matter physics collision body so caps pass freely through this space
+    if (this.sprite.body) {
+      this.scene.matter.world.remove(this.sprite.body);
+      (this.sprite as any).body = null;
+    }
+
+    // 2. Disable further interaction
+    this.sprite.disableInteractive();
+
+    // 3. Swap to shattered glass shards / crushed metal texture
     this.sprite.setTexture(this.brokenKey);
 
+    // 4. Dynamic exploding glass shard particles with gravity
+    this.particleManager.emitGlassShards(
+      this.sprite.x,
+      this.sprite.y + (this.config.type === 'bottle' ? 35 : 15),
+      this.config.color
+    );
+
+    // 5. Liquid splash droplets
     for (let i = 0; i < 7; i++) {
       this.particleManager.emitBubble(
         this.sprite.x + (Math.random() - 0.5) * 34,
@@ -162,19 +186,9 @@ export class Launcher {
       );
     }
 
-    if (!this.config.isStatic && this.sprite.body) {
-      const direction = Math.random() < 0.5 ? -1 : 1;
-      this.sprite.setAngularVelocity(direction * 0.035);
-      this.scene.matter.body.applyForce(
-        this.sprite.body as MatterJS.BodyType,
-        { x: this.sprite.x, y: this.sprite.y },
-        { x: direction * 0.0012, y: 0.0004 }
-      );
-    }
-
     this.scene.tweens.add({
       targets: this.sprite,
-      scaleX: ((this.config.scale || 0.82) * 0.94) / RENDER_SCALE,
+      scaleX: ((this.config.scale || 0.82) * 1.06) / RENDER_SCALE,
       scaleY: ((this.config.scale || 0.82) * 0.94) / RENDER_SCALE,
       duration: 90,
       yoyo: true,

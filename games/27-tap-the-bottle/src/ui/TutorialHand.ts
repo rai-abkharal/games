@@ -6,18 +6,18 @@ export class TutorialHand {
   private tween: Phaser.Tweens.Tween;
 
   constructor(scene: Phaser.Scene, targetX: number, targetY: number) {
-    this.sprite = scene.add.image(targetX + 30, targetY + 20, 'tutorial_hand')
+    // White pointing hand emoji pointing UP directly at the bottle
+    this.sprite = scene.add.image(targetX, targetY + 68, 'tutorial_hand')
       .setDepth(22)
-      .setScale(0.9 / RENDER_SCALE);
+      .setScale(0.95 / RENDER_SCALE);
 
     this.tween = scene.tweens.add({
       targets: this.sprite,
-      x: targetX + 15,
-      y: targetY + 10,
-      duration: 650,
+      y: targetY + 52,
+      duration: 550,
       yoyo: true,
       repeat: -1,
-      ease: 'Sine.easeInOut'
+      ease: 'Quad.easeInOut'
     });
   }
 

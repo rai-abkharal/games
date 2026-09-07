@@ -1,6 +1,7 @@
 export const DESIGN_WIDTH = 478;
 export const DESIGN_HEIGHT = 850;
-export const RENDER_SCALE = 1;
+export const RENDER_SCALE = 2;
+
 
 export const GAME_HEIGHT = DESIGN_HEIGHT;
 export const VERTICAL_SAFE_PADDING = 0;

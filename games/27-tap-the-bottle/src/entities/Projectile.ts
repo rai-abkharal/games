@@ -16,7 +16,8 @@ export class Projectile {
     x: number,
     y: number,
     type: 'crownCap' | 'canTab',
-    color: string
+    color: string,
+    collisionGroup?: number
   ) {
     this.type = type;
     this.color = color;
@@ -34,7 +35,8 @@ export class Projectile {
       chamfer: { radius: 6 },
       collisionFilter: {
         category: COLLISION_CATEGORIES.PROJECTILE,
-        mask: COLLISION_CATEGORIES.PLATFORM | COLLISION_CATEGORIES.STAR | COLLISION_CATEGORIES.PORTAL
+        mask: COLLISION_CATEGORIES.PLATFORM | COLLISION_CATEGORIES.STAR | COLLISION_CATEGORIES.PORTAL | COLLISION_CATEGORIES.LAUNCHER,
+        group: collisionGroup ?? 0
       }
     });
 

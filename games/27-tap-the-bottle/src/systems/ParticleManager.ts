@@ -9,6 +9,7 @@ interface ActiveParticle {
   life: number;
   maxLife: number;
   scaleStart: number;
+  gravity?: number;
 }
 
 export class ParticleManager {
@@ -64,6 +65,45 @@ export class ParticleManager {
     });
   }
 
+  public emitGlassShards(x: number, y: number, color: string): void {
+    const shardKeys = [
+      `particle_shard_${color}`,
+      'particle_shard_white',
+      'particle_shard_white',
+      `particle_shard_${color}`
+    ];
+    const count = 16;
+    for (let i = 0; i < count; i++) {
+      const key = shardKeys[i % shardKeys.length];
+      if (!this.scene.textures.exists(key)) continue;
+
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.45;
+      const speed = 110 + Math.random() * 150;
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed - 50; // initial upward impulse
+      const scale = 0.55 + Math.random() * 0.60;
+
+      const p = this.scene.add.image(
+        x + (Math.random() - 0.5) * 16,
+        y + (Math.random() - 0.5) * 16,
+        key
+      )
+        .setScale(scale / RENDER_SCALE)
+        .setDepth(14);
+
+      this.particles.push({
+        sprite: p,
+        vx,
+        vy,
+        vr: (Math.random() - 0.5) * 16,
+        life: 0.45 + Math.random() * 0.25,
+        maxLife: 0.70,
+        scaleStart: scale,
+        gravity: 520
+      });
+    }
+  }
+
   public update(delta: number): void {
     const dt = delta / 1000;
 
@@ -75,6 +115,10 @@ export class ParticleManager {
         p.sprite.destroy();
         this.particles.splice(i, 1);
         continue;
+      }
+
+      if (p.gravity) {
+        p.vy += p.gravity * dt;
       }
 
       const progress = p.life / p.maxLife; // 1 -> 0
