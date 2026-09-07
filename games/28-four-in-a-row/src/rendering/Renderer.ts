@@ -1,13 +1,10 @@
 import {
   ROWS,
   COLS,
-  DESIGN_WIDTH,
-  DESIGN_HEIGHT,
   Cell,
   GameState,
   Difficulty,
   DIFFICULTIES,
-  DifficultyConfig,
   CellPosition,
   FallingPiece,
   PreviewPiece
@@ -54,11 +51,8 @@ export class Renderer {
   public canvas: HTMLCanvasElement;
   public ctx: CanvasRenderingContext2D;
 
-  public width: number = DESIGN_WIDTH;
-  public height: number = DESIGN_HEIGHT;
-  public scale: number = 1;
-  public offsetX: number = 0;
-  public offsetY: number = 0;
+  public width: number = 400;
+  public height: number = 800;
   public dpr: number = 1;
 
   // Cached pre-rendered board front plate canvas
@@ -71,7 +65,7 @@ export class Renderer {
     this.ctx = context;
   }
 
-  // Multi-DPI Canvas Resizing for 100% Crisp Retina & Android Screens (No Blur)
+  // Multi-DPI Canvas Resizing with Dynamic Responsive Board Expansion
   public resize(): void {
     const parent = this.canvas.parentElement || document.body;
     const rect = parent.getBoundingClientRect();
@@ -84,25 +78,63 @@ export class Renderer {
     this.canvas.style.width = `${w}px`;
     this.canvas.style.height = `${h}px`;
 
-    this.scale = Math.min(w / DESIGN_WIDTH, h / DESIGN_HEIGHT);
-    this.offsetX = (w - DESIGN_WIDTH * this.scale) / 2;
-    this.offsetY = (h - DESIGN_HEIGHT * this.scale) / 2;
+    this.width = w;
+    this.height = h;
 
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(this.dpr, this.dpr);
     this.ctx.imageSmoothingEnabled = true;
     this.ctx.imageSmoothingQuality = 'high';
 
+    // DYNAMIC RESPONSIVE BOARD EXPANSION:
+    // On mobile screens, board expands edge-to-edge (only 5-7px side margins matching user reference)
+    const sideMargin = Math.max(4, Math.min(8, Math.round(w * 0.016)));
+    const maxBoardH = h - 160; // Leave room for top header and bottom HUD
+    const maxBoardWByHeight = maxBoardH / 0.98;
+
+    const boardW = Math.min(w - 2 * sideMargin, Math.min(500, maxBoardWByHeight));
+    const boardX = Math.round((w - boardW) / 2);
+
+    const colSpacing = boardW / 7;
+    const slotRadius = colSpacing * 0.428;
+    const slotOutlineWidth = Math.max(3.5, colSpacing * 0.095);
+    const baseBarH = Math.round(colSpacing * 0.65);
+    const boardH = Math.round(6 * colSpacing + baseBarH + colSpacing * 0.06);
+    const boardRadius = Math.round(colSpacing * 0.38);
+
+    // Vertical positioning: balanced between header and bottom HUD
+    const topSafe = 85;
+    const bottomSafe = 100;
+    const freeV = Math.max(0, h - topSafe - bottomSafe - boardH);
+    const boardY = Math.round(topSafe + freeV * 0.42);
+    const previewY = Math.round(boardY - slotRadius - 12);
+
+    THEME.boardX = boardX;
+    THEME.boardY = boardY;
+    THEME.boardW = boardW;
+    THEME.boardH = boardH;
+    THEME.boardRadius = boardRadius;
+    THEME.slotRadius = slotRadius;
+    THEME.slotOutlineWidth = slotOutlineWidth;
+    THEME.previewY = previewY;
+
+    for (let c = 0; c < 7; c++) {
+      THEME.slotCentersX[c] = boardX + (c + 0.5) * colSpacing;
+    }
+    const gridTop = boardY + colSpacing * 0.53;
+    for (let r = 0; r < 6; r++) {
+      THEME.slotCentersY[r] = gridTop + r * colSpacing;
+    }
+
     this.plateCanvas = null;
   }
 
+  // Direct 1:1 CSS pixel touch coordinates (Zero scaling offset/distortion)
   public toVirtual(clientX: number, clientY: number): { x: number; y: number } {
     const rect = this.canvas.getBoundingClientRect();
-    const screenX = clientX - rect.left;
-    const screenY = clientY - rect.top;
     return {
-      x: (screenX - this.offsetX) / this.scale,
-      y: (screenY - this.offsetY) / this.scale
+      x: clientX - rect.left,
+      y: clientY - rect.top
     };
   }
 
@@ -139,7 +171,7 @@ export class Renderer {
     pctx.globalCompositeOperation = 'source-over';
 
     // 3. Bottom Base Bar (Dark Charcoal #151C23)
-    const baseBarH = 38;
+    const baseBarH = Math.round((THEME.boardW / 7) * 0.65);
     const baseBarY = h - baseBarH;
     pctx.beginPath();
     (pctx as any).roundRect(0, baseBarY, w, baseBarH, [0, 0, 4, 4]);
@@ -176,68 +208,60 @@ export class Renderer {
     synth: SoundSynth
   ): void {
     const ctx = this.ctx;
-    const screenW = this.canvas.width / this.dpr;
-    const screenH = this.canvas.height / this.dpr;
+    const screenW = this.width;
+    const screenH = this.height;
 
     // 1. FULL-BLEED BACKGROUND: Fill the ENTIRE viewport screen edge-to-edge
-    // Absolutely NO black space, black bars, or letterboxing on left/right/top/bottom!
     this.renderFullBleedBackground(ctx, turnProgress, screenW, screenH);
 
-    // 2. Apply centered viewport transform for board & interactive UI
-    ctx.save();
-    ctx.translate(this.offsetX, this.offsetY);
-    ctx.scale(this.scale, this.scale);
-
-    // 3. HUD: "Your turn" bottom circle or "Bot thinking" top panel
+    // 2. HUD: "Your turn" bottom circle or "Bot thinking" panel
     this.renderHUD(ctx, state, yourTurnProgress, botThinkingTime);
 
-    // 4. Behind Board: Empty Hole Slate Backgrounds
+    // 3. Behind Board: Empty Hole Slate Backgrounds
     this.renderHoleBackgrounds(ctx);
 
-    // 5. Behind Board: Settled Pieces
+    // 4. Behind Board: Settled Pieces
     this.renderSettledPieces(ctx, board);
 
-    // 6. Behind Board: Currently Falling Piece (Masked behind front plate!)
+    // 5. Behind Board: Currently Falling Piece (Masked behind front plate!)
     if (fallingPiece) {
       this.renderDisc(ctx, fallingPiece.x, fallingPiece.y, fallingPiece.player);
     }
 
-    // 7. Board Front Face Plate (Punched with 42 transparent apertures)
+    // 6. Board Front Face Plate (Punched with 42 transparent apertures)
     const plate = this.getFrontPlate();
     ctx.drawImage(plate, THEME.boardX, THEME.boardY, THEME.boardW, THEME.boardH);
 
-    // 8. On Top of Board: Thick Black Outlines around each of the 42 cells
+    // 7. On Top of Board: Thick Black Outlines around each of the 42 cells
     this.renderHoleOutlines(ctx);
 
-    // 9. On Top of Board: Preview Aiming Piece (resting right on top rim of board)
+    // 8. On Top of Board: Preview Aiming Piece (resting right on top rim of board)
     if (previewPiece.visible && (state === GameState.PLAYER_AIMING || state === GameState.PLAYER_TURN_INTRO)) {
       this.renderDisc(ctx, previewPiece.x, previewPiece.y, Cell.Player, true);
     }
 
-    // 10. Winning Animated White Line
+    // 9. Winning Animated White Line
     if (winningCells && winningCells.length >= 4 && winLineProgress > 0) {
       this.renderWinningLine(ctx, winningCells, winLineProgress);
     }
 
-    // 11. Top Navigation Header (Sudoku Pro Difficulty Banner, Sound, Restart - No Back Button)
+    // 10. Top Navigation Header (Sudoku Pro Difficulty Banner, Sound, Restart - No Back Button)
     this.renderHeader(ctx, difficulty, synth);
 
-    // 12. Result Overlay Screen (Settings & Play Again buttons only - No Home button)
+    // 11. Result Overlay Screen (Settings & Play Again buttons only - No Home button)
     if (resultOverlayOpacity > 0) {
       this.renderResultScreen(ctx, winner, resultOverlayOpacity);
     }
 
-    // 13. Sudoku Pro Style "SELECT DIFFICULTY" Modal
+    // 12. Sudoku Pro Style "SELECT DIFFICULTY" Modal (Clean, No subtitle lines, Neutral dimming)
     if (state === GameState.DIFF_SELECT) {
       this.renderDifficultyDialog(ctx, sliderPos);
     } else if (state === GameState.TUTORIAL) {
       this.renderTutorialModal(ctx);
     }
-
-    ctx.restore();
   }
 
-  // Full-bleed background extending edge-to-edge across entire screen (Zero black borders)
+  // Full-bleed background extending edge-to-edge across entire screen (Zero borders)
   private renderFullBleedBackground(
     ctx: CanvasRenderingContext2D,
     turnProgress: number,
@@ -268,42 +292,45 @@ export class Renderer {
     yourTurnProgress: number,
     botThinkingTime: number
   ): void {
+    const w = this.width;
+    const h = this.height;
+
     // 1. "Your turn" bottom circle animation
     if (yourTurnProgress > 0.01) {
       ctx.save();
       ctx.globalAlpha = Math.min(1.0, yourTurnProgress);
 
-      const circleY = 850 - yourTurnProgress * 14;
-      const circleR = 96;
+      const circleY = h - 16 - yourTurnProgress * 12;
+      const circleR = Math.min(88, Math.round(w * 0.22));
 
       ctx.beginPath();
-      ctx.arc(DESIGN_WIDTH / 2, circleY, circleR, 0, Math.PI * 2);
+      ctx.arc(w / 2, circleY, circleR, 0, Math.PI * 2);
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 3.5;
       ctx.stroke();
 
-      ctx.font = '800 24px Fredoka, Nunito, Inter, sans-serif';
+      ctx.font = '800 22px Fredoka, Nunito, Inter, sans-serif';
       ctx.fillStyle = '#FFFFFF';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('Your turn', DESIGN_WIDTH / 2, circleY - 32);
+      ctx.fillText('Your turn', w / 2, circleY - 30);
       ctx.restore();
     }
 
     // 2. "Bot thinking" rounded panel from reference video
     if (state === GameState.BOT_THINKING || state === GameState.BOT_DROPPING) {
       ctx.save();
-      const panelX = (DESIGN_WIDTH - 296) / 2;
-      const panelY = 160;
-      const panelW = 296;
-      const panelH = 72;
+      const panelW = Math.min(270, w - 40);
+      const panelH = 62;
+      const panelX = (w - panelW) / 2;
+      const panelY = Math.max(76, THEME.previewY - panelH - 12);
 
       ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
       ctx.shadowBlur = 16;
       ctx.shadowOffsetY = 4;
 
       ctx.beginPath();
-      (ctx as any).roundRect(panelX, panelY, panelW, panelH, 20);
+      (ctx as any).roundRect(panelX, panelY, panelW, panelH, 18);
       ctx.fillStyle = 'rgba(28, 48, 70, 0.88)';
       ctx.fill();
       ctx.restore();
@@ -312,11 +339,11 @@ export class Renderer {
       const dots = '.'.repeat(dotCount);
 
       ctx.save();
-      ctx.font = '800 24px Fredoka, Nunito, Inter, sans-serif';
+      ctx.font = '800 22px Fredoka, Nunito, Inter, sans-serif';
       ctx.fillStyle = '#FFFFFF';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`Bot thinking${dots}`, DESIGN_WIDTH / 2, panelY + panelH / 2);
+      ctx.fillText(`Bot thinking${dots}`, w / 2, panelY + panelH / 2);
       ctx.restore();
     }
   }
@@ -405,7 +432,7 @@ export class Renderer {
     const currentEndY = startY + (targetEndY - startY) * progress;
 
     ctx.strokeStyle = THEME.white;
-    ctx.lineWidth = 11;
+    ctx.lineWidth = Math.max(8, THEME.slotRadius * 0.42);
     ctx.lineCap = 'round';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
     ctx.shadowBlur = 10;
@@ -425,19 +452,20 @@ export class Renderer {
     synth: SoundSynth
   ): void {
     const diffObj = DIFFICULTIES.find(d => d.id === difficulty) || DIFFICULTIES[0];
+    const w = this.width;
 
-    // 1. Sudoku Pro Difficulty Pill Banner (Centered/Left prominent)
-    const pillX = 100;
-    const pillY = 54;
-    const pillW = 144;
-    const pillH = 40;
+    // 1. Sudoku Pro Difficulty Pill Banner (Prominent top banner)
+    const pillW = 136;
+    const pillH = 38;
+    const pillX = Math.max(16, (w - pillW) / 2 - 24);
+    const pillY = 32;
 
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
     ctx.shadowBlur = 8;
     ctx.shadowOffsetY = 2;
     ctx.beginPath();
-    (ctx as any).roundRect(pillX, pillY, pillW, pillH, 20);
+    (ctx as any).roundRect(pillX, pillY, pillW, pillH, 19);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     ctx.strokeStyle = '#E2E8F0';
@@ -446,22 +474,22 @@ export class Renderer {
 
     // Colored difficulty indicator dot
     ctx.beginPath();
-    ctx.arc(pillX + 22, pillY + pillH / 2, 6, 0, Math.PI * 2);
+    ctx.arc(pillX + 20, pillY + pillH / 2, 5.5, 0, Math.PI * 2);
     ctx.fillStyle = diffObj.color;
     ctx.fill();
 
-    ctx.font = '800 13.5px Fredoka, Nunito, Inter, sans-serif';
+    ctx.font = '800 13px Fredoka, Nunito, Inter, sans-serif';
     ctx.fillStyle = '#1E293B';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${diffObj.label} ▼`, pillX + 36, pillY + pillH / 2);
+    ctx.fillText(`${diffObj.label} ▼`, pillX + 33, pillY + pillH / 2);
     ctx.restore();
 
-    // 2. Sound Toggle Button (Pill 44x40)
-    const soundX = 260;
-    const soundY = 54;
-    const soundW = 44;
-    const soundH = 40;
+    // 2. Sound Toggle Button
+    const soundW = 40;
+    const soundH = 38;
+    const soundX = w - 92;
+    const soundY = 32;
 
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
@@ -475,28 +503,47 @@ export class Renderer {
     ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    ctx.font = '16px sans-serif';
+    ctx.font = '15px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(synth.muted ? '🔇' : '🔊', soundX + soundW / 2, soundY + soundH / 2);
     ctx.restore();
 
-    // 3. Restart Button (Top Right - Circular diameter 52px)
+    // 3. Restart Button (Top Right matching user phone reference screenshot)
+    const restartR = 21;
+    const restartX = w - 40;
+    const restartY = 51;
+
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
     ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 3;
+    ctx.shadowOffsetY = 2;
     ctx.beginPath();
-    ctx.arc(348, 74, 25, 0, Math.PI * 2);
+    ctx.arc(restartX, restartY, restartR, 0, Math.PI * 2);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     ctx.restore();
 
-    ctx.font = '800 24px sans-serif';
+    ctx.font = '800 22px sans-serif';
     ctx.fillStyle = '#E87063';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('↺', 348, 73);
+    ctx.fillText('↺', restartX, restartY - 1);
+  }
+
+  // Result Button Dynamic Bounds (Settings + PLAY AGAIN only - No Home button)
+  public getResultButtonBounds() {
+    const w = this.width;
+    const h = this.height;
+    const btnH = 54;
+    const btnY = Math.min(h - 90, THEME.boardY + THEME.boardH + 28);
+    const settingsW = 54;
+    const gap = 12;
+    const playAgainW = Math.min(220, w - settingsW - gap - 48);
+    const totalW = settingsW + gap + playAgainW;
+    const settingsX = (w - totalW) / 2;
+    const playAgainX = settingsX + settingsW + gap;
+    return { settingsX, settingsW, playAgainX, playAgainW, btnY, btnH };
   }
 
   // Result Overlay Screen (Settings & Play Again buttons only - Home removed)
@@ -505,10 +552,13 @@ export class Renderer {
     winner: Cell | null,
     opacity: number
   ): void {
+    const w = this.width;
+    const h = this.height;
+
     ctx.save();
     ctx.globalAlpha = opacity;
     ctx.fillStyle = THEME.resultOverlay;
-    ctx.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
+    ctx.fillRect(0, 0, w, h);
 
     let title = 'YOU LOST!';
     let sub = 'The bot connected 4 in a row!';
@@ -524,31 +574,29 @@ export class Renderer {
       titleColor = '#F59E0B';
     }
 
-    ctx.font = '900 52px Fredoka, Nunito, Inter, sans-serif';
+    const titleY = Math.max(140, THEME.boardY - 60);
+
+    ctx.font = '900 48px Fredoka, Nunito, Inter, sans-serif';
     ctx.fillStyle = titleColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
     ctx.shadowBlur = 16;
-    ctx.fillText(title, DESIGN_WIDTH / 2, 230);
+    ctx.fillText(title, w / 2, titleY);
 
     ctx.font = '700 16px Fredoka, Nunito, Inter, sans-serif';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-    ctx.fillText(sub, DESIGN_WIDTH / 2, 275);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+    ctx.fillText(sub, w / 2, titleY + 40);
 
-    // Two Bottom Result Action Buttons: Settings (Purple) + PLAY AGAIN (Green)
-    const btnY = 725;
+    const bounds = this.getResultButtonBounds();
 
     // 1. Difficulty / Settings Button (Purple Square)
-    const settingsX = 68;
-    const settingsW = 58;
-    const settingsH = 58;
     ctx.save();
     ctx.shadowColor = 'rgba(139, 92, 246, 0.35)';
     ctx.shadowBlur = 12;
     ctx.shadowOffsetY = 4;
     ctx.beginPath();
-    (ctx as any).roundRect(settingsX, btnY, settingsW, settingsH, 18);
+    (ctx as any).roundRect(bounds.settingsX, bounds.btnY, bounds.settingsW, bounds.btnH, 18);
     ctx.fillStyle = THEME.btnStats;
     ctx.fill();
     ctx.restore();
@@ -557,18 +605,15 @@ export class Renderer {
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('⚙', settingsX + settingsW / 2, btnY + settingsH / 2);
+    ctx.fillText('⚙', bounds.settingsX + bounds.settingsW / 2, bounds.btnY + bounds.btnH / 2);
 
-    // 2. PLAY AGAIN Button (Wide Green Rectangle)
-    const playAgainX = 142;
-    const playAgainW = 190;
-    const playAgainH = 58;
+    // 2. PLAY AGAIN Button (Green Rectangle)
     ctx.save();
     ctx.shadowColor = 'rgba(34, 197, 94, 0.35)';
     ctx.shadowBlur = 14;
     ctx.shadowOffsetY = 4;
     ctx.beginPath();
-    (ctx as any).roundRect(playAgainX, btnY, playAgainW, playAgainH, 18);
+    (ctx as any).roundRect(bounds.playAgainX, bounds.btnY, bounds.playAgainW, bounds.btnH, 18);
     ctx.fillStyle = THEME.btnPlayAgain;
     ctx.fill();
     ctx.restore();
@@ -577,49 +622,54 @@ export class Renderer {
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('PLAY AGAIN ▶', playAgainX + playAgainW / 2, btnY + playAgainH / 2);
+    ctx.fillText('PLAY AGAIN ▶', bounds.playAgainX + bounds.playAgainW / 2, bounds.btnY + bounds.btnH / 2);
 
     ctx.restore();
   }
 
-  // Exact Sudoku Pro Style "SELECT DIFFICULTY" Modal
+  // Exact Sudoku Pro Style "SELECT DIFFICULTY" Modal Bounds
   public getDifficultyDialogBounds() {
-    const cardW = 336;
-    const cardH = 430;
-    const cardX = (DESIGN_WIDTH - cardW) / 2;
-    const cardY = (DESIGN_HEIGHT - cardH) / 2 - 10;
+    const w = this.width;
+    const h = this.height;
+    const cardW = Math.min(336, w - 32);
+    const cardH = 370;
+    const cardX = Math.round((w - cardW) / 2);
+    const cardY = Math.round(Math.max(30, (h - cardH) / 2));
 
-    const trackW = 254;
-    const trackH = 14;
-    const trackX = (DESIGN_WIDTH - trackW) / 2;
-    const trackY = cardY + 265;
+    const trackW = cardW - 64;
+    const trackH = 12;
+    const trackX = cardX + 32;
+    const trackY = cardY + 205;
     const knobR = 14;
 
-    const playW = 196;
-    const playH = 50;
-    const playX = cardX + 24;
-    const playY = cardY + 345;
+    const playW = cardW - 56;
+    const playH = 48;
+    const playX = cardX + 28;
+    const playY = cardY + 285;
 
-    const qSize = 50;
-    const qX = playX + playW + 16;
-    const qY = playY;
-
-    return { cardX, cardY, cardW, cardH, trackX, trackY, trackW, trackH, knobR, playX, playY, playW, playH, qX, qY, qSize };
+    return { cardX, cardY, cardW, cardH, trackX, trackY, trackW, trackH, knobR, playX, playY, playW, playH };
   }
 
+  // Sudoku Pro Style Difficulty Dialog (Clean, No subtitle lines, Neutral dimming)
   public renderDifficultyDialog(ctx: CanvasRenderingContext2D, sliderPos: number): void {
+    const w = this.width;
+    const h = this.height;
+
+    // Clean neutral dimming overlay across the entire screen (No murky blue/color tint)
     ctx.save();
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
-    ctx.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
 
     const bounds = this.getDifficultyDialogBounds();
     const curIdx = Math.max(0, Math.min(2, Math.round(sliderPos)));
     const d = DIFFICULTIES[curIdx];
 
-    // Card background
-    ctx.shadowColor = 'rgba(15, 23, 42, 0.32)';
-    ctx.shadowBlur = 28;
-    ctx.shadowOffsetY = 10;
+    // Card background: clean white with soft neutral shadow
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.18)';
+    ctx.shadowBlur = 24;
+    ctx.shadowOffsetY = 8;
     ctx.beginPath();
     (ctx as any).roundRect(bounds.cardX, bounds.cardY, bounds.cardW, bounds.cardH, 24);
     ctx.fillStyle = '#FFFFFF';
@@ -636,60 +686,38 @@ export class Renderer {
     ctx.restore();
 
     // Dialog Header Title
-    ctx.font = '900 19px Fredoka, Nunito, Inter, sans-serif';
+    ctx.font = '900 18px Fredoka, Nunito, Inter, sans-serif';
     ctx.fillStyle = '#0F172A';
     ctx.textAlign = 'center';
-    ctx.fillText('SELECT DIFFICULTY', DESIGN_WIDTH / 2, bounds.cardY + 36);
+    ctx.fillText('SELECT DIFFICULTY', bounds.cardX + bounds.cardW / 2, bounds.cardY + 36);
 
     // Center Vector Emblem Badge
-    const emblemY = bounds.cardY + 105;
-    const emblemR = 40;
+    const emblemY = bounds.cardY + 95;
+    const emblemR = 36;
 
     ctx.save();
-    ctx.shadowColor = d.color + '55';
-    ctx.shadowBlur = 18;
-    ctx.shadowOffsetY = 4;
     ctx.beginPath();
-    ctx.arc(DESIGN_WIDTH / 2, emblemY, emblemR, 0, Math.PI * 2);
+    ctx.arc(bounds.cardX + bounds.cardW / 2, emblemY, emblemR, 0, Math.PI * 2);
     ctx.fillStyle = '#F8FAFC';
     ctx.fill();
     ctx.strokeStyle = d.color;
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    this.drawEmblem(ctx, DESIGN_WIDTH / 2, emblemY, d.emblem, d.color);
+    this.drawEmblem(ctx, bounds.cardX + bounds.cardW / 2, emblemY, d.emblem, d.color);
     ctx.restore();
 
-    // Difficulty Tier Label
+    // Difficulty Tier Label (EASY / MEDIUM / HARD)
     ctx.font = '900 24px Fredoka, Nunito, Inter, sans-serif';
     ctx.fillStyle = d.color;
     ctx.textAlign = 'center';
-    ctx.fillText(d.label, DESIGN_WIDTH / 2, bounds.cardY + 180);
+    ctx.fillText(d.label, bounds.cardX + bounds.cardW / 2, bounds.cardY + 165);
 
-    // Subtitle & description
-    ctx.font = '700 13px Inter, sans-serif';
-    ctx.fillStyle = '#64748B';
-    ctx.fillText(d.subtitle + ' • ' + d.description, DESIGN_WIDTH / 2, bounds.cardY + 206);
+    // NOTE: Subtitle lines ("Relaxed & Fun", "Deep Strategy", etc.) are completely omitted per user instruction!
 
     // Slider Track
     const usableW = bounds.trackW - 2 * bounds.knobR;
     const knobX = bounds.trackX + bounds.knobR + (sliderPos / 2) * usableW;
-
-    ctx.save();
-    ctx.shadowColor = 'rgba(15, 23, 42, 0.06)';
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 3;
-    ctx.beginPath();
-    (ctx as any).roundRect(
-      bounds.trackX - 4,
-      bounds.trackY - 4,
-      bounds.trackW + 8,
-      bounds.trackH + 8,
-      (bounds.trackH + 8) / 2
-    );
-    ctx.fillStyle = '#F1F5F9';
-    ctx.fill();
-    ctx.restore();
 
     ctx.save();
     ctx.beginPath();
@@ -708,13 +736,11 @@ export class Renderer {
     (ctx as any).roundRect(bounds.trackX, bounds.trackY, activeW, bounds.trackH, bounds.trackH / 2);
     ctx.fillStyle = trackGrad;
     ctx.fill();
-    ctx.restore();
 
-    // Slider Knob
-    ctx.save();
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 3;
+    // Slider Knob with subtle neutral shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 2;
     ctx.beginPath();
     ctx.arc(knobX, bounds.trackY + bounds.trackH / 2, bounds.knobR, 0, Math.PI * 2);
     ctx.fillStyle = '#FFFFFF';
@@ -730,15 +756,15 @@ export class Renderer {
     ctx.font = '700 11px Fredoka, Inter, sans-serif';
     ctx.fillStyle = '#94A3B8';
     ctx.textAlign = 'center';
-    ctx.fillText('EASY', bounds.trackX + bounds.knobR, bounds.trackY + 30);
-    ctx.fillText('MEDIUM', bounds.trackX + bounds.trackW / 2, bounds.trackY + 30);
-    ctx.fillText('HARD', bounds.trackX + bounds.trackW - bounds.knobR, bounds.trackY + 30);
+    ctx.fillText('EASY', bounds.trackX + bounds.knobR, bounds.trackY + 28);
+    ctx.fillText('MEDIUM', bounds.trackX + bounds.trackW / 2, bounds.trackY + 28);
+    ctx.fillText('HARD', bounds.trackX + bounds.trackW - bounds.knobR, bounds.trackY + 28);
 
     // [ PLAY ▶ ] Button
     ctx.save();
-    ctx.shadowColor = d.color + '66';
-    ctx.shadowBlur = 14;
-    ctx.shadowOffsetY = 4;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 3;
     ctx.beginPath();
     (ctx as any).roundRect(bounds.playX, bounds.playY, bounds.playW, bounds.playH, 18);
     ctx.fillStyle = d.color;
@@ -750,23 +776,6 @@ export class Renderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('PLAY ▶', bounds.playX + bounds.playW / 2, bounds.playY + bounds.playH / 2);
-
-    // [ ? ] Tutorial Button
-    ctx.save();
-    ctx.shadowColor = 'rgba(139, 92, 246, 0.35)';
-    ctx.shadowBlur = 12;
-    ctx.shadowOffsetY = 3;
-    ctx.beginPath();
-    (ctx as any).roundRect(bounds.qX, bounds.qY, bounds.qSize, bounds.qSize, 16);
-    ctx.fillStyle = '#8B5CF6';
-    ctx.fill();
-    ctx.restore();
-
-    ctx.font = '900 24px Fredoka, Nunito, Inter, sans-serif';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('?', bounds.qX + bounds.qSize / 2, bounds.qY + bounds.qSize / 2);
   }
 
   // Draw Difficulty Emblems (Leaf, Spark, Diamond)
@@ -831,18 +840,23 @@ export class Renderer {
 
   // Tutorial / How to Play Modal
   public renderTutorialModal(ctx: CanvasRenderingContext2D): void {
+    const w = this.width;
+    const h = this.height;
+
     ctx.save();
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
-    ctx.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
 
-    const modalW = 336;
+    const modalW = Math.min(336, w - 32);
     const modalH = 460;
-    const modalX = (DESIGN_WIDTH - modalW) / 2;
-    const modalY = (DESIGN_HEIGHT - modalH) / 2;
+    const modalX = (w - modalW) / 2;
+    const modalY = Math.max(20, (h - modalH) / 2);
 
-    ctx.shadowColor = 'rgba(15, 23, 42, 0.35)';
-    ctx.shadowBlur = 32;
-    ctx.shadowOffsetY = 12;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+    ctx.shadowBlur = 24;
+    ctx.shadowOffsetY = 8;
     ctx.beginPath();
     (ctx as any).roundRect(modalX, modalY, modalW, modalH, 24);
     ctx.fillStyle = '#FFFFFF';
@@ -852,58 +866,58 @@ export class Renderer {
     ctx.font = '900 22px Fredoka, Nunito, Inter, sans-serif';
     ctx.fillStyle = '#0F172A';
     ctx.textAlign = 'center';
-    ctx.fillText('HOW TO PLAY', DESIGN_WIDTH / 2, modalY + 38);
+    ctx.fillText('HOW TO PLAY', w / 2, modalY + 38);
 
-    ctx.font = '700 13.5px Inter, sans-serif';
+    ctx.font = '700 13px Inter, sans-serif';
     ctx.fillStyle = '#475569';
     ctx.textAlign = 'left';
 
     const rules = [
-      '1. Drag or tap above the column to drop your coral piece.',
-      '2. Gravity pulls the piece to the lowest available cell.',
-      '3. Connect 4 of your discs in a row to win:',
+      '1. Tap or slide to drop your coral piece.',
+      '2. Gravity pulls the piece down into the cell.',
+      '3. Connect 4 discs in a row to win:',
       '   • Horizontally ↔',
       '   • Vertically ↕',
       '   • Diagonally ↘ or ↗',
-      '4. Block the smart bot before it connects four!'
+      '4. Block the smart bot before it wins!'
     ];
 
     rules.forEach((line, i) => {
-      ctx.fillText(line, modalX + 24, modalY + 80 + i * 28);
+      ctx.fillText(line, modalX + 22, modalY + 80 + i * 28);
     });
 
     // Visual illustration of 4 connected
     const diagramY = modalY + 285;
     ctx.fillStyle = '#F1F5F9';
     ctx.beginPath();
-    (ctx as any).roundRect(modalX + 24, diagramY, modalW - 48, 70, 16);
+    (ctx as any).roundRect(modalX + 20, diagramY, modalW - 40, 70, 16);
     ctx.fill();
 
     for (let i = 0; i < 4; i++) {
-      const dx = modalX + 74 + i * 50;
+      const dx = modalX + 58 + i * 46;
       const dy = diagramY + 35;
       ctx.beginPath();
-      ctx.arc(dx, dy, 16, 0, Math.PI * 2);
+      ctx.arc(dx, dy, 15, 0, Math.PI * 2);
       ctx.fillStyle = THEME.playerDisc;
       ctx.fill();
       ctx.strokeStyle = THEME.holeOutline;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
     }
 
     // White connection line through illustration
     ctx.beginPath();
-    ctx.moveTo(modalX + 74, diagramY + 35);
-    ctx.lineTo(modalX + 74 + 3 * 50, diagramY + 35);
+    ctx.moveTo(modalX + 58, diagramY + 35);
+    ctx.lineTo(modalX + 58 + 3 * 46, diagramY + 35);
     ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 4.5;
     ctx.lineCap = 'round';
     ctx.stroke();
 
     // [ GOT IT! ▶ ] Button
-    const btnW = 200;
+    const btnW = Math.min(200, modalW - 48);
     const btnH = 48;
-    const btnX = (DESIGN_WIDTH - btnW) / 2;
+    const btnX = (w - btnW) / 2;
     const btnY = modalY + modalH - 66;
 
     ctx.save();

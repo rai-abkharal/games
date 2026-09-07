@@ -1,8 +1,6 @@
 import {
   ROWS,
   COLS,
-  DESIGN_WIDTH,
-  DESIGN_HEIGHT,
   Cell,
   GameState,
   Difficulty,
@@ -101,7 +99,7 @@ export class Game {
 
     this.initEvents();
 
-    // Start with difficulty selection prompt on load
+    // Open difficulty selection dialog on load
     this.state = GameState.DIFF_SELECT;
   }
 
@@ -197,7 +195,7 @@ export class Game {
       settled: false
     };
 
-    this.synth.playDrop();
+    // Notice: Single metallic impact sound plays when disc lands at bottom (no duplicate sounds)
   }
 
   // Handle Piece Settling & Check Win
@@ -279,13 +277,12 @@ export class Game {
         p.y = p.targetY;
         p.bounceCount++;
 
-        // Single precise metallic impact sound when piece lands
+        // Single precise metallic landing impact sound on first touch
         if (p.bounceCount === 1) {
           this.synth.playMetallicImpact();
         }
-        // No secondary bounce noise (single clean sound)
 
-        // Physical rebound
+        // Physical subtle rebound
         p.velocityY = -p.velocityY * 0.28;
 
         if (p.bounceCount >= 3 || Math.abs(p.velocityY) < 45) {
@@ -356,8 +353,9 @@ export class Game {
       const pos = this.renderer.toVirtual(e.clientX, e.clientY);
       const px = pos.x;
       const py = pos.y;
+      const w = this.renderer.width;
 
-      // 1. Difficulty Modal Input (Open at start & when tapped)
+      // 1. Difficulty Modal Input (Clean, No subtitles, Neutral backdrop)
       if (this.state === GameState.DIFF_SELECT) {
         const bounds = this.renderer.getDifficultyDialogBounds();
 
@@ -365,7 +363,6 @@ export class Game {
         if (px >= bounds.cardX + bounds.cardW - 40 && px <= bounds.cardX + bounds.cardW &&
             py >= bounds.cardY && py <= bounds.cardY + 45) {
           this.synth.playButton();
-          // If a game was already started, return to aiming, otherwise start match
           if (Rules.isBoardFull(this.board) || this.winner !== null) {
             this.startNewMatch(this.difficulty);
           } else {
@@ -391,14 +388,6 @@ export class Game {
           return;
         }
 
-        // [ ? ] Tutorial Button
-        if (px >= bounds.qX && px <= bounds.qX + bounds.qSize &&
-            py >= bounds.qY && py <= bounds.qY + bounds.qSize) {
-          this.synth.playButton();
-          this.state = GameState.TUTORIAL;
-          return;
-        }
-
         return;
       }
 
@@ -410,8 +399,12 @@ export class Game {
       }
 
       // 3. Top Header Navigation Buttons
-      // Difficulty Pill Banner (Centered/Left prominent)
-      if (px >= 100 && px <= 244 && py >= 54 && py <= 94) {
+      // Difficulty Pill Banner (Prominent banner)
+      const pillW = 136;
+      const pillH = 38;
+      const pillX = Math.max(16, (w - pillW) / 2 - 24);
+      const pillY = 32;
+      if (px >= pillX && px <= pillX + pillW && py >= pillY && py <= pillY + pillH) {
         this.synth.playButton();
         this.sliderPos = DIFFICULTIES.findIndex(d => d.id === this.difficulty);
         this.state = GameState.DIFF_SELECT;
@@ -419,13 +412,19 @@ export class Game {
       }
 
       // Sound Toggle Button
-      if (px >= 260 && px <= 304 && py >= 54 && py <= 94) {
+      const soundW = 40;
+      const soundH = 38;
+      const soundX = w - 92;
+      const soundY = 32;
+      if (px >= soundX && px <= soundX + soundW && py >= soundY && py <= soundY + soundH) {
         this.synth.toggleMute();
         return;
       }
 
-      // Restart Button (Top Right circular button)
-      if (Math.hypot(px - 348, py - 74) <= 26) {
+      // Restart Button (Top Right circular button matching media_1788769298829.jpg)
+      const restartX = w - 40;
+      const restartY = 51;
+      if (Math.hypot(px - restartX, py - restartY) <= 26) {
         this.synth.playButton();
         this.startNewMatch(this.difficulty);
         return;
@@ -433,10 +432,11 @@ export class Game {
 
       // 4. Result Screen Buttons (Only Settings & Play Again - No Home button)
       if (this.state === GameState.RESULT_SCREEN) {
-        const btnY = 725;
+        const bounds = this.renderer.getResultButtonBounds();
 
         // Difficulty / Settings Button (Purple Square)
-        if (px >= 68 && px <= 126 && py >= btnY && py <= btnY + 58) {
+        if (px >= bounds.settingsX && px <= bounds.settingsX + bounds.settingsW &&
+            py >= bounds.btnY && py <= bounds.btnY + bounds.btnH) {
           this.synth.playButton();
           this.sliderPos = DIFFICULTIES.findIndex(d => d.id === this.difficulty);
           this.state = GameState.DIFF_SELECT;
@@ -444,7 +444,8 @@ export class Game {
         }
 
         // PLAY AGAIN Button (Green Rectangle)
-        if (px >= 142 && px <= 332 && py >= btnY && py <= btnY + 58) {
+        if (px >= bounds.playAgainX && px <= bounds.playAgainX + bounds.playAgainW &&
+            py >= bounds.btnY && py <= bounds.btnY + bounds.btnH) {
           this.synth.playButton();
           this.startNewMatch(this.difficulty);
           return;
@@ -455,7 +456,7 @@ export class Game {
 
       // 5. Player Aiming / Dropping Controls
       if (this.state === GameState.PLAYER_AIMING) {
-        // Direct tap on column below board
+        // Direct tap on column on board
         if (py >= THEME.boardY && py <= THEME.boardY + THEME.boardH) {
           const nearestCol = this.findNearestColumn(px);
           this.previewPiece.col = nearestCol;
