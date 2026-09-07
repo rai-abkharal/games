@@ -1,0 +1,17 @@
+{
+  "name": "four-in-a-row",
+  "version": "1.0.0",
+  "private": true,
+  "description": "4 In A Row - Classic Connect 4 Game built with TypeScript, HTML5 Canvas, and Vite",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vite": "^6.1.1",
+    "vite-plugin-singlefile": "^2.1.0"
+  }
+}
