@@ -361,7 +361,7 @@ export class Renderer {
   }
 
   // --------------------------------------------------------------------------
-  // SNAKE RENDERING: Articulated Directional Segments, Oversized Eyes, Leaf Tail
+  // SNAKE RENDERING: Articulated Stretched Segments, Oversized Eyes, Seamless Leaf Tail
   // --------------------------------------------------------------------------
   private renderSnake(
     ctx: CanvasRenderingContext2D,
@@ -371,7 +371,9 @@ export class Renderer {
     if (segments.length === 0) return;
 
     const cs = THEME.cellSize;
-    const segRadius = cs * 0.44;
+    // Stretched segment dimensions: slightly compressed along motion (rX), wider across motion (rY)
+    const rX = cs * 0.38;
+    const rY = cs * 0.48;
 
     // Convert all segment positions to pixel coordinates
     const pixelPoints = segments.map(s => ({
@@ -383,10 +385,34 @@ export class Renderer {
     ctx.save();
     for (let i = pixelPoints.length - 1; i >= 0; i--) {
       const pt = pixelPoints[i];
+      const isTail = i === pixelPoints.length - 1;
+      const isHead = i === 0;
+
+      let angle = 0;
+      if (isHead) {
+        switch (dir) {
+          case Direction.UP: angle = -Math.PI / 2; break;
+          case Direction.DOWN: angle = Math.PI / 2; break;
+          case Direction.LEFT: angle = Math.PI; break;
+          case Direction.RIGHT: angle = 0; break;
+        }
+      } else if (isTail && pixelPoints.length > 1) {
+        const prevPt = pixelPoints[i - 1];
+        angle = Math.atan2(pt.y - prevPt.y, pt.x - prevPt.x);
+      } else {
+        const prevPt = pixelPoints[i - 1];
+        const nextPt = pixelPoints[i + 1];
+        angle = Math.atan2(prevPt.y - nextPt.y, prevPt.x - nextPt.x);
+      }
+
+      ctx.save();
+      ctx.translate(pt.x + cs * 0.08, pt.y + cs * 0.09);
+      ctx.rotate(angle);
       ctx.beginPath();
-      ctx.arc(pt.x + cs * 0.08, pt.y + cs * 0.09, segRadius, 0, Math.PI * 2);
+      (ctx as any).roundRect(-rX, -rY, rX * 2, rY * 2, rX * 0.72);
       ctx.fillStyle = THEME.snakeShadow;
       ctx.fill();
+      ctx.restore();
     }
     ctx.restore();
 
@@ -397,11 +423,11 @@ export class Renderer {
       const isTail = i === pixelPoints.length - 1;
 
       if (isTail && pixelPoints.length > 1) {
-        // Pointed Tail Segment
+        // Seamless Pointed Tail Segment (Zero gap with preceding segment)
         const prevPt = pixelPoints[i - 1];
-        this.drawTaperedTail(ctx, pt, prevPt, segRadius);
+        this.drawTaperedTail(ctx, pt, prevPt, rX, rY);
       } else if (!isHead) {
-        // Body Segment: Directional Articulation with Dividing Line and Capsule Spots
+        // Stretched Body Segment: Rounded rectangle oriented with movement flow
         const prevPt = pixelPoints[i - 1];
         const nextPt = pixelPoints[i + 1];
 
@@ -410,21 +436,22 @@ export class Renderer {
         const dy = prevPt.y - nextPt.y;
         const angle = Math.atan2(dy, dx);
 
-        this.drawBodySegment(ctx, pt, angle, segRadius);
+        this.drawBodySegment(ctx, pt, angle, rX, rY);
       }
     }
 
     // 3. Draw Head with Oversized Cartoon Eyes & Directional Alignment
     const headPt = pixelPoints[0];
-    this.drawHead(ctx, headPt, dir, segRadius);
+    this.drawHead(ctx, headPt, dir, rX, rY);
   }
 
-  // Draw an articulated body segment oriented with its movement angle
+  // Draw an articulated slightly stretched rounded rectangle body segment
   private drawBodySegment(
     ctx: CanvasRenderingContext2D,
     pt: { x: number; y: number },
     angle: number,
-    radius: number
+    rX: number,
+    rY: number
   ): void {
     const cs = THEME.cellSize;
 
@@ -432,9 +459,9 @@ export class Renderer {
     ctx.translate(pt.x, pt.y);
     ctx.rotate(angle);
 
-    // Base circular green segment
+    // Stretched rounded rectangle body segment (wider across motion, compressed along motion)
     ctx.beginPath();
-    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    (ctx as any).roundRect(-rX, -rY, rX * 2, rY * 2, rX * 0.72);
     ctx.fillStyle = THEME.snakeMain;
     ctx.fill();
     ctx.lineWidth = Math.max(2, cs * 0.08);
@@ -443,17 +470,17 @@ export class Renderer {
 
     // Central dividing spine line along the flow direction (local X-axis)
     ctx.beginPath();
-    ctx.moveTo(-radius * 0.86, 0);
-    ctx.lineTo(radius * 0.86, 0);
+    ctx.moveTo(-rX * 0.95, 0);
+    ctx.lineTo(rX * 0.95, 0);
     ctx.strokeStyle = THEME.snakeOutline;
     ctx.lineWidth = Math.max(2, cs * 0.08);
     ctx.lineCap = 'round';
     ctx.stroke();
 
     // Two symmetrical capsule spots on either side of the dividing line
-    const spotDistY = radius * 0.44;
-    const spotRadiusX = radius * 0.42;
-    const spotRadiusY = radius * 0.22;
+    const spotDistY = rY * 0.50;
+    const spotRadiusX = rX * 0.55;
+    const spotRadiusY = rY * 0.28;
 
     for (const sign of [-1, 1]) {
       const sy = sign * spotDistY;
@@ -463,7 +490,7 @@ export class Renderer {
       ctx.ellipse(0, sy, spotRadiusX, spotRadiusY, 0, 0, Math.PI * 2);
       ctx.fillStyle = THEME.snakeLight;
       ctx.fill();
-      ctx.lineWidth = Math.max(1.5, cs * 0.06);
+      ctx.lineWidth = Math.max(1.4, cs * 0.055);
       ctx.strokeStyle = THEME.snakeOutline;
       ctx.stroke();
 
@@ -477,15 +504,17 @@ export class Renderer {
     ctx.restore();
   }
 
-  // Draw tapered pointed tail with directional spine and spots
+  // Draw seamless tapered pointed tail with zero gap connecting directly into previous segment
   private drawTaperedTail(
     ctx: CanvasRenderingContext2D,
     tailPt: { x: number; y: number },
     prevPt: { x: number; y: number },
-    radius: number
+    rX: number,
+    rY: number
   ): void {
     const dx = tailPt.x - prevPt.x;
     const dy = tailPt.y - prevPt.y;
+    const dist = Math.hypot(dx, dy);
     const angle = Math.atan2(dy, dx);
     const cs = THEME.cellSize;
 
@@ -493,11 +522,15 @@ export class Renderer {
     ctx.translate(tailPt.x, tailPt.y);
     ctx.rotate(angle);
 
-    // Tail leaf/wedge geometry pointing backwards (+X in local rotated space)
+    // Seamless Leaf Tail geometry:
+    // Starts at -dist * 0.55 (deeply overlapping preceding segment base with full width ±rY),
+    // and smoothly tapers down to a sharp tip at +dist * 1.35
     ctx.beginPath();
-    ctx.moveTo(-radius * 0.35, -radius * 0.95);
-    ctx.quadraticCurveTo(radius * 0.4, -radius * 0.72, radius * 1.4, 0);
-    ctx.quadraticCurveTo(radius * 0.4, radius * 0.72, -radius * 0.35, radius * 0.95);
+    ctx.moveTo(-dist * 0.55, -rY);
+    ctx.lineTo(-rX * 0.25, -rY);
+    ctx.quadraticCurveTo(dist * 0.35, -rY * 0.88, dist * 1.35, 0);
+    ctx.quadraticCurveTo(dist * 0.35, rY * 0.88, -rX * 0.25, rY);
+    ctx.lineTo(-dist * 0.55, rY);
     ctx.closePath();
 
     ctx.fillStyle = THEME.snakeMain;
@@ -506,24 +539,24 @@ export class Renderer {
     ctx.strokeStyle = THEME.snakeOutline;
     ctx.stroke();
 
-    // Central dark spine running all the way to the tapered tip
+    // Central dark spine running seamlessly from base to the tapered tip
     ctx.beginPath();
-    ctx.moveTo(-radius * 0.2, 0);
-    ctx.lineTo(radius * 1.32, 0);
+    ctx.moveTo(-dist * 0.5, 0);
+    ctx.lineTo(dist * 1.3, 0);
     ctx.strokeStyle = THEME.snakeOutline;
     ctx.lineWidth = Math.max(2, cs * 0.085);
     ctx.lineCap = 'round';
     ctx.stroke();
 
     // Two symmetrical spots near the base of the tail
-    const spotDistY = radius * 0.42;
-    const spotRadiusX = radius * 0.35;
-    const spotRadiusY = radius * 0.18;
+    const spotDistY = rY * 0.50;
+    const spotRadiusX = rX * 0.52;
+    const spotRadiusY = rY * 0.26;
 
     for (const sign of [-1, 1]) {
       const sy = sign * spotDistY;
       ctx.beginPath();
-      ctx.ellipse(radius * 0.1, sy, spotRadiusX, spotRadiusY, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, sy, spotRadiusX, spotRadiusY, 0, 0, Math.PI * 2);
       ctx.fillStyle = THEME.snakeLight;
       ctx.fill();
       ctx.lineWidth = Math.max(1.4, cs * 0.055);
@@ -531,7 +564,7 @@ export class Renderer {
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.arc(radius * 0.1, sy, Math.max(1.6, cs * 0.065), 0, Math.PI * 2);
+      ctx.arc(0, sy, Math.max(1.6, cs * 0.065), 0, Math.PI * 2);
       ctx.fillStyle = THEME.snakeOutline;
       ctx.fill();
     }
@@ -544,7 +577,8 @@ export class Renderer {
     ctx: CanvasRenderingContext2D,
     pt: { x: number; y: number },
     dir: Direction,
-    radius: number
+    rX: number,
+    rY: number
   ): void {
     const cs = THEME.cellSize;
     let headAngle = 0;
@@ -559,9 +593,9 @@ export class Renderer {
     ctx.translate(pt.x, pt.y);
     ctx.rotate(headAngle);
 
-    // Head base circle
+    // Head base stretched rounded unit
     ctx.beginPath();
-    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    (ctx as any).roundRect(-rX * 0.8, -rY, rX * 1.8, rY * 2, rX * 0.72);
     ctx.fillStyle = THEME.snakeMain;
     ctx.fill();
     ctx.lineWidth = Math.max(2, cs * 0.085);
@@ -570,19 +604,19 @@ export class Renderer {
 
     // Snout spine line towards the front (+X)
     ctx.beginPath();
-    ctx.moveTo(-radius * 0.2, 0);
-    ctx.lineTo(radius * 0.85, 0);
+    ctx.moveTo(-rX * 0.3, 0);
+    ctx.lineTo(rX * 0.95, 0);
     ctx.strokeStyle = THEME.snakeOutline;
     ctx.lineWidth = Math.max(2, cs * 0.08);
     ctx.lineCap = 'round';
     ctx.stroke();
 
     // Symmetrical snout spots on sides
-    const spotDistY = radius * 0.44;
+    const spotDistY = rY * 0.50;
     for (const sign of [-1, 1]) {
       const sy = sign * spotDistY;
       ctx.beginPath();
-      ctx.ellipse(radius * 0.2, sy, radius * 0.32, radius * 0.18, 0, 0, Math.PI * 2);
+      ctx.ellipse(rX * 0.15, sy, rX * 0.45, rY * 0.24, 0, 0, Math.PI * 2);
       ctx.fillStyle = THEME.snakeLight;
       ctx.fill();
       ctx.lineWidth = Math.max(1.4, cs * 0.055);
@@ -590,19 +624,19 @@ export class Renderer {
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.arc(radius * 0.2, sy, Math.max(1.6, cs * 0.065), 0, Math.PI * 2);
+      ctx.arc(rX * 0.15, sy, Math.max(1.6, cs * 0.065), 0, Math.PI * 2);
       ctx.fillStyle = THEME.snakeOutline;
       ctx.fill();
     }
 
     // Oversized cartoon eyes mounted on top of the head!
-    const eyeR = radius * 0.52;
+    const eyeR = rY * 0.52;
     const pupilR = eyeR * 0.45;
-    const eyeSeparation = radius * 0.48;
+    const eyeSeparation = rY * 0.48;
 
     const eyes = [
-      { x: radius * 0.1, y: -eyeSeparation },
-      { x: radius * 0.1, y: eyeSeparation }
+      { x: rX * 0.15, y: -eyeSeparation },
+      { x: rX * 0.15, y: eyeSeparation }
     ];
 
     const pupilDx = eyeR * 0.35;
