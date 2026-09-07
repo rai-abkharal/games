@@ -157,7 +157,7 @@ export class Renderer {
   }
 
   // --------------------------------------------------------------------------
-  // TOP BAR HUD: Back Button, Mode/Score, Crown All-Time, Pause Button
+  // TOP BAR HUD: Mode/Score (Clickable Difficulty Button), Crown All-Time, Pause Button
   // --------------------------------------------------------------------------
   private renderTopHUD(
     ctx: CanvasRenderingContext2D,
@@ -167,53 +167,35 @@ export class Renderer {
   ): void {
     const diffConfig = DIFFICULTIES.find(d => d.id === difficulty) || DIFFICULTIES[0];
 
-    // 1. Top-Left Back Button (White circle, pink chevron)
-    const back = THEME.backBtn;
-    ctx.save();
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
-    ctx.shadowBlur = 6;
-    ctx.shadowOffsetY = 2;
-    ctx.beginPath();
-    ctx.arc(back.x, back.y, back.r, 0, Math.PI * 2);
-    ctx.fillStyle = THEME.uiWhite;
-    ctx.fill();
-    ctx.restore();
-
-    // Pink left chevron (<)
-    ctx.save();
-    ctx.strokeStyle = THEME.uiPinkChevron;
-    ctx.lineWidth = Math.max(3.5, back.r * 0.18);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    const arrSize = back.r * 0.38;
-    ctx.moveTo(back.x + arrSize * 0.45, back.y - arrSize);
-    ctx.lineTo(back.x - arrSize * 0.45, back.y);
-    ctx.lineTo(back.x + arrSize * 0.45, back.y + arrSize);
-    ctx.stroke();
-    ctx.restore();
-
-    // 2. Center-Left Mode & Score Badge
+    // 1. Current Difficulty & Score Button (Opens Difficulty Dialog on Tap!)
     const mb = THEME.modeBadge;
     ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.16)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 2;
     ctx.beginPath();
     (ctx as any).roundRect(mb.x, mb.y, mb.w, mb.h, mb.r);
     ctx.fillStyle = THEME.headerBadgeBg;
     ctx.fill();
 
-    // Mode Title
+    // Subtle border highlight
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.stroke();
+
+    // Mode Title + tiny dropdown indicator
     ctx.font = `800 ${Math.round(mb.h * 0.26)}px Fredoka, Inter, sans-serif`;
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(diffConfig.badgeLabel, mb.x + mb.w / 2, mb.y + mb.h * 0.33);
+    ctx.fillText(`${diffConfig.badgeLabel} ▾`, mb.x + mb.w / 2, mb.y + mb.h * 0.33);
 
     // Current Score
     ctx.font = `900 ${Math.round(mb.h * 0.42)}px Fredoka, Nunito, sans-serif`;
     ctx.fillText(String(score), mb.x + mb.w / 2, mb.y + mb.h * 0.72);
     ctx.restore();
 
-    // 3. Center-Right Crown All-Time Badge
+    // 2. Crown All-Time Badge
     const at = THEME.allTimeBadge;
     ctx.save();
     ctx.beginPath();
@@ -236,7 +218,7 @@ export class Renderer {
     ctx.fillText(String(liveAllTime), at.x + at.w / 2, at.y + at.h * 0.72);
     ctx.restore();
 
-    // 4. Top-Right Pause Button (White circle, pink pause bars)
+    // 3. Top-Right Pause Button (White circle, pink pause bars)
     const pause = THEME.pauseBtn;
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
@@ -320,11 +302,11 @@ export class Renderer {
   }
 
   // --------------------------------------------------------------------------
-  // FOOD COLLECTIBLES: Red Circular Fruit Tokens with Drop Shadow and Center Seed
+  // FOOD COLLECTIBLES: Red Berry Token with Center Seed and Sprout
   // --------------------------------------------------------------------------
   private renderFoods(ctx: CanvasRenderingContext2D, foods: FoodItem[]): void {
     const cs = THEME.cellSize;
-    const radius = cs * 0.42;
+    const radius = cs * 0.43;
 
     for (const food of foods) {
       const px = THEME.boardX + (food.x + 0.5) * cs;
@@ -333,40 +315,53 @@ export class Renderer {
       // Drop shadow (bottom-right)
       ctx.save();
       ctx.beginPath();
-      ctx.arc(px + cs * 0.07, py + cs * 0.08, radius, 0, Math.PI * 2);
+      ctx.arc(px + cs * 0.08, py + cs * 0.09, radius, 0, Math.PI * 2);
       ctx.fillStyle = THEME.foodShadow;
       ctx.fill();
       ctx.restore();
 
-      // Outer dark rim
+      // Outer red berry circle
       ctx.save();
       ctx.beginPath();
       ctx.arc(px, py, radius, 0, Math.PI * 2);
-      ctx.fillStyle = THEME.foodBase;
+      ctx.fillStyle = '#FF5243';
       ctx.fill();
-      ctx.lineWidth = Math.max(2, cs * 0.09);
-      ctx.strokeStyle = THEME.foodOutline;
+      ctx.lineWidth = Math.max(2, cs * 0.085);
+      ctx.strokeStyle = '#9C2219';
       ctx.stroke();
 
-      // Inner center seed (dark teardrop / circle)
-      const seedR = radius * 0.32;
+      // Center Seed with Sprout oriented by food.rotation
+      ctx.translate(px, py);
+      ctx.rotate(food.rotation);
+
+      // Dark teardrop seed body
       ctx.beginPath();
-      ctx.arc(px, py, seedR, 0, Math.PI * 2);
-      ctx.fillStyle = THEME.foodSeed;
+      ctx.moveTo(radius * 0.36, 0);
+      ctx.quadraticCurveTo(radius * 0.04, radius * 0.26, -radius * 0.16, radius * 0.18);
+      ctx.arc(-radius * 0.16, 0, radius * 0.18, Math.PI / 2, -Math.PI / 2);
+      ctx.quadraticCurveTo(radius * 0.04, -radius * 0.26, radius * 0.36, 0);
+      ctx.closePath();
+      ctx.fillStyle = '#1F100E';
       ctx.fill();
 
-      // Tiny green highlight speck/stem at the top of seed
+      // Bright lime-green sprout leaf at the pointed seed tip
       ctx.beginPath();
-      ctx.arc(px, py - seedR * 0.65, seedR * 0.35, 0, Math.PI * 2);
-      ctx.fillStyle = THEME.foodStem;
+      ctx.moveTo(radius * 0.32, 0);
+      ctx.quadraticCurveTo(radius * 0.44, -radius * 0.14, radius * 0.58, 0);
+      ctx.quadraticCurveTo(radius * 0.44, radius * 0.14, radius * 0.32, 0);
+      ctx.closePath();
+      ctx.fillStyle = '#60CE28';
       ctx.fill();
+      ctx.lineWidth = 1.0;
+      ctx.strokeStyle = '#1E6F22';
+      ctx.stroke();
 
       ctx.restore();
     }
   }
 
   // --------------------------------------------------------------------------
-  // SNAKE RENDERING: Smoothly Interpolated Segments, Big Cartoon Eyes, Pointed Tail
+  // SNAKE RENDERING: Articulated Directional Segments, Oversized Eyes, Leaf Tail
   // --------------------------------------------------------------------------
   private renderSnake(
     ctx: CanvasRenderingContext2D,
@@ -406,31 +401,83 @@ export class Renderer {
         const prevPt = pixelPoints[i - 1];
         this.drawTaperedTail(ctx, pt, prevPt, segRadius);
       } else if (!isHead) {
-        // Body Segment: Bright green circle with dark border & light green inner oval
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, segRadius, 0, Math.PI * 2);
-        ctx.fillStyle = THEME.snakeMain;
-        ctx.fill();
-        ctx.lineWidth = Math.max(2, cs * 0.08);
-        ctx.strokeStyle = THEME.snakeOutline;
-        ctx.stroke();
+        // Body Segment: Directional Articulation with Dividing Line and Capsule Spots
+        const prevPt = pixelPoints[i - 1];
+        const nextPt = pixelPoints[i + 1];
 
-        // Inner lighter green oval dorsal mark
-        ctx.beginPath();
-        ctx.ellipse(pt.x, pt.y, segRadius * 0.48, segRadius * 0.48, 0, 0, Math.PI * 2);
-        ctx.fillStyle = THEME.snakeLight;
-        ctx.fill();
-        ctx.restore();
+        // Tangent angle along body direction (prevPt towards nextPt)
+        const dx = prevPt.x - nextPt.x;
+        const dy = prevPt.y - nextPt.y;
+        const angle = Math.atan2(dy, dx);
+
+        this.drawBodySegment(ctx, pt, angle, segRadius);
       }
     }
 
-    // 3. Draw Head with Oversized Cartoon Eyes & Cute Expression
+    // 3. Draw Head with Oversized Cartoon Eyes & Directional Alignment
     const headPt = pixelPoints[0];
     this.drawHead(ctx, headPt, dir, segRadius);
   }
 
-  // Draw tapered pointed tail
+  // Draw an articulated body segment oriented with its movement angle
+  private drawBodySegment(
+    ctx: CanvasRenderingContext2D,
+    pt: { x: number; y: number },
+    angle: number,
+    radius: number
+  ): void {
+    const cs = THEME.cellSize;
+
+    ctx.save();
+    ctx.translate(pt.x, pt.y);
+    ctx.rotate(angle);
+
+    // Base circular green segment
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fillStyle = THEME.snakeMain;
+    ctx.fill();
+    ctx.lineWidth = Math.max(2, cs * 0.08);
+    ctx.strokeStyle = THEME.snakeOutline;
+    ctx.stroke();
+
+    // Central dividing spine line along the flow direction (local X-axis)
+    ctx.beginPath();
+    ctx.moveTo(-radius * 0.86, 0);
+    ctx.lineTo(radius * 0.86, 0);
+    ctx.strokeStyle = THEME.snakeOutline;
+    ctx.lineWidth = Math.max(2, cs * 0.08);
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Two symmetrical capsule spots on either side of the dividing line
+    const spotDistY = radius * 0.44;
+    const spotRadiusX = radius * 0.42;
+    const spotRadiusY = radius * 0.22;
+
+    for (const sign of [-1, 1]) {
+      const sy = sign * spotDistY;
+
+      // Light green capsule spot
+      ctx.beginPath();
+      ctx.ellipse(0, sy, spotRadiusX, spotRadiusY, 0, 0, Math.PI * 2);
+      ctx.fillStyle = THEME.snakeLight;
+      ctx.fill();
+      ctx.lineWidth = Math.max(1.5, cs * 0.06);
+      ctx.strokeStyle = THEME.snakeOutline;
+      ctx.stroke();
+
+      // Dark center seed dot inside the capsule
+      ctx.beginPath();
+      ctx.arc(0, sy, Math.max(1.8, cs * 0.07), 0, Math.PI * 2);
+      ctx.fillStyle = THEME.snakeOutline;
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  // Draw tapered pointed tail with directional spine and spots
   private drawTaperedTail(
     ctx: CanvasRenderingContext2D,
     tailPt: { x: number; y: number },
@@ -448,9 +495,9 @@ export class Renderer {
 
     // Tail leaf/wedge geometry pointing backwards (+X in local rotated space)
     ctx.beginPath();
-    ctx.moveTo(-radius * 0.3, -radius * 0.9);
-    ctx.quadraticCurveTo(radius * 0.4, -radius * 0.7, radius * 1.35, 0);
-    ctx.quadraticCurveTo(radius * 0.4, radius * 0.7, -radius * 0.3, radius * 0.9);
+    ctx.moveTo(-radius * 0.35, -radius * 0.95);
+    ctx.quadraticCurveTo(radius * 0.4, -radius * 0.72, radius * 1.4, 0);
+    ctx.quadraticCurveTo(radius * 0.4, radius * 0.72, -radius * 0.35, radius * 0.95);
     ctx.closePath();
 
     ctx.fillStyle = THEME.snakeMain;
@@ -459,19 +506,40 @@ export class Renderer {
     ctx.strokeStyle = THEME.snakeOutline;
     ctx.stroke();
 
-    // Central leaf spine / light green vein
+    // Central dark spine running all the way to the tapered tip
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(radius * 0.9, 0);
-    ctx.strokeStyle = THEME.snakeLight;
-    ctx.lineWidth = Math.max(2, cs * 0.09);
+    ctx.moveTo(-radius * 0.2, 0);
+    ctx.lineTo(radius * 1.32, 0);
+    ctx.strokeStyle = THEME.snakeOutline;
+    ctx.lineWidth = Math.max(2, cs * 0.085);
     ctx.lineCap = 'round';
     ctx.stroke();
+
+    // Two symmetrical spots near the base of the tail
+    const spotDistY = radius * 0.42;
+    const spotRadiusX = radius * 0.35;
+    const spotRadiusY = radius * 0.18;
+
+    for (const sign of [-1, 1]) {
+      const sy = sign * spotDistY;
+      ctx.beginPath();
+      ctx.ellipse(radius * 0.1, sy, spotRadiusX, spotRadiusY, 0, 0, Math.PI * 2);
+      ctx.fillStyle = THEME.snakeLight;
+      ctx.fill();
+      ctx.lineWidth = Math.max(1.4, cs * 0.055);
+      ctx.strokeStyle = THEME.snakeOutline;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(radius * 0.1, sy, Math.max(1.6, cs * 0.065), 0, Math.PI * 2);
+      ctx.fillStyle = THEME.snakeOutline;
+      ctx.fill();
+    }
 
     ctx.restore();
   }
 
-  // Draw cute cartoon head with oversized expressive eyes
+  // Draw cute cartoon head with oversized expressive eyes and directional snout
   private drawHead(
     ctx: CanvasRenderingContext2D,
     pt: { x: number; y: number },
@@ -479,70 +547,66 @@ export class Renderer {
     radius: number
   ): void {
     const cs = THEME.cellSize;
+    let headAngle = 0;
+    switch (dir) {
+      case Direction.UP: headAngle = -Math.PI / 2; break;
+      case Direction.DOWN: headAngle = Math.PI / 2; break;
+      case Direction.LEFT: headAngle = Math.PI; break;
+      case Direction.RIGHT: headAngle = 0; break;
+    }
+
+    ctx.save();
+    ctx.translate(pt.x, pt.y);
+    ctx.rotate(headAngle);
 
     // Head base circle
-    ctx.save();
     ctx.beginPath();
-    ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
     ctx.fillStyle = THEME.snakeMain;
     ctx.fill();
     ctx.lineWidth = Math.max(2, cs * 0.085);
     ctx.strokeStyle = THEME.snakeOutline;
     ctx.stroke();
 
-    // Inner subtle forehead mark
+    // Snout spine line towards the front (+X)
     ctx.beginPath();
-    ctx.arc(pt.x, pt.y, radius * 0.45, 0, Math.PI * 2);
-    ctx.fillStyle = THEME.snakeLight;
-    ctx.fill();
+    ctx.moveTo(-radius * 0.2, 0);
+    ctx.lineTo(radius * 0.85, 0);
+    ctx.strokeStyle = THEME.snakeOutline;
+    ctx.lineWidth = Math.max(2, cs * 0.08);
+    ctx.lineCap = 'round';
+    ctx.stroke();
 
-    // Oversized cartoon eyes!
-    // Compute eye offsets based on movement direction
-    let eye1X = 0, eye1Y = 0, eye2X = 0, eye2Y = 0;
-    let pupilDx = 0, pupilDy = 0;
+    // Symmetrical snout spots on sides
+    const spotDistY = radius * 0.44;
+    for (const sign of [-1, 1]) {
+      const sy = sign * spotDistY;
+      ctx.beginPath();
+      ctx.ellipse(radius * 0.2, sy, radius * 0.32, radius * 0.18, 0, 0, Math.PI * 2);
+      ctx.fillStyle = THEME.snakeLight;
+      ctx.fill();
+      ctx.lineWidth = Math.max(1.4, cs * 0.055);
+      ctx.strokeStyle = THEME.snakeOutline;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(radius * 0.2, sy, Math.max(1.6, cs * 0.065), 0, Math.PI * 2);
+      ctx.fillStyle = THEME.snakeOutline;
+      ctx.fill();
+    }
+
+    // Oversized cartoon eyes mounted on top of the head!
     const eyeR = radius * 0.52;
     const pupilR = eyeR * 0.45;
     const eyeSeparation = radius * 0.48;
 
-    switch (dir) {
-      case Direction.UP:
-        eye1X = -eyeSeparation;
-        eye1Y = -radius * 0.15;
-        eye2X = eyeSeparation;
-        eye2Y = -radius * 0.15;
-        pupilDx = 0;
-        pupilDy = -eyeR * 0.35;
-        break;
-      case Direction.DOWN:
-        eye1X = -eyeSeparation;
-        eye1Y = radius * 0.15;
-        eye2X = eyeSeparation;
-        eye2Y = radius * 0.15;
-        pupilDx = 0;
-        pupilDy = eyeR * 0.35;
-        break;
-      case Direction.LEFT:
-        eye1X = -radius * 0.15;
-        eye1Y = -eyeSeparation;
-        eye2X = -radius * 0.15;
-        eye2Y = eyeSeparation;
-        pupilDx = -eyeR * 0.35;
-        pupilDy = 0;
-        break;
-      case Direction.RIGHT:
-        eye1X = radius * 0.15;
-        eye1Y = -eyeSeparation;
-        eye2X = radius * 0.15;
-        eye2Y = eyeSeparation;
-        pupilDx = eyeR * 0.35;
-        pupilDy = 0;
-        break;
-    }
-
     const eyes = [
-      { x: pt.x + eye1X, y: pt.y + eye1Y },
-      { x: pt.x + eye2X, y: pt.y + eye2Y }
+      { x: radius * 0.1, y: -eyeSeparation },
+      { x: radius * 0.1, y: eyeSeparation }
     ];
+
+    const pupilDx = eyeR * 0.35;
+    const pupilDy = 0;
 
     for (const e of eyes) {
       // White eye sphere with black border
@@ -554,13 +618,13 @@ export class Renderer {
       ctx.strokeStyle = '#0F172A';
       ctx.stroke();
 
-      // Black cartoon pupil
+      // Black cartoon pupil looking towards front (+X)
       ctx.beginPath();
       ctx.arc(e.x + pupilDx, e.y + pupilDy, pupilR, 0, Math.PI * 2);
       ctx.fillStyle = '#000000';
       ctx.fill();
 
-      // Tiny white eye glint reflection
+      // White reflection glint
       ctx.beginPath();
       ctx.arc(e.x + pupilDx - pupilR * 0.3, e.y + pupilDy - pupilR * 0.35, pupilR * 0.35, 0, Math.PI * 2);
       ctx.fillStyle = '#FFFFFF';

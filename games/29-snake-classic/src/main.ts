@@ -398,20 +398,24 @@ export class Game {
 
       // 4. Top Bar HUD during Gameplay
       if (this.state === GameState.PLAYING) {
-        // Back Button (<)
-        const back = THEME.backBtn;
-        const distBack = Math.hypot(px - back.x, py - back.y);
-        if (distBack <= back.r * 1.3) {
+        // Mode Badge -> Click to open Difficulty Selection Dialog!
+        const mb = THEME.modeBadge;
+        if (
+          px >= mb.x - 8 &&
+          px <= mb.x + mb.w + 8 &&
+          py >= mb.y - 8 &&
+          py <= mb.y + mb.h + 8
+        ) {
           this.synth.playButton();
           this.state = GameState.DIFF_SELECT;
-          Host.post('onBack', {});
+          Host.post('onDifficultySelectOpen', { currentDifficulty: this.difficulty });
           return;
         }
 
         // Pause Button (||)
         const pause = THEME.pauseBtn;
         const distPause = Math.hypot(px - pause.x, py - pause.y);
-        if (distPause <= pause.r * 1.3) {
+        if (distPause <= pause.r * 1.35) {
           this.pauseGame();
           return;
         }

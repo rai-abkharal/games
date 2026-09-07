@@ -80,6 +80,7 @@ export interface FoodItem {
   id: number;
   x: number;
   y: number;
+  rotation: number;
   spawnTime: number;
 }
 

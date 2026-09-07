@@ -1,6 +1,6 @@
 {
   "version": 29,
-  "updatedAt": "2026-09-07T11:07:27.781Z",
+  "updatedAt": "2026-09-07T12:10:47.748Z",
   "games": [
     {
       "id": "game-mtmsq289",
@@ -987,6 +987,27 @@
       "feedOrder": 49,
       "category": "Puzzle",
       "description": "AAA luxury 3D Liquid Sorting Puzzle with realistic fluid physics, procedural audio synthesis, and guaranteed solvable levels.",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true
+      }
+    },
+    {
+      "id": "snake-classic",
+      "title": "Cute Snake",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/snake-classic/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/snake-classic.webp",
+      "sizeBytes": 36676,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/snake-classic/1.0.0/manifest.json",
+      "feedOrder": 49,
+      "category": "Arcade",
+      "description": "Cute cartoon snake arcade adventure! Slither across the 13x21 checkerboard arena, gobble tasty berries, grow your tail, and smash all-time high scores across Easy, Medium, and Hard tiers!",
+      "sha256": "ab9955b7740a15ecdaeaa324c3a7105b4d4da3fa24bf3867bc9885f8c0e3b314",
+      "status": "published",
       "touchZones": [],
       "features": {
         "sound": true,

@@ -38,6 +38,7 @@ export class FoodManager {
       id: this.nextId++,
       x: free.x,
       y: free.y,
+      rotation: Math.random() * Math.PI * 2,
       spawnTime: performance.now()
     });
     return true;

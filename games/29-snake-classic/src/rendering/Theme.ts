@@ -47,10 +47,9 @@ export const THEME = {
   borderWidth: 10,
 
   // Top Bar layout
-  backBtn: { x: 40, y: 55, r: 24 },
   pauseBtn: { x: 360, y: 55, r: 24 },
-  modeBadge: { x: 80, y: 35, w: 105, h: 44, r: 8 },
-  allTimeBadge: { x: 200, y: 35, w: 105, h: 44, r: 8 }
+  modeBadge: { x: 80, y: 35, w: 105, h: 44, r: 9 },
+  allTimeBadge: { x: 200, y: 35, w: 105, h: 44, r: 9 }
 };
 
 export function updateLayout(width: number, height: number): void {
@@ -86,28 +85,21 @@ export function updateLayout(width: number, height: number): void {
   const btnRadius = Math.max(18, Math.min(24, Math.round(width * 0.055)));
   const hudCenterY = Math.round(topSafe * 0.52);
 
-  THEME.backBtn = {
-    x: Math.round(boardX + btnRadius * 0.9),
-    y: hudCenterY,
-    r: btnRadius
-  };
-
   THEME.pauseBtn = {
     x: Math.round(boardX + boardW - btnRadius * 0.9),
     y: hudCenterY,
     r: btnRadius
   };
 
-  const badgeH = Math.round(btnRadius * 1.8);
+  const badgeH = Math.round(btnRadius * 1.85);
   const badgeY = Math.round(hudCenterY - badgeH / 2);
-  const badgesAreaW = THEME.pauseBtn.x - THEME.backBtn.x - btnRadius * 3;
-  const badgeW = Math.min(115, Math.max(85, Math.round((badgesAreaW - 14) / 2)));
 
-  const totalBadgesW = badgeW * 2 + 12;
-  const badgesStartX = Math.round((width - totalBadgesW) / 2);
+  // Remaining width between board left and pause button
+  const availableBadgeArea = THEME.pauseBtn.x - btnRadius - 16 - (boardX + 4);
+  const badgeW = Math.min(125, Math.max(88, Math.floor((availableBadgeArea - 12) / 2)));
 
   THEME.modeBadge = {
-    x: badgesStartX,
+    x: Math.round(boardX + 4),
     y: badgeY,
     w: badgeW,
     h: badgeH,
@@ -115,7 +107,7 @@ export function updateLayout(width: number, height: number): void {
   };
 
   THEME.allTimeBadge = {
-    x: badgesStartX + badgeW + 12,
+    x: Math.round(boardX + 4 + badgeW + 12),
     y: badgeY,
     w: badgeW,
     h: badgeH,
