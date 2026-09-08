@@ -11,6 +11,7 @@ import {
   ImpactParticle
 } from '../game/Types.js';
 import { THEME, updateLayout } from './Theme.js';
+import { drawDifficultyEmoji } from './DifficultyEmoji.js';
 
 // Polyfill for universal Android WebView & older browser roundRect compatibility
 if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -183,13 +184,11 @@ export class Renderer {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
     ctx.stroke();
 
-    // Mode Real Emoji (no text, real emoji as requested)
-    ctx.font = `${Math.round(mb.h * 0.40)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(diffConfig.emoji, mb.x + mb.w / 2, mb.y + mb.h * 0.33);
+    drawDifficultyEmoji(ctx, diffConfig.emblem, mb.x + mb.w / 2, mb.y + mb.h * 0.33, mb.h * 0.40);
 
     // Current Score
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.font = `900 ${Math.round(mb.h * 0.42)}px Fredoka, Nunito, sans-serif`;
     ctx.fillStyle = '#FFFFFF';
     ctx.fillText(String(score), mb.x + mb.w / 2, mb.y + mb.h * 0.74);
@@ -863,10 +862,7 @@ export class Renderer {
     ctx.textAlign = 'left';
     ctx.fillText('MODE', cx + 22, cy);
 
-    // Center Real Emoji
-    ctx.font = '22px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(diffConfig.emoji, cx, cy);
+    drawDifficultyEmoji(ctx, diffConfig.emblem, cx, cy, 22);
 
     ctx.restore();
   }
@@ -956,10 +952,7 @@ export class Renderer {
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    ctx.font = '40px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(d.emoji, bounds.cardX + bounds.cardW / 2, emblemY);
+    drawDifficultyEmoji(ctx, d.emblem, bounds.cardX + bounds.cardW / 2, emblemY, 40);
     ctx.restore();
 
     // Difficulty Tier Label (EASY / MEDIUM / HARD)

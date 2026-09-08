@@ -12,7 +12,7 @@ npm.cmd run build --prefix games/30-darts-duel
 
 Development URL: `http://127.0.0.1:5186`. The self-contained production entry is `dist/index.html`. Fredoka is embedded for offline rendering; its SIL Open Font License ships in `dist/font-license.txt`.
 
-Tap anywhere on the canvas (or press Space/Enter with it focused) to lock X, then Y. The chosen coordinate is never adjusted. Bot starts; each turn has one dart. Both start at 301. Exactly zero wins without a double-out; overshoots preserve the remaining score. The difficulty label opens the existing Sudoku-style slider as an overlay.
+Tap anywhere on the canvas (or press Space/Enter with it focused) to lock X, then Y. The chosen coordinate is never adjusted. The first starter is chosen randomly; later matches alternate starters fairly. Each turn has one dart. Both start at 301. Exactly zero wins without a double-out; overshoots preserve the remaining score. The difficulty label opens the existing Sudoku-style slider as an overlay.
 
 ## Integration
 
@@ -30,11 +30,11 @@ The existing game bridge handles ready/start/completed/game-over, sound settings
 - `ui/GameUI.ts`: accessible HUD, difficulty/help overlays and results.
 - `integration/`: shared audio and independent Darts difficulty storage.
 
-Flight durations are 0.72 / 0.49 / 0.30 seconds for Easy / Medium / Hard. Board drawing and hit tests use the same normalized radii. High-DPI canvas resolution tracks devicePixelRatio; the board cache also accounts for the maximum impact zoom. Embedded darts and particles are bounded. Paused and finished games do not continually redraw the canvas.
+The linear aim cycle lasts 2.1 seconds (about 14% slower than the original). Flight durations are 0.72 / 0.49 / 0.30 seconds for Easy / Medium / Hard. Board drawing and hit tests use the same normalized radii. High-DPI canvas resolution tracks devicePixelRatio; the board cache also accounts for the maximum impact zoom. Embedded darts and particles are bounded. Paused and finished games do not continually redraw the canvas.
 
 ## Verification
 
-The automated test suite covers every sector and multiplier, bull/ring/sector boundaries, misses, busts, single checkouts, two-stage aiming, bot-first turns, input spam, result timing, difficulty integration, restart reset, bounded dart retention and statistical AI progression.
+The automated test suite covers every sector and multiplier, bull/ring/sector boundaries, misses, busts, single checkouts, two-stage aiming, both starting sides and alternating match openers, input spam, result timing, difficulty integration, restart reset, bounded dart retention and statistical AI progression.
 
 Browser verification additionally exercised real clicks, all difficulty controls, both result panels, help/pause, host lifecycle, and 50 consecutive replays. Visual checks use phone, tablet and desktop viewports, including high-DPI emulation. Timing measured in desktop browser emulation does not substitute for profiling on physical mobile hardware.
 

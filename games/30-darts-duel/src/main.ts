@@ -20,7 +20,10 @@ export class DartsGame {
   private destroyed = false;
   private needsRender = true;
   private onPause = () => { this.hostPaused = true; };
-  private onResume = () => { this.hostPaused = false; this.lastTime = performance.now(); };
+  private onResume = () => {
+    this.hostPaused = false; this.lastTime = performance.now();
+    GameBridge.setSwipeEnabled(true);
+  };
   private onRestart = () => this.restart(this.match.difficulty);
   constructor(canvas: HTMLCanvasElement) {
     let selected: Difficulty = 'easy';
@@ -51,7 +54,7 @@ export class DartsGame {
       if (event.persisted) this.onPause(); else this.destroy();
     }, { signal });
     window.addEventListener('pageshow', event => { if (event.persisted) this.onResume(); }, { signal });
-    GameBridge.ready(); GameBridge.setSwipeEnabled(false);
+    GameBridge.ready();
     this.restart(selected);
     this.lastTime = performance.now(); this.raf = requestAnimationFrame(t => this.frame(t));
   }
@@ -62,6 +65,8 @@ export class DartsGame {
     this.needsRender = true;
     this.match.reset(difficulty); this.ui.reset();
     saveDifficulty(difficulty); GameBridge.gameStarted(); this.bindHost();
+    // Darts uses taps; leave feed navigation gestures with the native pager.
+    GameBridge.setSwipeEnabled(true);
     this.lastTime = performance.now();
   }
   private bindHost() {

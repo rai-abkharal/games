@@ -50,11 +50,12 @@ test('301 subtracts scores, busts preserve score, single checkout needs no doubl
   assert.equal(applyScore(1, scoreHit(sectorPoint(1, 0.76))).won, true);
 });
 test('aim meter is a linear ping-pong, with equal speed in both directions', () => {
-  for (const [time, expected] of [[0, 0], [0.45, 0.5], [0.9, 1], [1.35, 0.5], [1.8, 0]]) {
-    assert.ok(Math.abs(pingPong(time) - expected) < 1e-12);
+  assert.equal(CONFIG.aim.cycle, 2.1);
+  for (const [fraction, expected] of [[0, 0], [0.25, 0.5], [0.5, 1], [0.75, 0.5], [1, 0]]) {
+    assert.ok(Math.abs(pingPong(fraction * CONFIG.aim.cycle) - expected) < 1e-12);
   }
 });
-test('bot goes first; one dart per turn; taps ignored during bot/animation', () => {
+test('bot opening: one dart per turn; taps ignored during bot/animation', () => {
   const match = new Match('easy', () => {}, () => 0.5);
   assert.deepEqual(match.scores, { player: 301, bot: 301 });
   for (let i = 0; i < 10; i++) assert.equal(match.tap(), false);
@@ -67,6 +68,24 @@ test('bot goes first; one dart per turn; taps ignored during bot/animation', () 
   assert.equal(match.tap(), true); assert.deepEqual(match.impact, exact); assert.equal(match.state, 'PLAYER_THROW');
   for (let i = 0; i < 20; i++) assert.equal(match.tap(), false);
   advanceTo(match, 'BOT_INTRO'); assert.deepEqual(match.throws, { player: 1, bot: 1 });
+});
+test('first opener is random and reset alternates fairly without a double flip on boot', () => {
+  for (const [roll, opener] of [[0.1, 'player'], [0.9, 'bot']] as const) {
+    const match = new Match('easy', () => {}, () => roll);
+    assert.equal(match.side, opener);
+    match.reset();
+    assert.equal(match.side, opener, 'Initial game reset preserves the random draw');
+    advanceTo(match, opener === 'player' ? 'PLAYER_AIM_X' : 'BOT_AIM_X');
+    if (opener === 'player') assert.equal(match.throws.bot, 0);
+    let expected = opener as 'player' | 'bot';
+    for (let i = 0; i < 20; i++) {
+      // Finish/restart on an arbitrary turn: fairness depends on the starter, not that turn.
+      match.side = i % 2 ? 'player' : 'bot';
+      match.reset(); expected = expected === 'player' ? 'bot' : 'player';
+      assert.equal(match.side, expected);
+      assert.deepEqual(match.scores, { player: 301, bot: 301 });
+    }
+  }
 });
 test('victory and defeat wait until final impact, score reveal, and camera return', () => {
   const victory = new Match('medium', () => {}, () => 0.5);

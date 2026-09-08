@@ -11,7 +11,7 @@ export class Match {
   state: State = 'MATCH_START';
   stateTime = 0;
   elapsed = 0;
-  side: Side = 'bot';
+  side: Side;
   scores = { player: CONFIG.startScore as number, bot: CONFIG.startScore as number };
   throws = { player: 0, bot: 0 };
   aim = new AimController();
@@ -24,7 +24,11 @@ export class Match {
   scoreAt = -100;
   lastInputAt = -100;
   private bot: BotController;
+  private starter: Side;
+  private hasStarted = false;
   constructor(public difficulty: Difficulty, public onEvent: (event: MatchEvent) => void = () => {}, random = Math.random) {
+    this.starter = random() < 0.5 ? 'player' : 'bot';
+    this.side = this.starter;
     this.bot = new BotController(random);
   }
   get aiming() { return this.state.endsWith('_AIM_X') || this.state.endsWith('_AIM_Y'); }
@@ -35,7 +39,11 @@ export class Match {
     this.difficulty = difficulty;
     this.scores.player = this.scores.bot = CONFIG.startScore;
     this.throws.player = this.throws.bot = 0;
-    this.side = 'bot'; this.elapsed = 0; this.bust = false;
+    // The first reset initializes the randomly chosen opener. Subsequent matches
+    // alternate from that opener, regardless of whose turn the previous one ended on.
+    if (this.hasStarted) this.starter = this.starter === 'bot' ? 'player' : 'bot';
+    this.hasStarted = true;
+    this.side = this.starter; this.elapsed = 0; this.bust = false;
     this.embedded.length = 0; this.impactAt = this.scoreAt = this.lastInputAt = -100;
     this.target = { x: 0, y: 0 }; this.impact = { x: 0, y: 0 };
     this.hit = scoreHit({ x: 2, y: 2 }); this.aim.reset();
@@ -60,6 +68,7 @@ export class Match {
     this.onEvent('throw');
   }
   private beginTurn() {
+    this.hasStarted = true;
     this.aim.reset();
     this.bust = false;
     this.enter(this.side === 'bot' ? 'BOT_INTRO' : 'PLAYER_INTRO');
