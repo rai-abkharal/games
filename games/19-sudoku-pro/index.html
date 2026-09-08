@@ -564,7 +564,7 @@
 
         this.selected = null;
         this.isPaused = false;
-        this.state = 'DIFF_SELECT';
+        this.state = 'PLAYING';
 
         this.mistakes = 0;
         this.maxMistakes = 3;
@@ -599,10 +599,7 @@
         this.initLayout();
         this.bindEvents();
 
-        const sample = SudokuCore.generatePuzzle('easy');
-        this.given = sample.puzzle;
-        this.solution = sample.solution;
-        this.initCompletedSets();
+        this.startNewGame(this.difficulty);
 
         requestAnimationFrame((t) => this.loop(t));
       }

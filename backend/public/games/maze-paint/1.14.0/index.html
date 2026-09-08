@@ -4175,11 +4175,7 @@
 
         this.initLayout();
         this.bindEvents();
-        this.loadLevel(this.levelIndex, false);
-
-        // Always prompt Select Difficulty on initial launch!
-        this.state = 'DIFF_SELECT';
-        this.modalOpenTime = performance.now();
+        this.loadLevel(this.levelIndex);
 
         requestAnimationFrame((t) => this.loop(t));
       }

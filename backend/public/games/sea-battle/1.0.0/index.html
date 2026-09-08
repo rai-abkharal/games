@@ -997,6 +997,7 @@ class GameEngine {
         this.initGrids();
         this.initPlayerFleet();
         GameBridge.sendReady();
+        this.startDeploy();
     }
     initGrids() {
         this.playerGrid = Array.from({ length: GRID_ROWS }, (_, r) => Array.from({ length: GRID_COLS }, (_, c) => ({

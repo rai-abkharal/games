@@ -66082,11 +66082,8 @@
 
         this.initLayout();
         this.bindEvents();
-        this.loadPuzzle(this.level, false);
-
-        // Always prompt Select Difficulty on initial startup!
-        this.state = 'DIFF_SELECT';
-        this.modalOpenTime = performance.now();
+        this.isPlayingSession = true;
+        this.loadPuzzle(this.level);
 
         this.lastTime = performance.now();
         requestAnimationFrame((t) => this.loop(t));

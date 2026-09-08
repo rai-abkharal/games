@@ -44,7 +44,7 @@ export class Game {
   public foodManager: FoodManager;
 
   // Game States
-  public state: GameState = GameState.DIFF_SELECT;
+  public state: GameState = GameState.PLAYING;
   public difficulty: Difficulty = Difficulty.Easy;
   public sliderPos: number = 0;
   public isDraggingSlider: boolean = false;
@@ -83,7 +83,7 @@ export class Game {
     } catch {}
 
     this.initEvents();
-    this.state = GameState.DIFF_SELECT;
+    this.startNewMatch();
   }
 
   public startNewMatch(diff?: Difficulty): void {

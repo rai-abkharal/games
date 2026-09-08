@@ -322,11 +322,7 @@
 
         this.initLayout();
         this.bindEvents();
-        this.startNewGame(false);
-
-        // Always show difficulty selection on initial app launch!
-        this.state = 'DIFF_SELECT';
-        this.modalOpenTime = performance.now();
+        this.startNewGame();
 
         requestAnimationFrame((t) => this.loop(t));
       }

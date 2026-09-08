@@ -2218,6 +2218,7 @@
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) joystick.cancel();
   });
+  game.beginRound();
   game.start();
   window.__game = game;
   window.__view = view;

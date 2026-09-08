@@ -42,8 +42,7 @@ export class Game {
   public renderer: Renderer;
   public synth: SoundSynth;
 
-  // Ask difficulty on startup
-  public state: GameState = GameState.DIFF_SELECT;
+  public state: GameState = GameState.PLAYER_AIMING;
   public board: Cell[][] = Rules.createEmptyBoard();
   public difficulty: Difficulty = Difficulty.Easy;
   public sliderPos: number = 0;
@@ -99,8 +98,7 @@ export class Game {
 
     this.initEvents();
 
-    // Open difficulty selection dialog on load
-    this.state = GameState.DIFF_SELECT;
+    this.startNewMatch();
   }
 
   public startNewMatch(diff?: Difficulty): void {
