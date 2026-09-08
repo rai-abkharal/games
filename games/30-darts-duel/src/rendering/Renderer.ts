@@ -73,16 +73,16 @@ export class Renderer {
     const active = '#3C3943', locked = 'rgba(255,248,232,.34)';
     const x = l.boardX - extent, y = l.meterY;
     rounded(ctx, x, y - 6, extent * 2, 12, 6, horizontal ? active : locked);
-    rounded(ctx, 27, l.boardY - extent, 12, extent * 2, 6, horizontal ? locked : active);
+    rounded(ctx, 17, l.boardY - extent, 12, extent * 2, 6, horizontal ? locked : active);
     ctx.strokeStyle = 'rgba(255,255,255,.42)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(l.boardX, y - 10); ctx.lineTo(l.boardX, y + 10);
-    ctx.moveTo(25, l.boardY); ctx.lineTo(41, l.boardY); ctx.stroke();
+    ctx.moveTo(15, l.boardY); ctx.lineTo(31, l.boardY); ctx.stroke();
     const hx = l.boardX + match.aim.x * l.radius;
     ctx.save(); ctx.shadowBlur = horizontal ? 9 : 0; ctx.shadowColor = '#FFFFFF';
     rounded(ctx, hx - 1.8, y - 11, 3.6, 22, 2, horizontal ? '#FFFFFF' : '#3C3943'); ctx.restore();
     if (!horizontal) {
       ctx.save(); ctx.shadowBlur = 9; ctx.shadowColor = '#FFFFFF';
-      rounded(ctx, 21, l.boardY + match.aim.y * l.radius - 1.8, 24, 3.6, 2, '#FFFFFF'); ctx.restore();
+      rounded(ctx, 11, l.boardY + match.aim.y * l.radius - 1.8, 24, 3.6, 2, '#FFFFFF'); ctx.restore();
     }
   }
   private reticle(ctx: CanvasRenderingContext2D, x: number, y: number) {

@@ -144,3 +144,22 @@ test('long matches retain only a bounded number of embedded darts', () => {
     assert.ok(match.embedded.length <= CONFIG.maxEmbedded);
   }
 });
+test('each new throw removes the previous dart at launch, for either side', () => {
+  const match = new Match('easy', () => {}, () => 0.9);
+  advanceTo(match, 'PLAYER_AIM_X');
+  assert.equal(match.embedded.length, 1);
+  const previous = match.embedded[0];
+  match.aim.x = 0; match.tap();
+  assert.equal(match.embedded[0], previous, 'Previous dart stays visible during aiming');
+  match.update(0.16); match.aim.y = -0.76; match.tap();
+  assert.equal(match.state, 'PLAYER_THROW');
+  assert.equal(match.embedded.length, 0, 'Previous dart disappears before player flight');
+  advanceTo(match, 'IMPACT');
+  assert.equal(match.embedded.length, 1);
+  assert.equal(match.embedded[0].side, 'player');
+  advanceTo(match, 'BOT_THROW');
+  assert.equal(match.embedded.length, 0, 'Same clearing rule applies to bot flight');
+  advanceTo(match, 'IMPACT');
+  assert.equal(match.embedded.length, 1);
+  assert.equal(match.embedded[0].side, 'bot');
+});

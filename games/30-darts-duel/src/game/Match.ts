@@ -62,6 +62,8 @@ export class Match {
     return false;
   }
   private launch() {
+    // Clear the previous impact at launch, before the next dart starts flying.
+    this.embedded.length = 0;
     this.impact = this.aim.point;
     this.throws[this.side]++;
     this.enter(this.side === 'bot' ? 'BOT_THROW' : 'PLAYER_THROW');
