@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#61ABCE">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23242b30'/%3E%3Ccircle cx='32' cy='32' r='22' fill='none' stroke='%23ff5454' stroke-width='7'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%2309b85f'/%3E%3Ccircle cx='32' cy='32' r='4' fill='%23ff5454'/%3E%3C/svg%3E">
+  <title>Darts Duel</title>
+</head>
+<body>
+  <main id="game" aria-label="Darts Duel, a 301 darts match">
+    <canvas id="gameCanvas" tabindex="0" aria-label="Dartboard. Press Space or tap once to lock horizontal aim, then again to lock vertical aim and throw."></canvas>
+    <header id="hud">
+      <button id="difficulty" aria-label="Select difficulty">EASY</button>
+      <div class="scoreboard" aria-label="Scoreboard">
+        <div class="score player"><span>YOU</span><strong id="player-score">301</strong></div>
+        <span class="versus">VS</span>
+        <div class="score bot"><span>BOT</span><strong id="bot-score">301</strong></div>
+      </div>
+    </header>
+    <button id="restart" class="icon-button restart" aria-label="Restart match" title="Restart match"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 11a10 10 0 1 1-1 11M8 4v8H1"/></svg></button>
+    <button id="help" class="help" aria-label="How to play">?</button>
+    <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
+    <div id="difficulty-overlay" class="overlay" hidden>
+      <section class="difficulty-card" role="dialog" aria-modal="true" aria-labelledby="difficulty-title">
+        <button class="close" id="difficulty-close" aria-label="Close difficulty selection">×</button>
+        <h2 id="difficulty-title">SELECT DIFFICULTY</h2>
+        <div class="emblem" id="emblem" aria-hidden="true">✦</div>
+        <h3 id="difficulty-name">EASY</h3>
+        <p id="difficulty-description">Gentle opponent · slower darts</p>
+        <input type="range" id="difficulty-slider" min="0" max="2" step="1" value="0" aria-label="Difficulty" aria-valuetext="Easy">
+        <div class="difficulty-labels"><button data-difficulty="0">EASY</button><button data-difficulty="1">MEDIUM</button><button data-difficulty="2">HARD</button></div>
+        <button id="difficulty-play" class="primary">PLAY <span aria-hidden="true">▶</span></button>
+      </section>
+    </div>
+    <div id="help-overlay" class="overlay" hidden>
+      <section class="help-card" role="dialog" aria-modal="true" aria-labelledby="help-title">
+        <h2 id="help-title">TWO TAPS. ONE DART.</h2>
+        <p><b>1</b> Tap once to lock horizontal aim.</p>
+        <p><b>2</b> Tap again to lock vertical aim and throw.</p>
+        <p class="rules">First to exactly <strong>0</strong> wins. One dart per turn. Go below zero and your score stays the same.</p>
+        <button id="help-close" class="primary">GOT IT</button>
+      </section>
+    </div>
+    <div id="result-overlay" class="result-overlay" hidden>
+      <section class="result" role="dialog" aria-modal="true" aria-labelledby="result-title">
+        <svg class="result-stars" viewBox="0 0 420 255" aria-hidden="true"><defs><path id="star" d="M0-15 4-5 15-4 7 4 9 15 0 9-9 15-7 4-15-4-4-5Z"/></defs><g fill="#FFE988"><use href="#star" x="42" y="47"/><use href="#star" x="111" y="26" transform="rotate(-12 111 26)"/><use href="#star" x="213" y="50"/><use href="#star" x="315" y="24"/><use href="#star" x="383" y="63"/><use href="#star" x="55" y="157"/><use href="#star" x="359" y="173"/><use href="#star" x="109" y="114"/><use href="#star" x="309" y="104"/></g><g fill="#FFFFFF"><use href="#star" x="155" y="164"/><use href="#star" x="268" y="170"/><use href="#star" transform="translate(24 96) scale(.5)"/><use href="#star" transform="translate(390 126) scale(.5)"/></g></svg>
+        <svg class="medal" viewBox="0 0 180 180" aria-hidden="true"><circle class="medal-back" cx="90" cy="72" r="69" fill="#E65640"/><path d="M40 12 71 80H109L140 12M60 6 90 63 121 6" fill="none" stroke="#FFF8EB" stroke-width="5"/><circle class="medal-gold" cx="90" cy="112" r="48" fill="#FFD529" stroke="#F4B40A" stroke-width="8"/><text x="90" y="137" text-anchor="middle" fill="white" font-family="Fredoka,sans-serif" font-size="69" font-weight="700">1</text></svg>
+        <h1 id="result-title">YOU WIN!</h1>
+        <p id="result-caption">A perfect finish.</p>
+        <div class="result-actions"><button id="play-again" class="primary">PLAY AGAIN <span aria-hidden="true">↻</span></button></div>
+      </section>
+    </div>
+    <div id="paused" class="paused" hidden>PAUSED</div>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

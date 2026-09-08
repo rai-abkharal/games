@@ -556,6 +556,15 @@
 
         this.difficulty = 'easy';
         this.sliderPos = 0;
+        // Shared selection contract used by the suite's Sudoku-style difficulty controls.
+        try {
+          const selected = localStorage.getItem('sudoku_pro_difficulty_v1');
+          const selectedIndex = DIFFICULTIES.findIndex(d => d.id === selected);
+          if (selectedIndex >= 0) {
+            this.difficulty = selected;
+            this.sliderPos = selectedIndex;
+          }
+        } catch (e) {}
         this.isDraggingSlider = false;
 
         this.given = SudokuCore.createEmptyGrid();
@@ -712,6 +721,8 @@
 
       startNewGame(diffId) {
         this.difficulty = diffId || this.difficulty;
+        try { localStorage.setItem('sudoku_pro_difficulty_v1', this.difficulty); } catch (e) {}
+        window.dispatchEvent(new CustomEvent('sudoku:difficulty', { detail: { difficulty: this.difficulty } }));
         const idx = DIFFICULTIES.findIndex(d => d.id === this.difficulty);
         this.sliderPos = idx >= 0 ? idx : 0;
 

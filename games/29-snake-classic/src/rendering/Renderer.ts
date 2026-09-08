@@ -183,16 +183,16 @@ export class Renderer {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
     ctx.stroke();
 
-    // Mode Title + tiny dropdown indicator
-    ctx.font = `800 ${Math.round(mb.h * 0.26)}px Fredoka, Inter, sans-serif`;
-    ctx.fillStyle = '#FFFFFF';
+    // Mode Real Emoji (no text, real emoji as requested)
+    ctx.font = `${Math.round(mb.h * 0.40)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${diffConfig.badgeLabel} â–¾`, mb.x + mb.w / 2, mb.y + mb.h * 0.33);
+    ctx.fillText(diffConfig.emoji, mb.x + mb.w / 2, mb.y + mb.h * 0.33);
 
     // Current Score
     ctx.font = `900 ${Math.round(mb.h * 0.42)}px Fredoka, Nunito, sans-serif`;
-    ctx.fillText(String(score), mb.x + mb.w / 2, mb.y + mb.h * 0.72);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(String(score), mb.x + mb.w / 2, mb.y + mb.h * 0.74);
     ctx.restore();
 
     // 2. Crown All-Time Badge
@@ -863,62 +863,10 @@ export class Renderer {
     ctx.textAlign = 'left';
     ctx.fillText('MODE', cx + 22, cy);
 
-    // Center Emoji/Character Emblem
-    const charR = 14;
-    if (diff === Difficulty.Hard) {
-      // Red devil face with horns & crown
-      this.drawCrown(ctx, cx, cy - charR + 2, 18, '#EF4444');
-      ctx.beginPath();
-      ctx.arc(cx, cy, charR, 0, Math.PI * 2);
-      ctx.fillStyle = '#EF4444';
-      ctx.fill();
-
-      // Devil eyes
-      ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath();
-      ctx.arc(cx - 4, cy - 1, 3, 0, Math.PI * 2);
-      ctx.arc(cx + 4, cy - 1, 3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#000000';
-      ctx.beginPath();
-      ctx.arc(cx - 3.5, cy - 1, 1.5, 0, Math.PI * 2);
-      ctx.arc(cx + 4.5, cy - 1, 1.5, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (diff === Difficulty.Medium) {
-      // Yellow face with sunglasses & crown
-      this.drawCrown(ctx, cx, cy - charR + 2, 18, '#F59E0B');
-      ctx.beginPath();
-      ctx.arc(cx, cy, charR, 0, Math.PI * 2);
-      ctx.fillStyle = '#F59E0B';
-      ctx.fill();
-
-      // Cool sunglasses
-      ctx.fillStyle = '#0F172A';
-      ctx.beginPath();
-      (ctx as any).roundRect(cx - 9, cy - 3, 8, 6, 2);
-      (ctx as any).roundRect(cx + 1, cy - 3, 8, 6, 2);
-      ctx.fill();
-      ctx.fillRect(cx - 2, cy - 2, 4, 2);
-    } else {
-      // Green smiling face with sprout
-      this.drawCrown(ctx, cx, cy - charR + 2, 18, '#22C55E');
-      ctx.beginPath();
-      ctx.arc(cx, cy, charR, 0, Math.PI * 2);
-      ctx.fillStyle = '#22C55E';
-      ctx.fill();
-
-      // Smile
-      ctx.fillStyle = '#0F172A';
-      ctx.beginPath();
-      ctx.arc(cx - 4, cy - 2, 2, 0, Math.PI * 2);
-      ctx.arc(cx + 4, cy - 2, 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(cx, cy + 2, 5, 0, Math.PI);
-      ctx.strokeStyle = '#0F172A';
-      ctx.lineWidth = 1.8;
-      ctx.stroke();
-    }
+    // Center Real Emoji
+    ctx.font = '22px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(diffConfig.emoji, cx, cy);
 
     ctx.restore();
   }
@@ -973,13 +921,19 @@ export class Renderer {
     ctx.fill();
     ctx.restore();
 
-    // Close button (âœ•) top right
+    // Close button (X) top right
+    const closeX = bounds.cardX + bounds.cardW - 24;
+    const closeY = bounds.cardY + 26;
     ctx.save();
-    ctx.font = '700 18px Fredoka, Inter, sans-serif';
-    ctx.fillStyle = '#94A3B8';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('âœ•', bounds.cardX + bounds.cardW - 24, bounds.cardY + 26);
+    ctx.strokeStyle = '#94A3B8';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(closeX - 6, closeY - 6);
+    ctx.lineTo(closeX + 6, closeY + 6);
+    ctx.moveTo(closeX + 6, closeY - 6);
+    ctx.lineTo(closeX - 6, closeY + 6);
+    ctx.stroke();
     ctx.restore();
 
     // Dialog Header Title
@@ -989,10 +943,11 @@ export class Renderer {
     ctx.textAlign = 'center';
     ctx.fillText('SELECT DIFFICULTY', bounds.cardX + bounds.cardW / 2, bounds.cardY + 36);
 
-    // Center Vector Emblem Badge
+    // Center Emblem Badge with Real Emoji
     const emblemY = bounds.cardY + 95;
     const emblemR = 36;
 
+    ctx.save();
     ctx.beginPath();
     ctx.arc(bounds.cardX + bounds.cardW / 2, emblemY, emblemR, 0, Math.PI * 2);
     ctx.fillStyle = '#F8FAFC';
@@ -1001,7 +956,11 @@ export class Renderer {
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    this.drawEmblem(ctx, bounds.cardX + bounds.cardW / 2, emblemY, d.emblem, d.color);
+    ctx.font = '40px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(d.emoji, bounds.cardX + bounds.cardW / 2, emblemY);
+    ctx.restore();
 
     // Difficulty Tier Label (EASY / MEDIUM / HARD)
     ctx.font = '900 24px Fredoka, Nunito, Inter, sans-serif';
@@ -1054,7 +1013,8 @@ export class Renderer {
     ctx.fillText('MEDIUM', bounds.trackX + bounds.trackW / 2, bounds.trackY + 28);
     ctx.fillText('HARD', bounds.trackX + bounds.trackW - bounds.knobR, bounds.trackY + 28);
 
-    // [ PLAY â–¶ ] Button
+    // [ PLAY ▶ ] Button
+    ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
     ctx.shadowBlur = 10;
     ctx.shadowOffsetY = 3;
@@ -1063,59 +1023,24 @@ export class Renderer {
     ctx.fillStyle = d.color;
     ctx.fill();
 
+    const btnCenterX = bounds.playX + bounds.playW / 2;
+    const btnCenterY = bounds.playY + bounds.playH / 2;
+
     ctx.font = '900 18px Fredoka, Nunito, Inter, sans-serif';
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('PLAY â–¶', bounds.playX + bounds.playW / 2, bounds.playY + bounds.playH / 2);
-    ctx.restore();
-  }
+    ctx.fillText('PLAY', btnCenterX - 8, btnCenterY);
 
-  // Draw Difficulty Emblems (Sprout, Sunglasses, Devil)
-  private drawEmblem(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    type: 'sprout' | 'sunglasses' | 'devil',
-    color: string
-  ): void {
-    ctx.save();
-    ctx.fillStyle = color;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    if (type === 'sprout') {
-      // Leaf / Sprout
-      ctx.beginPath();
-      ctx.moveTo(x, y + 14);
-      ctx.quadraticCurveTo(x, y, x - 12, y - 4);
-      ctx.quadraticCurveTo(x - 6, y - 14, x, y - 6);
-      ctx.quadraticCurveTo(x + 6, y - 14, x + 12, y - 4);
-      ctx.quadraticCurveTo(x, y, x, y + 14);
-      ctx.fill();
-    } else if (type === 'sunglasses') {
-      // Spark / Lightning
-      ctx.beginPath();
-      ctx.moveTo(x + 2, y - 16);
-      ctx.lineTo(x - 9, y - 1);
-      ctx.lineTo(x - 1, y - 1);
-      ctx.lineTo(x - 4, y + 16);
-      ctx.lineTo(x + 9, y + 1);
-      ctx.lineTo(x + 1, y + 1);
-      ctx.closePath();
-      ctx.fill();
-    } else {
-      // Flame / Devil
-      ctx.beginPath();
-      ctx.moveTo(x, y - 16);
-      ctx.quadraticCurveTo(x + 15, y - 4, x + 11, y + 8);
-      ctx.quadraticCurveTo(x + 8, y + 16, x, y + 16);
-      ctx.quadraticCurveTo(x - 8, y + 16, x - 11, y + 8);
-      ctx.quadraticCurveTo(x - 15, y - 4, x, y - 16);
-      ctx.fill();
-    }
+    // Crisp vector play arrow
+    ctx.beginPath();
+    const triX = btnCenterX + 22;
+    ctx.moveTo(triX - 4, btnCenterY - 6);
+    ctx.lineTo(triX + 6, btnCenterY);
+    ctx.lineTo(triX - 4, btnCenterY + 6);
+    ctx.closePath();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fill();
     ctx.restore();
   }
 }

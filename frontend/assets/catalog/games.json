@@ -1,6 +1,6 @@
 {
   "version": 29,
-  "updatedAt": "2026-09-07T13:23:37.388Z",
+  "updatedAt": "2026-09-08T06:10:02.521Z",
   "games": [
     {
       "id": "game-mtmsq289",
@@ -666,14 +666,14 @@
       "version": "1.0.1",
       "entryUrl": "http://localhost:8080/games/sudoku-pro/1.0.1/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/sudoku-pro.webp",
-      "sizeBytes": 88637,
+      "sizeBytes": 89264,
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/sudoku-pro/1.0.1/manifest.json",
       "feedOrder": 21,
       "category": "Puzzle",
       "description": "Master classic 9x9 Sudoku in a clean, modern light editorial aesthetic. Features 4 difficulty tiers, pencil candidate notes, smart pedagogical hints, musical number audio, and auto-save.",
-      "sha256": "db5b65c404dc3c0539e06b20645ba96cfdcf6cd56a90b2a5c9034e39c5d94a9e",
+      "sha256": "02ca6bd77fbe39e721152fd7aa40c128a129a74dd429f7d46922682be88c358f",
       "status": "published",
       "touchZones": [],
       "features": {
@@ -929,6 +929,27 @@
         "physics": true,
         "levels": true,
         "offline": true
+      }
+    },
+    {
+      "id": "darts-duel",
+      "title": "Darts Duel",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/darts-duel/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/darts-duel.webp",
+      "sizeBytes": 118209,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/darts-duel/1.0.0/manifest.json",
+      "feedOrder": 32,
+      "category": "Sports",
+      "description": "A colorful 301 darts duel. Tap to lock each aim axis, land exact scoring hits, and beat the bot across three difficulty levels.",
+      "sha256": "c8286e41a194770c88d7b70bb697feb5e538680e838a02f6f4d2127ecff87873",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true
       }
     },
     {

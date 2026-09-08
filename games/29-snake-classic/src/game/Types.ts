@@ -24,6 +24,7 @@ export interface DifficultyConfig {
   activeFoods: number;
   color: string;
   emblem: 'sprout' | 'sunglasses' | 'devil';
+  emoji: string;
 }
 
 export const DIFFICULTIES: DifficultyConfig[] = [
@@ -31,10 +32,11 @@ export const DIFFICULTIES: DifficultyConfig[] = [
     id: Difficulty.Easy,
     label: 'EASY',
     badgeLabel: 'EASY MODE',
-    cellsPerSecond: 4,
+    cellsPerSecond: 3,
     activeFoods: 3,
     color: '#22C55E',
-    emblem: 'sprout'
+    emblem: 'sprout',
+    emoji: '🌱'
   },
   {
     id: Difficulty.Medium,
@@ -43,7 +45,8 @@ export const DIFFICULTIES: DifficultyConfig[] = [
     cellsPerSecond: 6,
     activeFoods: 2,
     color: '#F59E0B',
-    emblem: 'sunglasses'
+    emblem: 'sunglasses',
+    emoji: '😎'
   },
   {
     id: Difficulty.Hard,
@@ -52,7 +55,8 @@ export const DIFFICULTIES: DifficultyConfig[] = [
     cellsPerSecond: 8,
     activeFoods: 2,
     color: '#EF4444',
-    emblem: 'devil'
+    emblem: 'devil',
+    emoji: '😈'
   }
 ];
 

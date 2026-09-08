@@ -1,0 +1,16 @@
+{
+  "id": "darts-duel",
+  "title": "Darts Duel",
+  "version": "1.0.0",
+  "description": "A colorful 301 darts duel. Tap to lock each aim axis, land exact scoring hits, and beat the bot across three difficulty levels.",
+  "orientation": "portrait",
+  "engine": "canvas2d",
+  "category": "Sports",
+  "feedOrder": 32,
+  "status": "published",
+  "touchZones": [],
+  "features": {
+    "sound": true,
+    "vibration": true
+  }
+}
