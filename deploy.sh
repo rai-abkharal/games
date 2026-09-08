@@ -10,6 +10,16 @@ echo "======================================================="
 
 cd "$PROJECT_DIR"
 
+# Security state must survive Git resets and release replacement. Configure these
+# in the service environment, not in a tracked file. Do not deploy an open fallback.
+: "${ADMIN_ORIGIN:?Set the HTTPS Admin origin}"
+: "${PREVIEW_ORIGIN:?Set the separate HTTPS preview origin}"
+: "${ADMIN_SECURITY_DB:?Set the persistent Admin SQLite path outside the checkout}"
+: "${SMTP_URL:?Set the password-reset SMTP transport}"
+: "${ADMIN_MAIL_FROM:?Set the reset email sender}"
+case "$ADMIN_SECURITY_DB" in "$PROJECT_DIR"/*) echo "Admin database must be outside the checkout"; exit 1;; esac
+node -e 'if(Number(process.versions.node.split(".")[0])<24)process.exit(1)'
+
 echo ""
 echo "🛡️ [0/5] Backing up live catalog & Admin Uploaded Games..."
 mkdir -p /tmp/games_platform_backup
@@ -118,17 +128,18 @@ echo "🖥️ [3.5/5] Building Admin Dashboard..."
 if [ -d "$PROJECT_DIR/admin" ]; then
   cd "$PROJECT_DIR/admin"
   npm install
-  npx vite build || npm run build || true
+  npm run build
 fi
 
 echo ""
 echo "🔨 [4/5] Building Backend TypeScript to Production JS..."
 cd "$PROJECT_DIR/backend"
 npm run build
+NODE_ENV=production npm run security:migrate
 
 echo ""
 echo "⚡ [5/5] Reloading PM2 Service (mini-games-backend)..."
-pm2 reload mini-games-backend || pm2 restart mini-games-backend || pm2 start dist/src/server.js --name "mini-games-backend"
+NODE_ENV=production pm2 reload mini-games-backend --update-env || NODE_ENV=production pm2 start dist/src/server.js --name "mini-games-backend"
 pm2 save
 
 echo ""

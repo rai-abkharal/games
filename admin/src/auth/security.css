@@ -1,0 +1,118 @@
+.auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #080d1b;
+  color: #e2e8f0;
+  font-family: system-ui, sans-serif;
+}
+.auth-card {
+  background: #111a2b;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 28px;
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.auth-screen .auth-card {
+  width: min(100%, 460px);
+}
+.auth-card h1,
+.auth-card h2 {
+  margin: 0;
+}
+.auth-card p {
+  color: #a9b7ce;
+  line-height: 1.6;
+}
+.auth-eyebrow {
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+.auth-card form {
+  display: grid;
+  gap: 14px;
+}
+.auth-card label {
+  display: grid;
+  gap: 8px;
+  color: #d4deed;
+  font-size: 14px;
+}
+.auth-card input,
+.auth-card select {
+  background: #080f1d;
+  color: #eef2ff;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  padding: 11px;
+  min-width: 0;
+}
+.auth-card button,
+.auth-bar button {
+  padding: 10px 14px;
+  border: 1px solid #475569;
+  background: #1d2a43;
+  color: #eef2ff;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.auth-card button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.auth-card input:focus-visible,
+.auth-card button:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 3px;
+}
+.auth-error {
+  color: #fda4af !important;
+}
+.auth-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 24px;
+  background: #111a2b;
+  color: #e2e8f0;
+  border-bottom: 1px solid #334155;
+}
+.auth-bar span:first-child {
+  margin-right: auto;
+}
+.security-panel {
+  padding: 24px;
+  display: grid;
+  gap: 24px;
+  color: #e2e8f0;
+  background: #080d1b;
+  min-height: 100vh;
+}
+.security-panel table {
+  border-collapse: collapse;
+  display: block;
+  overflow: auto;
+}
+.security-panel td,
+.security-panel th {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid #334155;
+  overflow-wrap: anywhere;
+}
+.permission-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.permission-grid label {
+  display: flex;
+  align-items: center;
+}
+.security-panel td button {
+  margin: 3px;
+}
