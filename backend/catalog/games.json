@@ -1,6 +1,6 @@
 {
   "version": 29,
-  "updatedAt": "2026-09-08T06:10:02.521Z",
+  "updatedAt": "2026-09-08T06:27:03.769Z",
   "games": [
     {
       "id": "game-mtmsq289",
@@ -1020,14 +1020,14 @@
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/snake-classic/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/snake-classic.webp",
-      "sizeBytes": 37938,
+      "sizeBytes": 36911,
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/snake-classic/1.0.0/manifest.json",
       "feedOrder": 49,
       "category": "Arcade",
       "description": "Cute cartoon snake arcade adventure! Slither across the 13x21 checkerboard arena, gobble tasty berries, grow your tail, and smash all-time high scores across Easy, Medium, and Hard tiers!",
-      "sha256": "7b2e3c9521704829954811f965a14d16bf37bf9b615d9d425bdacefbee5bf935",
+      "sha256": "360411939217eb2d76daa650b224207ff7ade1eeb44fa5b906d0cc56f779ac20",
       "status": "published",
       "touchZones": [],
       "features": {
