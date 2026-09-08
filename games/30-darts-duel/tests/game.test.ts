@@ -92,11 +92,15 @@ test('bust switches turns without negative score and reset clears all transient 
     assert.equal(match.throws.bot, 0); assert.equal(match.throws.player, 0); assert.equal(match.elapsed, 0); assert.equal(match.bust, false);
   }
 });
-test('difficulty uses the Sudoku preference, legacy saved selection, and expert maps to hard', () => {
+test('difficulty belongs only to darts and ignores Sudoku preferences and saves', () => {
+  assert.equal(DIFFICULTY_KEY, 'darts_duel_difficulty_v1');
   assert.equal(readDifficulty({ getItem: key => key === DIFFICULTY_KEY ? 'medium' : null }), 'medium');
-  assert.equal(readDifficulty({ getItem: key => key === DIFFICULTY_KEY ? null : '{"difficulty":"hard"}' }), 'hard');
+  const requested: string[] = [];
+  const sudokuOnly: Record<string, string> = { sudoku_pro_difficulty_v1: 'hard', sudoku_pro_saved_game_v101: '{"difficulty":"hard"}' };
+  assert.equal(readDifficulty({ getItem: key => { requested.push(key); return sudokuOnly[key] ?? null; } }), 'easy');
+  assert.deepEqual(requested, [DIFFICULTY_KEY]);
   assert.equal(readDifficulty({ getItem: () => { throw new Error('Blocked'); } }), 'easy');
-  assert.equal(normalizeDifficulty('expert'), 'hard'); assert.equal(normalizeDifficulty('invalid'), null);
+  assert.equal(normalizeDifficulty('expert'), null); assert.equal(normalizeDifficulty('invalid'), null);
   assert.ok(CONFIG.difficulty.easy.flight > CONFIG.difficulty.medium.flight);
   assert.ok(CONFIG.difficulty.medium.flight > CONFIG.difficulty.hard.flight);
 });

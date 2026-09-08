@@ -16,7 +16,7 @@ Tap anywhere on the canvas (or press Space/Enter with it focused) to lock X, the
 
 ## Integration
 
-Sudoku Pro and Darts Duel share `sudoku_pro_difficulty_v1` on the same host origin. Sudoku publishes this preference when starting a puzzle and restores it on launch. Darts reads it on launch, falls back to `sudoku_pro_saved_game_v101.difficulty` for older saves, and persists slider selections. Sudoku's Expert maps to Hard in darts. The selected match difficulty remains fixed until restart. Changing a difficulty does not overwrite a Sudoku puzzle or its stats. Darts results live separately in `darts_duel_stats_v1`.
+Sudoku Pro is a visual reference for the difficulty slider only. Darts Duel independently stores Easy / Medium / Hard in `darts_duel_difficulty_v1` and defaults to Easy when no valid Darts setting exists. It never reads Sudoku preferences or saved puzzles, writes Sudoku settings, or listens for Sudoku difficulty events. Restart and replay preserve the current Darts difficulty. Results are also independent, in `darts_duel_stats_v1`.
 
 The existing game bridge handles ready/start/completed/game-over, sound settings, pause/resume, restart, and haptics. There is no top-left back control. Results offer Play Again; no unrelated Home or Stats screens are introduced. Host navigation remains with the app.
 
@@ -28,7 +28,7 @@ The existing game bridge handles ready/start/completed/game-over, sound settings
 - `game/AimController.ts`, `BotController.ts`: linear timing and imperfect coordinate-based AI.
 - `rendering/`: cached high-resolution board, vector darts, layout, impact camera, particles and room.
 - `ui/GameUI.ts`: accessible HUD, difficulty/help overlays and results.
-- `integration/`: shared audio and Sudoku difficulty adapter.
+- `integration/`: shared audio and independent Darts difficulty storage.
 
 Flight durations are 0.72 / 0.49 / 0.30 seconds for Easy / Medium / Hard. Board drawing and hit tests use the same normalized radii. High-DPI canvas resolution tracks devicePixelRatio; the board cache also accounts for the maximum impact zoom. Embedded darts and particles are bounded. Paused and finished games do not continually redraw the canvas.
 

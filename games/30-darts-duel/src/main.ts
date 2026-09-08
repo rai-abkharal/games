@@ -4,7 +4,7 @@ import { GameBridge } from '../../shared/GameBridge';
 import { Difficulty, CONFIG } from './game/Config';
 import { Match, MatchEvent } from './game/Match';
 import { AudioManager } from './integration/AudioManager';
-import { DIFFICULTY_KEY, normalizeDifficulty, readDifficulty, saveDifficulty } from './integration/DifficultyManager';
+import { readDifficulty, saveDifficulty } from './integration/DifficultyManager';
 import { Renderer } from './rendering/Renderer';
 import { GameUI } from './ui/GameUI';
 export class DartsGame {
@@ -19,10 +19,9 @@ export class DartsGame {
   private lastTime = 0;
   private destroyed = false;
   private needsRender = true;
-  private pendingDifficulty: Difficulty | null = null;
   private onPause = () => { this.hostPaused = true; };
   private onResume = () => { this.hostPaused = false; this.lastTime = performance.now(); };
-  private onRestart = () => this.restart(this.pendingDifficulty || this.match.difficulty);
+  private onRestart = () => this.restart(this.match.difficulty);
   constructor(canvas: HTMLCanvasElement) {
     let selected: Difficulty = 'easy';
     try { selected = readDifficulty(localStorage); } catch { /* Sandboxed origins may deny storage. */ }
@@ -48,12 +47,6 @@ export class DartsGame {
       if ((event.code === 'Space' || event.code === 'Enter') && !event.repeat) { event.preventDefault(); this.audio.activate(); this.tap(); }
     }, { signal });
     document.addEventListener('visibilitychange', () => { this.lastTime = performance.now(); }, { signal });
-    window.addEventListener('storage', event => {
-      if (event.key === DIFFICULTY_KEY) this.pendingDifficulty = normalizeDifficulty(event.newValue);
-    }, { signal });
-    window.addEventListener('sudoku:difficulty', event => {
-      this.pendingDifficulty = normalizeDifficulty((event as CustomEvent).detail?.difficulty);
-    }, { signal });
     window.addEventListener('pagehide', event => {
       if (event.persisted) this.onPause(); else this.destroy();
     }, { signal });
@@ -65,7 +58,7 @@ export class DartsGame {
   get paused() { return this.hostPaused || document.hidden || this.ui.modal !== null; }
   tap() { if (!this.paused) this.match.tap(); }
   restart(difficulty: Difficulty = this.match.difficulty) {
-    this.pendingDifficulty = null; this.hostPaused = false;
+    this.hostPaused = false;
     this.needsRender = true;
     this.match.reset(difficulty); this.ui.reset();
     saveDifficulty(difficulty); GameBridge.gameStarted(); this.bindHost();
