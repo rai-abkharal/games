@@ -62,14 +62,14 @@ export class Match {
     return false;
   }
   private launch() {
-    // Clear the previous impact at launch, before the next dart starts flying.
-    this.embedded.length = 0;
     this.impact = this.aim.point;
     this.throws[this.side]++;
     this.enter(this.side === 'bot' ? 'BOT_THROW' : 'PLAYER_THROW');
     this.onEvent('throw');
   }
   private beginTurn() {
+    // Keep the impact through its owner's turn, then clear it for the next side.
+    this.embedded.length = 0;
     this.hasStarted = true;
     this.aim.reset();
     this.bust = false;

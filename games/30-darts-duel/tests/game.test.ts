@@ -50,7 +50,7 @@ test('301 subtracts scores, busts preserve score, single checkout needs no doubl
   assert.equal(applyScore(1, scoreHit(sectorPoint(1, 0.76))).won, true);
 });
 test('aim meter is a linear ping-pong, with equal speed in both directions', () => {
-  assert.equal(CONFIG.aim.cycle, 2.1);
+  assert.equal(CONFIG.aim.cycle, 2.4);
   for (const [fraction, expected] of [[0, 0], [0.25, 0.5], [0.5, 1], [0.75, 0.5], [1, 0]]) {
     assert.ok(Math.abs(pingPong(fraction * CONFIG.aim.cycle) - expected) < 1e-12);
   }
@@ -144,22 +144,31 @@ test('long matches retain only a bounded number of embedded darts', () => {
     assert.ok(match.embedded.length <= CONFIG.maxEmbedded);
   }
 });
-test('each new throw removes the previous dart at launch, for either side', () => {
+test('darts remain through scoring and clear immediately when either side begins its turn', () => {
   const match = new Match('easy', () => {}, () => 0.9);
-  advanceTo(match, 'PLAYER_AIM_X');
+  advanceTo(match, 'IMPACT');
   assert.equal(match.embedded.length, 1);
   const previous = match.embedded[0];
-  match.aim.x = 0; match.tap();
-  assert.equal(match.embedded[0], previous, 'Previous dart stays visible during aiming');
-  match.update(0.16); match.aim.y = -0.76; match.tap();
-  assert.equal(match.state, 'PLAYER_THROW');
-  assert.equal(match.embedded.length, 0, 'Previous dart disappears before player flight');
+  assert.equal(previous.side, 'bot');
+  advanceTo(match, 'SCORE_REVEAL');
+  assert.equal(match.embedded[0], previous);
+  advanceTo(match, 'TURN_SWAP');
+  assert.equal(match.embedded[0], previous);
+  assert.equal(match.side, 'bot');
+  advanceTo(match, 'PLAYER_INTRO');
+  assert.equal(match.side, 'player');
+  assert.equal(match.embedded.length, 0, 'Bot dart clears as the player turn begins');
+  playerThrow(match, 0, -0.76);
   advanceTo(match, 'IMPACT');
   assert.equal(match.embedded.length, 1);
   assert.equal(match.embedded[0].side, 'player');
-  advanceTo(match, 'BOT_THROW');
-  assert.equal(match.embedded.length, 0, 'Same clearing rule applies to bot flight');
-  advanceTo(match, 'IMPACT');
-  assert.equal(match.embedded.length, 1);
-  assert.equal(match.embedded[0].side, 'bot');
+  const playerDart = match.embedded[0];
+  advanceTo(match, 'SCORE_REVEAL');
+  assert.equal(match.embedded[0], playerDart);
+  advanceTo(match, 'TURN_SWAP');
+  assert.equal(match.embedded[0], playerDart);
+  assert.equal(match.side, 'player');
+  advanceTo(match, 'BOT_INTRO');
+  assert.equal(match.side, 'bot');
+  assert.equal(match.embedded.length, 0, 'Player dart clears as the bot turn begins');
 });

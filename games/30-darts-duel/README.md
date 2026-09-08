@@ -30,7 +30,7 @@ The existing game bridge handles ready/start/completed/game-over, sound settings
 - `ui/GameUI.ts`: accessible HUD, difficulty/help overlays and results.
 - `integration/`: shared audio and independent Darts difficulty storage.
 
-The linear aim cycle lasts 2.1 seconds (about 14% slower than the original). Flight durations are 0.72 / 0.49 / 0.30 seconds for Easy / Medium / Hard. Board drawing and hit tests use the same normalized radii. High-DPI canvas resolution tracks devicePixelRatio; the board cache also accounts for the maximum impact zoom. The previous embedded dart is cleared when the next dart launches; only the latest impact remains visible. Particles are bounded. Paused and finished games do not continually redraw the canvas.
+The linear aim cycle lasts 2.4 seconds (about 12.5% slower than the previous version). Flight durations are 0.72 / 0.49 / 0.30 seconds for Easy / Medium / Hard. Board drawing and hit tests use the same normalized radii. High-DPI canvas resolution tracks devicePixelRatio; the board cache also accounts for the maximum impact zoom. An embedded dart stays visible through scoring and is cleared immediately when the other side begins its turn. Particles are bounded. Paused and finished games do not continually redraw the canvas.
 
 ## Verification
 

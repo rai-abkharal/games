@@ -127,7 +127,7 @@ export class Renderer {
     ctx.fillRect(0, 0, w, h);
 
     // 2. Top Header HUD (Back, Badges, Pause)
-    this.renderTopHUD(ctx, difficulty, score, liveAllTime);
+    this.renderTopHUD(ctx, difficulty, liveAllTime);
 
     // 3. Playable Arena (Dark Navy Frame + Checkerboard)
     this.renderArena(ctx);
@@ -158,17 +158,16 @@ export class Renderer {
   }
 
   // --------------------------------------------------------------------------
-  // TOP BAR HUD: Mode/Score (Clickable Difficulty Button), Crown All-Time, Pause Button
+  // TOP BAR HUD: Mode (Clickable Difficulty Button), Crown All-Time, Pause Button
   // --------------------------------------------------------------------------
   private renderTopHUD(
     ctx: CanvasRenderingContext2D,
     difficulty: Difficulty,
-    score: number,
     liveAllTime: number
   ): void {
     const diffConfig = DIFFICULTIES.find(d => d.id === difficulty) || DIFFICULTIES[0];
 
-    // 1. Current Difficulty & Score Button (Opens Difficulty Dialog on Tap!)
+    // 1. Current Difficulty Button (Opens Difficulty Dialog on Tap!)
     const mb = THEME.modeBadge;
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.16)';
@@ -186,12 +185,12 @@ export class Renderer {
 
     drawDifficultyEmoji(ctx, diffConfig.emblem, mb.x + mb.w / 2, mb.y + mb.h * 0.33, mb.h * 0.40);
 
-    // Current Score
+    // Selected mode under its existing emoji.
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `900 ${Math.round(mb.h * 0.42)}px Fredoka, Nunito, sans-serif`;
+    ctx.font = `900 ${Math.round(mb.h * 0.27)}px Fredoka, Nunito, sans-serif`;
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(String(score), mb.x + mb.w / 2, mb.y + mb.h * 0.74);
+    ctx.fillText(diffConfig.label, mb.x + mb.w / 2, mb.y + mb.h * 0.74);
     ctx.restore();
 
     // 2. Crown All-Time Badge

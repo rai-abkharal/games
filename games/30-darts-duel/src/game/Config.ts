@@ -3,7 +3,7 @@ export type Side = 'player' | 'bot';
 export interface Point { x: number; y: number }
 export const CONFIG = {
   startScore: 301,
-  aim: { cycle: 2.1, extent: 1.12, inputGuard: 0.14 },
+  aim: { cycle: 2.4, extent: 1.12, inputGuard: 0.14 },
   difficulty: {
     easy: { flight: 0.72, error: 0.17, missChance: 0.075, tripleChance: 0.18, checkoutChance: 0.40 },
     medium: { flight: 0.49, error: 0.115, missChance: 0.045, tripleChance: 0.37, checkoutChance: 0.63 },
