@@ -29,6 +29,10 @@ import {
   Trash2,
   Megaphone,
   Lightbulb,
+  Pencil,
+  Search,
+  Check,
+  X,
 } from "lucide-react";
 
 interface TouchZone {
@@ -43,6 +47,10 @@ interface GameItem {
   id: string;
   slug: string;
   title: string;
+  /** Name from the uploaded manifest, before any Admin Panel rename. */
+  sourceTitle?: string;
+  /** Set when an admin has renamed the game; overrides sourceTitle everywhere. */
+  titleOverride?: string | null;
   description: string;
   thumbnailUrl: string;
   orientation: string;
@@ -199,6 +207,13 @@ export default function App() {
   });
   const [savingGameAds, setSavingGameAds] = useState(false);
   const [gameAdsMsg, setGameAdsMsg] = useState<string | null>(null);
+
+  // Catalog search + inline rename state
+  const [gameSearch, setGameSearch] = useState("");
+  const [renamingGameId, setRenamingGameId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
 
   // Reports state
   const [reports, setReports] = useState<any[]>([]);
@@ -506,6 +521,54 @@ export default function App() {
       console.error(err);
     }
   };
+
+  // Rename Game (display name only — id, URLs, files and thumbnail are untouched)
+  const startRename = (game: GameItem) => {
+    setRenamingGameId(game.id);
+    setRenameDraft(game.title);
+    setRenameError(null);
+  };
+
+  const cancelRename = () => {
+    setRenamingGameId(null);
+    setRenameDraft("");
+    setRenameError(null);
+  };
+
+  const saveRename = async (gameId: string, nextTitle: string | null) => {
+    const trimmed = nextTitle === null ? null : nextTitle.trim();
+    if (trimmed !== null && !trimmed) {
+      setRenameError("Name cannot be empty");
+      return;
+    }
+    try {
+      setRenameSaving(true);
+      setRenameError(null);
+      const res = await fetch(`${API_BASE}/v1/admin/games/${gameId}/title`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: trimmed }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to rename game");
+      await fetchGames();
+      cancelRename();
+    } catch (err: any) {
+      setRenameError(err.message || "Failed to rename game");
+    } finally {
+      setRenameSaving(false);
+    }
+  };
+
+  // Catalog search: matches the current (possibly renamed) title, the original
+  // packaged title and the game id, so a game stays findable after a rename.
+  const gameSearchTerm = gameSearch.trim().toLowerCase();
+  const matchesGameSearch = (game: GameItem) =>
+    !gameSearchTerm ||
+    [game.title, game.sourceTitle, game.slug, game.id].some((value) =>
+      String(value || "").toLowerCase().includes(gameSearchTerm),
+    );
+  const visibleGames = games.filter(matchesGameSearch);
 
   // Permanently Delete Game from Catalog & Server
   const deleteGame = async (gameId: string, gameTitle: string) => {
@@ -2248,6 +2311,77 @@ export default function App() {
             {/* 2. GAME CATALOG VIEW */}
             {activeTab === "games" && (
               <div className="glass-panel" style={{ padding: "24px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                    marginBottom: "18px",
+                  }}
+                >
+                  <div style={{ position: "relative", flex: "1 1 320px" }}>
+                    <Search
+                      size={15}
+                      style={{
+                        position: "absolute",
+                        left: "12px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "var(--text-dim)",
+                        pointerEvents: "none",
+                      }}
+                    />
+                    <input
+                      type="text"
+                      value={gameSearch}
+                      onChange={(e) => setGameSearch(e.target.value)}
+                      placeholder="Search games by name or ID…"
+                      aria-label="Search game catalog"
+                      style={{
+                        width: "100%",
+                        padding: "10px 34px 10px 34px",
+                        fontSize: "14px",
+                        color: "#e2e8f0",
+                        background: "rgba(15, 23, 42, 0.6)",
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: "10px",
+                        outline: "none",
+                      }}
+                    />
+                    {gameSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setGameSearch("")}
+                        aria-label="Clear search"
+                        title="Clear search"
+                        style={{
+                          position: "absolute",
+                          right: "8px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          display: "flex",
+                          alignItems: "center",
+                          padding: "4px",
+                          color: "var(--text-dim)",
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                  <span
+                    style={{ fontSize: "12px", color: "var(--text-muted)" }}
+                  >
+                    {gameSearchTerm
+                      ? `${visibleGames.length} of ${games.length} games`
+                      : `${games.length} games`}
+                  </span>
+                </div>
                 <table
                   style={{
                     width: "100%",
@@ -2273,7 +2407,24 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {games
+                    {visibleGames.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          style={{
+                            padding: "28px 16px",
+                            textAlign: "center",
+                            color: "var(--text-muted)",
+                            fontSize: "14px",
+                          }}
+                        >
+                          {gameSearchTerm
+                            ? `No games match "${gameSearch.trim()}"`
+                            : "No games in the catalog yet."}
+                        </td>
+                      </tr>
+                    )}
+                    {visibleGames
                       .slice()
                       .sort((a, b) => (a.sortWeight ?? 0) - (b.sortWeight ?? 0))
                       .map((game) => {
@@ -2316,10 +2467,140 @@ export default function App() {
                                     }}
                                   />
                                 </div>
-                                <div>
-                                  <div style={{ fontWeight: 700 }}>
-                                    {game.title}
-                                  </div>
+                                <div style={{ minWidth: 0 }}>
+                                  {renamingGameId === game.id ? (
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "6px",
+                                      }}
+                                    >
+                                      <input
+                                        autoFocus
+                                        value={renameDraft}
+                                        maxLength={80}
+                                        disabled={renameSaving}
+                                        onChange={(e) =>
+                                          setRenameDraft(e.target.value)
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter")
+                                            saveRename(game.id, renameDraft);
+                                          if (e.key === "Escape") cancelRename();
+                                        }}
+                                        aria-label="Game display name"
+                                        style={{
+                                          width: "190px",
+                                          padding: "6px 8px",
+                                          fontSize: "14px",
+                                          fontWeight: 700,
+                                          color: "#e2e8f0",
+                                          background: "rgba(15, 23, 42, 0.8)",
+                                          border: "1px solid var(--accent-cyan)",
+                                          borderRadius: "6px",
+                                          outline: "none",
+                                        }}
+                                      />
+                                      <button
+                                        className="btn-primary"
+                                        style={{
+                                          padding: "5px 7px",
+                                          fontSize: "11px",
+                                        }}
+                                        disabled={renameSaving}
+                                        onClick={() =>
+                                          saveRename(game.id, renameDraft)
+                                        }
+                                        title="Save new name"
+                                      >
+                                        <Check size={13} />
+                                      </button>
+                                      <button
+                                        className="btn-secondary"
+                                        style={{
+                                          padding: "5px 7px",
+                                          fontSize: "11px",
+                                        }}
+                                        disabled={renameSaving}
+                                        onClick={cancelRename}
+                                        title="Cancel"
+                                      >
+                                        <X size={13} />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "6px",
+                                      }}
+                                    >
+                                      <div style={{ fontWeight: 700 }}>
+                                        {game.title}
+                                      </div>
+                                      {can("games.configure") && (
+                                        <button
+                                          className="btn-secondary"
+                                          style={{
+                                            padding: "3px 5px",
+                                            fontSize: "10px",
+                                            lineHeight: 1,
+                                          }}
+                                          onClick={() => startRename(game)}
+                                          title="Edit game name"
+                                          aria-label={`Edit name of ${game.title}`}
+                                        >
+                                          <Pencil size={12} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                  {renamingGameId === game.id && renameError && (
+                                    <div
+                                      style={{
+                                        fontSize: "11px",
+                                        color: "#fca5a5",
+                                        marginTop: "4px",
+                                      }}
+                                    >
+                                      {renameError}
+                                    </div>
+                                  )}
+                                  {game.titleOverride &&
+                                    game.sourceTitle !== game.title && (
+                                      <div
+                                        style={{
+                                          fontSize: "11px",
+                                          color: "var(--text-dim)",
+                                          marginTop: "2px",
+                                        }}
+                                      >
+                                        Renamed from "{game.sourceTitle}"
+                                        {can("games.configure") && (
+                                          <button
+                                            onClick={() =>
+                                              saveRename(game.id, null)
+                                            }
+                                            disabled={renameSaving}
+                                            title="Restore the original packaged name"
+                                            style={{
+                                              marginLeft: "6px",
+                                              padding: 0,
+                                              fontSize: "11px",
+                                              color: "var(--accent-cyan)",
+                                              background: "transparent",
+                                              border: "none",
+                                              cursor: "pointer",
+                                              textDecoration: "underline",
+                                            }}
+                                          >
+                                            reset
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
                                   <div
                                     style={{
                                       fontSize: "12px",

@@ -135,9 +135,15 @@ export function deployGame(options: DeployOptions): { success: boolean; message:
       })()
     : null;
 
+  // An Admin Panel rename outranks the packaged manifest name, so a redeploy
+  // keeps the curated title and only refreshes sourceTitle.
+  const titleOverride: string | undefined = existingGame?.titleOverride;
+
   const gameEntry: Game = {
     id: gameId,
-    title,
+    title: titleOverride || title,
+    sourceTitle: title,
+    ...(titleOverride ? { titleOverride } : {}),
     version,
     entryUrl,
     thumbnailUrl,

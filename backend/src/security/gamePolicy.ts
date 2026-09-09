@@ -21,6 +21,7 @@ export const gameRules: [string, RegExp, string][] = [
   ["PUT", /^\/feed\/order\/?$/, "feed.manage"],
   ["GET", /^\/ads-config\/?$/, "ads.configure"],
   ["PUT", /^\/ads-config\/?$/, "ads.configure"],
+  ["PUT", /^\/games\/([a-z0-9-]+)\/title\/?$/, "games.configure"],
   ["PUT", /^\/games\/([a-z0-9-]+)\/features\/?$/, "games.configure"],
   ["PUT", /^\/games\/([a-z0-9-]+)\/ads\/?$/, "games.configure"],
 ];
@@ -54,6 +55,14 @@ export function gamePolicy(store: SecurityStore): RequestHandler {
                 ),
               )
               .max(50),
+          })
+          .strict()
+          .parse(req.body);
+      if (req.method === "PUT" && req.path.endsWith("/title"))
+        req.body = z
+          .object({
+            // null clears the override and restores the packaged name.
+            title: z.union([z.string().trim().min(1).max(80), z.null()]),
           })
           .strict()
           .parse(req.body);

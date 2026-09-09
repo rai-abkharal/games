@@ -48,7 +48,14 @@ export const GameOrientationSchema = z.string().nullish().transform((val) => {
 
 export const GameSchema = z.object({
   id: z.string().min(1).regex(/^[a-z0-9-]+$/, 'ID must be lowercase alphanumeric with hyphens'),
+  // Effective display name. Every consumer (mobile catalogue, analytics, admin)
+  // reads this single field, so an admin rename propagates without client changes.
   title: z.string().min(1),
+  // Name carried by the uploaded manifest / deploy script. Kept so a rename can
+  // be reverted and so re-uploads never silently resurrect the packaged name.
+  sourceTitle: z.string().min(1).optional(),
+  // Admin Panel rename. When present it always wins over sourceTitle.
+  titleOverride: z.string().min(1).optional(),
   version: z.string().regex(/^\d+\.\d+\.\d+$/, 'Version must be semantic versioning (e.g. 1.0.0)'),
   entryUrl: z.string().url(),
   thumbnailUrl: z.string().url(),

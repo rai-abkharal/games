@@ -265,6 +265,69 @@ describe("Admin security boundaries", () => {
       (await call(root, "get", "/v1/admin/new-sensitive-endpoint")).status,
     ).toBe(404);
   });
+  it("keeps an Admin Panel rename authoritative over uploaded package metadata", async () => {
+    const root = await login();
+    const renamed = await call(root, "put", "/v1/admin/games/owned-game/title", {
+      title: "  Car Racing  ",
+    });
+    expect(renamed.status, renamed.text).toBe(200);
+
+    const listed = await call(root, "get", "/v1/admin/games");
+    const entry = listed.body.games.find((g: any) => g.id === "owned-game");
+    expect(entry.title).toBe("Car Racing");
+    expect(entry.sourceTitle).toBe("Owned");
+    expect(entry.titleOverride).toBe("Car Racing");
+
+    // The catalogue the installed app reads serves the renamed title.
+    const published = await request(app).get("/api/games");
+    expect(
+      published.body.games.find((g: any) => g.id === "owned-game").title,
+    ).toBe("Car Racing");
+
+    // Re-uploading the package must not resurrect the manifest name, and must
+    // leave the rest of the entry (id, urls, thumbnail) intact.
+    const staged = await call(
+      root,
+      "put",
+      "/v1/admin/games/owned-game/upload",
+    ).attach("file", zip("owned-game", "1.1.0"), "game.zip");
+    expect(staged.status, staged.text).toBe(201);
+    const reupload = await call(
+      root,
+      "post",
+      `/v1/admin/uploads/${staged.body.uploadId}/publish`,
+      {},
+    );
+    expect(reupload.status, reupload.text).toBe(200);
+    expect(reupload.body.game.title).toBe("Car Racing");
+    expect(reupload.body.game.sourceTitle).toBe("Game");
+    expect(reupload.body.game.id).toBe("owned-game");
+
+    // Clearing the override restores the packaged name.
+    const reset = await call(root, "put", "/v1/admin/games/owned-game/title", {
+      title: null,
+    });
+    expect(reset.status, reset.text).toBe(200);
+    expect(reset.body.game.title).toBe("Game");
+    expect(reset.body.game.titleOverride).toBeUndefined();
+
+    // Blank names and unexpected fields are rejected before reaching the handler.
+    expect(
+      (
+        await call(root, "put", "/v1/admin/games/owned-game/title", {
+          title: "   ",
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await call(root, "put", "/v1/admin/games/owned-game/title", {
+          title: "Fine",
+          id: "hijacked",
+        })
+      ).status,
+    ).toBe(400);
+  });
   const routes = [
     ["get", "/games"],
     ["post", "/games/validate"],
@@ -279,6 +342,7 @@ describe("Admin security boundaries", () => {
     ["put", "/feed/order"],
     ["get", "/ads-config"],
     ["put", "/ads-config"],
+    ["put", "/games/owned-game/title"],
     ["put", "/games/owned-game/features"],
     ["get", "/uploads"],
     ["post", `/uploads/${"a".repeat(43)}/publish`],

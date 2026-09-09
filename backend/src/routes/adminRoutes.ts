@@ -106,6 +106,8 @@ export function createAdminRouter(
           id: g.id,
           slug: g.id,
           title: g.title,
+          sourceTitle: (g as any).sourceTitle || g.title,
+          titleOverride: (g as any).titleOverride || null,
           description: g.description,
           thumbnailUrl: g.thumbnailUrl,
           orientation: g.orientation || "portrait",
@@ -778,9 +780,17 @@ export function createAdminRouter(
       }
 
       const nowIso = new Date().toISOString();
+      // The packaged name may change between uploads, but an Admin Panel rename
+      // outranks it: only sourceTitle follows the manifest.
+      const sourceTitle =
+        manifest.title ||
+        (existingGame ? existingGame.sourceTitle || existingGame.title : gameId);
+      const titleOverride = existingGame?.titleOverride || undefined;
       const newGameEntry = {
         id: gameId,
-        title: manifest.title || (existingGame ? existingGame.title : gameId),
+        title: titleOverride || sourceTitle,
+        sourceTitle,
+        ...(titleOverride ? { titleOverride } : {}),
         version: version,
         description:
           manifest.description ||
@@ -1290,7 +1300,57 @@ export function createAdminRouter(
     }
   });
 
-  // 13. Update Game Ads Configuration (Per-Game Ad Control)
+  // 13. Rename Game (Admin display-name override)
+  router.put("/games/:id/title", (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const requestedTitle = (req.body as { title: string | null }).title;
+
+      let catalogData: any = { version: 1, games: [] };
+      if (fs.existsSync(catalogPath)) {
+        catalogData = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
+      }
+
+      const game = (catalogData.games || []).find((g: any) => g.id === id);
+      if (!game) {
+        res.status(404).json({ error: "Game not found" });
+        return;
+      }
+
+      // Capture the packaged name the first time a game is renamed so the
+      // rename stays reversible even after later package uploads.
+      if (!game.sourceTitle) game.sourceTitle = game.title || id;
+
+      if (requestedTitle === null) {
+        delete game.titleOverride;
+        game.title = game.sourceTitle;
+      } else {
+        game.titleOverride = requestedTitle;
+        game.title = requestedTitle;
+      }
+
+      // Deliberately leaving updatedAt untouched: the installed app treats a new
+      // updatedAt as "assets changed" and purges the cached bundle, and a display
+      // name change must not force every device to re-download the game.
+      saveCatalog(catalogData);
+      catalogService.loadAndValidateCatalog();
+
+      res.json({
+        success: true,
+        message:
+          requestedTitle === null
+            ? `Restored original name "${game.title}"`
+            : `Renamed "${game.sourceTitle}" to "${game.title}"`,
+        game,
+      });
+    } catch (err: any) {
+      res
+        .status(500)
+        .json({ error: "Failed to rename game", details: err.message });
+    }
+  });
+
+  // 14. Update Game Ads Configuration (Per-Game Ad Control)
   router.put("/games/:id/ads", (req: Request, res: Response) => {
     try {
       const { id } = req.params;
