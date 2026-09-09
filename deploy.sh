@@ -53,9 +53,9 @@ fi
 echo ""
 echo "🧹 [0.5/5] Cleaning local build files to prevent Git conflicts..."
 if ! git diff --quiet || ! git diff --cached --quiet; then
-  if [ "${DEPLOY_ACCEPT_LOCAL_CHANGES:-false}" = "true" ] || [ "${1:-}" = "--force-pull" ] || [ "${2:-}" = "--force-pull" ]; then
-    echo "⚠️ Local uncommitted tracked changes detected; stashing them before pull (--force-pull enabled)..."
-    git stash push -m "auto-deploy-stash-$(date +%Y%m%d_%H%M%S)"
+  if [ "${DEPLOY_ACCEPT_LOCAL_CHANGES:-true}" = "true" ] || [ "${1:-}" = "--force-pull" ] || [ "${2:-}" = "--force-pull" ]; then
+    echo "⚠️ Local uncommitted tracked changes detected; stashing them before pull to prevent conflicts..."
+    git stash push -m "auto-deploy-stash-$(date +%Y%m%d_%H%M%S)" || true
   else
     echo "Commit or preserve tracked changes before deploying (or run with --force-pull to stash local changes)"
     exit 1
@@ -172,6 +172,11 @@ if [ -f "$BACKUP_DIR/live_catalog.json" ] || [ -f "$BACKUP_DIR/games.runtime.jso
       console.error('Catalog merge error:', e);
     }
   "
+fi
+
+if [ -f "$BACKUP_DIR/ads_config.json" ]; then
+  cp "$BACKUP_DIR/ads_config.json" "$PROJECT_DIR/backend/catalog/ads_config.json"
+  echo "✅ Live Ads & Monetization configuration preserved successfully!"
 fi
 
 fi # optional games deployment
