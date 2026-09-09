@@ -22,6 +22,8 @@ import com.example.androidnative.cache.GameCacheManager
 import com.example.androidnative.databinding.ActivityMainBinding
 import com.example.androidnative.databinding.DialogGameOverBinding
 import com.example.androidnative.manager.GameAnalyticsManager
+import com.example.androidnative.manager.AdTimingPolicy
+import android.os.SystemClock
 import com.example.androidnative.manager.PlayerProgressManager
 import com.example.androidnative.model.GameItem
 import com.example.androidnative.repository.GameRepository
@@ -85,6 +87,12 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     private var rewardedAd: RewardedAd? = null
     private var swipeCount = 0
     private var lastAdShowTimeMs = 0L
+    private var adAnchorElapsedMs = 0L
+    private var activityResumed = false
+    private var fullScreenAdShowing = false
+    private var adsConfigJob: Job? = null
+    private var lastAdsConfigFetchMs = 0L
+    private var nextAdLoadAttemptMs = 0L
 
     private var bannerEnabled = true
     private var interstitialEnabled = true
@@ -118,11 +126,8 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         defaultIntervalMinutes = prefs.getInt("remote_default_interval_minutes", 5)
         val savedAdTime = prefs.getLong("last_interstitial_show_time", 0L)
         val startupNow = System.currentTimeMillis()
-        lastAdShowTimeMs = if (savedAdTime > 0L && (startupNow - savedAdTime) < (defaultIntervalMinutes * 60 * 1000L)) {
-            savedAdTime
-        } else {
-            startupNow
-        }
+        lastAdShowTimeMs = AdTimingPolicy.restoredAnchor(savedAdTime, startupNow)
+        adAnchorElapsedMs = SystemClock.elapsedRealtime() - (startupNow - lastAdShowTimeMs)
         prefs.edit().putLong("last_interstitial_show_time", lastAdShowTimeMs).apply()
 
         // Lock window to highest hardware refresh rate (90Hz / 120Hz / 144Hz)
@@ -232,7 +237,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
                     // Swipe Count Tracking & Smart Ad Timing
                     swipeCount++
-                    checkAndShowInterstitialAd(specificGame = game)
+                    checkAndShowInterstitialAd()
 
                     // Predictive background pre-download
                     cacheManager.preloadUpcomingGames(position, displayedGameList, lifecycleScope)
@@ -399,92 +404,98 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             val liveCatalog = repository.fetchCatalog()
             binding.progressBar.visibility = View.GONE
             if (liveCatalog.isNotEmpty() && liveCatalog != fullGameList) {
+                val onlyAdSettingsChanged = liveCatalog.size == fullGameList.size &&
+                    liveCatalog.zip(fullGameList).all { (fresh, old) -> fresh.copy(ads = null, updatedAt = null) == old.copy(ads = null, updatedAt = null) }
                 fullGameList = liveCatalog
-                filterGamesByTab(currentTab, currentGameId)
+                if (onlyAdSettingsChanged) {
+                    val settings = liveCatalog.associate { it.id to it.ads }
+                    displayedGameList = displayedGameList.map { it.copy(ads = settings[it.id]) }
+                    adapter.updateAdSettings(settings)
+                } else filterGamesByTab(currentTab, currentGameId)
             }
         }
     }
 
     // Remote Ads Configuration & AdMob Loaders
     private fun fetchRemoteAdsConfig() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val candidateBases = listOf(
-                GameRepository.getActiveBaseUrl(this@MainActivity),
-                GameRepository.BASE_URL,
-                "http://${GameRepository.PRIMARY_HOST}:3000",
-                "http://${GameRepository.PRIMARY_HOST}",
-                "http://10.0.2.2:3000"
-            ).distinct()
-
-            for (base in candidateBases) {
-                try {
-                    val client = OkHttpClient.Builder().connectTimeout(4, TimeUnit.SECONDS).build()
-                    val request = Request.Builder().url("$base/api/ads/config").build()
-                    val response = client.newCall(request).execute()
-                    if (response.isSuccessful) {
-                        val body = response.body?.string()
-                        if (body != null) {
-                            val json = JSONObject(body)
-                            bannerEnabled = json.optBoolean("bannerEnabled", true)
-                            interstitialEnabled = json.optBoolean("interstitialEnabled", true)
-                            swipeInterval = json.optInt("swipeInterval", 10)
-                            levelCompleteAd = json.optBoolean("levelCompleteAd", true)
-                            levelWinInterval = json.optInt("levelWinInterval", 2)
-                            gameOverAdEnabled = json.optBoolean("gameOverAdEnabled", true)
-                            cooldownSeconds = json.optInt("cooldownSeconds", 60)
-                            defaultIntervalMinutes = json.optInt("defaultIntervalMinutes", 5)
-                            prefs.edit().putInt("remote_default_interval_minutes", defaultIntervalMinutes).apply()
-
-                            // For Debug builds, always preserve official Google test ad unit IDs
-                            val isDebuggable = (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
-                            if (!isDebuggable) {
-                                bannerUnitId = json.optString("bannerUnitId", bannerUnitId)
-                                interstitialUnitId = json.optString("interstitialUnitId", interstitialUnitId)
-                                rewardedUnitId = json.optString("rewardedUnitId", rewardedUnitId)
-                            }
-                            break
+        if (adsConfigJob?.isActive == true) return
+        lastAdsConfigFetchMs = SystemClock.elapsedRealtime()
+        adsConfigJob = lifecycleScope.launch {
+            val fetchedConfig = withContext(Dispatchers.IO) {
+                val candidateBases = listOf(
+                    GameRepository.getActiveBaseUrl(this@MainActivity),
+                    GameRepository.BASE_URL,
+                    "http://${GameRepository.PRIMARY_HOST}:3000",
+                    "http://${GameRepository.PRIMARY_HOST}",
+                    "http://10.0.2.2:3000"
+                ).distinct()
+                val client = OkHttpClient.Builder()
+                    .connectTimeout(4, TimeUnit.SECONDS)
+                    .readTimeout(6, TimeUnit.SECONDS)
+                    .build()
+                for (base in candidateBases) {
+                    try {
+                        val request = Request.Builder().url("$base/api/ads/config").build()
+                        client.newCall(request).execute().use { response ->
+                            if (response.isSuccessful) {
+                                response.body?.string()?.let { return@withContext JSONObject(it) }
+                            } else Log.w("AdsConfig", "$base returned HTTP ${response.code}")
                         }
+                    } catch (e: Exception) {
+                        Log.w("AdsConfig", "Fetch failed via $base: ${e.message}")
                     }
-                } catch (_: Exception) {}
-            }
-
-            withContext(Dispatchers.Main) {
-                if (bannerEnabled) {
-                    setupAdMobBanner()
                 }
-                loadInterstitialAd()
-                loadRewardedAd()
+                null
             }
+            val json = fetchedConfig ?: runCatching {
+                JSONObject(prefs.getString("remote_ads_config", "") ?: "")
+            }.getOrNull()
+            if (json == null) {
+                Log.w("AdsConfig", "No remote or cached configuration; retrying in 30 seconds")
+                return@launch
+            }
+            // Apply all state on the main thread, including cached OFF switches.
+            prefs.edit().putString("remote_ads_config", json.toString()).apply()
+            val previousUnitId = interstitialUnitId
+            val previousBannerId = bannerUnitId
+            bannerEnabled = json.optBoolean("bannerEnabled", true)
+            interstitialEnabled = json.optBoolean("interstitialEnabled", true)
+            swipeInterval = json.optInt("swipeInterval", 10).coerceAtLeast(1)
+            levelCompleteAd = json.optBoolean("levelCompleteAd", true)
+            levelWinInterval = json.optInt("levelWinInterval", 2).coerceAtLeast(1)
+            gameOverAdEnabled = json.optBoolean("gameOverAdEnabled", true)
+            cooldownSeconds = json.optInt("cooldownSeconds", 60).coerceAtLeast(0)
+            defaultIntervalMinutes = json.optInt("defaultIntervalMinutes", 5).coerceIn(1, 1440)
+            prefs.edit().putInt("remote_default_interval_minutes", defaultIntervalMinutes).apply()
+            val isDebuggable = (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+            if (!isDebuggable) {
+                bannerUnitId = json.optString("bannerUnitId", bannerUnitId)
+                interstitialUnitId = json.optString("interstitialUnitId", interstitialUnitId)
+                rewardedUnitId = json.optString("rewardedUnitId", rewardedUnitId)
+            }
+            if (previousUnitId != interstitialUnitId) interstitialAd = null
+            if (!bannerEnabled || previousBannerId != bannerUnitId) {
+                adView?.destroy()
+                adView = null
+                binding.bannerAdContainer.removeAllViews()
+            }
+            if (bannerEnabled && adView == null) setupAdMobBanner()
+            Log.i("AdsConfig", "Applied: enabled=$interstitialEnabled interval=${defaultIntervalMinutes}m cooldown=${cooldownSeconds}s")
+            loadInterstitialAd()
+            if (rewardedAd == null) loadRewardedAd()
+            checkAndShowInterstitialAd()
         }
     }
-
     private fun startSmartAdCheckTimer() {
         lifecycleScope.launch {
             while (isActive) {
-                delay(5_000L) // 5-second check so configured intervals trigger promptly
-                val now = System.currentTimeMillis()
-                val currentPos = binding.viewPager.currentItem
-                val game = adapter.getGame(currentPos)
-                if (game != null && game.ads?.enabled == false) {
-                    continue
+                delay(1_000L)
+                if (!activityResumed || fullScreenAdShowing) continue
+                if (SystemClock.elapsedRealtime() - lastAdsConfigFetchMs >= 30_000L) {
+                    fetchRemoteAdsConfig()
+                    refreshCatalogFromServer()
                 }
-
-                val minIntervalMinutes = if (game?.ads?.useCustomInterval == true) {
-                    game.ads.intervalMinutes
-                } else {
-                    defaultIntervalMinutes
-                }
-                val intervalMs = Math.max(15_000L, minIntervalMinutes * 60 * 1000L)
-                val effectiveCooldownMs = Math.min(cooldownSeconds * 1000L, intervalMs / 2)
-                val timeSinceLastAd = now - lastAdShowTimeMs
-
-                if (timeSinceLastAd >= intervalMs && timeSinceLastAd >= effectiveCooldownMs) {
-                    Log.d("MainActivity", "Ad interval due ($minIntervalMinutes min reached). Displaying interstitial ad...")
-                    isAdDue = true
-                    withContext(Dispatchers.Main) {
-                        checkAndShowInterstitialAd(specificGame = game, forceShowIfDue = true)
-                    }
-                }
+                checkAndShowInterstitialAd()
             }
         }
     }
@@ -504,14 +515,16 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
     private fun recordAdShown() {
         lastAdShowTimeMs = System.currentTimeMillis()
+        adAnchorElapsedMs = SystemClock.elapsedRealtime()
         prefs.edit().putLong("last_interstitial_show_time", lastAdShowTimeMs).apply()
         swipeCount = 0
         isAdDue = false
     }
 
     private fun loadInterstitialAd() {
-        if (isInterstitialLoading || interstitialAd != null) return
+        if (!interstitialEnabled || isInterstitialLoading || interstitialAd != null || fullScreenAdShowing || SystemClock.elapsedRealtime() < nextAdLoadAttemptMs) return
         isInterstitialLoading = true
+        val requestedUnitId = interstitialUnitId
 
         val adRequest = AdRequest.Builder().build()
         InterstitialAd.load(
@@ -520,6 +533,11 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             adRequest,
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
+                    if (requestedUnitId != interstitialUnitId) {
+                        isInterstitialLoading = false
+                        loadInterstitialAd()
+                        return
+                    }
                     interstitialAd = ad
                     isInterstitialLoading = false
                     Log.d("MainActivity", "Interstitial ad loaded successfully")
@@ -527,20 +545,27 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                         override fun onAdDismissedFullScreenContent() {
                             Log.d("MainActivity", "Interstitial ad dismissed by user")
                             interstitialAd = null
-                            recordAdShown()
+                            fullScreenAdShowing = false
                             loadInterstitialAd()
                         }
 
                         override fun onAdFailedToShowFullScreenContent(adError: AdError) {
                             Log.w("MainActivity", "Interstitial ad failed to show: ${adError.message}")
                             interstitialAd = null
-                            isAdDue = false
+                            fullScreenAdShowing = false
+                            nextAdLoadAttemptMs = SystemClock.elapsedRealtime() + 30_000L
                             loadInterstitialAd()
                         }
 
                         override fun onAdShowedFullScreenContent() {
                             Log.d("MainActivity", "Interstitial ad displayed on screen")
                             recordAdShown()
+                        }
+
+                        override fun onAdImpression() {
+                            adapter.getGame(binding.viewPager.currentItem)?.let {
+                                analyticsManager.onAdImpression(it.id, it.title)
+                            }
                         }
                     }
 
@@ -550,7 +575,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                         val game = adapter.getGame(currentPos)
                         if (game?.ads?.enabled != false) {
                             runOnUiThread {
-                                checkAndShowInterstitialAd(specificGame = game, forceShowIfDue = true)
+                                checkAndShowInterstitialAd()
                             }
                         }
                     }
@@ -559,6 +584,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     interstitialAd = null
                     isInterstitialLoading = false
+                    nextAdLoadAttemptMs = SystemClock.elapsedRealtime() + 30_000L
                     Log.w("MainActivity", "Interstitial ad failed to load: ${error.message} (code ${error.code})")
                 }
             }
@@ -566,41 +592,35 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     }
 
     private fun checkAndShowInterstitialAd(
-        specificGame: GameItem? = null,
         forceShowIfDue: Boolean = false
     ) {
-        if (!interstitialEnabled) return
+        if (!interstitialEnabled || !activityResumed || fullScreenAdShowing || isFinishing || isDestroyed) return
 
         val currentPos = binding.viewPager.currentItem
-        val game = specificGame ?: adapter.getGame(currentPos)
+        val game = adapter.getGame(currentPos) ?: return
 
         // Per-game check: If ads are disabled for this game, do NOT show
-        if (game != null && game.ads?.enabled == false) {
+        if (game.ads?.enabled == false) {
             return
         }
 
-        val now = System.currentTimeMillis()
         val minIntervalMinutes = if (game?.ads?.useCustomInterval == true) {
             game.ads.intervalMinutes
         } else {
             defaultIntervalMinutes
         }
 
-        val intervalMs = Math.max(15_000L, minIntervalMinutes * 60 * 1000L)
-        val effectiveCooldownMs = Math.min(cooldownSeconds * 1000L, intervalMs / 2)
-        val timeSinceLastAd = now - lastAdShowTimeMs
-        val isTimeDue = timeSinceLastAd >= intervalMs
-        val isSwipeDue = swipeCount >= swipeInterval
-
-        if (forceShowIfDue || isTimeDue || isSwipeDue || isAdDue) {
-            if (!forceShowIfDue && lastAdShowTimeMs > 0L && timeSinceLastAd < effectiveCooldownMs) {
-                return
-            }
+        val timeSinceLastAd = SystemClock.elapsedRealtime() - adAnchorElapsedMs
+        val isSwipeDue = swipeInterval > 0 && swipeCount >= swipeInterval
+        if (AdTimingPolicy.isDue(timeSinceLastAd, minIntervalMinutes, cooldownSeconds, forceShowIfDue || isSwipeDue)) {
 
             if (interstitialAd != null) {
                 Log.d("MainActivity", "Showing interstitial ad on screen (game=${game?.title}, interval=${minIntervalMinutes}m)")
                 isAdDue = false
-                interstitialAd?.show(this)
+                val ready = interstitialAd
+                interstitialAd = null
+                fullScreenAdShowing = true
+                ready?.show(this)
             } else {
                 Log.d("MainActivity", "Interstitial ad is due but not yet ready in memory; requesting preload")
                 isAdDue = true
@@ -627,8 +647,22 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     }
 
     private fun showRewardedAdForHint(action: String) {
+        if (!activityResumed || fullScreenAdShowing) return
         if (rewardedAd != null) {
-            rewardedAd?.show(this) { _ ->
+            val ready = rewardedAd
+            rewardedAd = null
+            fullScreenAdShowing = true
+            ready?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                override fun onAdDismissedFullScreenContent() {
+                    fullScreenAdShowing = false
+                    loadRewardedAd()
+                }
+                override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                    fullScreenAdShowing = false
+                    loadRewardedAd()
+                }
+            }
+            ready?.show(this) { _ ->
                 // Reward Granted
                 val earnedCoins = 50
                 progressManager.addCoins(earnedCoins)
@@ -638,7 +672,6 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                 adapter.grantRewardToCurrentGame(currentPos, action)
 
                 Toast.makeText(this, "🎉 Hint Unlocked & +$earnedCoins 🪙 Coins Granted!", Toast.LENGTH_LONG).show()
-                loadRewardedAd()
             }
         } else {
             // Instant fallback reward if ad is still loading
@@ -792,17 +825,21 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     }
 
     override fun onPause() {
+        activityResumed = false
         super.onPause()
         adView?.pause()
         adapter.pauseAll()
         val currentPos = binding.viewPager.currentItem
         adapter.getGame(currentPos)?.let { game ->
-            analyticsManager.onGameExit(game.id, game.title, exitReason = "app_paused")
+            if (fullScreenAdShowing) analyticsManager.pauseForAd()
+            else analyticsManager.onGameExit(game.id, game.title, exitReason = "app_paused")
         }
     }
 
     override fun onResume() {
         super.onResume()
+        activityResumed = true
+        analyticsManager.resumeAfterAd()
         adView?.resume()
         applyTheme()
         val isMuted = prefs.getBoolean("is_sound_muted", false)
@@ -810,6 +847,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         adapter.resumeCurrent()
         updateCoinsDisplay()
         refreshCatalogFromServer()
+        fetchRemoteAdsConfig()
 
         val currentPos = binding.viewPager.currentItem
         adapter.getGame(currentPos)?.let { game ->

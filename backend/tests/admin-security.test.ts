@@ -129,6 +129,22 @@ afterEach(() => {
   fs.rmSync(directory, { recursive: true, force: true });
 });
 describe("Admin security boundaries", () => {
+  it("serves stored analytics through both authenticated aliases before the game-only policy", async () => {
+    const root = await login();
+    const dev = await login("developer");
+    store.recordAnalyticsEvent({ clientId: "analytics-test", gameId: "owned-game", eventName: "game_start" });
+    const impression = await request(app).post("/api/analytics/event").send({ clientId: "analytics-test", gameId: "owned-game", eventName: "ad_impression" });
+    expect(impression.status).toBe(200);
+    for (const prefix of ["/v1/admin", "/api/admin"]) {
+      expect((await request(app).get(prefix + "/analytics/summary")).status).toBe(401);
+      expect((await call(dev, "get", prefix + "/analytics/summary")).status).toBe(403);
+      const summary = await call(root, "get", prefix + "/analytics/summary?range=all");
+      expect(summary.status, summary.text).toBe(200);
+      expect(summary.body.summary.totalPlays).toBe(1);
+      expect(summary.body.summary.totalAdImpressions).toBe(1);
+      expect(summary.body.summary.mostPlayed[0].gameId).toBe("owned-game");
+    }
+  });
   it("redirects anonymous dashboard documents to login on the canonical host", async () => {
     for (const url of ["/admin/", "/admin/index.html", "/admin/games"]) {
       const res = await request(app).get(url).set("Host", "admin.example.test");

@@ -32,6 +32,7 @@ class GameAnalyticsManager(private val context: Context) {
     private var activeGameId: String? = null
     private var activeGameTitle: String? = null
     private var gameStartTimeMs: Long = 0L
+    private var adPauseTimeMs: Long = 0L
 
     val clientId: String
         get() {
@@ -44,6 +45,8 @@ class GameAnalyticsManager(private val context: Context) {
         }
 
     fun onGameStart(gameId: String, title: String) {
+        // Catalog refresh and ViewPager selection may report the same session twice.
+        if (activeGameId == gameId) return
         if (activeGameId != null && activeGameId != gameId) {
             onGameExit(activeGameId!!, activeGameTitle ?: "", exitReason = "swiped_away")
         }
@@ -51,6 +54,7 @@ class GameAnalyticsManager(private val context: Context) {
         activeGameId = gameId
         activeGameTitle = title
         gameStartTimeMs = SystemClock.elapsedRealtime()
+        adPauseTimeMs = 0L
 
         val plays = prefs.getInt("plays_$gameId", 0) + 1
         prefs.edit().putInt("plays_$gameId", plays).apply()
@@ -104,13 +108,29 @@ class GameAnalyticsManager(private val context: Context) {
             activeGameId = null
             activeGameTitle = null
             gameStartTimeMs = 0L
+            adPauseTimeMs = 0L
         }
     }
 
     private fun computeDurationSeconds(): Long {
         if (gameStartTimeMs <= 0L) return 0L
-        val elapsedMs = SystemClock.elapsedRealtime() - gameStartTimeMs
+        val elapsedMs = (adPauseTimeMs.takeIf { it > 0 } ?: SystemClock.elapsedRealtime()) - gameStartTimeMs
         return Math.max(0L, elapsedMs / 1000L)
+    }
+
+    fun pauseForAd() {
+        if (activeGameId != null && adPauseTimeMs == 0L) adPauseTimeMs = SystemClock.elapsedRealtime()
+    }
+
+    fun resumeAfterAd() {
+        if (adPauseTimeMs > 0L) {
+            gameStartTimeMs += SystemClock.elapsedRealtime() - adPauseTimeMs
+            adPauseTimeMs = 0L
+        }
+    }
+
+    fun onAdImpression(gameId: String, title: String) {
+        sendEvent("ad_impression", gameId, title, extraParams = mapOf("ad_format" to "interstitial"))
     }
 
     private fun sendEvent(

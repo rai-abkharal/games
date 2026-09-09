@@ -182,6 +182,7 @@ export default function App() {
   >("all");
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
   const [testEventStatus, setTestEventStatus] = useState<{
     running: boolean;
     msg: string | null;
@@ -279,11 +280,12 @@ export default function App() {
       const res = await fetch(
         `${API_BASE}/v1/admin/analytics/summary?range=${range}`,
       );
-      if (res.ok) {
-        const data = await res.json();
-        setAnalyticsData(data);
-      }
+      if (!res.ok) throw new Error(`Analytics request failed (HTTP ${res.status}).`);
+      const data = await res.json();
+      setAnalyticsData(data);
+      setAnalyticsError(null);
     } catch (err) {
+      setAnalyticsError(err instanceof Error ? err.message : "Unable to load analytics.");
       console.error("Failed to fetch analytics", err);
     } finally {
       setLoadingAnalytics(false);
@@ -371,6 +373,15 @@ export default function App() {
     if (can("analytics.read")) fetchAnalytics(analyticsRange);
     void refreshUploads().catch(console.error);
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "analytics" || !can("analytics.read")) return;
+    void fetchAnalytics(analyticsRange);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void fetchAnalytics(analyticsRange);
+    }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [activeTab, analyticsRange]);
 
   // Bridge Message listener for Simulator
   useEffect(() => {
@@ -1353,8 +1364,12 @@ export default function App() {
                       Gameplay Usage &amp; Engagement Telemetry
                     </h3>
                     <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
-                      Live in-app telemetry recorded in SQLite and forwarded to
-                      Google Analytics 4 Measurement Protocol.
+                      Gameplay events recorded by this server. Refreshes every 15 seconds.
+                      Google Analytics configuration is not required.
+                    </p>
+                    <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+                      Interstitial impressions: {analyticsData?.summary?.totalAdImpressions ?? 0}.
+                      Play duration is recorded when a game is exited or the app is paused.
                     </p>
                   </div>
 
@@ -1425,6 +1440,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {analyticsError && <p role="alert">{analyticsError} Displayed values may be out of date.</p>}
                 {/* KPI Cards Grid */}
                 <div
                   style={{
@@ -4628,7 +4644,7 @@ export default function App() {
                     >
                       <div>
                         <h4 style={{ fontSize: "15px", fontWeight: 700 }}>
-                          Interstitial Swipe Ads
+                          Interstitial Ads (Timer &amp; Events)
                         </h4>
                         <p
                           style={{
@@ -4956,7 +4972,7 @@ export default function App() {
                           marginTop: "6px",
                         }}
                       >
-                        Baseline interval between interstitial ads (~5 minutes recommended). Safe-moment deferral prevents interrupting active gameplay.
+                        Interval between displayed interstitials. Requires the global interstitial switch and the current game's ads setting. The app checks time during play; a loaded ad and a foreground app are required.
                       </p>
                     </div>
                   </div>

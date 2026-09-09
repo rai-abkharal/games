@@ -45,6 +45,7 @@ export const IngestEventSchema = z.preprocess((raw: any) => {
     "game_session_duration",
     "game_over",
     "game_completed",
+    "ad_impression",
   ]),
   gameId: z.string().min(1),
   gameTitle: z.string().optional(),

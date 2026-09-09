@@ -142,11 +142,11 @@ export function createApp(
   });
   admin.use(authRouter(store, config));
   admin.use(
-    createAdminRouter(catalogService, publicDir, catalogFile, store, config),
-  );
-  admin.use(
     "/analytics",
     createAdminAnalyticsRouter(store, catalogFile),
+  );
+  admin.use(
+    createAdminRouter(catalogService, publicDir, catalogFile, store, config),
   );
   app.use("/v1/admin", admin);
   app.use("/api/admin", admin);
@@ -270,6 +270,7 @@ export function createApp(
 
   // Ads Remote Configuration Endpoint for Mobile App
   app.get("/api/ads/config", (_req: Request, res: Response) => {
+    res.setHeader("Cache-Control", "no-store");
     const adsConfigPath = path.join(
       path.dirname(catalogFile),
       "ads_config.json",

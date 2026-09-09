@@ -342,6 +342,10 @@ export class SecurityStore {
       abandonedSessions,
       totalCompletions,
       totalGameOvers,
+      totalAdImpressions: this.get<{ count: number }>(
+        "SELECT count(*) AS count FROM game_analytics_events WHERE event_name='ad_impression' AND created_at >= ?",
+        since,
+      )?.count || 0,
       gameStats,
       mostPlayed,
       highestEngagement,

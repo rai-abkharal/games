@@ -56,6 +56,12 @@ class GameFeedAdapter(
         return games[position % games.size]
     }
 
+    fun updateAdSettings(settings: Map<String, com.example.androidnative.model.GameAdsConfig?>) {
+        for (index in games.indices) {
+            if (settings.containsKey(games[index].id)) games[index] = games[index].copy(ads = settings[games[index].id])
+        }
+    }
+
     fun setSoundMuted(muted: Boolean) {
         isSoundMuted = muted
         for ((pos, webView) in activeWebViews) {
