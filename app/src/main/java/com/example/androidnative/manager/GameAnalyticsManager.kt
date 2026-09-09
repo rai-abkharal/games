@@ -101,13 +101,6 @@ class GameAnalyticsManager(private val context: Context) {
                 extraParams = mapOf("exit_reason" to exitReason)
             )
 
-            sendEvent(
-                eventName = "game_session_duration",
-                gameId = gameId,
-                gameTitle = title,
-                durationSeconds = durationSec
-            )
-
             activeGameId = null
             activeGameTitle = null
             gameStartTimeMs = 0L

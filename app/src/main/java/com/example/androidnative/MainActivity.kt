@@ -114,12 +114,16 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         repository = GameRepository(this)
         analyticsManager = GameAnalyticsManager(this)
 
-        // Persist and restore ad show time so timers never reset erratically
+        // Restore configured ad interval and timestamp from persistent storage
+        defaultIntervalMinutes = prefs.getInt("remote_default_interval_minutes", 5)
         val savedAdTime = prefs.getLong("last_interstitial_show_time", 0L)
-        lastAdShowTimeMs = if (savedAdTime > 0L) savedAdTime else System.currentTimeMillis()
-        if (savedAdTime <= 0L) {
-            prefs.edit().putLong("last_interstitial_show_time", lastAdShowTimeMs).apply()
+        val startupNow = System.currentTimeMillis()
+        lastAdShowTimeMs = if (savedAdTime > 0L && (startupNow - savedAdTime) < (defaultIntervalMinutes * 60 * 1000L)) {
+            savedAdTime
+        } else {
+            startupNow
         }
+        prefs.edit().putLong("last_interstitial_show_time", lastAdShowTimeMs).apply()
 
         // Lock window to highest hardware refresh rate (90Hz / 120Hz / 144Hz)
         try {
@@ -228,7 +232,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
                     // Swipe Count Tracking & Smart Ad Timing
                     swipeCount++
-                    checkAndShowInterstitialAd(isSafeMoment = true, specificGame = game)
+                    checkAndShowInterstitialAd(specificGame = game)
 
                     // Predictive background pre-download
                     cacheManager.preloadUpcomingGames(position, displayedGameList, lifecycleScope)
@@ -267,7 +271,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
         binding.navSettings.setOnClickListener {
             resetAutoHideTimer()
-            checkAndShowInterstitialAd(isSafeMoment = true)
+            checkAndShowInterstitialAd()
             startActivity(Intent(this, SettingsActivity::class.java))
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         }
@@ -305,6 +309,12 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             val initialVirtualPos = adapter.getInitialVirtualPosition(targetActualIndex)
             binding.viewPager.setCurrentItem(initialVirtualPos, false)
             updateTopBarForGame(initialVirtualPos)
+
+            // Register initial game session in analytics immediately on load
+            adapter.getGame(initialVirtualPos)?.let { initialGame ->
+                progressManager.lastPlayedGameId = initialGame.id
+                analyticsManager.onGameStart(initialGame.id, initialGame.title)
+            }
         }
     }
 
@@ -423,6 +433,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                             gameOverAdEnabled = json.optBoolean("gameOverAdEnabled", true)
                             cooldownSeconds = json.optInt("cooldownSeconds", 60)
                             defaultIntervalMinutes = json.optInt("defaultIntervalMinutes", 5)
+                            prefs.edit().putInt("remote_default_interval_minutes", defaultIntervalMinutes).apply()
 
                             // For Debug builds, always preserve official Google test ad unit IDs
                             val isDebuggable = (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
@@ -450,7 +461,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     private fun startSmartAdCheckTimer() {
         lifecycleScope.launch {
             while (isActive) {
-                delay(15_000L) // 15-second heartbeat check
+                delay(5_000L) // 5-second check so configured intervals trigger promptly
                 val now = System.currentTimeMillis()
                 val currentPos = binding.viewPager.currentItem
                 val game = adapter.getGame(currentPos)
@@ -463,12 +474,15 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                 } else {
                     defaultIntervalMinutes
                 }
-                val requiredIntervalMs = Math.max(cooldownSeconds * 1000L, minIntervalMinutes * 60 * 1000L)
-                if (now - lastAdShowTimeMs >= requiredIntervalMs) {
-                    // Ad is due! Defer showing until a safe moment so active play is never interrupted.
+                val intervalMs = Math.max(15_000L, minIntervalMinutes * 60 * 1000L)
+                val effectiveCooldownMs = Math.min(cooldownSeconds * 1000L, intervalMs / 2)
+                val timeSinceLastAd = now - lastAdShowTimeMs
+
+                if (timeSinceLastAd >= intervalMs && timeSinceLastAd >= effectiveCooldownMs) {
+                    Log.d("MainActivity", "Ad interval due ($minIntervalMinutes min reached). Displaying interstitial ad...")
                     isAdDue = true
-                    if (interstitialAd == null) {
-                        loadInterstitialAd()
+                    withContext(Dispatchers.Main) {
+                        checkAndShowInterstitialAd(specificGame = game, forceShowIfDue = true)
                     }
                 }
             }
@@ -529,6 +543,17 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                             recordAdShown()
                         }
                     }
+
+                    // If an ad was already due and waiting for this download, show it immediately!
+                    if (isAdDue) {
+                        val currentPos = binding.viewPager.currentItem
+                        val game = adapter.getGame(currentPos)
+                        if (game?.ads?.enabled != false) {
+                            runOnUiThread {
+                                checkAndShowInterstitialAd(specificGame = game, forceShowIfDue = true)
+                            }
+                        }
+                    }
                 }
 
                 override fun onAdFailedToLoad(error: LoadAdError) {
@@ -541,7 +566,6 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     }
 
     private fun checkAndShowInterstitialAd(
-        isSafeMoment: Boolean = true,
         specificGame: GameItem? = null,
         forceShowIfDue: Boolean = false
     ) {
@@ -562,21 +586,23 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             defaultIntervalMinutes
         }
 
-        val requiredIntervalMs = Math.max(cooldownSeconds * 1000L, minIntervalMinutes * 60 * 1000L)
+        val intervalMs = Math.max(15_000L, minIntervalMinutes * 60 * 1000L)
+        val effectiveCooldownMs = Math.min(cooldownSeconds * 1000L, intervalMs / 2)
         val timeSinceLastAd = now - lastAdShowTimeMs
-        val isTimeDue = timeSinceLastAd >= requiredIntervalMs
+        val isTimeDue = timeSinceLastAd >= intervalMs
         val isSwipeDue = swipeCount >= swipeInterval
 
         if (forceShowIfDue || isTimeDue || isSwipeDue || isAdDue) {
-            if (lastAdShowTimeMs > 0L && timeSinceLastAd < (cooldownSeconds * 1000L)) {
+            if (!forceShowIfDue && lastAdShowTimeMs > 0L && timeSinceLastAd < effectiveCooldownMs) {
                 return
             }
 
             if (interstitialAd != null) {
-                Log.d("MainActivity", "Showing interstitial ad at safe moment")
+                Log.d("MainActivity", "Showing interstitial ad on screen (game=${game?.title}, interval=${minIntervalMinutes}m)")
+                isAdDue = false
                 interstitialAd?.show(this)
             } else {
-                Log.d("MainActivity", "Interstitial ad is due but not yet ready; requesting load")
+                Log.d("MainActivity", "Interstitial ad is due but not yet ready in memory; requesting preload")
                 isAdDue = true
                 loadInterstitialAd()
             }
@@ -701,7 +727,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             toggleBottomBar(true)
 
             if (gameOverAdEnabled || isAdDue) {
-                checkAndShowInterstitialAd(isSafeMoment = true, forceShowIfDue = true)
+                checkAndShowInterstitialAd(forceShowIfDue = true)
             }
         }
     }
@@ -727,7 +753,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             levelWinCount++
             val winThresholdMet = levelCompleteAd && levelWinCount >= levelWinInterval
             if (winThresholdMet || isAdDue) {
-                checkAndShowInterstitialAd(isSafeMoment = true, forceShowIfDue = true)
+                checkAndShowInterstitialAd(forceShowIfDue = true)
                 levelWinCount = 0
             }
         }
