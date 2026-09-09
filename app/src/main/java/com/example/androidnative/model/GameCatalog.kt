@@ -36,6 +36,13 @@ data class GameItem(
     // The app currently does not consume these flags, so one malformed game
     // must not prevent the rest of the catalogue from loading.
     @SerializedName("features") val features: JsonElement? = null,
+    @SerializedName("ads") val ads: GameAdsConfig? = null,
     @SerializedName("createdAt") val createdAt: String? = null,
     @SerializedName("updatedAt") val updatedAt: String? = null
+)
+
+data class GameAdsConfig(
+    @SerializedName("enabled") val enabled: Boolean = true,
+    @SerializedName("useCustomInterval") val useCustomInterval: Boolean = false,
+    @SerializedName("intervalMinutes") val intervalMinutes: Int = 5
 )

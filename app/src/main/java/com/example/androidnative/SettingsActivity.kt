@@ -37,10 +37,13 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupToolbar() {
-        binding.btnBack.setOnClickListener {
+        val closeSettings = {
             finish()
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         }
+        binding.btnBack.setOnClickListener { closeSettings() }
+        binding.btnDoneTop.setOnClickListener { closeSettings() }
+        binding.btnConfirmDone.setOnClickListener { closeSettings() }
     }
 
     private fun applyTheme() {
@@ -51,6 +54,8 @@ class SettingsActivity : AppCompatActivity() {
         binding.tvSoundLabel.setTextColor(colors.textColorPrimary)
         binding.tvVibLabel.setTextColor(colors.textColorPrimary)
         binding.tvPlayerIdDisplay.setTextColor(colors.textColorPrimary)
+        binding.btnDoneTop.setTextColor(colors.accentColor)
+        binding.btnConfirmDone.backgroundTintList = android.content.res.ColorStateList.valueOf(colors.accentColor)
 
         // Cards background
         binding.cardAudio.setBackgroundColor(colors.cardBg)

@@ -74,6 +74,9 @@ export class SecurityStore {
       CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY AUTOINCREMENT, actor TEXT, action TEXT NOT NULL, target TEXT, time INTEGER NOT NULL, ip TEXT, request TEXT, outcome TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS uploads(id TEXT PRIMARY KEY, owner TEXT NOT NULL REFERENCES accounts(id), game TEXT NOT NULL, version TEXT NOT NULL, filename TEXT NOT NULL, created INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS preview_grants(token TEXT PRIMARY KEY, upload TEXT NOT NULL REFERENCES uploads(id) ON DELETE CASCADE, expires INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS game_analytics_events(id INTEGER PRIMARY KEY AUTOINCREMENT, client_id TEXT NOT NULL, user_id TEXT, game_id TEXT NOT NULL, event_name TEXT NOT NULL, duration_seconds INTEGER DEFAULT 0, score INTEGER DEFAULT 0, level INTEGER DEFAULT 1, is_abandoned INTEGER DEFAULT 0, exit_reason TEXT, payload_json TEXT, created_at INTEGER NOT NULL);
+      CREATE INDEX IF NOT EXISTS idx_analytics_game_time ON game_analytics_events(game_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_analytics_event_time ON game_analytics_events(event_name, created_at);
       INSERT OR IGNORE INTO schema_migrations VALUES(1);`);
     this.run(
       "INSERT OR IGNORE INTO roles VALUES(?,?)",
@@ -217,5 +220,131 @@ export class SecurityStore {
       this.run("DELETE FROM sessions WHERE expires<?", now);
       this.run("DELETE FROM resets WHERE expires<?", now);
     });
+  }
+  recordAnalyticsEvent(event: {
+    clientId: string;
+    userId?: string;
+    gameId: string;
+    eventName: string;
+    durationSeconds?: number;
+    score?: number;
+    level?: number;
+    isAbandoned?: boolean;
+    exitReason?: string;
+    payload?: any;
+    createdAt?: number;
+  }) {
+    const createdAt = event.createdAt || Date.now();
+    return this.run(
+      `INSERT INTO game_analytics_events (client_id, user_id, game_id, event_name, duration_seconds, score, level, is_abandoned, exit_reason, payload_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      event.clientId,
+      event.userId || null,
+      event.gameId,
+      event.eventName,
+      event.durationSeconds || 0,
+      event.score || 0,
+      event.level || 1,
+      event.isAbandoned ? 1 : 0,
+      event.exitReason || null,
+      event.payload ? JSON.stringify(event.payload) : null,
+      createdAt,
+    );
+  }
+  getAnalyticsSummary(range: "today" | "7d" | "30d" | "all" = "all") {
+    const now = Date.now();
+    let since = 0;
+    if (range === "today") {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      since = today.getTime();
+    } else if (range === "7d") {
+      since = now - 7 * 86400 * 1000;
+    } else if (range === "30d") {
+      since = now - 30 * 86400 * 1000;
+    }
+
+    const totalPlaysRow = this.get<{ count: number }>(
+      "SELECT count(*) as count FROM game_analytics_events WHERE event_name='game_start' AND created_at >= ?",
+      since,
+    );
+    const totalPlays = totalPlaysRow?.count || 0;
+
+    const durationRow = this.get<{
+      totalDuration: number | null;
+      sessionCount: number | null;
+    }>(
+      "SELECT sum(duration_seconds) as totalDuration, count(*) as sessionCount FROM game_analytics_events WHERE event_name IN ('game_exit', 'game_session_duration') AND created_at >= ?",
+      since,
+    );
+    const totalPlayTimeSeconds = durationRow?.totalDuration || 0;
+    const sessionCount = durationRow?.sessionCount || 0;
+    const avgSessionDuration =
+      sessionCount > 0 ? Math.round(totalPlayTimeSeconds / sessionCount) : 0;
+
+    const abandonRow = this.get<{ count: number }>(
+      "SELECT count(*) as count FROM game_analytics_events WHERE is_abandoned=1 AND created_at >= ?",
+      since,
+    );
+    const abandonedSessions = abandonRow?.count || 0;
+
+    const completionRow = this.get<{ count: number }>(
+      "SELECT count(*) as count FROM game_analytics_events WHERE event_name='game_completed' AND created_at >= ?",
+      since,
+    );
+    const totalCompletions = completionRow?.count || 0;
+
+    const gameOverRow = this.get<{ count: number }>(
+      "SELECT count(*) as count FROM game_analytics_events WHERE event_name='game_over' AND created_at >= ?",
+      since,
+    );
+    const totalGameOvers = gameOverRow?.count || 0;
+
+    const gameStats = this.all(
+      `SELECT
+        game_id as gameId,
+        count(CASE WHEN event_name='game_start' THEN 1 END) as plays,
+        sum(CASE WHEN event_name IN ('game_exit', 'game_session_duration') THEN duration_seconds ELSE 0 END) as totalPlayTimeSeconds,
+        count(CASE WHEN event_name IN ('game_exit', 'game_session_duration') THEN 1 END) as exitCount,
+        count(CASE WHEN is_abandoned=1 THEN 1 END) as abandonments,
+        count(CASE WHEN event_name='game_completed' THEN 1 END) as completions,
+        count(CASE WHEN event_name='game_over' THEN 1 END) as gameOvers
+      FROM game_analytics_events
+      WHERE created_at >= ?
+      GROUP BY game_id`,
+      since,
+    ).map((row: any) => ({
+      gameId: row.gameId,
+      plays: Number(row.plays || 0),
+      totalPlayTimeSeconds: Number(row.totalPlayTimeSeconds || 0),
+      avgSessionDuration:
+        Number(row.exitCount || 0) > 0
+          ? Math.round(
+              Number(row.totalPlayTimeSeconds || 0) / Number(row.exitCount),
+            )
+          : 0,
+      abandonments: Number(row.abandonments || 0),
+      completions: Number(row.completions || 0),
+      gameOvers: Number(row.gameOvers || 0),
+    }));
+
+    const mostPlayed = [...gameStats].sort((a, b) => b.plays - a.plays);
+    const highestEngagement = [...gameStats].sort(
+      (a, b) => b.totalPlayTimeSeconds - a.totalPlayTimeSeconds,
+    );
+
+    return {
+      range,
+      since,
+      totalPlays,
+      totalPlayTimeSeconds,
+      avgSessionDuration,
+      abandonedSessions,
+      totalCompletions,
+      totalGameOvers,
+      gameStats,
+      mostPlayed,
+      highestEngagement,
+    };
   }
 }

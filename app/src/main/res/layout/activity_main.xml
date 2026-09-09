@@ -250,6 +250,29 @@
         </LinearLayout>
     </LinearLayout>
 
+    <!-- Bottom Bar Expand Handle (Pill that appears when bottom bar is hidden) -->
+    <FrameLayout
+        android:id="@+id/bottomBarToggleHandle"
+        android:layout_width="64dp"
+        android:layout_height="24dp"
+        android:layout_marginBottom="4dp"
+        android:background="@drawable/bg_handle_pill"
+        android:clickable="true"
+        android:focusable="true"
+        android:elevation="20dp"
+        android:alpha="0"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <View
+            android:layout_width="28dp"
+            android:layout_height="3dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_stats_badge" />
+    </FrameLayout>
+
     <!-- Global Loading Spinner -->
     <ProgressBar
         android:id="@+id/progressBar"

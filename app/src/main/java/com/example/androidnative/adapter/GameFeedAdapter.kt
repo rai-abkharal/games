@@ -31,6 +31,20 @@ class GameFeedAdapter(
     private var currentSelectedPosition = 0
     private val activeWebViews = mutableMapOf<Int, WebView>()
 
+    fun getActualCount(): Int = games.size
+
+    fun getActualIndex(position: Int): Int {
+        if (games.isEmpty() || position < 0) return 0
+        return position % games.size
+    }
+
+    fun getInitialVirtualPosition(actualIndex: Int): Int {
+        if (games.size <= 1) return if (games.isEmpty()) 0 else actualIndex.coerceIn(0, games.size - 1)
+        val centerLoop = (LOOP_FACTOR / 2) * games.size
+        val normalizedIndex = ((actualIndex % games.size) + games.size) % games.size
+        return centerLoop + normalizedIndex
+    }
+
     fun setGames(newGames: List<GameItem>) {
         games.clear()
         games.addAll(newGames)
@@ -38,7 +52,8 @@ class GameFeedAdapter(
     }
 
     fun getGame(position: Int): GameItem? {
-        return if (position in 0 until games.size) games[position] else null
+        if (games.isEmpty() || position < 0) return null
+        return games[position % games.size]
     }
 
     fun setSoundMuted(muted: Boolean) {
@@ -130,7 +145,8 @@ class GameFeedAdapter(
     }
 
     override fun onBindViewHolder(holder: GameViewHolder, position: Int) {
-        holder.bind(games[position], position)
+        val actualIndex = getActualIndex(position)
+        holder.bind(games[actualIndex], position)
     }
 
     override fun onViewRecycled(holder: GameViewHolder) {
@@ -142,7 +158,7 @@ class GameFeedAdapter(
         holder.cleanup()
     }
 
-    override fun getItemCount(): Int = games.size
+    override fun getItemCount(): Int = if (games.size <= 1) games.size else games.size * LOOP_FACTOR
 
     inner class GameViewHolder(private val binding: ItemGamePageBinding) :
         RecyclerView.ViewHolder(binding.root) {
@@ -300,6 +316,8 @@ class GameFeedAdapter(
     }
 
     companion object {
+        const val LOOP_FACTOR = 1000
+
         fun buildGamePauseScript(): String {
             return """
             (function() {

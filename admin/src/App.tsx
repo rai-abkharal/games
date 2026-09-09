@@ -55,6 +55,11 @@ interface GameItem {
   totalReports: number;
   touchZones?: TouchZone[];
   features?: { sound?: boolean; vibration?: boolean; hint?: boolean };
+  ads?: {
+    enabled?: boolean;
+    useCustomInterval?: boolean;
+    intervalMinutes?: number;
+  };
   createdAt?: string;
   updatedAt?: string;
   versions: {
@@ -89,6 +94,16 @@ interface BridgeLogItem {
 
 const API_BASE = "";
 
+const formatDuration = (seconds: number) => {
+  if (!seconds || seconds <= 0) return "0s";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+};
+
 export default function App() {
   const { account, previewOrigin } = useAdmin();
   const can = (permission: string) => account.permissions.includes(permission);
@@ -102,6 +117,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<
     | "dashboard"
+    | "analytics"
     | "games"
     | "upload"
     | "update"
@@ -146,6 +162,7 @@ export default function App() {
     bannerEnabled: true,
     interstitialEnabled: true,
     swipeInterval: 10,
+    defaultIntervalMinutes: 5,
     levelCompleteAd: true,
     levelWinInterval: 2,
     gameOverAdEnabled: true,
@@ -154,9 +171,33 @@ export default function App() {
     bannerUnitId: "ca-app-pub-3940256099942544/6300978111",
     interstitialUnitId: "ca-app-pub-3940256099942544/1033173712",
     rewardedUnitId: "ca-app-pub-3940256099942544/5224354917",
+    gaMeasurementId: "G-SWIPEPLAY1",
   });
   const [savingAds, setSavingAds] = useState(false);
   const [adsSavedMsg, setAdsSavedMsg] = useState<string | null>(null);
+
+  // Analytics Dashboard & GA4 Pipeline State
+  const [analyticsRange, setAnalyticsRange] = useState<
+    "today" | "7d" | "30d" | "all"
+  >("all");
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [testEventStatus, setTestEventStatus] = useState<{
+    running: boolean;
+    msg: string | null;
+    error: boolean;
+    details?: any;
+  }>({ running: false, msg: null, error: false });
+
+  // Per-game Ad Config Modal/Inline State
+  const [editingGameAds, setEditingGameAds] = useState<GameItem | null>(null);
+  const [gameAdsForm, setGameAdsForm] = useState({
+    enabled: true,
+    useCustomInterval: false,
+    intervalMinutes: 5,
+  });
+  const [savingGameAds, setSavingGameAds] = useState(false);
+  const [gameAdsMsg, setGameAdsMsg] = useState<string | null>(null);
 
   // Reports state
   const [reports, setReports] = useState<any[]>([]);
@@ -229,10 +270,105 @@ export default function App() {
     } catch (err) {}
   };
 
+  // Fetch analytics summary
+  const fetchAnalytics = async (
+    range: "today" | "7d" | "30d" | "all" = analyticsRange,
+  ) => {
+    try {
+      setLoadingAnalytics(true);
+      const res = await fetch(
+        `${API_BASE}/v1/admin/analytics/summary?range=${range}`,
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setAnalyticsData(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch analytics", err);
+    } finally {
+      setLoadingAnalytics(false);
+    }
+  };
+
+  // Run GA4 Diagnostic Test Event
+  const runGa4Test = async () => {
+    try {
+      setTestEventStatus({
+        running: true,
+        msg: "Sending test event to Google Analytics 4 DebugView...",
+        error: false,
+      });
+      const res = await fetch(`${API_BASE}/v1/admin/analytics/test-event`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId: simGame || "crown-chase" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestEventStatus({
+          running: false,
+          msg: data.message,
+          error: false,
+          details: data.ga4,
+        });
+        fetchAnalytics(analyticsRange);
+      } else {
+        setTestEventStatus({
+          running: false,
+          msg: data.error || "Failed to trigger test event.",
+          error: true,
+        });
+      }
+    } catch (err: any) {
+      setTestEventStatus({
+        running: false,
+        msg: `Error: ${err.message}`,
+        error: true,
+      });
+    }
+  };
+
+  // Open & Save Game Ad Settings
+  const openGameAdsEditor = (game: GameItem) => {
+    setEditingGameAds(game);
+    setGameAdsForm({
+      enabled: game.ads?.enabled ?? true,
+      useCustomInterval: game.ads?.useCustomInterval ?? false,
+      intervalMinutes: game.ads?.intervalMinutes ?? 5,
+    });
+    setGameAdsMsg(null);
+  };
+
+  const saveGameAds = async (gameId: string, formValues = gameAdsForm) => {
+    try {
+      setSavingGameAds(true);
+      const res = await fetch(`${API_BASE}/v1/admin/games/${gameId}/ads`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ads: formValues }),
+      });
+      if (res.ok) {
+        setGameAdsMsg("✅ Ad configuration saved for this game!");
+        fetchGames();
+        setTimeout(() => {
+          setGameAdsMsg(null);
+          setEditingGameAds(null);
+        }, 1500);
+      } else {
+        setGameAdsMsg("❌ Failed to update game ads.");
+      }
+    } catch (err: any) {
+      setGameAdsMsg(`❌ Error: ${err.message}`);
+    } finally {
+      setSavingGameAds(false);
+    }
+  };
+
   useEffect(() => {
     fetchGames();
     if (can("reports.read")) fetchReports();
     if (can("ads.configure")) fetchAdsConfig();
+    if (can("analytics.read")) fetchAnalytics(analyticsRange);
     void refreshUploads().catch(console.error);
   }, []);
 
@@ -696,6 +832,7 @@ export default function App() {
           <nav style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {[
               { id: "dashboard", label: "Overview", icon: LayoutDashboard },
+              { id: "analytics", label: "Analytics & Usage", icon: Activity },
               { id: "games", label: "Game Catalog", icon: Layers },
               { id: "upload", label: "Upload New Game", icon: UploadCloud },
               { id: "update", label: "Update Game Code", icon: RefreshCw },
@@ -719,6 +856,7 @@ export default function App() {
                   (
                     {
                       dashboard: "analytics.read",
+                      analytics: "analytics.read",
                       games: "games.read",
                       upload: "games.upload",
                       update: "games.update",
@@ -850,6 +988,8 @@ export default function App() {
             <div>
               <h2 style={{ fontSize: "20px", fontWeight: "700" }}>
                 {activeTab === "dashboard" && "Platform Performance & Metrics"}
+                {activeTab === "analytics" &&
+                  "Game Usage Analytics & GA4 Telemetry"}
                 {activeTab === "games" && "Game Catalog & Staged Rollouts"}
                 {activeTab === "upload" &&
                   "Package Ingestion & 7-Point Validator"}
@@ -857,6 +997,7 @@ export default function App() {
                   "Interactive Device Simulator & Bridge Debugger"}
                 {activeTab === "feed" && "TikTok Feed Sequencer & Weights"}
                 {activeTab === "reports" && "User Reports & Moderation"}
+                {activeTab === "ads" && "Ads & Monetization Remote Config"}
               </h2>
             </div>
 
@@ -1188,6 +1329,906 @@ export default function App() {
               </div>
             )}
 
+            {/* 1.5 ANALYTICS & USAGE VIEW */}
+            {activeTab === "analytics" && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "28px",
+                }}
+              >
+                {/* Header Controls: Range Picker & Actions */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "16px",
+                  }}
+                >
+                  <div>
+                    <h3 style={{ fontSize: "20px", fontWeight: 800 }}>
+                      Gameplay Usage &amp; Engagement Telemetry
+                    </h3>
+                    <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+                      Live in-app telemetry recorded in SQLite and forwarded to
+                      Google Analytics 4 Measurement Protocol.
+                    </p>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    {/* Date Range Selector */}
+                    <div
+                      style={{
+                        display: "flex",
+                        background: "rgba(0,0,0,0.4)",
+                        borderRadius: "10px",
+                        padding: "4px",
+                        border: "1px solid var(--border-subtle)",
+                      }}
+                    >
+                      {[
+                        { id: "today", label: "Today" },
+                        { id: "7d", label: "Last 7 Days" },
+                        { id: "30d", label: "Last 30 Days" },
+                        { id: "all", label: "All Time" },
+                      ].map((r) => {
+                        const isSelected = analyticsRange === r.id;
+                        return (
+                          <button
+                            key={r.id}
+                            onClick={() => {
+                              const newRange = r.id as any;
+                              setAnalyticsRange(newRange);
+                              fetchAnalytics(newRange);
+                            }}
+                            style={{
+                              padding: "6px 14px",
+                              fontSize: "12px",
+                              fontWeight: isSelected ? 700 : 500,
+                              background: isSelected
+                                ? "linear-gradient(135deg, #6366f1, #4f46e5)"
+                                : "transparent",
+                              color: isSelected ? "#fff" : "var(--text-muted)",
+                              borderRadius: "8px",
+                              border: "none",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            {r.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      className="btn-secondary"
+                      onClick={() => fetchAnalytics(analyticsRange)}
+                      disabled={loadingAnalytics}
+                      title="Refresh Analytics"
+                    >
+                      <RefreshCw
+                        size={14}
+                        className={loadingAnalytics ? "animate-spin" : ""}
+                      />{" "}
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                {/* KPI Cards Grid */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(6, 1fr)",
+                    gap: "16px",
+                  }}
+                >
+                  <div className="glass-panel" style={{ padding: "20px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      <span style={{ fontSize: "12px", fontWeight: 600 }}>
+                        TOTAL PLAYS
+                      </span>
+                      <Flame size={18} color="#6366f1" />
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "28px",
+                        fontWeight: 800,
+                        margin: "10px 0 4px",
+                        color: "#fff",
+                      }}
+                    >
+                      {analyticsData?.summary?.totalPlays ?? 0}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#818cf8" }}>
+                      Game launches
+                    </div>
+                  </div>
+
+                  <div className="glass-panel" style={{ padding: "20px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      <span style={{ fontSize: "12px", fontWeight: 600 }}>
+                        TOTAL PLAY TIME
+                      </span>
+                      <Clock size={18} color="#06b6d4" />
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "28px",
+                        fontWeight: 800,
+                        margin: "10px 0 4px",
+                        color: "#06b6d4",
+                      }}
+                    >
+                      {formatDuration(
+                        analyticsData?.summary?.totalPlayTimeSeconds ?? 0,
+                      )}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "var(--text-dim)" }}>
+                      Across all players
+                    </div>
+                  </div>
+
+                  <div className="glass-panel" style={{ padding: "20px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      <span style={{ fontSize: "12px", fontWeight: 600 }}>
+                        AVG SESSION
+                      </span>
+                      <TrendingUp size={18} color="#10b981" />
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "28px",
+                        fontWeight: 800,
+                        margin: "10px 0 4px",
+                        color: "#10b981",
+                      }}
+                    >
+                      {formatDuration(
+                        analyticsData?.summary?.avgSessionDuration ?? 0,
+                      )}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#34d399" }}>
+                      Per play session
+                    </div>
+                  </div>
+
+                  <div className="glass-panel" style={{ padding: "20px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      <span style={{ fontSize: "12px", fontWeight: 600 }}>
+                        ABANDONED (&lt;10S)
+                      </span>
+                      <AlertTriangle size={18} color="#f59e0b" />
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "28px",
+                        fontWeight: 800,
+                        margin: "10px 0 4px",
+                        color: "#f59e0b",
+                      }}
+                    >
+                      {analyticsData?.summary?.abandonedSessions ?? 0}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "var(--text-dim)" }}>
+                      {analyticsData?.summary?.totalPlays > 0
+                        ? `${Math.round(((analyticsData?.summary?.abandonedSessions || 0) / analyticsData.summary.totalPlays) * 100)}% exit rate`
+                        : "0% exit rate"}
+                    </div>
+                  </div>
+
+                  <div className="glass-panel" style={{ padding: "20px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      <span style={{ fontSize: "12px", fontWeight: 600 }}>
+                        COMPLETIONS
+                      </span>
+                      <CheckCircle2 size={18} color="#a855f7" />
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "28px",
+                        fontWeight: 800,
+                        margin: "10px 0 4px",
+                        color: "#a855f7",
+                      }}
+                    >
+                      {analyticsData?.summary?.totalCompletions ?? 0}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "var(--text-dim)" }}>
+                      Levels cleared
+                    </div>
+                  </div>
+
+                  <div className="glass-panel" style={{ padding: "20px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      <span style={{ fontSize: "12px", fontWeight: 600 }}>
+                        GAME OVERS
+                      </span>
+                      <RotateCcw size={18} color="#ef4444" />
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "28px",
+                        fontWeight: 800,
+                        margin: "10px 0 4px",
+                        color: "#ef4444",
+                      }}
+                    >
+                      {analyticsData?.summary?.totalGameOvers ?? 0}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "var(--text-dim)" }}>
+                      Restarts triggered
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rankings Grid: Most Played vs Highest Engagement */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "24px",
+                  }}
+                >
+                  {/* Most Played Games Ranking */}
+                  <div className="glass-panel" style={{ padding: "24px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        marginBottom: "16px",
+                      }}
+                    >
+                      <Flame size={20} color="#f97316" />
+                      <h4 style={{ fontSize: "16px", fontWeight: 700 }}>
+                        Most Played Games
+                      </h4>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "12px",
+                      }}
+                    >
+                      {(!analyticsData?.summary?.mostPlayed ||
+                        analyticsData.summary.mostPlayed.length === 0) && (
+                        <div
+                          style={{
+                            textAlign: "center",
+                            padding: "32px",
+                            color: "var(--text-muted)",
+                            fontSize: "13px",
+                          }}
+                        >
+                          No gameplay events recorded in this date range yet.
+                        </div>
+                      )}
+                      {(analyticsData?.summary?.mostPlayed || [])
+                        .slice(0, 5)
+                        .map((stat: any, i: number) => {
+                          const matchingGame = games.find(
+                            (g) => g.id === stat.gameId,
+                          );
+                          const totalPlays =
+                            analyticsData?.summary?.totalPlays || 1;
+                          const pct = Math.round(
+                            (stat.plays / totalPlays) * 100,
+                          );
+                          return (
+                            <div
+                              key={stat.gameId}
+                              style={{
+                                padding: "12px 16px",
+                                background: "rgba(0,0,0,0.25)",
+                                borderRadius: "10px",
+                                border: "1px solid var(--border-subtle)",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  marginBottom: "6px",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "10px",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      fontWeight: 800,
+                                      fontSize: "14px",
+                                      color:
+                                        i === 0
+                                          ? "#fbbf24"
+                                          : i === 1
+                                            ? "#94a3b8"
+                                            : i === 2
+                                              ? "#d97706"
+                                              : "var(--text-muted)",
+                                      fontFamily: "var(--font-mono)",
+                                    }}
+                                  >
+                                    #{i + 1}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontWeight: 700,
+                                      fontSize: "14px",
+                                    }}
+                                  >
+                                    {matchingGame?.title || stat.gameId}
+                                  </span>
+                                </div>
+                                <span
+                                  style={{
+                                    fontWeight: 800,
+                                    color: "#818cf8",
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "14px",
+                                  }}
+                                >
+                                  {stat.plays} plays ({pct}%)
+                                </span>
+                              </div>
+                              <div
+                                style={{
+                                  width: "100%",
+                                  height: "6px",
+                                  background: "rgba(255,255,255,0.06)",
+                                  borderRadius: "3px",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: `${pct}%`,
+                                    height: "100%",
+                                    background:
+                                      "linear-gradient(90deg, #6366f1, #06b6d4)",
+                                    borderRadius: "3px",
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+
+                  {/* Highest Engagement Games Ranking */}
+                  <div className="glass-panel" style={{ padding: "24px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        marginBottom: "16px",
+                      }}
+                    >
+                      <TrendingUp size={20} color="#10b981" />
+                      <h4 style={{ fontSize: "16px", fontWeight: 700 }}>
+                        Highest Engagement Games (Total Time)
+                      </h4>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "12px",
+                      }}
+                    >
+                      {(!analyticsData?.summary?.highestEngagement ||
+                        analyticsData.summary.highestEngagement.length ===
+                          0) && (
+                        <div
+                          style={{
+                            textAlign: "center",
+                            padding: "32px",
+                            color: "var(--text-muted)",
+                            fontSize: "13px",
+                          }}
+                        >
+                          No playtime recorded in this date range yet.
+                        </div>
+                      )}
+                      {(analyticsData?.summary?.highestEngagement || [])
+                        .slice(0, 5)
+                        .map((stat: any, i: number) => {
+                          const matchingGame = games.find(
+                            (g) => g.id === stat.gameId,
+                          );
+                          return (
+                            <div
+                              key={stat.gameId}
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                padding: "14px 16px",
+                                background: "rgba(0,0,0,0.25)",
+                                borderRadius: "10px",
+                                border: "1px solid var(--border-subtle)",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "10px",
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontWeight: 800,
+                                    fontSize: "14px",
+                                    color: i === 0 ? "#fbbf24" : "var(--text-muted)",
+                                    fontFamily: "var(--font-mono)",
+                                  }}
+                                >
+                                  #{i + 1}
+                                </span>
+                                <div>
+                                  <div
+                                    style={{
+                                      fontWeight: 700,
+                                      fontSize: "14px",
+                                    }}
+                                  >
+                                    {matchingGame?.title || stat.gameId}
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: "12px",
+                                      color: "var(--text-dim)",
+                                    }}
+                                  >
+                                    Avg session:{" "}
+                                    {formatDuration(stat.avgSessionDuration)}
+                                  </div>
+                                </div>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <div
+                                  style={{
+                                    fontWeight: 800,
+                                    color: "#10b981",
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: "14px",
+                                  }}
+                                >
+                                  {formatDuration(stat.totalPlayTimeSeconds)}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: "11px",
+                                    color: "var(--text-dim)",
+                                  }}
+                                >
+                                  Total Play Time
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Complete Per-Game Performance Breakdown Table */}
+                <div className="glass-panel" style={{ padding: "24px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "16px",
+                    }}
+                  >
+                    <h4 style={{ fontSize: "16px", fontWeight: 700 }}>
+                      Per-Game Engagement &amp; Usage Breakdown
+                    </h4>
+                    <span
+                      style={{ fontSize: "12px", color: "var(--text-muted)" }}
+                    >
+                      {games.length} Total Games
+                    </span>
+                  </div>
+
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      textAlign: "left",
+                    }}
+                  >
+                    <thead>
+                      <tr
+                        style={{
+                          borderBottom: "1px solid var(--border-subtle)",
+                          color: "var(--text-muted)",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <th style={{ padding: "10px 14px" }}>GAME</th>
+                        <th style={{ padding: "10px 14px" }}>TOTAL PLAYS</th>
+                        <th style={{ padding: "10px 14px" }}>
+                          TOTAL PLAY TIME
+                        </th>
+                        <th style={{ padding: "10px 14px" }}>AVG DURATION</th>
+                        <th style={{ padding: "10px 14px" }}>COMPLETIONS</th>
+                        <th style={{ padding: "10px 14px" }}>GAME OVERS</th>
+                        <th style={{ padding: "10px 14px" }}>ABANDONMENTS</th>
+                        <th style={{ padding: "10px 14px" }}>ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {games.map((game) => {
+                        const stat = (
+                          analyticsData?.summary?.gameStats || []
+                        ).find((s: any) => s.gameId === game.id) || {
+                          plays: 0,
+                          totalPlayTimeSeconds: 0,
+                          avgSessionDuration: 0,
+                          completions: 0,
+                          gameOvers: 0,
+                          abandonments: 0,
+                        };
+                        return (
+                          <tr
+                            key={game.id}
+                            style={{
+                              borderBottom: "1px solid rgba(255,255,255,0.04)",
+                              fontSize: "13px",
+                            }}
+                          >
+                            <td style={{ padding: "12px 14px" }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "10px",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: "32px",
+                                    height: "40px",
+                                    borderRadius: "6px",
+                                    background: "#1e293b",
+                                    overflow: "hidden",
+                                  }}
+                                >
+                                  <img
+                                    src={
+                                      game.thumbnailUrl.startsWith("http")
+                                        ? game.thumbnailUrl
+                                        : `${API_BASE}${game.thumbnailUrl}`
+                                    }
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                    }}
+                                  />
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 700 }}>
+                                    {game.title}
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: "11px",
+                                      color: "var(--text-dim)",
+                                      fontFamily: "var(--font-mono)",
+                                    }}
+                                  >
+                                    {game.slug}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td
+                              style={{
+                                padding: "12px 14px",
+                                fontFamily: "var(--font-mono)",
+                                fontWeight: 700,
+                                color: "#818cf8",
+                              }}
+                            >
+                              {stat.plays}
+                            </td>
+
+                            <td
+                              style={{
+                                padding: "12px 14px",
+                                fontFamily: "var(--font-mono)",
+                                color: "#06b6d4",
+                              }}
+                            >
+                              {formatDuration(stat.totalPlayTimeSeconds)}
+                            </td>
+
+                            <td
+                              style={{
+                                padding: "12px 14px",
+                                fontFamily: "var(--font-mono)",
+                                color: "#10b981",
+                              }}
+                            >
+                              {formatDuration(stat.avgSessionDuration)}
+                            </td>
+
+                            <td
+                              style={{
+                                padding: "12px 14px",
+                                fontFamily: "var(--font-mono)",
+                                color: "#a855f7",
+                              }}
+                            >
+                              {stat.completions}
+                            </td>
+
+                            <td
+                              style={{
+                                padding: "12px 14px",
+                                fontFamily: "var(--font-mono)",
+                                color: "#ef4444",
+                              }}
+                            >
+                              {stat.gameOvers}
+                            </td>
+
+                            <td
+                              style={{
+                                padding: "12px 14px",
+                                fontFamily: "var(--font-mono)",
+                                color:
+                                  stat.abandonments > 0
+                                    ? "#f59e0b"
+                                    : "var(--text-muted)",
+                              }}
+                            >
+                              {stat.abandonments}
+                            </td>
+
+                            <td style={{ padding: "12px 14px" }}>
+                              <div style={{ display: "flex", gap: "6px" }}>
+                                <button
+                                  className="btn-secondary"
+                                  style={{
+                                    padding: "4px 8px",
+                                    fontSize: "11px",
+                                    color: game.ads?.enabled === false ? "#f87171" : "#a5b4fc",
+                                    background: game.ads?.enabled === false ? "rgba(239, 68, 68, 0.15)" : undefined,
+                                    border: game.ads?.enabled === false ? "1px solid #ef4444" : undefined,
+                                  }}
+                                  onClick={() => openGameAdsEditor(game)}
+                                  title="Configure Ad Rules for this game"
+                                >
+                                  📢 {game.ads?.enabled === false ? "Ads OFF" : (game.ads?.useCustomInterval ? `Ads (${game.ads.intervalMinutes}m)` : "Ads")}
+                                </button>
+                                <button
+                                  className="btn-secondary"
+                                  style={{
+                                    padding: "4px 8px",
+                                    fontSize: "11px",
+                                  }}
+                                  onClick={() => {
+                                    setSimGame(game.slug);
+                                    setActiveTab("simulator");
+                                  }}
+                                  title="Test in Simulator"
+                                >
+                                  <Smartphone size={12} /> Test
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* GA4 Diagnostic & Verification Section */}
+                <div
+                  className="glass-panel"
+                  style={{
+                    padding: "24px",
+                    border: "1px solid rgba(99, 102, 241, 0.3)",
+                    background:
+                      "linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(6, 182, 212, 0.04))",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      flexWrap: "wrap",
+                      gap: "16px",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        <Zap size={18} color="#818cf8" />
+                        <h4 style={{ fontSize: "16px", fontWeight: 700 }}>
+                          Google Analytics 4 Pipeline Verification &amp;
+                          DebugView
+                        </h4>
+                      </div>
+                      <p
+                        style={{
+                          fontSize: "13px",
+                          color: "var(--text-muted)",
+                          maxWidth: "680px",
+                        }}
+                      >
+                        Verify that game events are received by the server,
+                        recorded in SQLite, and validated by the GA4 Measurement
+                        Protocol Debug endpoint.
+                      </p>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "16px",
+                          marginTop: "12px",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <div>
+                          <span style={{ color: "var(--text-muted)" }}>
+                            Measurement ID:{" "}
+                          </span>
+                          <span
+                            style={{
+                              color: "var(--accent-cyan)",
+                              fontFamily: "var(--font-mono)",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {analyticsData?.ga4?.measurementId ||
+                              adsConfig.gaMeasurementId ||
+                              "G-SWIPEPLAY1"}
+                          </span>
+                        </div>
+                        <div>
+                          <span style={{ color: "var(--text-muted)" }}>
+                            Server API Secret:{" "}
+                          </span>
+                          <span
+                            style={{
+                              color: analyticsData?.ga4?.configured
+                                ? "#34d399"
+                                : "#f87171",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {analyticsData?.ga4?.configured
+                              ? "✅ Active on Server (Protected in .env)"
+                              : "⚠️ GA4_API_SECRET not set in server .env"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      className="btn-primary"
+                      onClick={runGa4Test}
+                      disabled={testEventStatus.running}
+                      style={{ padding: "10px 18px", fontSize: "13px" }}
+                    >
+                      <Sparkles
+                        size={16}
+                        className={testEventStatus.running ? "animate-spin" : ""}
+                      />
+                      {testEventStatus.running
+                        ? "Forwarding to GA4..."
+                        : "Send Test Event to GA4 DebugView"}
+                    </button>
+                  </div>
+
+                  {testEventStatus.msg && (
+                    <div
+                      style={{
+                        marginTop: "16px",
+                        padding: "14px 18px",
+                        borderRadius: "10px",
+                        background: testEventStatus.error
+                          ? "rgba(239, 68, 68, 0.15)"
+                          : "rgba(52, 211, 153, 0.15)",
+                        border: `1px solid ${testEventStatus.error ? "#ef4444" : "#34d399"}`,
+                        color: testEventStatus.error ? "#f87171" : "#34d399",
+                        fontSize: "13px",
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, marginBottom: "4px" }}>
+                        {testEventStatus.msg}
+                      </div>
+                      {testEventStatus.details?.result?.body && (
+                        <div
+                          style={{
+                            marginTop: "6px",
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "11px",
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          GA4 Debug Response:{" "}
+                          {JSON.stringify(testEventStatus.details.result.body)}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* 2. GAME CATALOG VIEW */}
             {activeTab === "games" && (
               <div className="glass-panel" style={{ padding: "24px" }}>
@@ -1512,6 +2553,33 @@ export default function App() {
                                   title="Toggle Rewarded Hint Button for this game"
                                 >
                                   💡 Hint: {game.features?.hint ? "ON" : "OFF"}
+                                </button>
+                                <button
+                                  className="btn-secondary"
+                                  style={{
+                                    padding: "6px 10px",
+                                    fontSize: "12px",
+                                    background: game.ads?.enabled === false
+                                      ? "rgba(239, 68, 68, 0.15)"
+                                      : game.ads?.useCustomInterval
+                                      ? "rgba(147, 51, 234, 0.2)"
+                                      : "rgba(59, 130, 246, 0.15)",
+                                    border: game.ads?.enabled === false
+                                      ? "1px solid #ef4444"
+                                      : game.ads?.useCustomInterval
+                                      ? "1px solid #a855f7"
+                                      : "1px solid #3b82f6",
+                                    color: game.ads?.enabled === false
+                                      ? "#fca5a5"
+                                      : game.ads?.useCustomInterval
+                                      ? "#d8b4fe"
+                                      : "#93c5fd",
+                                  }}
+                                  disabled={!can("games.configure")}
+                                  onClick={() => openGameAdsEditor(game)}
+                                  title="Configure Ad frequency and settings for this game"
+                                >
+                                  📢 Ads: {game.ads?.enabled === false ? "Off" : (game.ads?.useCustomInterval ? `${game.ads?.intervalMinutes || 5}m` : "Default")}
                                 </button>
                                 <button
                                   className="btn-secondary"
@@ -3837,6 +4905,60 @@ export default function App() {
                         protect user retention and prevent ad fatigue.
                       </p>
                     </div>
+
+                    {/* Default Time-Based Ad Interval (Minutes) */}
+                    <div
+                      style={{
+                        padding: "16px",
+                        background: "rgba(0,0,0,0.3)",
+                        borderRadius: "12px",
+                        border: "1px solid var(--border-subtle)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        <span style={{ fontSize: "14px", fontWeight: 700 }}>
+                          Default Ad Frequency (Timer)
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "14px",
+                            color: "#a78bfa",
+                            fontWeight: 800,
+                            fontFamily: "var(--font-mono)",
+                          }}
+                        >
+                          Every {adsConfig.defaultIntervalMinutes ?? 5} Minutes
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="15"
+                        value={adsConfig.defaultIntervalMinutes ?? 5}
+                        onChange={(e) =>
+                          setAdsConfig({
+                            ...adsConfig,
+                            defaultIntervalMinutes: parseInt(e.target.value) || 5,
+                          })
+                        }
+                        style={{ width: "100%", accentColor: "#a78bfa" }}
+                      />
+                      <p
+                        style={{
+                          fontSize: "11px",
+                          color: "var(--text-muted)",
+                          marginTop: "6px",
+                        }}
+                      >
+                        Baseline interval between interstitial ads (~5 minutes recommended). Safe-moment deferral prevents interrupting active gameplay.
+                      </p>
+                    </div>
                   </div>
 
                   <button
@@ -4021,10 +5143,286 @@ export default function App() {
                       />
                     </div>
                   </div>
+
+                  {/* Per-Game Ad Overrides Panel */}
+                  <div style={{ marginTop: "28px", borderTop: "1px solid var(--border-subtle)", paddingTop: "20px" }}>
+                    <h4 style={{ fontSize: "15px", fontWeight: 700, marginBottom: "4px" }}>
+                      Per-Game Ad Controls
+                    </h4>
+                    <p style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "14px" }}>
+                      Enable/disable ads or set custom timers for specific games.
+                    </p>
+
+                    <div style={{ maxHeight: "320px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {games.map((g) => {
+                        const isOff = g.ads?.enabled === false;
+                        const isCustom = g.ads?.useCustomInterval;
+                        const customMins = g.ads?.intervalMinutes || 5;
+
+                        return (
+                          <div
+                            key={g.id}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              padding: "10px 12px",
+                              background: "rgba(0,0,0,0.3)",
+                              borderRadius: "8px",
+                              border: "1px solid var(--border-subtle)",
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontSize: "13px", fontWeight: 600 }}>{g.title}</div>
+                              <div style={{ fontSize: "11px" }}>
+                                {isOff ? (
+                                  <span style={{ color: "#ef4444" }}>🚫 Ads Disabled</span>
+                                ) : isCustom ? (
+                                  <span style={{ color: "#c084fc" }}>⏱ Custom: Every {customMins}m</span>
+                                ) : (
+                                  <span style={{ color: "#34d399" }}>Default (~{adsConfig.defaultIntervalMinutes ?? 5}m)</span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              className="btn-secondary"
+                              style={{ padding: "4px 10px", fontSize: "11px" }}
+                              onClick={() => openGameAdsEditor(g)}
+                            >
+                              Configure
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
           </div>
+
+          {/* Per-Game Ads Configuration Modal */}
+          {editingGameAds && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0, 0, 0, 0.75)",
+                backdropFilter: "blur(6px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 9999,
+                padding: "20px",
+              }}
+            >
+              <div
+                className="glass-panel"
+                style={{
+                  maxWidth: "500px",
+                  width: "100%",
+                  padding: "28px",
+                  borderRadius: "16px",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "20px",
+                  }}
+                >
+                  <div>
+                    <h3 style={{ fontSize: "18px", fontWeight: 800 }}>
+                      Per-Game Ad Settings
+                    </h3>
+                    <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+                      Configure ads for <strong>{editingGameAds.title}</strong>
+                    </p>
+                  </div>
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: "6px 10px", fontSize: "13px" }}
+                    onClick={() => setEditingGameAds(null)}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {gameAdsMsg && (
+                  <div
+                    style={{
+                      padding: "12px",
+                      borderRadius: "8px",
+                      marginBottom: "18px",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      background: gameAdsMsg.includes("✅")
+                        ? "rgba(52, 211, 153, 0.15)"
+                        : "rgba(239, 68, 68, 0.15)",
+                      border: `1px solid ${gameAdsMsg.includes("✅") ? "#34d399" : "#ef4444"}`,
+                      color: gameAdsMsg.includes("✅") ? "#34d399" : "#f87171",
+                    }}
+                  >
+                    {gameAdsMsg}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+                  {/* Toggle Ads Enabled */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "14px",
+                      background: "rgba(0,0,0,0.3)",
+                      borderRadius: "10px",
+                      border: "1px solid var(--border-subtle)",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: "14px", fontWeight: 700 }}>
+                        Allow Ads for This Game
+                      </div>
+                      <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                        If disabled, no ads will trigger while this game is active.
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={gameAdsForm.enabled}
+                      onChange={(e) =>
+                        setGameAdsForm({ ...gameAdsForm, enabled: e.target.checked })
+                      }
+                      style={{
+                        width: "20px",
+                        height: "20px",
+                        accentColor: "#6366f1",
+                        cursor: "pointer",
+                      }}
+                    />
+                  </div>
+
+                  {gameAdsForm.enabled && (
+                    <>
+                      {/* Custom Interval Toggle */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "14px",
+                          background: "rgba(0,0,0,0.3)",
+                          borderRadius: "10px",
+                          border: "1px solid var(--border-subtle)",
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: "14px", fontWeight: 700 }}>
+                            Custom Ad Frequency
+                          </div>
+                          <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                            Override default interval (~{adsConfig.defaultIntervalMinutes ?? 5} min).
+                          </div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={gameAdsForm.useCustomInterval}
+                          onChange={(e) =>
+                            setGameAdsForm({
+                              ...gameAdsForm,
+                              useCustomInterval: e.target.checked,
+                            })
+                          }
+                          style={{
+                            width: "20px",
+                            height: "20px",
+                            accentColor: "#a855f7",
+                            cursor: "pointer",
+                          }}
+                        />
+                      </div>
+
+                      {/* Custom Interval Slider */}
+                      {gameAdsForm.useCustomInterval && (
+                        <div
+                          style={{
+                            padding: "14px",
+                            background: "rgba(0,0,0,0.3)",
+                            borderRadius: "10px",
+                            border: "1px solid rgba(168, 85, 247, 0.4)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              marginBottom: "8px",
+                            }}
+                          >
+                            <span style={{ fontSize: "13px", fontWeight: 700 }}>
+                              Interval Duration
+                            </span>
+                            <span
+                              style={{
+                                fontSize: "13px",
+                                color: "#c084fc",
+                                fontWeight: 800,
+                                fontFamily: "var(--font-mono)",
+                              }}
+                            >
+                              Every {gameAdsForm.intervalMinutes} Minutes
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min="1"
+                            max="15"
+                            value={gameAdsForm.intervalMinutes}
+                            onChange={(e) =>
+                              setGameAdsForm({
+                                ...gameAdsForm,
+                                intervalMinutes: parseInt(e.target.value) || 5,
+                              })
+                            }
+                            style={{ width: "100%", accentColor: "#c084fc" }}
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: "10px",
+                    marginTop: "24px",
+                  }}
+                >
+                  <button
+                    className="btn-secondary"
+                    onClick={() => setEditingGameAds(null)}
+                    disabled={savingGameAds}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={() => saveGameAds(editingGameAds.id)}
+                    disabled={savingGameAds}
+                  >
+                    {savingGameAds ? "Saving..." : "Save Ad Settings"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </>

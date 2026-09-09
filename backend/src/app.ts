@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs";
 import { CatalogService } from "./services/catalogService";
 import { createAdminRouter } from "./routes/adminRoutes";
+import { createPublicAnalyticsRouter, createAdminAnalyticsRouter } from "./routes/analyticsRoutes";
 import { SecurityStore } from "./security/store";
 import { SecurityConfig, securityConfig } from "./security/config";
 import {
@@ -143,6 +144,10 @@ export function createApp(
   admin.use(
     createAdminRouter(catalogService, publicDir, catalogFile, store, config),
   );
+  admin.use(
+    "/analytics",
+    createAdminAnalyticsRouter(store, catalogFile),
+  );
   app.use("/v1/admin", admin);
   app.use("/api/admin", admin);
 
@@ -258,6 +263,11 @@ export function createApp(
     res.json(game);
   });
 
+  // Public Analytics Event Ingestion for Mobile App
+  const publicAnalytics = createPublicAnalyticsRouter(store, catalogFile);
+  app.use("/api/analytics", publicAnalytics);
+  app.use("/v1/analytics", publicAnalytics);
+
   // Ads Remote Configuration Endpoint for Mobile App
   app.get("/api/ads/config", (_req: Request, res: Response) => {
     const adsConfigPath = path.join(
@@ -267,7 +277,11 @@ export function createApp(
     if (fs.existsSync(adsConfigPath)) {
       try {
         const config = JSON.parse(fs.readFileSync(adsConfigPath, "utf8"));
-        res.json(config);
+        res.json({
+          defaultIntervalMinutes: 5,
+          gaMeasurementId: process.env.GA4_MEASUREMENT_ID || "G-SWIPEPLAY1",
+          ...config,
+        });
         return;
       } catch (_) {}
     }
@@ -276,6 +290,7 @@ export function createApp(
       bannerEnabled: true,
       interstitialEnabled: true,
       swipeInterval: 10,
+      defaultIntervalMinutes: 5,
       levelCompleteAd: true,
       levelWinInterval: 2,
       gameOverAdEnabled: true,
@@ -284,6 +299,7 @@ export function createApp(
       bannerUnitId: "ca-app-pub-3940256099942544/6300978111",
       interstitialUnitId: "ca-app-pub-3940256099942544/1033173712",
       rewardedUnitId: "ca-app-pub-3940256099942544/5224354917",
+      gaMeasurementId: process.env.GA4_MEASUREMENT_ID || "G-SWIPEPLAY1",
     });
   });
 

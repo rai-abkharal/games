@@ -95,4 +95,9 @@ class PlayerProgressManager(context: Context) {
         prefs.edit().putStringSet("favorite_game_ids", current).apply()
         return isFav
     }
+
+    // Last Played Game Persistence
+    var lastPlayedGameId: String?
+        get() = prefs.getString("last_played_game_id", null)
+        set(value) = prefs.edit().putString("last_played_game_id", value).apply()
 }

@@ -118,6 +118,11 @@ export function createAdminRouter(
           totalReports: 0,
           touchZones: (g as any).touchZones || [],
           features: g.features,
+          ads: (g as any).ads || {
+            enabled: true,
+            useCustomInterval: false,
+            intervalMinutes: 5,
+          },
           versions: [
             {
               id: `${g.id}-${g.version}`,
@@ -1177,6 +1182,7 @@ export function createAdminRouter(
         bannerEnabled: true,
         interstitialEnabled: true,
         swipeInterval: 10,
+        defaultIntervalMinutes: 5,
         levelCompleteAd: true,
         levelWinInterval: 2,
         gameOverAdEnabled: true,
@@ -1185,6 +1191,7 @@ export function createAdminRouter(
         bannerUnitId: "ca-app-pub-3940256099942544/6300978111",
         interstitialUnitId: "ca-app-pub-3940256099942544/1033173712",
         rewardedUnitId: "ca-app-pub-3940256099942544/5224354917",
+        gaMeasurementId: process.env.GA4_MEASUREMENT_ID || "G-SWIPEPLAY1",
       };
 
       if (fs.existsSync(adsConfigPath)) {
@@ -1212,7 +1219,10 @@ export function createAdminRouter(
         path.dirname(catalogPath),
         "ads_config.json",
       );
-      const newConfig = req.body;
+      const newConfig = { ...req.body };
+      // Never allow API secrets to be written to client-facing ads config file
+      delete (newConfig as any).apiSecret;
+      delete (newConfig as any).ga4ApiSecret;
 
       fs.writeFileSync(
         adsConfigPath,
@@ -1277,6 +1287,59 @@ export function createAdminRouter(
       res
         .status(500)
         .json({ error: "Failed to update features", details: err.message });
+    }
+  });
+
+  // 13. Update Game Ads Configuration (Per-Game Ad Control)
+  router.put("/games/:id/ads", (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { ads } = req.body;
+
+      let catalogData: any = { version: 1, games: [] };
+      if (fs.existsSync(catalogPath)) {
+        catalogData = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
+      }
+
+      const game = (catalogData.games || []).find((g: any) => g.id === id);
+      if (!game) {
+        res.status(404).json({ error: "Game not found" });
+        return;
+      }
+
+      const currentAds =
+        game.ads && typeof game.ads === "object" ? game.ads : {};
+      const requestedAds = ads && typeof ads === "object" ? ads : {};
+
+      game.ads = {
+        enabled:
+          typeof requestedAds.enabled === "boolean"
+            ? requestedAds.enabled
+            : (currentAds.enabled ?? true),
+        useCustomInterval:
+          typeof requestedAds.useCustomInterval === "boolean"
+            ? requestedAds.useCustomInterval
+            : (currentAds.useCustomInterval ?? false),
+        intervalMinutes:
+          typeof requestedAds.intervalMinutes === "number" &&
+          requestedAds.intervalMinutes > 0
+            ? Math.round(requestedAds.intervalMinutes)
+            : (currentAds.intervalMinutes ?? 5),
+      };
+
+      saveCatalog(catalogData);
+      catalogService.loadAndValidateCatalog();
+
+      res.json({
+        success: true,
+        message: `Updated ads configuration for ${game.title}`,
+        game,
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        error: "Failed to update game ads settings",
+        details: err.message,
+      });
     }
   });
 

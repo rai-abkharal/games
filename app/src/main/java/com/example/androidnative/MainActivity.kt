@@ -12,11 +12,13 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.viewpager2.widget.ViewPager2
+import android.view.animation.DecelerateInterpolator
 import com.example.androidnative.adapter.GameFeedAdapter
 import com.example.androidnative.bridge.GameBridgeListener
 import com.example.androidnative.cache.GameCacheManager
 import com.example.androidnative.databinding.ActivityMainBinding
 import com.example.androidnative.databinding.DialogGameOverBinding
+import com.example.androidnative.manager.GameAnalyticsManager
 import com.example.androidnative.manager.PlayerProgressManager
 import com.example.androidnative.model.GameItem
 import com.example.androidnative.repository.GameRepository
@@ -33,6 +35,8 @@ import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -54,12 +58,16 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     private lateinit var progressManager: PlayerProgressManager
     private lateinit var themeManager: ThemeManager
     private lateinit var prefs: SharedPreferences
+    private lateinit var analyticsManager: GameAnalyticsManager
 
     private var currentTab = FeedTab.ALL
     private var fullGameList: List<GameItem> = emptyList()
     private var displayedGameList: List<GameItem> = emptyList()
     private var catalogRefreshJob: Job? = null
     private var lastCatalogRefreshAtMs = 0L
+
+    // Bottom Bar Animation State
+    private var isBottomBarVisible = true
 
     // Ads State & Remote Configuration
     private var adView: AdView? = null
@@ -76,6 +84,8 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     private var levelWinCount = 0
     private var gameOverAdEnabled = true
     private var cooldownSeconds = 60
+    private var defaultIntervalMinutes = 5
+    private var isAdDue = false
     private var bannerUnitId = "ca-app-pub-3940256099942544/6300978111" // Google Test Banner
     private var interstitialUnitId = "ca-app-pub-3940256099942544/1033173712" // Google Test Interstitial
     private var rewardedUnitId = "ca-app-pub-3940256099942544/5224354917" // Google Test Rewarded
@@ -92,6 +102,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         themeManager = ThemeManager(this)
         cacheManager = GameCacheManager(this)
         repository = GameRepository(this)
+        analyticsManager = GameAnalyticsManager(this)
 
         // Lock window to highest hardware refresh rate (90Hz / 120Hz / 144Hz)
         try {
@@ -120,6 +131,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         setupBottomNav()
         loadCatalog()
         fetchRemoteAdsConfig()
+        startSmartAdCheckTimer()
     }
 
     private fun applyTheme() {
@@ -179,19 +191,22 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                     this@MainActivity.adapter.handlePageSelected(position)
                     updateTopBarForGame(position)
 
+                    // Ensure bottom bar is visible when switching games
+                    toggleBottomBar(true)
+
                     val game = this@MainActivity.adapter.getGame(position)
                     if (game != null) {
+                        progressManager.lastPlayedGameId = game.id
+                        analyticsManager.onGameStart(game.id, game.title)
+
                         val savedLevel = progressManager.getSavedLevel(game.id)
                         val highScore = progressManager.getHighScore(game.id)
                         this@MainActivity.adapter.sendSavedStateToGame(position, savedLevel, progressManager.totalCoins, highScore)
                     }
 
-                    // Swipe Count Tracking for Interstitial Ads
+                    // Swipe Count Tracking & Smart Ad Timing
                     swipeCount++
-                    if (interstitialEnabled && swipeCount >= swipeInterval) {
-                        checkAndShowInterstitialAd()
-                        swipeCount = 0
-                    }
+                    checkAndShowInterstitialAd(isSafeMoment = true, specificGame = game)
 
                     // Predictive background pre-download
                     cacheManager.preloadUpcomingGames(position, displayedGameList, lifecycleScope)
@@ -226,8 +241,13 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         }
 
         binding.navSettings.setOnClickListener {
+            checkAndShowInterstitialAd(isSafeMoment = true)
             startActivity(Intent(this, SettingsActivity::class.java))
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        }
+
+        binding.bottomBarToggleHandle.setOnClickListener {
+            toggleBottomBar(true)
         }
     }
 
@@ -249,12 +269,16 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
         adapter.setGames(displayedGameList)
         if (displayedGameList.isNotEmpty()) {
-            val targetPosition = preferredGameId
+            val savedLastId = progressManager.lastPlayedGameId
+            val targetGameId = preferredGameId ?: savedLastId
+            val targetActualIndex = targetGameId
                 ?.let { id -> displayedGameList.indexOfFirst { it.id == id } }
                 ?.takeIf { it >= 0 }
                 ?: 0
-            binding.viewPager.setCurrentItem(targetPosition, false)
-            updateTopBarForGame(targetPosition)
+
+            val initialVirtualPos = adapter.getInitialVirtualPosition(targetActualIndex)
+            binding.viewPager.setCurrentItem(initialVirtualPos, false)
+            updateTopBarForGame(initialVirtualPos)
         }
     }
 
@@ -294,8 +318,10 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
     private fun updateTopBarForGame(position: Int) {
         val game = this@MainActivity.adapter.getGame(position) ?: return
+        val actualIndex = this@MainActivity.adapter.getActualIndex(position)
+        val actualCount = this@MainActivity.adapter.getActualCount()
         binding.tvGameTitle.text = game.title
-        binding.tvGameMeta.text = "${position + 1} of ${displayedGameList.size} • ${game.category}"
+        binding.tvGameMeta.text = "${actualIndex + 1} of $actualCount • ${game.category}"
 
         updateFavoriteButton(progressManager.isFavorite(game.id))
         updateCoinsDisplay()
@@ -361,6 +387,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                         levelWinInterval = json.optInt("levelWinInterval", 2)
                         gameOverAdEnabled = json.optBoolean("gameOverAdEnabled", true)
                         cooldownSeconds = json.optInt("cooldownSeconds", 60)
+                        defaultIntervalMinutes = json.optInt("defaultIntervalMinutes", 5)
                         bannerUnitId = json.optString("bannerUnitId", bannerUnitId)
                         interstitialUnitId = json.optString("interstitialUnitId", interstitialUnitId)
                         rewardedUnitId = json.optString("rewardedUnitId", rewardedUnitId)
@@ -374,6 +401,31 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                 }
                 loadInterstitialAd()
                 loadRewardedAd()
+            }
+        }
+    }
+
+    private fun startSmartAdCheckTimer() {
+        lifecycleScope.launch {
+            while (isActive) {
+                delay(30_000L) // 30-second heartbeat check
+                val now = System.currentTimeMillis()
+                val currentPos = binding.viewPager.currentItem
+                val game = adapter.getGame(currentPos)
+                if (game != null && game.ads?.enabled == false) {
+                    continue
+                }
+
+                val minIntervalMinutes = if (game?.ads?.useCustomInterval == true) {
+                    game.ads.intervalMinutes
+                } else {
+                    defaultIntervalMinutes
+                }
+                val requiredIntervalMs = Math.max(cooldownSeconds * 1000L, minIntervalMinutes * 60 * 1000L)
+                if (now - lastAdShowTimeMs >= requiredIntervalMs) {
+                    // Ad is due! Defer showing until a safe moment so active play is never interrupted.
+                    isAdDue = true
+                }
             }
         }
     }
@@ -408,16 +460,49 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         )
     }
 
-    private fun checkAndShowInterstitialAd() {
-        val now = System.currentTimeMillis()
-        if (now - lastAdShowTimeMs < (cooldownSeconds * 1000L)) {
+    private fun checkAndShowInterstitialAd(
+        isSafeMoment: Boolean = true,
+        specificGame: GameItem? = null,
+        forceShowIfDue: Boolean = false
+    ) {
+        if (!interstitialEnabled) return
+
+        val currentPos = binding.viewPager.currentItem
+        val game = specificGame ?: adapter.getGame(currentPos)
+
+        // Per-game check: If ads are disabled for this game, do NOT show
+        if (game != null && game.ads?.enabled == false) {
             return
         }
 
-        if (interstitialAd != null) {
-            interstitialAd?.show(this)
-            lastAdShowTimeMs = now
-            loadInterstitialAd()
+        val now = System.currentTimeMillis()
+        val minIntervalMinutes = if (game?.ads?.useCustomInterval == true) {
+            game.ads.intervalMinutes
+        } else {
+            defaultIntervalMinutes
+        }
+
+        val requiredIntervalMs = Math.max(cooldownSeconds * 1000L, minIntervalMinutes * 60 * 1000L)
+        val timeSinceLastAd = now - lastAdShowTimeMs
+        val isTimeDue = (lastAdShowTimeMs > 0L && timeSinceLastAd >= requiredIntervalMs) ||
+                        (lastAdShowTimeMs == 0L && timeSinceLastAd >= 60_000L)
+        val isSwipeDue = swipeCount >= swipeInterval
+
+        if (forceShowIfDue || isTimeDue || isSwipeDue || isAdDue) {
+            if (lastAdShowTimeMs > 0L && (now - lastAdShowTimeMs < (cooldownSeconds * 1000L))) {
+                return
+            }
+
+            if (interstitialAd != null) {
+                interstitialAd?.show(this)
+                lastAdShowTimeMs = now
+                swipeCount = 0
+                isAdDue = false
+                loadInterstitialAd()
+            } else {
+                isAdDue = true
+                loadInterstitialAd()
+            }
         }
     }
 
@@ -466,14 +551,64 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         }
     }
 
+    // Bottom Bar Hide/Show Animation without Layout Reflow
+    private fun toggleBottomBar(visible: Boolean, animate: Boolean = true) {
+        if (isBottomBarVisible == visible) return
+        isBottomBarVisible = visible
+
+        val barHeight = binding.bottomNavBar.height.toFloat().takeIf { it > 0 } ?: 160f
+        val targetY = if (visible) 0f else (barHeight + 30f)
+
+        if (animate) {
+            if (visible) {
+                binding.bottomNavBar.animate()
+                    .translationY(targetY)
+                    .setDuration(250)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+
+                binding.bottomBarToggleHandle.animate()
+                    .alpha(0f)
+                    .setDuration(150)
+                    .withEndAction {
+                        binding.bottomBarToggleHandle.visibility = View.GONE
+                    }
+                    .start()
+            } else {
+                binding.bottomNavBar.animate()
+                    .translationY(targetY)
+                    .setDuration(250)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+
+                binding.bottomBarToggleHandle.visibility = View.VISIBLE
+                binding.bottomBarToggleHandle.alpha = 0f
+                binding.bottomBarToggleHandle.animate()
+                    .alpha(1f)
+                    .setDuration(200)
+                    .start()
+            }
+        } else {
+            binding.bottomNavBar.translationY = targetY
+            binding.bottomBarToggleHandle.visibility = if (visible) View.GONE else View.VISIBLE
+            binding.bottomBarToggleHandle.alpha = if (visible) 0f else 1f
+        }
+    }
+
     // Bridge Event Callbacks
-    override fun onGameStarted() {}
+    override fun onGameStarted() {
+        runOnUiThread {
+            // Auto-hide bottom bar smoothly during gameplay
+            toggleBottomBar(false)
+        }
+    }
 
     override fun onGameOver(score: Int, stats: String) {
         runOnUiThread {
             val currentPos = binding.viewPager.currentItem
             val game = this@MainActivity.adapter.getGame(currentPos)
             if (game != null) {
+                analyticsManager.onGameOver(game.id, game.title, score, stats)
                 progressManager.saveHighScore(game.id, score)
                 val earnedCoins = if (score > 0) Math.max(score / 10, 5) else 2
                 progressManager.addCoins(earnedCoins)
@@ -482,8 +617,11 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                 Toast.makeText(this, "+$earnedCoins 🪙 Coins Earned for $score PTS!", Toast.LENGTH_SHORT).show()
             }
 
-            if (gameOverAdEnabled) {
-                checkAndShowInterstitialAd()
+            // Restore bottom bar on game over
+            toggleBottomBar(true)
+
+            if (gameOverAdEnabled || isAdDue) {
+                checkAndShowInterstitialAd(isSafeMoment = true, forceShowIfDue = true)
             }
         }
     }
@@ -493,6 +631,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             val currentPos = binding.viewPager.currentItem
             val game = this@MainActivity.adapter.getGame(currentPos)
             if (game != null) {
+                analyticsManager.onGameCompleted(game.id, game.title, score, level)
                 progressManager.saveHighScore(game.id, score)
                 progressManager.saveLevel(game.id, level + 1)
                 val earnedCoins = 50 + (if (score > 0) score / 10 else 0)
@@ -502,9 +641,13 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                 Toast.makeText(this, "🎉 Level Clear! +$earnedCoins 🪙 Coins Earned!", Toast.LENGTH_SHORT).show()
             }
 
+            // Restore bottom bar on level complete
+            toggleBottomBar(true)
+
             levelWinCount++
-            if (levelCompleteAd && levelWinCount >= levelWinInterval) {
-                checkAndShowInterstitialAd()
+            val winThresholdMet = levelCompleteAd && levelWinCount >= levelWinInterval
+            if (winThresholdMet || isAdDue) {
+                checkAndShowInterstitialAd(isSafeMoment = true, forceShowIfDue = true)
                 levelWinCount = 0
             }
         }
@@ -546,6 +689,10 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         super.onPause()
         adView?.pause()
         adapter.pauseAll()
+        val currentPos = binding.viewPager.currentItem
+        adapter.getGame(currentPos)?.let { game ->
+            analyticsManager.onGameExit(game.id, game.title, exitReason = "app_paused")
+        }
     }
 
     override fun onResume() {
@@ -557,6 +704,11 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         adapter.resumeCurrent()
         updateCoinsDisplay()
         refreshCatalogFromServer()
+
+        val currentPos = binding.viewPager.currentItem
+        adapter.getGame(currentPos)?.let { game ->
+            analyticsManager.onGameStart(game.id, game.title)
+        }
     }
 
     override fun onDestroy() {

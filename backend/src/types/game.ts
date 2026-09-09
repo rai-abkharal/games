@@ -14,10 +14,19 @@ export const GameFeaturesSchema = z.object({
   hint: z.boolean().optional().default(false),
 }).default({ sound: true, vibration: false, hint: false });
 
+export const GameAdsConfigSchema = z.object({
+  enabled: z.boolean().default(true),
+  useCustomInterval: z.boolean().default(false),
+  intervalMinutes: z.number().int().min(1).default(5),
+}).default({ enabled: true, useCustomInterval: false, intervalMinutes: 5 });
+
+export type GameAdsConfig = z.infer<typeof GameAdsConfigSchema>;
+
 export const AdsConfigSchema = z.object({
   bannerEnabled: z.boolean().default(true),
   interstitialEnabled: z.boolean().default(true),
   swipeInterval: z.number().int().min(1).default(10),
+  defaultIntervalMinutes: z.number().int().min(1).default(5),
   levelCompleteAd: z.boolean().default(true),
   levelWinInterval: z.number().int().min(1).default(2),
   gameOverAdEnabled: z.boolean().default(true),
@@ -26,6 +35,7 @@ export const AdsConfigSchema = z.object({
   bannerUnitId: z.string().default('ca-app-pub-3940256099942544/6300978111'),
   interstitialUnitId: z.string().default('ca-app-pub-3940256099942544/1033173712'),
   rewardedUnitId: z.string().default('ca-app-pub-3940256099942544/5224354917'),
+  gaMeasurementId: z.string().default('G-SWIPEPLAY1'),
 });
 
 export type AdsConfig = z.infer<typeof AdsConfigSchema>;
@@ -56,6 +66,7 @@ export const GameSchema = z.object({
   status: z.enum(['published', 'draft', 'archived', 'deactivated']).optional().default('published'),
   touchZones: z.array(TouchZoneSchema).optional().default([]),
   features: GameFeaturesSchema,
+  ads: GameAdsConfigSchema.optional().default({ enabled: true, useCustomInterval: false, intervalMinutes: 5 }),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });
