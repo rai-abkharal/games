@@ -22,6 +22,7 @@ export const gameRules: [string, RegExp, string][] = [
   ["GET", /^\/ads-config\/?$/, "ads.configure"],
   ["PUT", /^\/ads-config\/?$/, "ads.configure"],
   ["PUT", /^\/games\/([a-z0-9-]+)\/features\/?$/, "games.configure"],
+  ["PUT", /^\/games\/([a-z0-9-]+)\/ads\/?$/, "games.configure"],
 ];
 export function gamePolicy(store: SecurityStore): RequestHandler {
   return (req, res, next) => {
@@ -102,6 +103,19 @@ export function gamePolicy(store: SecurityStore): RequestHandler {
           .parse(req.body);
       if (req.method === "PUT" && req.path === "/ads-config")
         req.body = AdsConfigSchema.strict().parse(req.body);
+      if (req.method === "PUT" && req.path.endsWith("/ads"))
+        req.body = z
+          .object({
+            ads: z
+              .object({
+                enabled: z.boolean().optional(),
+                useCustomInterval: z.boolean().optional(),
+                intervalMinutes: z.number().int().min(1).max(1440).optional(),
+              })
+              .strict(),
+          })
+          .strict()
+          .parse(req.body);
       if (!["GET", "HEAD"].includes(req.method)) {
         store.throttle(`mutation:${admin.id}`, 120, 60_000);
         store.audit(

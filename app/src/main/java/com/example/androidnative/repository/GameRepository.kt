@@ -32,6 +32,33 @@ class GameRepository(private val context: Context) {
             "http://10.0.2.2:3000/api/games",
             "http://10.0.2.2:8080/api/games"
         )
+
+        @Volatile
+        var activeBaseUrl: String = BASE_URL
+            private set
+
+        fun getActiveBaseUrl(context: Context? = null): String {
+            if (activeBaseUrl != BASE_URL) return activeBaseUrl
+            if (context != null) {
+                val saved = context.getSharedPreferences("game_repo_prefs", Context.MODE_PRIVATE)
+                    .getString("active_base_url", null)
+                if (!saved.isNullOrBlank()) {
+                    activeBaseUrl = saved
+                    return saved
+                }
+            }
+            return activeBaseUrl
+        }
+
+        fun updateActiveBaseUrl(context: Context?, newBase: String) {
+            activeBaseUrl = newBase
+            if (context != null) {
+                context.getSharedPreferences("game_repo_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("active_base_url", newBase)
+                    .apply()
+            }
+        }
     }
 
     fun getCachedCatalog(): List<GameItem>? {
@@ -40,7 +67,8 @@ class GameRepository(private val context: Context) {
             try {
                 val catalog = gson.fromJson(cached, GameCatalog::class.java)
                 if (catalog.games.isNotEmpty()) {
-                    return catalog.games.map { normalizeGameUrls(it, BASE_URL) }
+                    val base = getActiveBaseUrl(context)
+                    return catalog.games.map { normalizeGameUrls(it, base) }
                         .sortedBy { it.feedOrder }
                 }
             } catch (error: Exception) {
@@ -70,6 +98,7 @@ class GameRepository(private val context: Context) {
                         val catalog = gson.fromJson(json, GameCatalog::class.java)
                         if (catalog.games.isNotEmpty()) {
                             val activeBase = endpoint.substringBefore("/api/games")
+                            updateActiveBaseUrl(context, activeBase)
                             val normalized = catalog.games.map { normalizeGameUrls(it, activeBase) }
                                 .sortedBy { it.feedOrder }
 

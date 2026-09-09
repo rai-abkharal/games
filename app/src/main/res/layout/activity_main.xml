@@ -250,27 +250,29 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Bottom Bar Expand Handle (Pill that appears when bottom bar is hidden) -->
+    <!-- Bottom Bar Expand Handle (Pill toggle with ⌃ / ⌄ handle) -->
     <FrameLayout
         android:id="@+id/bottomBarToggleHandle"
-        android:layout_width="64dp"
+        android:layout_width="56dp"
         android:layout_height="24dp"
-        android:layout_marginBottom="4dp"
+        android:layout_marginBottom="6dp"
         android:background="@drawable/bg_handle_pill"
         android:clickable="true"
         android:focusable="true"
         android:elevation="20dp"
-        android:alpha="0"
-        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
-        <View
-            android:layout_width="28dp"
-            android:layout_height="3dp"
-            android:layout_gravity="center"
-            android:background="@drawable/bg_stats_badge" />
+        <TextView
+            android:id="@+id/tvToggleHandleIcon"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="⌃"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold" />
     </FrameLayout>
 
     <!-- Global Loading Spinner -->

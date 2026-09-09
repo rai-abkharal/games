@@ -28,6 +28,8 @@ const rules: [string, RegExp, string | null][] = [
   ["POST", /^\/roles$/, "roles.manage"],
   ["PATCH", /^\/roles\/[a-z0-9-]{3,64}$/, "roles.manage"],
   ["GET", /^\/audit-log$/, "audit.read"],
+  ["GET", /^\/analytics\/summary\/?$/, "analytics.read"],
+  ["POST", /^\/analytics\/test-event\/?$/, "analytics.read"],
 ];
 export const adminPolicy: RequestHandler = (req, res, next) => {
   const rule = rules.find(

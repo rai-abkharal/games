@@ -7,6 +7,9 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -23,9 +26,11 @@ import com.example.androidnative.manager.PlayerProgressManager
 import com.example.androidnative.model.GameItem
 import com.example.androidnative.repository.GameRepository
 import com.example.androidnative.theme.ThemeManager
+import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.interstitial.InterstitialAd
@@ -66,12 +71,17 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     private var catalogRefreshJob: Job? = null
     private var lastCatalogRefreshAtMs = 0L
 
-    // Bottom Bar Animation State
+    // Bottom Bar Animation & 5-Second Inactivity State
     private var isBottomBarVisible = true
+    private val bottomBarHandler = Handler(Looper.getMainLooper())
+    private val autoHideBottomBarRunnable = Runnable {
+        toggleBottomBar(false, animate = true)
+    }
 
     // Ads State & Remote Configuration
     private var adView: AdView? = null
     private var interstitialAd: InterstitialAd? = null
+    private var isInterstitialLoading = false
     private var rewardedAd: RewardedAd? = null
     private var swipeCount = 0
     private var lastAdShowTimeMs = 0L
@@ -104,6 +114,13 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         repository = GameRepository(this)
         analyticsManager = GameAnalyticsManager(this)
 
+        // Persist and restore ad show time so timers never reset erratically
+        val savedAdTime = prefs.getLong("last_interstitial_show_time", 0L)
+        lastAdShowTimeMs = if (savedAdTime > 0L) savedAdTime else System.currentTimeMillis()
+        if (savedAdTime <= 0L) {
+            prefs.edit().putLong("last_interstitial_show_time", lastAdShowTimeMs).apply()
+        }
+
         // Lock window to highest hardware refresh rate (90Hz / 120Hz / 144Hz)
         try {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
@@ -132,6 +149,11 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         loadCatalog()
         fetchRemoteAdsConfig()
         startSmartAdCheckTimer()
+
+        // Initially display the bottom bar and auto-hide after 5 seconds of inactivity
+        binding.rootLayout.post {
+            toggleBottomBar(true, animate = false)
+        }
     }
 
     private fun applyTheme() {
@@ -191,8 +213,8 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                     this@MainActivity.adapter.handlePageSelected(position)
                     updateTopBarForGame(position)
 
-                    // Ensure bottom bar is visible when switching games
-                    toggleBottomBar(true)
+                    // Ensure bottom bar is visible when switching games and reset 5-second timer
+                    toggleBottomBar(true, animate = true)
 
                     val game = this@MainActivity.adapter.getGame(position)
                     if (game != null) {
@@ -218,6 +240,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     private fun setupLikeControl() {
         // The Like control lives inside the floating bottom dock.
         binding.navLike.setOnClickListener {
+            resetAutoHideTimer()
             val currentPos = binding.viewPager.currentItem
             val game = this@MainActivity.adapter.getGame(currentPos) ?: return@setOnClickListener
             val isFav = progressManager.toggleFavorite(game.id)
@@ -233,21 +256,24 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
     private fun setupBottomNav() {
         binding.navAllGames.setOnClickListener {
+            resetAutoHideTimer()
             filterGamesByTab(FeedTab.ALL)
         }
 
         binding.navFavorites.setOnClickListener {
+            resetAutoHideTimer()
             filterGamesByTab(FeedTab.FAVORITES)
         }
 
         binding.navSettings.setOnClickListener {
+            resetAutoHideTimer()
             checkAndShowInterstitialAd(isSafeMoment = true)
             startActivity(Intent(this, SettingsActivity::class.java))
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         }
 
         binding.bottomBarToggleHandle.setOnClickListener {
-            toggleBottomBar(true)
+            toggleBottomBar(!isBottomBarVisible, animate = true)
         }
     }
 
@@ -372,28 +398,44 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     // Remote Ads Configuration & AdMob Loaders
     private fun fetchRemoteAdsConfig() {
         lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val client = OkHttpClient.Builder().connectTimeout(5, TimeUnit.SECONDS).build()
-                val request = Request.Builder().url("${GameRepository.BASE_URL}/api/ads/config").build()
-                val response = client.newCall(request).execute()
-                if (response.isSuccessful) {
-                    val body = response.body?.string()
-                    if (body != null) {
-                        val json = JSONObject(body)
-                        bannerEnabled = json.optBoolean("bannerEnabled", true)
-                        interstitialEnabled = json.optBoolean("interstitialEnabled", true)
-                        swipeInterval = json.optInt("swipeInterval", 10)
-                        levelCompleteAd = json.optBoolean("levelCompleteAd", true)
-                        levelWinInterval = json.optInt("levelWinInterval", 2)
-                        gameOverAdEnabled = json.optBoolean("gameOverAdEnabled", true)
-                        cooldownSeconds = json.optInt("cooldownSeconds", 60)
-                        defaultIntervalMinutes = json.optInt("defaultIntervalMinutes", 5)
-                        bannerUnitId = json.optString("bannerUnitId", bannerUnitId)
-                        interstitialUnitId = json.optString("interstitialUnitId", interstitialUnitId)
-                        rewardedUnitId = json.optString("rewardedUnitId", rewardedUnitId)
+            val candidateBases = listOf(
+                GameRepository.getActiveBaseUrl(this@MainActivity),
+                GameRepository.BASE_URL,
+                "http://${GameRepository.PRIMARY_HOST}:3000",
+                "http://${GameRepository.PRIMARY_HOST}",
+                "http://10.0.2.2:3000"
+            ).distinct()
+
+            for (base in candidateBases) {
+                try {
+                    val client = OkHttpClient.Builder().connectTimeout(4, TimeUnit.SECONDS).build()
+                    val request = Request.Builder().url("$base/api/ads/config").build()
+                    val response = client.newCall(request).execute()
+                    if (response.isSuccessful) {
+                        val body = response.body?.string()
+                        if (body != null) {
+                            val json = JSONObject(body)
+                            bannerEnabled = json.optBoolean("bannerEnabled", true)
+                            interstitialEnabled = json.optBoolean("interstitialEnabled", true)
+                            swipeInterval = json.optInt("swipeInterval", 10)
+                            levelCompleteAd = json.optBoolean("levelCompleteAd", true)
+                            levelWinInterval = json.optInt("levelWinInterval", 2)
+                            gameOverAdEnabled = json.optBoolean("gameOverAdEnabled", true)
+                            cooldownSeconds = json.optInt("cooldownSeconds", 60)
+                            defaultIntervalMinutes = json.optInt("defaultIntervalMinutes", 5)
+
+                            // For Debug builds, always preserve official Google test ad unit IDs
+                            val isDebuggable = (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+                            if (!isDebuggable) {
+                                bannerUnitId = json.optString("bannerUnitId", bannerUnitId)
+                                interstitialUnitId = json.optString("interstitialUnitId", interstitialUnitId)
+                                rewardedUnitId = json.optString("rewardedUnitId", rewardedUnitId)
+                            }
+                            break
+                        }
                     }
-                }
-            } catch (_: Exception) {}
+                } catch (_: Exception) {}
+            }
 
             withContext(Dispatchers.Main) {
                 if (bannerEnabled) {
@@ -408,7 +450,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     private fun startSmartAdCheckTimer() {
         lifecycleScope.launch {
             while (isActive) {
-                delay(30_000L) // 30-second heartbeat check
+                delay(15_000L) // 15-second heartbeat check
                 val now = System.currentTimeMillis()
                 val currentPos = binding.viewPager.currentItem
                 val game = adapter.getGame(currentPos)
@@ -425,6 +467,9 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
                 if (now - lastAdShowTimeMs >= requiredIntervalMs) {
                     // Ad is due! Defer showing until a safe moment so active play is never interrupted.
                     isAdDue = true
+                    if (interstitialAd == null) {
+                        loadInterstitialAd()
+                    }
                 }
             }
         }
@@ -443,7 +488,17 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         } catch (_: Exception) {}
     }
 
+    private fun recordAdShown() {
+        lastAdShowTimeMs = System.currentTimeMillis()
+        prefs.edit().putLong("last_interstitial_show_time", lastAdShowTimeMs).apply()
+        swipeCount = 0
+        isAdDue = false
+    }
+
     private fun loadInterstitialAd() {
+        if (isInterstitialLoading || interstitialAd != null) return
+        isInterstitialLoading = true
+
         val adRequest = AdRequest.Builder().build()
         InterstitialAd.load(
             this,
@@ -452,9 +507,34 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
                     interstitialAd = ad
+                    isInterstitialLoading = false
+                    Log.d("MainActivity", "Interstitial ad loaded successfully")
+                    ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                        override fun onAdDismissedFullScreenContent() {
+                            Log.d("MainActivity", "Interstitial ad dismissed by user")
+                            interstitialAd = null
+                            recordAdShown()
+                            loadInterstitialAd()
+                        }
+
+                        override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                            Log.w("MainActivity", "Interstitial ad failed to show: ${adError.message}")
+                            interstitialAd = null
+                            isAdDue = false
+                            loadInterstitialAd()
+                        }
+
+                        override fun onAdShowedFullScreenContent() {
+                            Log.d("MainActivity", "Interstitial ad displayed on screen")
+                            recordAdShown()
+                        }
+                    }
                 }
+
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     interstitialAd = null
+                    isInterstitialLoading = false
+                    Log.w("MainActivity", "Interstitial ad failed to load: ${error.message} (code ${error.code})")
                 }
             }
         )
@@ -484,22 +564,19 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
         val requiredIntervalMs = Math.max(cooldownSeconds * 1000L, minIntervalMinutes * 60 * 1000L)
         val timeSinceLastAd = now - lastAdShowTimeMs
-        val isTimeDue = (lastAdShowTimeMs > 0L && timeSinceLastAd >= requiredIntervalMs) ||
-                        (lastAdShowTimeMs == 0L && timeSinceLastAd >= 60_000L)
+        val isTimeDue = timeSinceLastAd >= requiredIntervalMs
         val isSwipeDue = swipeCount >= swipeInterval
 
         if (forceShowIfDue || isTimeDue || isSwipeDue || isAdDue) {
-            if (lastAdShowTimeMs > 0L && (now - lastAdShowTimeMs < (cooldownSeconds * 1000L))) {
+            if (lastAdShowTimeMs > 0L && timeSinceLastAd < (cooldownSeconds * 1000L)) {
                 return
             }
 
             if (interstitialAd != null) {
+                Log.d("MainActivity", "Showing interstitial ad at safe moment")
                 interstitialAd?.show(this)
-                lastAdShowTimeMs = now
-                swipeCount = 0
-                isAdDue = false
-                loadInterstitialAd()
             } else {
+                Log.d("MainActivity", "Interstitial ad is due but not yet ready; requesting load")
                 isAdDue = true
                 loadInterstitialAd()
             }
@@ -551,55 +628,58 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         }
     }
 
-    // Bottom Bar Hide/Show Animation without Layout Reflow
-    private fun toggleBottomBar(visible: Boolean, animate: Boolean = true) {
-        if (isBottomBarVisible == visible) return
-        isBottomBarVisible = visible
+    // Auto-Hide Schedule & Inactivity Reset
+    private fun scheduleAutoHideBottomBar(delayMs: Long = 5000L) {
+        bottomBarHandler.removeCallbacks(autoHideBottomBarRunnable)
+        bottomBarHandler.postDelayed(autoHideBottomBarRunnable, delayMs)
+    }
 
-        val barHeight = binding.bottomNavBar.height.toFloat().takeIf { it > 0 } ?: 160f
-        val targetY = if (visible) 0f else (barHeight + 30f)
+    private fun resetAutoHideTimer() {
+        if (isBottomBarVisible) {
+            scheduleAutoHideBottomBar(5000L)
+        }
+    }
+
+    // Bottom Bar Hide/Show Animation without Layout Reflow (Zero WebView shift)
+    private fun toggleBottomBar(visible: Boolean, animate: Boolean = true) {
+        isBottomBarVisible = visible
+        if (visible) {
+            scheduleAutoHideBottomBar(5000L)
+        } else {
+            bottomBarHandler.removeCallbacks(autoHideBottomBarRunnable)
+        }
+
+        val density = resources.displayMetrics.density
+        val barHeight = binding.bottomNavBar.height.toFloat().takeIf { it > 0 } ?: (56f * density)
+        val targetBarY = if (visible) 0f else (barHeight + 40f)
+        val targetHandleY = if (visible) -(barHeight + 6f) else 0f
+        val handleIcon = if (visible) "⌄" else "⌃"
+
+        binding.tvToggleHandleIcon.text = handleIcon
 
         if (animate) {
-            if (visible) {
-                binding.bottomNavBar.animate()
-                    .translationY(targetY)
-                    .setDuration(250)
-                    .setInterpolator(DecelerateInterpolator())
-                    .start()
+            binding.bottomNavBar.animate()
+                .translationY(targetBarY)
+                .setDuration(260)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
 
-                binding.bottomBarToggleHandle.animate()
-                    .alpha(0f)
-                    .setDuration(150)
-                    .withEndAction {
-                        binding.bottomBarToggleHandle.visibility = View.GONE
-                    }
-                    .start()
-            } else {
-                binding.bottomNavBar.animate()
-                    .translationY(targetY)
-                    .setDuration(250)
-                    .setInterpolator(DecelerateInterpolator())
-                    .start()
-
-                binding.bottomBarToggleHandle.visibility = View.VISIBLE
-                binding.bottomBarToggleHandle.alpha = 0f
-                binding.bottomBarToggleHandle.animate()
-                    .alpha(1f)
-                    .setDuration(200)
-                    .start()
-            }
+            binding.bottomBarToggleHandle.animate()
+                .translationY(targetHandleY)
+                .setDuration(260)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
         } else {
-            binding.bottomNavBar.translationY = targetY
-            binding.bottomBarToggleHandle.visibility = if (visible) View.GONE else View.VISIBLE
-            binding.bottomBarToggleHandle.alpha = if (visible) 0f else 1f
+            binding.bottomNavBar.translationY = targetBarY
+            binding.bottomBarToggleHandle.translationY = targetHandleY
         }
     }
 
     // Bridge Event Callbacks
     override fun onGameStarted() {
         runOnUiThread {
-            // Auto-hide bottom bar smoothly during gameplay
-            toggleBottomBar(false)
+            // Reset 5-second inactivity timer on game start so the controls stay visible initially
+            resetAutoHideTimer()
         }
     }
 
@@ -713,6 +793,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
 
     override fun onDestroy() {
         super.onDestroy()
+        bottomBarHandler.removeCallbacks(autoHideBottomBarRunnable)
         adView?.destroy()
     }
 }

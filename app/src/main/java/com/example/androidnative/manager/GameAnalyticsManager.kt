@@ -1,4 +1,4 @@
-﻿package com.example.androidnative.manager
+package com.example.androidnative.manager
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -129,36 +129,96 @@ class GameAnalyticsManager(private val context: Context) {
         level: Int? = null,
         extraParams: Map<String, Any>? = null
     ) {
+        val isAbandoned = (eventName == "game_exit" && (durationSeconds ?: 0L) < 10L)
+        val exitReason = extraParams?.get("exit_reason") as? String
+
         scope.launch {
             try {
                 val paramsJson = JSONObject().apply {
                     put("game_id", gameId)
+                    put("gameId", gameId)
                     put("game_title", gameTitle)
-                    if (durationSeconds != null) put("duration_seconds", durationSeconds)
+                    put("gameTitle", gameTitle)
+                    if (durationSeconds != null) {
+                        put("duration_seconds", durationSeconds)
+                        put("durationSeconds", durationSeconds)
+                    }
                     if (score != null) put("score", score)
                     if (level != null) put("level", level)
+                    if (exitReason != null) {
+                        put("exit_reason", exitReason)
+                        put("exitReason", exitReason)
+                    }
+                    put("is_abandoned", isAbandoned)
+                    put("isAbandoned", isAbandoned)
                     extraParams?.forEach { (k, v) -> put(k, v) }
                 }
 
                 val payload = JSONObject().apply {
+                    put("clientId", clientId)
                     put("client_id", clientId)
+                    put("eventName", eventName)
                     put("event_name", eventName)
+                    put("gameId", gameId)
+                    put("game_id", gameId)
+                    put("gameTitle", gameTitle)
+                    put("game_title", gameTitle)
+                    if (durationSeconds != null) {
+                        put("durationSeconds", durationSeconds)
+                        put("duration_seconds", durationSeconds)
+                    }
+                    if (score != null) put("score", score)
+                    if (level != null) put("level", level)
+                    if (exitReason != null) {
+                        put("exitReason", exitReason)
+                        put("exit_reason", exitReason)
+                    }
+                    put("isAbandoned", isAbandoned)
+                    put("is_abandoned", isAbandoned)
                     put("params", paramsJson)
+                    put("timestampMs", System.currentTimeMillis())
                 }
 
                 val requestBody = payload.toString().toRequestBody(jsonMediaType)
-                val request = Request.Builder()
-                    .url("${GameRepository.BASE_URL}/api/analytics/event")
-                    .post(requestBody)
-                    .build()
 
-                httpClient.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        Log.w(TAG, "Analytics event $eventName failed with HTTP ${response.code}")
+                val candidateBases = listOf(
+                    GameRepository.getActiveBaseUrl(context),
+                    GameRepository.BASE_URL,
+                    "http://${GameRepository.PRIMARY_HOST}:3000",
+                    "http://${GameRepository.PRIMARY_HOST}",
+                    "http://10.0.2.2:3000"
+                ).distinct()
+
+                var sent = false
+                for (base in candidateBases) {
+                    try {
+                        val endpoint = "$base/api/analytics/event"
+                        val request = Request.Builder()
+                            .url(endpoint)
+                            .post(requestBody)
+                            .build()
+
+                        httpClient.newCall(request).execute().use { response ->
+                            if (response.isSuccessful) {
+                                Log.i(TAG, "✓ Analytics [$eventName] recorded successfully via $endpoint (HTTP ${response.code})")
+                                GameRepository.updateActiveBaseUrl(context, base)
+                                sent = true
+                                return@use
+                            } else {
+                                Log.w(TAG, "Analytics event [$eventName] at $endpoint returned HTTP ${response.code}")
+                            }
+                        }
+                        if (sent) break
+                    } catch (netEx: Exception) {
+                        Log.d(TAG, "Candidate endpoint $base failed: ${netEx.message}")
                     }
                 }
+
+                if (!sent) {
+                    Log.w(TAG, "Could not reach any analytics candidate endpoint for event: $eventName")
+                }
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to send analytics event $eventName: ${e.message}")
+                Log.w(TAG, "Failed to build or dispatch analytics event $eventName: ${e.message}")
             }
         }
     }

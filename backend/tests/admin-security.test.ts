@@ -272,6 +272,9 @@ describe("Admin security boundaries", () => {
     ["get", "/audit-log"],
     ["post", "/preview-grants"],
     ["post", "/auth/logout"],
+    ["put", "/games/owned-game/ads"],
+    ["get", "/analytics/summary"],
+    ["post", "/analytics/test-event"],
   ];
   it.each(["/v1/admin", "/api/admin"])(
     "denies every administrative route without a session: %s",
@@ -340,6 +343,8 @@ describe("Admin security boundaries", () => {
         ["get", "/permissions"],
         ["get", "/reports"],
         ["put", "/games/owned-game/features"],
+        ["put", "/games/owned-game/ads"],
+        ["get", "/analytics/summary"],
         ["post", "/games/other-game/upload"],
       ])
         expect((await call(c, method, prefix + url, {})).status, url).toBe(403);

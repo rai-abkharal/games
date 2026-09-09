@@ -4,7 +4,39 @@ import fs from "node:fs";
 import path from "node:path";
 import { SecurityStore } from "../security/store";
 
-export const IngestEventSchema = z.object({
+export const IngestEventSchema = z.preprocess((raw: any) => {
+  if (!raw || typeof raw !== "object") return raw;
+  const p = (raw.params && typeof raw.params === "object") ? raw.params : {};
+  const clientId = raw.clientId || raw.client_id || p.clientId || p.client_id;
+  const eventName = raw.eventName || raw.event_name || p.eventName || p.event_name;
+  const gameId = raw.gameId || raw.game_id || p.gameId || p.game_id;
+  const gameTitle = raw.gameTitle || raw.game_title || p.gameTitle || p.game_title;
+  const userId = raw.userId || raw.user_id || p.userId || p.user_id;
+  const durationSeconds = raw.durationSeconds ?? raw.duration_seconds ?? p.durationSeconds ?? p.duration_seconds;
+  const score = raw.score ?? p.score;
+  const level = raw.level ?? p.level;
+  const exitReason = raw.exitReason || raw.exit_reason || p.exitReason || p.exit_reason;
+  const isAbandoned = raw.isAbandoned ?? raw.is_abandoned ?? p.isAbandoned ?? p.is_abandoned;
+  const timestampMs = raw.timestampMs || raw.timestamp_ms || Date.now();
+
+  return {
+    ...raw,
+    clientId,
+    eventName,
+    gameId,
+    gameTitle,
+    userId,
+    durationSeconds: typeof durationSeconds === "number" ? Math.max(0, Math.round(durationSeconds)) : undefined,
+    score: typeof score === "number" ? Math.round(score) : undefined,
+    level: typeof level === "number" ? Math.round(level) : undefined,
+    exitReason: typeof exitReason === "string" ? exitReason : undefined,
+    isAbandoned: typeof isAbandoned === "boolean" ? isAbandoned : (
+      eventName === "game_exit" && typeof durationSeconds === "number" && durationSeconds < 10
+    ),
+    params: p,
+    timestampMs,
+  };
+}, z.object({
   clientId: z.string().min(1),
   userId: z.string().optional(),
   eventName: z.enum([
@@ -23,7 +55,7 @@ export const IngestEventSchema = z.object({
   exitReason: z.string().optional(),
   params: z.record(z.any()).optional(),
   timestampMs: z.number().optional(),
-});
+}));
 
 export type IngestEvent = z.infer<typeof IngestEventSchema>;
 
@@ -126,6 +158,10 @@ export function createPublicAnalyticsRouter(store: SecurityStore, catalogPath: s
       void forwardToGa4(parsed, false).catch((err) => {
         console.warn("[Analytics Warning] GA4 forwarding failed:", err);
       });
+
+      console.log(
+        `[Analytics] Ingested "${parsed.eventName}" for game "${parsed.gameId}" (client: ${parsed.clientId.slice(0, 8)}..., duration: ${parsed.durationSeconds ?? 0}s, exitReason: ${parsed.exitReason || "none"})`
+      );
 
       res.status(200).json({ success: true });
     } catch (err: any) {
