@@ -30,6 +30,7 @@ Thumbs.db
 # Runtime catalogue state (admin uploads must survive Git deployments)
 backend/catalog/games.runtime.json
 backend/catalog/deleted_games.json
+backend/catalog/ads_config.json
 security-data/
 backend/security-data/
 .tmp/

@@ -41,12 +41,11 @@ async function deployAll() {
     if (fs.existsSync(manifestPath)) {
       try {
         const m = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        if (deletedList.includes(m.id)) {
-          console.log(`✨ Reactivating & Unblacklisting Recreated Game from Repo: ${m.title || m.id} (${m.id})`);
-          deletedList = deletedList.filter(id => id !== m.id);
-          if (fs.existsSync(deletedGamesPath)) {
-            fs.writeFileSync(deletedGamesPath, JSON.stringify(deletedList, null, 2), 'utf8');
-          }
+        if (m?.id && deletedList.includes(m.id)) {
+          console.log(`⏭️ Skipping blacklisted/deleted game from build: ${m.title || m.id} (${m.id})`);
+          const deadDir = path.join(publicDir, 'games', m.id);
+          if (fs.existsSync(deadDir)) fs.rmSync(deadDir, { recursive: true, force: true });
+          continue;
         }
       } catch {}
     }
@@ -110,6 +109,7 @@ async function deployAll() {
                 feedOrder: catalogObj.games.length + 1,
                 category: m.category || 'Arcade',
                 description: m.description || '',
+                status: m.status || 'published',
                 touchZones: m.touchZones || [],
                 features: { sound: true, vibration: true }
               });
