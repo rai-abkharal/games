@@ -6,6 +6,30 @@ analytics collection, and advertisement scheduling are unchanged.
 
 ## Production setup
 
+### Temporary HTTP deployment
+
+HTTP requires explicit `ADMIN_ALLOW_HTTP=true`. Use separate Admin, preview and
+public game hostnames even when all resolve to the same IP and port. HTTP sessions
+use the host-only `admin_session_http` cookie (HttpOnly, SameSite=Strict); HTTPS
+retains the Secure `__Host-admin_session` cookie. HTTP does not encrypt credentials
+or sessions in transit. Session, permission, Origin and CSRF checks remain active.
+Anonymous `/admin/` documents redirect to `/admin/login`; a request on another
+hostname redirects to the configured Admin login origin. Only the login document
+and frontend assets are public, and the React session boundary guards dashboard
+rendering. HTTP Admin APIs reject requests using other hostnames.
+
+When mail is not configured, explicitly set `ADMIN_RESET_EMAIL_ENABLED=false`.
+This permits startup without SMTP, but password-reset emails are unavailable;
+authenticated password changes continue working. Do not use placeholder SMTP
+credentials. Re-enable email only after configuring a real transport.
+
+`deploy.sh` loads `/etc/games-admin.env` (override with `GAMES_ENV_FILE`) and uses
+the games-only runtime at `/opt/games-node/bin` (override with `GAMES_NODE_BIN`).
+It requires Node 24.9+, refuses uncommitted tracked changes, installs locked
+dependencies, and restarts only `mini-games-backend` with the selected interpreter.
+Use `bash deploy.sh --admin-only` to rebuild Admin/backend without publishing
+games. Commit the deployment fixes before subsequent Git-based deployments.
+
 1. Use Node **24.9 or newer**. This implementation uses `node:sqlite`; Node 24.9
    emits an experimental SQLite warning. Pin and test the deployed Node release.
 2. Back up the existing catalog, runtime catalog, thumbnails, and game bundles.

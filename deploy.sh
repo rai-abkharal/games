@@ -1,8 +1,16 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Mini-Games Platform 1-Click Server Update & Deployment Script
 PROJECT_DIR="/var/www/games-platform"
+CONFIG_FILE="${GAMES_ENV_FILE:-/etc/games-admin.env}"
+if [ -f "$CONFIG_FILE" ]; then
+  set -a
+  source "$CONFIG_FILE"
+  set +a
+fi
+export PATH="${GAMES_NODE_BIN:-/opt/games-node/bin}:$PATH"
+export NODE_ENV=production
 
 echo "======================================================="
 echo "🎮 Mini-Games Platform Auto-Deploy & Build Script"
@@ -12,13 +20,15 @@ cd "$PROJECT_DIR"
 
 # Security state must survive Git resets and release replacement. Configure these
 # in the service environment, not in a tracked file. Do not deploy an open fallback.
-: "${ADMIN_ORIGIN:?Set the HTTPS Admin origin}"
-: "${PREVIEW_ORIGIN:?Set the separate HTTPS preview origin}"
+: "${ADMIN_ORIGIN:?Set the Admin origin}"
+: "${PREVIEW_ORIGIN:?Set the separate preview origin}"
 : "${ADMIN_SECURITY_DB:?Set the persistent Admin SQLite path outside the checkout}"
-: "${SMTP_URL:?Set the password-reset SMTP transport}"
-: "${ADMIN_MAIL_FROM:?Set the reset email sender}"
+if [ "${ADMIN_RESET_EMAIL_ENABLED:-true}" != "false" ]; then
+  : "${SMTP_URL:?Set the password-reset SMTP transport}"
+  : "${ADMIN_MAIL_FROM:?Set the reset email sender}"
+fi
 case "$ADMIN_SECURITY_DB" in "$PROJECT_DIR"/*) echo "Admin database must be outside the checkout"; exit 1;; esac
-node -e 'if(Number(process.versions.node.split(".")[0])<24)process.exit(1)'
+node -e 'const [major,minor]=process.versions.node.split(".").map(Number); if(major<24 || (major===24 && minor<9))throw Error("Games deployment requires Node 24.9+")'
 
 echo ""
 echo "🛡️ [0/5] Backing up live catalog & Admin Uploaded Games..."
@@ -29,20 +39,21 @@ fi
 
 echo ""
 echo "🧹 [0.5/5] Cleaning local build files to prevent Git conflicts..."
-git checkout -f main || true
-git reset --hard origin/main || git reset --hard HEAD || true
+git diff --quiet && git diff --cached --quiet || { echo "Commit or preserve tracked changes before deploying"; exit 1; }
+git checkout main
 
 echo ""
 echo "🚀 [1/5] Pulling latest code from Git..."
-git pull origin main
+git pull --ff-only origin main
 
 echo ""
 echo "📦 [2/5] Installing Backend dependencies..."
 cd "$PROJECT_DIR/backend"
-npm install
+npm ci --include=dev
 
 echo ""
 echo "🎮 [3/5] Compiling and Deploying all Mini-Games to CDN..."
+if [ "${1:-}" != "--admin-only" ]; then
 cd "$PROJECT_DIR/games"
 npm install
 mkdir -p "$PROJECT_DIR/backend/public/shared"
@@ -123,11 +134,13 @@ if [ -f /tmp/games_platform_backup/games.json ]; then
   "
 fi
 
+fi # optional games deployment
+
 echo ""
 echo "🖥️ [3.5/5] Building Admin Dashboard..."
 if [ -d "$PROJECT_DIR/admin" ]; then
   cd "$PROJECT_DIR/admin"
-  npm install
+  npm ci --include=dev
   npm run build
 fi
 
@@ -139,7 +152,11 @@ NODE_ENV=production npm run security:migrate
 
 echo ""
 echo "⚡ [5/5] Reloading PM2 Service (mini-games-backend)..."
-NODE_ENV=production pm2 reload mini-games-backend --update-env || NODE_ENV=production pm2 start dist/src/server.js --name "mini-games-backend"
+if pm2 describe mini-games-backend >/dev/null 2>&1; then
+  pm2 restart mini-games-backend --interpreter "$(command -v node)" --update-env
+else
+  pm2 start dist/src/server.js --name "mini-games-backend" --interpreter "$(command -v node)"
+fi
 pm2 save
 
 echo ""

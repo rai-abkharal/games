@@ -72,7 +72,7 @@ export function authRouter(store: SecurityStore, config: SecurityConfig) {
       csrfToken = digest(`csrf:${token}`),
       now = Date.now();
     const duration = account ? config.absoluteMs : 10 * 60_000;
-    store.run("DELETE FROM sessions WHERE token=?", digest(cookie(req)));
+    store.run("DELETE FROM sessions WHERE token=?", digest(cookie(req, config)));
     store.run(
       "INSERT INTO sessions VALUES(?,?,?,?,?,?,?,?)",
       digest(token),
@@ -94,7 +94,7 @@ export function authRouter(store: SecurityStore, config: SecurityConfig) {
         res.locals.session &&
         (!res.locals.session.account || res.locals.admin)
       ) {
-        const token = digest(`csrf:${cookie(req)}`);
+        const token = digest(`csrf:${cookie(req, config)}`);
         res.json({ csrfToken: token });
       } else res.json({ csrfToken: issue(req, res) });
     } catch (error) {
@@ -154,11 +154,11 @@ export function authRouter(store: SecurityStore, config: SecurityConfig) {
         Date.now() + 20 * 60_000,
       );
     });
-    const link = `${config.origin}/admin/#reset=${token}`;
+    const link = `${config.origin}/admin/login#reset=${token}`;
     try {
       if (config.deliverReset) await config.deliverReset(account.email, link);
       else {
-        if (!process.env.SMTP_URL || !process.env.ADMIN_MAIL_FROM)
+        if (process.env.ADMIN_RESET_EMAIL_ENABLED === "false" || !process.env.SMTP_URL || !process.env.ADMIN_MAIL_FROM)
           throw new Error("Reset mail unavailable");
         const smtp = new URL(process.env.SMTP_URL);
         smtp.searchParams.set("requireTLS", "true");

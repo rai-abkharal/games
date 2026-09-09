@@ -129,6 +129,39 @@ afterEach(() => {
   fs.rmSync(directory, { recursive: true, force: true });
 });
 describe("Admin security boundaries", () => {
+  it("redirects anonymous dashboard documents to login on the canonical host", async () => {
+    for (const url of ["/admin/", "/admin/index.html", "/admin/games"]) {
+      const res = await request(app).get(url).set("Host", "admin.example.test");
+      expect(res.status).toBe(302);
+      expect(res.headers.location).toBe("/admin/login");
+    }
+    const direct = await request(app).get("/admin/").set("Host", "127.0.0.1:3000");
+    expect(direct.headers.location).toBe(origin + "/admin/login");
+  });
+  it("supports HTTP cookies while enforcing CSRF, sessions and both API aliases", async () => {
+    config.secure = false;
+    config.origin = "http://admin.example.test";
+    const pre = await request(app).get("/v1/admin/auth/csrf").set("Host", "admin.example.test");
+    expect(pre.headers["set-cookie"][0]).toContain("admin_session_http=");
+    expect(pre.headers["set-cookie"][0]).toContain("HttpOnly");
+    expect(pre.headers["set-cookie"][0]).not.toContain("Secure");
+    const attempt = () => request(app).post("/v1/admin/auth/login")
+      .set("Host", "admin.example.test").set("Origin", config.origin)
+      .set("Cookie", cookieFrom(pre));
+    expect((await attempt().send({ identifier: "root", password })).status).toBe(403);
+    const signed = await attempt().set("X-CSRF-Token", pre.body.csrfToken).send({ identifier: "root", password });
+    expect(signed.status).toBe(200);
+    for (const prefix of ["/v1/admin", "/api/admin"]) {
+      expect((await request(app).get(prefix + "/games").set("Host", "admin.example.test")).status).toBe(401);
+      expect((await request(app).get(prefix + "/games").set("Host", "admin.example.test").set("Cookie", cookieFrom(signed))).status).toBe(200);
+    }
+    expect((await request(app).get("/v1/admin/auth/csrf").set("Host", "games.example.test")).status).toBe(403);
+    const logout = await request(app).post("/v1/admin/auth/logout")
+      .set("Host", "admin.example.test").set("Origin", config.origin)
+      .set("Cookie", cookieFrom(signed)).set("X-CSRF-Token", signed.body.csrfToken).send({});
+    expect(logout.status).toBe(200);
+    expect((await request(app).get("/v1/admin/games").set("Host", "admin.example.test").set("Cookie", cookieFrom(signed))).status).toBe(401);
+  });
   it("keeps one Super Admin active under competing disable requests", async () => {
     const root = await login();
     const created = await call(root, "post", "/v1/admin/admins", {

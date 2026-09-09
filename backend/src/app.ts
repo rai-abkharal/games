@@ -115,6 +115,8 @@ export function createApp(
   // Register Admin Router
   const admin = express.Router();
   admin.use((req, res, next) => {
+    if (!config.secure && req.get("host") !== new URL(config.origin).host)
+      return res.status(403).json({ error: "Use the configured Admin hostname" });
     if (req.get("origin") && req.get("origin") !== config.origin)
       return res.status(403).json({ error: "Untrusted request origin" });
     // Same-origin UI/proxy is intentional: no credentialed cross-origin Admin API.
@@ -143,6 +145,20 @@ export function createApp(
   );
   app.use("/v1/admin", admin);
   app.use("/api/admin", admin);
+
+  // Only the sign-in document and its assets are public. All dashboard routes
+  // require a server-validated session, including direct index.html requests.
+  app.use("/admin", (req, res, next) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (req.get("host") !== new URL(config.origin).host)
+      return res.redirect(302, config.origin + "/admin/login");
+    securityMiddleware(store, config)(req, res, (error) => {
+      if (error) return next(error);
+      if (req.path === "/login" || req.path.startsWith("/assets/")) return next();
+      if (!res.locals.admin) return res.redirect(302, "/admin/login");
+      return requireSession(store)(req, res, next);
+    });
+  });
 
   // Serve Admin Dashboard GUI if built
   const possibleAdminDirs = [

@@ -69,6 +69,7 @@ export function AdminSession({ children }: { children: React.ReactNode }) {
         const s = await api("/auth/login", { identifier, password });
         setCsrf(s.csrfToken);
         setSession(s);
+        history.replaceState(null, "", "/admin/");
       }
       if (mode === "forgot") {
         const result = await api("/auth/reset-request", { identifier });

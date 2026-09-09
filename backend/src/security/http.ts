@@ -12,12 +12,13 @@ export const COOKIE = "__Host-admin_session";
 export const equal = (a: string, b: string) =>
   Buffer.byteLength(a) === Buffer.byteLength(b) &&
   timingSafeEqual(Buffer.from(a), Buffer.from(b));
-export function cookie(req: Request) {
+export function cookie(req: Request, config?: SecurityConfig) {
+  const name = config?.secure === false ? "admin_session_http" : COOKIE;
   const entries = (req.headers.cookie || "")
     .split(";")
     .map((x) => x.trim())
-    .filter((x) => x.startsWith(`${COOKIE}=`));
-  return entries.length === 1 ? entries[0].slice(COOKIE.length + 1) : "";
+    .filter((x) => x.startsWith(`${name}=`));
+  return entries.length === 1 ? entries[0].slice(name.length + 1) : "";
 }
 export function setCookie(
   res: Response,
@@ -25,7 +26,7 @@ export function setCookie(
   config: SecurityConfig,
   age: number,
 ) {
-  res.cookie(COOKIE, token, {
+  res.cookie(config.secure ? COOKIE : "admin_session_http", token, {
     httpOnly: true,
     secure: config.secure,
     sameSite: "strict",
@@ -52,7 +53,7 @@ export function securityMiddleware(
       res.setHeader("Cache-Control", "no-store");
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.locals.requestId = randomToken();
-      const token = cookie(req);
+      const token = cookie(req, config);
       const session =
         token.length === 43
           ? store.get("SELECT * FROM sessions WHERE token=?", digest(token))
