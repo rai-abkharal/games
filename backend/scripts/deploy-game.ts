@@ -152,6 +152,7 @@ export function deployGame(options: DeployOptions): { success: boolean; message:
     status: (manifest as any).status || existingGame?.status || 'published',
     touchZones: (manifest as any).touchZones || existingGame?.touchZones || [],
     features,
+    ads: (manifest as any).ads || existingGame?.ads || { enabled: true, useCustomInterval: false, intervalMinutes: 5 },
   };
 
   // Validate game schema
