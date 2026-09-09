@@ -66,7 +66,7 @@ export const GameSchema = z.object({
   status: z.enum(['published', 'draft', 'archived', 'deactivated']).optional().default('published'),
   touchZones: z.array(TouchZoneSchema).optional().default([]),
   features: GameFeaturesSchema,
-  ads: GameAdsConfigSchema.optional().default({ enabled: true, useCustomInterval: false, intervalMinutes: 5 }),
+  ads: GameAdsConfigSchema.optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });
