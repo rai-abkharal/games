@@ -13,5 +13,7 @@
     "sound": true,
     "vibration": true,
     "hint": true
-  }
+  },
+  "sizeBytes": 372684,
+  "sha256": "71fbe706b2e355ba0db1528d30ab5e531ed3d670656d187b6fc2fb6cabd26513"
 }

@@ -47,6 +47,131 @@
 (function() {
   'use strict';
 
+  // ============================================================================
+  // Universal Bulletproof Canvas Polyfills for 100% Android WebView Compatibility
+  // ============================================================================
+  if (typeof CanvasRenderingContext2D !== 'undefined') {
+    var needsRoundRect = false;
+    try {
+      var testC = document.createElement('canvas');
+      var testX = testC ? testC.getContext('2d') : null;
+      if (!testX || !testX.roundRect) {
+        needsRoundRect = true;
+      } else {
+        testX.beginPath();
+        testX.roundRect(0, 0, 10, 10, [2, 2, 2, 2]);
+      }
+    } catch (e) {
+      needsRoundRect = true;
+    }
+
+    if (needsRoundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, radii) {
+        if (w === 0 || h === 0) return this;
+        if (!radii) radii = 0;
+        if (typeof radii === 'number') {
+          radii = [radii, radii, radii, radii];
+        } else if (Array.isArray(radii)) {
+          if (radii.length === 1) radii = [radii[0], radii[0], radii[0], radii[0]];
+          else if (radii.length === 2) radii = [radii[0], radii[1], radii[0], radii[1]];
+          else if (radii.length === 3) radii = [radii[0], radii[1], radii[2], radii[1]];
+          else if (radii.length >= 4) radii = [radii[0], radii[1], radii[2], radii[3]];
+        } else {
+          radii = [0, 0, 0, 0];
+        }
+
+        var maxR = Math.min(Math.abs(w) / 2, Math.abs(h) / 2);
+        var rTL = Math.min(Math.max(0, Number(radii[0]) || 0), maxR);
+        var rTR = Math.min(Math.max(0, Number(radii[1]) || 0), maxR);
+        var rBR = Math.min(Math.max(0, Number(radii[2]) || 0), maxR);
+        var rBL = Math.min(Math.max(0, Number(radii[3]) || 0), maxR);
+
+        this.moveTo(x + rTL, y);
+        this.lineTo(x + w - rTR, y);
+        if (rTR > 0) this.quadraticCurveTo(x + w, y, x + w, y + rTR);
+        this.lineTo(x + w, y + h - rBR);
+        if (rBR > 0) this.quadraticCurveTo(x + w, y + h, x + w - rBR, y + h);
+        this.lineTo(x + rBL, y + h);
+        if (rBL > 0) this.quadraticCurveTo(x, y + h, x, y + h - rBL);
+        this.lineTo(x, y + rTL);
+        if (rTL > 0) this.quadraticCurveTo(x, y, x + rTL, y);
+        this.closePath();
+        return this;
+      };
+    }
+
+    if (!CanvasRenderingContext2D.prototype.ellipse) {
+      CanvasRenderingContext2D.prototype.ellipse = function(x, y, radiusX, radiusY, rotation, startAngle, endAngle, counterclockwise) {
+        this.save();
+        this.translate(x, y);
+        this.rotate(rotation);
+        this.scale(radiusX, radiusY);
+        this.arc(0, 0, 1, startAngle, endAngle, counterclockwise);
+        this.restore();
+      };
+    }
+  }
+
+  // ============================================================================
+  // Native Platform Bridge (Android WebView / FlutterGameBridge Integration)
+  // ============================================================================
+  const Host = {
+    post: function(action, payload) {
+      const body = payload || {};
+      const msg = JSON.stringify({ action: action, payload: body });
+      try {
+        if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+          window.flutter_inappwebview.callHandler('GameBridgeChannel', msg);
+        }
+      } catch (e) {}
+      try {
+        if (window.FlutterGameBridge && window.FlutterGameBridge.postMessage) {
+          window.FlutterGameBridge.postMessage(msg);
+        }
+      } catch (e) {}
+      try {
+        if (window.NativeBridge && window.NativeBridge.postMessage) {
+          window.NativeBridge.postMessage(msg);
+        }
+      } catch (e) {}
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ source: 'GameBridge', action: action, payload: body }, '*');
+        }
+      } catch (e) {}
+    },
+    gameStarted: function(level) {
+      try {
+        if (window.NativeBridge && window.NativeBridge.gameStarted) window.NativeBridge.gameStarted();
+        else if (window.FlutterGameBridge && window.FlutterGameBridge.gameStarted) window.FlutterGameBridge.gameStarted();
+      } catch (e) {}
+      this.post('onGameStarted', { level: level || 1 });
+    },
+    completed: function(score, level) {
+      try {
+        if (window.NativeBridge && window.NativeBridge.completed) window.NativeBridge.completed(score || 0, level || 1);
+        else if (window.FlutterGameBridge && window.FlutterGameBridge.completed) window.FlutterGameBridge.completed(score || 0, level || 1);
+      } catch (e) {}
+      this.post('onGameCompleted', { score: score || 0, level: level || 1 });
+    },
+    earnCoins: function(amount) {
+      try {
+        if (window.NativeBridge && window.NativeBridge.earnCoins) window.NativeBridge.earnCoins(amount || 0);
+        else if (window.FlutterGameBridge && window.FlutterGameBridge.earnCoins) window.FlutterGameBridge.earnCoins(amount || 0);
+      } catch (e) {}
+      this.post('onCoinsEarned', { amount: amount || 0 });
+    },
+    haptic: function(type) {
+      try {
+        if (window.NativeBridge && window.NativeBridge.haptic) window.NativeBridge.haptic(type || 'light');
+        else if (window.FlutterGameBridge && window.FlutterGameBridge.haptic) window.FlutterGameBridge.haptic(type || 'light');
+      } catch (e) {}
+      try {
+        if (navigator && navigator.vibrate) navigator.vibrate(type === 'success' ? [30, 40, 50] : 20);
+      } catch (e) {}
+    }
+  };
+
   // --- UTILS & AUDIO ---
   "use strict";
 // ============================================================================
@@ -1718,6 +1843,7 @@ class GameEngine {
         this.layoutTubes();
         this.setupButtons();
         this.saveProgress();
+        Host.gameStarted(this.currentLevel);
     }
     restartLevel() {
         this.synth.playButton();
@@ -1746,8 +1872,8 @@ class GameEngine {
         }
         const topPadding = 68;
         const bottomNavHeight = 96;
-        const availW = this.width - 36;
-        const availH = this.height - topPadding - bottomNavHeight;
+        const availW = Math.max(120, this.width - 36);
+        const availH = Math.max(180, this.height - topPadding - bottomNavHeight);
         const currentCapacity = this.tubes[0].capacity;
         // Aspect ratio scales with color stack capacity (4 cap -> 4.0, 6 cap -> 5.2, 7 cap -> 5.8, 9 cap -> 6.8)
         let aspect = 4.0;
@@ -1758,7 +1884,7 @@ class GameEngine {
         else if (currentCapacity >= 8)
             aspect = 6.8;
         const maxTubeW = (currentCapacity >= 8) ? 38 : (currentCapacity >= 6 ? 42 : 46);
-        let tubeW = Math.min(maxTubeW, (availW - (cols - 1) * (cols > 3 ? 14 : 20)) / cols);
+        let tubeW = Math.max(12, Math.min(maxTubeW, (availW - (cols - 1) * (cols > 3 ? 14 : 20)) / cols));
         let tubeH = tubeW * aspect;
         const totalGridH = rows * tubeH + (rows - 1) * 26;
         if (totalGridH > availH) {
@@ -2133,6 +2259,9 @@ class GameEngine {
         this.synth.playLevelWin();
         this.particles.spawnConfetti(this.width, this.height);
         this.saveProgress();
+        Host.completed(this.score, this.currentLevel);
+        Host.earnCoins(this.victoryStars * 15);
+        Host.haptic('success');
     }
     // ==========================================================================
     // Synchronized Frame Update Loop
@@ -2606,52 +2735,123 @@ class GameEngine {
   // --- MAIN BOOTSTRAPPER ---
   "use strict";
 // ============================================================================
-// Water Sort 3D - Main Bootstrapper & Viewport Listener
+// Water Sort 3D - Universal Fail-Safe Bootstrapper & Viewport Manager
 // ============================================================================
-window.addEventListener('DOMContentLoaded', () => {
+  let globalEngine = null;
+  let isBooted = false;
+
+  function getViewportSize() {
+    const vp = window.visualViewport;
+    let w = (vp && vp.width > 0) ? vp.width : (window.innerWidth > 0 ? window.innerWidth : (document.documentElement ? document.documentElement.clientWidth : 0));
+    let h = (vp && vp.height > 0) ? vp.height : (window.innerHeight > 0 ? window.innerHeight : (document.documentElement ? document.documentElement.clientHeight : 0));
+    if (!w || w <= 0) w = 390;
+    if (!h || h <= 0) h = 844;
+    return { w: Math.round(w), h: Math.round(h) };
+  }
+
+  function initGame() {
+    if (isBooted) return;
     const canvas = document.getElementById('gameCanvas');
-    if (!canvas)
-        return;
+    if (!canvas) return;
+    isBooted = true;
+
     const engine = new GameEngine(canvas);
+    globalEngine = engine;
+    window.__GAME_ENGINE__ = engine;
+
     function resize() {
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        const vp = window.visualViewport;
-        const w = vp ? vp.width : window.innerWidth;
-        const h = vp ? vp.height : window.innerHeight;
-        canvas.width = w * dpr;
-        canvas.height = h * dpr;
-        canvas.style.width = `${w}px`;
-        canvas.style.height = `${h}px`;
-        engine.setSize(w, h, dpr);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const size = getViewportSize();
+      const w = size.w;
+      const h = size.h;
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      engine.setSize(w, h, dpr);
     }
+
     window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', function() { setTimeout(resize, 150); });
     if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', resize);
-        window.visualViewport.addEventListener('scroll', resize);
+      window.visualViewport.addEventListener('resize', resize);
+      window.visualViewport.addEventListener('scroll', resize);
     }
     resize();
-    // Pointer & Touch Events
-    canvas.addEventListener('pointerdown', (e) => {
+
+    // Dual Touch & Pointer Listeners with Debounce
+    let lastTouchTime = 0;
+    function handleTouchOrPointer(clientX, clientY) {
+      const now = performance.now();
+      if (now - lastTouchTime < 80) return;
+      lastTouchTime = now;
+      engine.handlePointerDown(clientX, clientY);
+    }
+
+    canvas.addEventListener('touchstart', function(e) {
+      if (e.touches && e.touches.length > 0) {
         e.preventDefault();
-        engine.handlePointerDown(e.clientX, e.clientY);
+        const t = e.touches[0];
+        handleTouchOrPointer(t.clientX, t.clientY);
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('pointerdown', function(e) {
+      if (e.pointerType !== 'touch') {
+        e.preventDefault();
+        handleTouchOrPointer(e.clientX, e.clientY);
+      }
     });
-    window.addEventListener('pointerup', () => {
-        engine.handlePointerUp();
+
+    window.addEventListener('pointerup', function() { engine.handlePointerUp(); });
+    window.addEventListener('touchend', function() { engine.handlePointerUp(); });
+    window.addEventListener('pointercancel', function() { engine.handlePointerUp(); });
+
+    // Tab visibility handling (syncs with Android ViewPager2 pause/resume)
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        if (engine.synth && engine.synth.ctx && engine.synth.ctx.state === 'running') {
+          engine.synth.ctx.suspend().catch(function() {});
+        }
+      }
     });
-    window.addEventListener('pointercancel', () => {
-        engine.handlePointerUp();
-    });
-    // Game Loop
+
+    // Main Animation Loop with Dimension Self-Healing & Error Shield
     let lastTime = performance.now();
+    let frameCheckCounter = 0;
+
     function loop(currentTime) {
+      try {
         const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
         lastTime = currentTime;
+
+        // Auto-heal viewport dimensions if WebView layout completes post-bootstrap
+        frameCheckCounter++;
+        if (frameCheckCounter % 30 === 0) {
+          const currentSize = getViewportSize();
+          if (Math.abs(engine.width - currentSize.w) > 4 || Math.abs(engine.height - currentSize.h) > 4) {
+            resize();
+          }
+        }
+
         engine.update(dt);
         engine.render();
-        requestAnimationFrame(loop);
+      } catch (frameErr) {
+        console.warn('WaterSort frame exception handled:', frameErr);
+      }
+      requestAnimationFrame(loop);
     }
+
     requestAnimationFrame(loop);
-});
+  }
+
+  // Universal DOM-Ready Trigger: executes instantly if document already parsed
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGame);
+    window.addEventListener('load', initGame);
+  } else {
+    initGame();
+  }
 
 })();
 

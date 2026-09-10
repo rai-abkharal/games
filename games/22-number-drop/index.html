@@ -475,26 +475,30 @@
         this.headerY = Math.max(16, Math.min(26, Math.round(this.height * 0.03)));
         this.subHudY = this.headerY + 48;
 
-        // 2. Available Vertical & Horizontal Space for Board & Drop Zone
-        const topOccupied = this.subHudY + 46;
-        const bottomMargin = Math.max(16, Math.round(this.height * 0.025));
-        const availH = Math.max(200, this.height - topOccupied - bottomMargin);
+        // 2. Safe Clearance for Floating Bottom Dock & Header Area
+        const bottomDockSafe = Math.max(76, Math.round(this.height * 0.11));
+        const topOccupied = this.subHudY + 44;
         const availW = Math.min(360, this.width - 28);
-
-        // Calculate maximum cell size bounded by BOTH screen height and screen width
-        const maxColFromH = Math.floor(availH / (this.maxRows + 1.25));
         const maxColFromW = Math.floor(availW / this.cols);
 
-        this.colWidth = Math.max(30, Math.min(maxColFromW, maxColFromH, 62));
+        const totalAimingRatio = 1.2;
+        const availH = Math.max(200, this.height - topOccupied - bottomDockSafe);
+        const maxColFromH = Math.floor(availH / (this.maxRows + totalAimingRatio));
+
+        this.colWidth = Math.max(28, Math.min(maxColFromW, maxColFromH, 62));
         this.boardW = this.colWidth * this.cols;
         this.boardH = this.colWidth * this.maxRows;
         this.tileSize = Math.floor(this.colWidth * 0.88);
 
         this.boardX = Math.round((this.width - this.boardW) / 2);
-        this.boardY = Math.round(this.height - this.boardH - bottomMargin);
 
-        // Spawn Aiming Line is positioned cleanly above the board with generous clearance
-        this.spawnY = Math.round(this.boardY - this.colWidth * 1.18);
+        // Position board securely above the floating bottom dock with balanced breathing room
+        const aimingH = Math.round(this.colWidth * totalAimingRatio);
+        const totalGameH = this.boardH + aimingH;
+        const freeSpace = Math.max(0, this.height - topOccupied - bottomDockSafe - totalGameH);
+
+        this.boardY = Math.round(this.height - bottomDockSafe - this.boardH - freeSpace * 0.25);
+        this.spawnY = Math.round(this.boardY - aimingH);
         this.resetPieceToCenter();
       }
 
@@ -512,17 +516,6 @@
       onPlatformSwipeIn() {
         this.synth.init();
 
-        // 1. If user is currently playing (score > 0 or tiles on board):
-        //    NEVER show modal! 0 Popups! Board stays 100% untouched!
-        if (this.hasActiveGameplay()) {
-          return;
-        }
-
-        // 2. Debounce: if user just tapped PLAY within the last 2 seconds:
-        if (this.lastPlayClickTime && (performance.now() - this.lastPlayClickTime < 2000)) {
-          return;
-        }
-
         if (this.state === 'DIFF_SELECT' || this.state === 'HOW_TO_PLAY') {
           return;
         }
@@ -530,8 +523,6 @@
         if (this.state === 'GAME_OVER') {
           this.startNewGame(false);
         }
-
-        this.showDiffSelect();
       }
 
       showDiffSelect() {

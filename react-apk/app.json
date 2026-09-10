@@ -1,0 +1,11 @@
+{
+  "name": "SwipePlay",
+  "displayName": "Swipe Play",
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-3940256099942544~3347511713",
+    "ios_app_id": "ca-app-pub-3940256099942544~1458002511",
+    "delay_app_measurement_init": true,
+    "optimize_initialization": true,
+    "optimize_ad_loading": true
+  }
+}

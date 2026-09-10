@@ -4128,6 +4128,23 @@
         this.levelIndex = this.loadLevelIndex(this.difficulty);
         this.hints = 1;
 
+        // Virtual On-Screen Joystick State
+        this.joyX = 0;
+        this.joyY = 0;
+        this.joyBaseRadius = 38;
+        this.joyKnobRadius = 19;
+        this.joyMaxDist = 26;
+        this.joyKnobX = 0;
+        this.joyKnobY = 0;
+        this.isJoyActive = false;
+        this.joyDir = null;
+
+        // Bottom Controls Coordinates
+        this.hintBtnX = 0;
+        this.hintBtnY = 0;
+        this.restartBtnX = 0;
+        this.restartBtnY = 0;
+
         this.sliderPos = this.difficulty === 'hard' ? 1.0 : (this.difficulty === 'medium' ? 0.5 : 0.0);
         this.isDraggingSlider = false;
         this.lastPlayClickTime = 0;
@@ -4304,15 +4321,32 @@
 
         this.headerY = 48;
 
-        const availW = Math.min(330, this.width - 48);
-        const availH = Math.min(360, this.height - 230);
+        // Dynamic safe bottom spacing for floating dock and virtual joystick
+        const bottomDockSafe = Math.max(68, Math.round(this.height * 0.09));
+        this.joyX = Math.round(this.width / 2);
+        this.joyY = Math.round(this.height - bottomDockSafe - 46);
+        if (!this.isJoyActive) {
+          this.joyKnobX = this.joyX;
+          this.joyKnobY = this.joyY;
+        }
+
+        this.hintBtnX = Math.max(44, Math.round(this.width * 0.14));
+        this.hintBtnY = this.joyY;
+        this.restartBtnX = Math.min(this.width - 44, Math.round(this.width * 0.86));
+        this.restartBtnY = this.joyY;
+
+        // Maze viewport bounded cleanly between header and joystick area
+        const minBoardTop = this.headerY + 28;
+        const maxBoardBottom = this.joyY - this.joyBaseRadius - 14;
+        const availH = Math.max(180, Math.min(420, maxBoardBottom - minBoardTop));
+        const availW = Math.min(340, this.width - 40);
 
         this.tileSize = Math.floor(Math.min(availW / this.cols, availH / this.rows, 50));
         this.boardW = this.cols * this.tileSize;
         this.boardH = this.rows * this.tileSize;
 
         this.boardX = Math.round((this.width - this.boardW) / 2);
-        this.boardY = Math.round((this.height - this.boardH) / 2 - 6);
+        this.boardY = Math.round(minBoardTop + (maxBoardBottom - minBoardTop - this.boardH) / 2);
 
         this.ball.radius = Math.floor(this.tileSize * 0.33);
         this.ball.x = this.boardX + this.ball.c * this.tileSize + this.tileSize / 2;
@@ -4381,14 +4415,22 @@
           }
 
           // Bottom-Left Hint Button (💡 1)
-          if (px >= 0 && px <= 85 && py >= this.height - 95) {
+          if (Math.hypot(px - this.hintBtnX, py - this.hintBtnY) <= 30) {
             this.useHint();
             return;
           }
 
-          // Bottom-Left Restart Button (↺)
-          if (px >= 86 && px <= 170 && py >= this.height - 95) {
+          // Bottom-Right Restart Button (↺)
+          if (Math.hypot(px - this.restartBtnX, py - this.restartBtnY) <= 30) {
             this.restartCurrentLevel();
+            return;
+          }
+
+          // Virtual On-Screen Joystick Interaction
+          const joyDist = Math.hypot(px - this.joyX, py - this.joyY);
+          if (joyDist <= this.joyBaseRadius * 1.35) {
+            this.isJoyActive = true;
+            this.updateJoystick(px, py);
             return;
           }
 
@@ -4403,6 +4445,11 @@
 
           if (this.state === 'DIFF_SELECT' && this.isDraggingSlider) {
             this.updateDifficultySlider(px);
+            return;
+          }
+
+          if (this.isJoyActive) {
+            this.updateJoystick(px, py);
             return;
           }
 
@@ -4433,6 +4480,11 @@
 
           if (this.state === 'DIFF_SELECT') {
             this.handleDifficultyModalUp(px, py);
+            return;
+          }
+
+          if (this.isJoyActive) {
+            this.resetJoystick();
             return;
           }
 
@@ -4506,34 +4558,9 @@
       onPlatformSwipeIn() {
         this.synth.init();
 
-        // 1. If user is currently playing with active painted tiles (1+ swipe or >1 tile painted):
-        //    NEVER show modal! 0 Popups! Board stays 100% untouched!
-        if (this.hasPaintedProgress()) {
-          return;
-        }
-
-        // 2. Debounce: if user just tapped PLAY within the last 2 seconds:
-        //    NEVER re-open modal!
-        if (this.lastPlayClickTime && (performance.now() - this.lastPlayClickTime < 2000)) {
-          return;
-        }
-
-        // 3. If already showing DIFF_SELECT or HOW_TO_PLAY:
         if (this.state === 'DIFF_SELECT' || this.state === 'HOW_TO_PLAY') {
           return;
         }
-
-        // 4. If user was on VICTORY_MODAL when they swiped away:
-        if (this.state === 'VICTORY_MODAL') {
-          const pack = LEVEL_PACKS[this.difficulty] || LEVEL_PACKS.easy;
-          const nextIdx = (this.levelIndex + 1) % pack.length;
-          this.loadLevel(nextIdx, false);
-          this.showDiffSelect();
-          return;
-        }
-
-        // 5. If board is fresh / untouched (0 swipes, initial tile only) and user returns from swipe:
-        this.showDiffSelect();
       }
 
       showDiffSelect() {
@@ -4846,6 +4873,8 @@
 
         if (this.paintedCount >= this.totalPlayableTiles) {
           this.handleWin();
+        } else if (this.isJoyActive && this.joyDir) {
+          this.tryRoll(this.joyDir.dr, this.joyDir.dc);
         }
       }
 
@@ -5260,21 +5289,162 @@
         }
       }
 
-      // EQUAL SIZED TACTILE BOTTOM CONTROLS: HINT (💡 1) & RESTART (↺)
-      renderBottomControls(ctx) {
-        const y = this.height - 54;
-        const r = 24;
+      updateJoystick(px, py) {
+        const dx = px - this.joyX;
+        const dy = py - this.joyY;
+        const dist = Math.hypot(dx, dy);
 
-        // 1. Bottom-Left Hint Button (💡 1)
-        const hintX = 48;
+        // Limit thumb knob displacement to outer rim
+        const clampedDist = Math.min(dist, this.joyMaxDist);
+        const angle = Math.atan2(dy, dx);
+
+        this.joyKnobX = this.joyX + Math.cos(angle) * clampedDist;
+        this.joyKnobY = this.joyY + Math.sin(angle) * clampedDist;
+
+        // Deadzone check
+        const deadzone = 11;
+        if (dist >= deadzone) {
+          // Determine cardinal direction (Right: 0, Down: 1, Left: 2, Up: 3)
+          let dr = 0;
+          let dc = 0;
+
+          if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
+            dc = 1; // Right
+          } else if (angle >= Math.PI / 4 && angle <= 3 * Math.PI / 4) {
+            dr = 1; // Down
+          } else if (angle <= -Math.PI / 4 && angle >= -3 * Math.PI / 4) {
+            dr = -1; // Up
+          } else {
+            dc = -1; // Left
+          }
+
+          const isNewDir = !this.joyDir || this.joyDir.dr !== dr || this.joyDir.dc !== dc;
+          this.joyDir = { dr, dc };
+
+          if (this.state === 'IDLE' && isNewDir) {
+            this.tryRoll(dr, dc);
+          }
+        } else {
+          this.joyDir = null;
+        }
+      }
+
+      resetJoystick() {
+        this.isJoyActive = false;
+        this.joyDir = null;
+        this.joyKnobX = this.joyX;
+        this.joyKnobY = this.joyY;
+      }
+
+      // ELEGANT RESPONSIVE ON-SCREEN VIRTUAL JOYSTICK
+      renderJoystick(ctx) {
+        const jx = this.joyX;
+        const jy = this.joyY;
+        const baseR = this.joyBaseRadius;
+        const knobR = this.joyKnobRadius;
+        const activeColor = this.colorObj ? this.colorObj.hex : '#06B6D4';
+
+        // 1. Outer Base Ring & Translucent Glass Disc
         ctx.save();
-        ctx.shadowColor = 'rgba(245, 158, 11, 0.35)';
-        ctx.shadowBlur = 12;
-        ctx.shadowOffsetY = 4;
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.08)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 3;
 
         ctx.beginPath();
-        ctx.arc(hintX, y, r, 0, Math.PI * 2);
-        const grad = ctx.createLinearGradient(hintX, y - r, hintX, y + r);
+        ctx.arc(jx, jy, baseR, 0, Math.PI * 2);
+        const bgGrad = ctx.createRadialGradient(jx, jy, 2, jx, jy, baseR);
+        bgGrad.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
+        bgGrad.addColorStop(1, 'rgba(241, 245, 249, 0.90)');
+        ctx.fillStyle = bgGrad;
+        ctx.fill();
+
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+        ctx.restore();
+
+        // 2. Cardinal Direction Indicators (▲, ▼, ◀, ▶)
+        const dOffset = baseR * 0.62;
+        const dirIndicators = [
+          { dr: -1, dc: 0, text: '▲', x: jx, y: jy - dOffset },
+          { dr: 1, dc: 0, text: '▼', x: jx, y: jy + dOffset },
+          { dr: 0, dc: -1, text: '◀', x: jx - dOffset, y: jy },
+          { dr: 0, dc: 1, text: '▶', x: jx + dOffset, y: jy }
+        ];
+
+        ctx.save();
+        for (const ind of dirIndicators) {
+          const isHighlighted = this.isJoyActive && this.joyDir &&
+                                this.joyDir.dr === ind.dr && this.joyDir.dc === ind.dc;
+          ctx.font = `${isHighlighted ? '900' : '700'} ${isHighlighted ? '12px' : '10px'} sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          if (isHighlighted) {
+            ctx.fillStyle = activeColor;
+            ctx.shadowColor = activeColor + '88';
+            ctx.shadowBlur = 8;
+          } else {
+            ctx.fillStyle = '#94A3B8';
+            ctx.shadowBlur = 0;
+          }
+          ctx.fillText(ind.text, ind.x, ind.y);
+        }
+        ctx.restore();
+
+        // 3. Inner Draggable Thumb Knob
+        const kx = this.joyKnobX;
+        const ky = this.joyKnobY;
+
+        ctx.save();
+        if (this.isJoyActive) {
+          ctx.shadowColor = activeColor + '66';
+          ctx.shadowBlur = 14;
+          ctx.shadowOffsetY = 2;
+        } else {
+          ctx.shadowColor = 'rgba(15, 23, 42, 0.14)';
+          ctx.shadowBlur = 8;
+          ctx.shadowOffsetY = 2;
+        }
+
+        ctx.beginPath();
+        ctx.arc(kx, ky, knobR, 0, Math.PI * 2);
+        const kGrad = ctx.createRadialGradient(kx - 3, ky - 3, 2, kx, ky, knobR);
+        kGrad.addColorStop(0, '#FFFFFF');
+        kGrad.addColorStop(1, '#E2E8F0');
+        ctx.fillStyle = kGrad;
+        ctx.fill();
+
+        ctx.strokeStyle = this.isJoyActive ? activeColor : '#CBD5E1';
+        ctx.lineWidth = this.isJoyActive ? 2.0 : 1.5;
+        ctx.stroke();
+
+        // Center Accent Dot
+        ctx.beginPath();
+        ctx.arc(kx, ky, 5, 0, Math.PI * 2);
+        ctx.fillStyle = this.isJoyActive ? activeColor : '#94A3B8';
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      // BALANCED TACTILE BOTTOM CONTROLS: HINT (💡), JOYSTICK (🎮), & RESTART (↺)
+      renderBottomControls(ctx) {
+        // 1. Virtual Joystick in Center
+        this.renderJoystick(ctx);
+
+        const r = 22;
+
+        // 2. Left Hint Button (💡 1)
+        const hintX = this.hintBtnX;
+        const hintY = this.hintBtnY;
+        ctx.save();
+        ctx.shadowColor = 'rgba(245, 158, 11, 0.35)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 3;
+
+        ctx.beginPath();
+        ctx.arc(hintX, hintY, r, 0, Math.PI * 2);
+        const grad = ctx.createLinearGradient(hintX, hintY - r, hintX, hintY + r);
         grad.addColorStop(0, '#FBBF24');
         grad.addColorStop(1, '#F59E0B');
         ctx.fillStyle = grad;
@@ -5284,37 +5454,38 @@
         ctx.lineWidth = 2.0;
         ctx.stroke();
 
-        ctx.font = '22px sans-serif';
+        ctx.font = '20px sans-serif';
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('💡', hintX, y);
+        ctx.fillText('💡', hintX, hintY);
 
-        const badgeX = hintX + 16;
-        const badgeY = y - 16;
+        const badgeX = hintX + 15;
+        const badgeY = hintY - 15;
         ctx.beginPath();
-        ctx.arc(badgeX, badgeY, 9, 0, Math.PI * 2);
+        ctx.arc(badgeX, badgeY, 8.5, 0, Math.PI * 2);
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
         ctx.strokeStyle = '#E2E8F0';
         ctx.lineWidth = 1.0;
         ctx.stroke();
 
-        ctx.font = '900 11px Outfit, sans-serif';
+        ctx.font = '900 10.5px Outfit, sans-serif';
         ctx.fillStyle = '#1E293B';
         ctx.fillText(this.hints.toString(), badgeX, badgeY + 1);
         ctx.restore();
 
-        // 2. Restart Level Button (↺)
-        const restartX = 112;
+        // 3. Right Restart Level Button (↺)
+        const restartX = this.restartBtnX;
+        const restartY = this.restartBtnY;
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.10)';
-        ctx.shadowBlur = 12;
-        ctx.shadowOffsetY = 4;
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 3;
 
         ctx.beginPath();
-        ctx.arc(restartX, y, r, 0, Math.PI * 2);
-        const rGrad = ctx.createLinearGradient(restartX, y - r, restartX, y + r);
+        ctx.arc(restartX, restartY, r, 0, Math.PI * 2);
+        const rGrad = ctx.createLinearGradient(restartX, restartY - r, restartX, restartY + r);
         rGrad.addColorStop(0, '#FFFFFF');
         rGrad.addColorStop(1, '#F1F5F9');
         ctx.fillStyle = rGrad;
@@ -5324,11 +5495,11 @@
         ctx.lineWidth = 2.0;
         ctx.stroke();
 
-        ctx.font = '900 22px Outfit, sans-serif';
+        ctx.font = '900 20px Outfit, sans-serif';
         ctx.fillStyle = '#475569';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('↺', restartX, y + 1);
+        ctx.fillText('↺', restartX, restartY + 1);
         ctx.restore();
       }
 

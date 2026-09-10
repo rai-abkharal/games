@@ -1,6 +1,6 @@
 {
-  "version": 29,
-  "updatedAt": "2026-09-08T06:27:03.769Z",
+  "version": 30,
+  "updatedAt": "2026-09-10T07:09:52.456Z",
   "games": [
     {
       "id": "game-mtmsq289",
@@ -45,6 +45,7 @@
     {
       "id": "tap-cannon",
       "title": "Tap Cannon",
+      "sourceTitle": "Tap Cannon",
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/tap-cannon/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/tap-cannon.webp",
@@ -61,11 +62,17 @@
       "features": {
         "sound": true,
         "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "color-connect",
       "title": "Color Connect",
+      "sourceTitle": "Color Connect",
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/color-connect/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/color-connect.webp",
@@ -83,6 +90,11 @@
         "sound": true,
         "vibration": true,
         "hint": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
@@ -120,6 +132,7 @@
     {
       "id": "color-match",
       "title": "Color Match",
+      "sourceTitle": "Color Match",
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/color-match/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/color-match.webp",
@@ -136,6 +149,11 @@
       "features": {
         "sound": true,
         "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
@@ -144,7 +162,7 @@
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/water-sort-3d/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/water-sort-3d.svg",
-      "sizeBytes": 364512,
+      "sizeBytes": 372684,
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/water-sort-3d/1.0.0/manifest.json",
@@ -158,11 +176,13 @@
         "vibration": true,
         "hint": false
       },
-      "sha256": "c084387628c374ec56c2cad7c7d9065f1851458ceed7e090bb1358cb0b691682"
+      "sha256": "2b7581ecd169b6529a338b6fc4831924592b08c83b2424ebee4c851248a9e734",
+      "updatedAt": "2026-09-10T06:33:19.995Z"
     },
     {
       "id": "stack-tower",
       "title": "Stack Tower",
+      "sourceTitle": "Stack Tower",
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/stack-tower/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/stack-tower.webp",
@@ -179,6 +199,11 @@
       "features": {
         "sound": true,
         "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
@@ -206,6 +231,7 @@
     {
       "id": "lane-dodge",
       "title": "Lane Dodge",
+      "sourceTitle": "Lane Dodge",
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/lane-dodge/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/lane-dodge.webp",
@@ -222,6 +248,11 @@
       "features": {
         "sound": true,
         "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
@@ -249,6 +280,7 @@
     {
       "id": "memory-flip",
       "title": "Memory Flip",
+      "sourceTitle": "Memory Flip",
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/memory-flip/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/memory-flip.webp",
@@ -265,6 +297,11 @@
       "features": {
         "sound": true,
         "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
@@ -292,6 +329,7 @@
     {
       "id": "fruit-catch",
       "title": "Fruit Catch",
+      "sourceTitle": "Fruit Catch",
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/fruit-catch/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/fruit-catch.webp",
@@ -316,6 +354,11 @@
       "features": {
         "sound": true,
         "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
@@ -343,6 +386,7 @@
     {
       "id": "tiny-archer",
       "title": "Tiny Archer",
+      "sourceTitle": "Tiny Archer",
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/tiny-archer/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/tiny-archer.webp",
@@ -367,11 +411,17 @@
       "features": {
         "sound": true,
         "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "pipe-connect",
       "title": "Pipe Connect",
+      "sourceTitle": "Pipe Connect",
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/pipe-connect/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/pipe-connect.webp",
@@ -388,6 +438,11 @@
       "features": {
         "sound": true,
         "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
@@ -415,6 +470,7 @@
     {
       "id": "one-tap-runner",
       "title": "One-Tap Runner",
+      "sourceTitle": "One-Tap Runner",
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/one-tap-runner/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/one-tap-runner.webp",
@@ -431,11 +487,17 @@
       "features": {
         "sound": true,
         "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "merge-dots",
       "title": "Merge Dots",
+      "sourceTitle": "Merge Dots",
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/merge-dots/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/merge-dots.webp",
@@ -460,6 +522,11 @@
       "features": {
         "sound": true,
         "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
@@ -641,6 +708,7 @@
     {
       "id": "nut-bolt-sort",
       "title": "Nut & Bolt Sort",
+      "sourceTitle": "Nut & Bolt Sort",
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/nut-bolt-sort/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/nut-bolt-sort.webp",
@@ -658,11 +726,17 @@
         "sound": true,
         "vibration": true,
         "hint": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "sudoku-pro",
       "title": "Sudoku Pro",
+      "sourceTitle": "Sudoku Pro",
       "version": "1.0.1",
       "entryUrl": "http://localhost:8080/games/sudoku-pro/1.0.1/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/sudoku-pro.webp",
@@ -680,6 +754,11 @@
         "sound": true,
         "vibration": true,
         "hint": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
@@ -707,6 +786,7 @@
     {
       "id": "number-chain",
       "title": "Number Chain",
+      "sourceTitle": "Number Chain",
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/number-chain/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/number-chain.webp",
@@ -724,28 +804,39 @@
         "sound": true,
         "vibration": true,
         "undo": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "number-drop",
       "title": "Number Drop",
+      "sourceTitle": "Number Drop",
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/number-drop/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/number-drop.webp",
-      "sizeBytes": 66598,
+      "sizeBytes": 66345,
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/number-drop/1.1.0/manifest.json",
       "feedOrder": 22,
       "category": "Puzzle",
       "description": "Drop and merge falling number blocks across a 5-column grid. Features 3 grid height modes (Easy, Medium, Hard), dynamic top ambient glow matching active piece, 'slide-under' merge absorption animations, spacious top-right diagonal preview, and pure soft radiant glow trails.",
-      "sha256": "a4784e4880af777397660df36df442067f933d97053ac224c1c1a0526f4fdb10",
+      "sha256": "0f4b26eeb77bbb4e4967d324a4bc17583d4050a78a77b9663b1fbaa837ce9095",
       "status": "published",
       "touchZones": [],
       "features": {
         "sound": true,
         "vibration": true,
         "undo": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
@@ -795,6 +886,7 @@
     {
       "id": "word-travel",
       "title": "Word Travel",
+      "sourceTitle": "Word Travel",
       "version": "2.1.0",
       "entryUrl": "http://localhost:8080/games/word-travel/2.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/word-travel.webp",
@@ -814,22 +906,28 @@
         "hints": true,
         "powerups": true,
         "particles": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "maze-paint",
       "title": "Color Maze Paint",
+      "sourceTitle": "Color Maze Paint",
       "version": "1.14.0",
       "entryUrl": "http://localhost:8080/games/maze-paint/1.14.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/maze-paint.webp",
-      "sizeBytes": 118920,
+      "sizeBytes": 124657,
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/maze-paint/1.14.0/manifest.json",
       "feedOrder": 24,
       "category": "Puzzle",
       "description": "Masterwork 3D underground sunken roller paint puzzle game. Features ultra-elegant soft marimba acoustic wall audio, single-stream touch deduplication, instant-opening Sudoku Pro-style difficulty modal, equal-sized bottom controls, and AAA victory celebration.",
-      "sha256": "b0f7562a09f32cb871b9975a8b1e023905a000ede0d98688e35c55359c5509ea",
+      "sha256": "6b551cc375f0335fed22848fe53c565e46cdef60ea52031395de4f77215f76c9",
       "status": "published",
       "touchZones": [],
       "features": {
@@ -838,11 +936,17 @@
         "modes": true,
         "hints": true,
         "particles": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "real-drive",
       "title": "Real Drive: 3D Bus Simulator",
+      "sourceTitle": "Real Drive: 3D Bus Simulator",
       "version": "1.0.9",
       "entryUrl": "http://localhost:8080/games/real-drive/1.0.9/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/real-drive.webp",
@@ -865,11 +969,17 @@
         "trafficAI": true,
         "trafficLights": true,
         "multiCamera": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "moto-balance",
       "title": "Moto Balance: Wheelie Run",
+      "sourceTitle": "Moto Balance: Wheelie Run",
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/moto-balance/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/moto-balance.webp",
@@ -897,11 +1007,17 @@
         "modes": true,
         "physics": true,
         "particles": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "tap-the-bottle",
       "title": "Tap the Bottle",
+      "sourceTitle": "Tap the Bottle",
       "version": "1.0.3",
       "entryUrl": "http://localhost:8080/games/tap-the-bottle/1.0.3/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/tap-the-bottle.webp",
@@ -929,11 +1045,17 @@
         "physics": true,
         "levels": true,
         "offline": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "darts-duel",
       "title": "Darts Duel",
+      "sourceTitle": "Darts Duel",
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/darts-duel/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/darts-duel.webp",
@@ -950,6 +1072,11 @@
       "features": {
         "sound": true,
         "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
@@ -977,6 +1104,7 @@
     {
       "id": "four-in-a-row",
       "title": "4 In A Row",
+      "sourceTitle": "4 In A Row",
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/four-in-a-row/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/four-in-a-row.webp",
@@ -993,6 +1121,11 @@
       "features": {
         "sound": true,
         "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
@@ -1001,7 +1134,7 @@
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/water-sort/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/water-sort.webp",
-      "sizeBytes": 15000,
+      "sizeBytes": 372684,
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/water-sort/1.0.0/manifest.json",
@@ -1012,11 +1145,14 @@
       "features": {
         "sound": true,
         "vibration": true
-      }
+      },
+      "sha256": "2b7581ecd169b6529a338b6fc4831924592b08c83b2424ebee4c851248a9e734",
+      "updatedAt": "2026-09-10T06:33:20.002Z"
     },
     {
       "id": "snake-classic",
       "title": "Cute Snake",
+      "sourceTitle": "Cute Snake",
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/snake-classic/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/snake-classic.webp",
@@ -1033,11 +1169,17 @@
       "features": {
         "sound": true,
         "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "quantum-maze",
       "title": "Quantum Maze",
+      "sourceTitle": "Quantum Maze",
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/quantum-maze/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/quantum-maze.webp",
@@ -1063,11 +1205,17 @@
         "sound": true,
         "vibration": true,
         "hint": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "jetpack-surge",
       "title": "Jetpack Surge",
+      "sourceTitle": "Jetpack Surge",
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/jetpack-surge/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/jetpack-surge.webp",
@@ -1084,11 +1232,17 @@
       "features": {
         "sound": true,
         "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "cyber-blade",
       "title": "Cyber Blade",
+      "sourceTitle": "Cyber Blade",
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/cyber-blade/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/cyber-blade.webp",
@@ -1113,11 +1267,17 @@
       "features": {
         "sound": true,
         "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "crown-arena",
       "title": "Crown Arena",
+      "sourceTitle": "Crown Arena",
       "version": "1.1.0",
       "entryUrl": "http://localhost:8080/games/crown-arena/1.1.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/crown-arena.webp",
@@ -1149,11 +1309,17 @@
       "features": {
         "sound": true,
         "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "sky-pop",
       "title": "Sky Pop",
+      "sourceTitle": "Sky Pop",
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/sky-pop/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/sky-pop.webp",
@@ -1170,11 +1336,17 @@
       "features": {
         "sound": true,
         "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "neon-switch",
       "title": "Neon Switch",
+      "sourceTitle": "Neon Switch",
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/neon-switch/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/neon-switch.webp",
@@ -1191,11 +1363,17 @@
       "features": {
         "sound": true,
         "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     },
     {
       "id": "fruit-frenzy",
       "title": "Fruit Frenzy",
+      "sourceTitle": "Fruit Frenzy",
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/fruit-frenzy/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/fruit-frenzy.webp",
@@ -1212,6 +1390,11 @@
       "features": {
         "sound": true,
         "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
       }
     }
   ]
