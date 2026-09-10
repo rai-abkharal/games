@@ -40,6 +40,12 @@ interface Props {
   mayLoad: boolean;
   /** Render placeholder chrome (only for pages near the current one). */
   near: boolean;
+  /**
+   * The host cannot show gameplay right now (app in background, Settings on
+   * top, full-screen ad). Even the active page stays frozen while this is set,
+   * which also covers a load that finishes while the app is backgrounded.
+   */
+  suspended: boolean;
   /** Callbacks are keyed by game id, which stays valid across catalogue reorders. */
   onPhase: (gameId: string, phase: PagePhase) => void;
   onMessage: (gameId: string, message: GameToHostMessage) => void;
@@ -64,7 +70,7 @@ type WebSource = { uri: string } | { html: string; baseUrl: string };
  * retry state instead of taking the feed down.
  */
 export const GamePage = memo(
-  forwardRef<GamePageHandle, Props>(function GamePageInner({ game, slot, mayLoad, near, onPhase, onMessage }, ref) {
+  forwardRef<GamePageHandle, Props>(function GamePageInner({ game, slot, mayLoad, near, suspended, onPhase, onMessage }, ref) {
     const webviewRef = useRef<WebView<object>>(null);
     const [live, setLive] = useState(false);
     const [attempt, setAttempt] = useState(0);
@@ -104,6 +110,10 @@ export const GamePage = memo(
         }
         return;
       }
+      // "behind" only retains a WebView it already has; starting a fresh load
+      // there would put a third page on the shared Blink main thread for a
+      // game the player has just left.
+      if (slot === 'behind') return;
       if (mayLoad && !live) setLive(true);
     }, [slot, mayLoad, live]);
 
@@ -199,21 +209,25 @@ export const GamePage = memo(
     // Right after a load, an offscreen page keeps a few frames of grace so its
     // title screen is rendered before the freeze (native pauses offscreen
     // pages in onPageFinished, after their first paint).
+    // This effect is the single source of truth for the game's run state, so a
+    // load that completes while the app is in the background (or an ad is up)
+    // is frozen instead of resumed, and un-suspending wakes exactly the page on
+    // screen.
     const justLoaded = useRef(false);
     useEffect(() => {
       if (phase !== 'ready') return;
       const fresh = justLoaded.current;
       justLoaded.current = false;
-      if (slot === 'active') {
+      if (slot === 'active' && !suspended) {
         injectSavedState();
         resume();
-      } else if (fresh) {
+      } else if (fresh && slot !== 'active') {
         injectSavedState();
         inject(buildPauseScript(FEED.preloadGraceFrames));
       } else {
         pause();
       }
-    }, [slot, phase, injectSavedState, resume, pause, inject]);
+    }, [slot, phase, suspended, injectSavedState, resume, pause, inject]);
 
     // Safety fallback: once the page is ready, ensure placeholder cannot linger
     useEffect(() => {
@@ -255,6 +269,7 @@ export const GamePage = memo(
     // saved state and the right pause/resume state, like onPageFinished does.
     const handleLoadStart = useCallback(() => {
       if (phaseRef.current !== 'ready') return;
+      isResumedRef.current = false; // the new document must be resumed again
       placeholderOpacity.setValue(1);
       setPlaceholderShown(true);
       setPhase('loading');
@@ -315,7 +330,9 @@ export const GamePage = memo(
             setSupportMultipleWindows={false}
             setBuiltInZoomControls={false}
             textZoom={100}
-            androidLayerType="hardware"
+            // No forced hardware layer: WebView composites through its own draw
+            // functor; a LAYER_TYPE_HARDWARE wrapper adds a full-screen GPU
+            // texture per page and an extra copy per frame for the live game.
             // Let the pager intercept vertical drags exactly like ViewPager2 does
             // with a plain WebView child; touch zones are honoured by the pager.
             nestedScrollEnabled={false}

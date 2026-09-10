@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, PanResponder, StyleSheet, View } from 'react-native';
 import { FEED } from '../../config/env';
 import { dragOffset, pointInZones, resolveTarget, shouldClaimSwipe } from '../../feed/pagerGesture';
@@ -8,11 +8,12 @@ import { GAME_SURFACE } from '../../theme/themes';
 
 interface Props {
   count: number;
-  /** Controlled current page. Changing it from outside jumps without animation. */
+  /** Controlled current page (actual index). Changing it from outside jumps without animation. */
   index: number;
   pageHeight: number;
   width: number;
   swipeEnabled: boolean;
+  /** Wrap around like the native LOOP_FACTOR pager. Needs at least three games. */
   loop?: boolean;
   touchZonesFor: (index: number) => readonly TouchZone[] | undefined;
   /** Fired the moment a swipe's destination is known (ViewPager2's onPageSelected). */
@@ -26,14 +27,18 @@ interface Props {
  * Vertical, one-page-per-swipe pager for WebView pages — the React Native
  * counterpart of the vertical ViewPager2 in MainActivity.
  *
- * Pages are laid out at `index * pageHeight` inside one translated container
- * (native-driver transform), so a drag costs a single value update per touch
- * move and the snap runs entirely on the UI thread. The pager is a plain
- * responder on the pages' ancestor: taps and small drags reach the game, and
- * only once a drag is clearly vertical (RecyclerView's slop + dominant-axis
- * rule) — and did not start in one of the game's `touchZones` — does the pager
- * claim it, which cancels the touch inside the WebView exactly like a
- * ViewPager2 intercept. Games can switch swiping off through the bridge.
+ * Pages live on an unbounded *virtual* strip: page `v` sits at `v × height`
+ * inside one translated container (native-driver transform). In loop mode
+ * virtual index `v` shows game `v mod count`, so wrapping never re-bases the
+ * translation — no jump, no blank frame. A drag costs one value update per
+ * touch move and the snap runs entirely on the UI thread.
+ *
+ * The pager is a plain responder on the pages' ancestor: taps and small drags
+ * reach the game, and only once a drag is clearly vertical (RecyclerView's
+ * slop + dominant-axis rule) — and did not start in one of the game's
+ * `touchZones` — does the pager claim it, which cancels the touch inside the
+ * WebView exactly like a ViewPager2 intercept. Games can switch swiping off
+ * through the bridge.
  */
 export function GamePager({
   count,
@@ -41,38 +46,48 @@ export function GamePager({
   pageHeight,
   width,
   swipeEnabled,
-  loop = true,
+  loop = false,
   touchZonesFor,
   onIndexChange,
   onSettled,
   renderPage,
 }: Props) {
+  const isLoop = loop && count > 2;
+  const toActual = useCallback((virtual: number) => (isLoop ? ((virtual % count) + count) % count : virtual), [isLoop, count]);
+
   const translateY = useRef(new Animated.Value(-index * pageHeight)).current;
   const valueRef = useRef(-index * pageHeight);
-  const positionRef = useRef(index);
+  const virtualRef = useRef(index);
+  const [virtual, setVirtual] = useState(index);
   const touchStartRef = useRef({ x: 0, y: 0 });
-  const rootRef = useRef<React.ComponentRef<typeof View>>(null);
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
   const gesture = useRef({ base: 0, dyAtGrant: 0, active: false });
 
-  const latest = useRef({ count, pageHeight, width, swipeEnabled, loop, touchZonesFor, onIndexChange, onSettled });
-  latest.current = { count, pageHeight, width, swipeEnabled, loop, touchZonesFor, onIndexChange, onSettled };
+  const latest = useRef({ count, pageHeight, width, swipeEnabled, isLoop, touchZonesFor, onIndexChange, onSettled, toActual });
+  latest.current = { count, pageHeight, width, swipeEnabled, isLoop, touchZonesFor, onIndexChange, onSettled, toActual };
+
+  // Native-driver animations do not update the JS-side value; the listener
+  // keeps `valueRef` truthful so an interrupted settle continues from where
+  // the track actually is instead of from a stale number.
+  useEffect(() => {
+    const id = translateY.addListener(({ value }) => {
+      valueRef.current = value;
+    });
+    return () => translateY.removeListener(id);
+  }, [translateY]);
 
   const stopAnimation = useCallback(() => {
     if (animationRef.current) {
       animationRef.current.stop();
       animationRef.current = null;
-      const val = (translateY as any)._value;
-      if (typeof val === 'number') {
-        valueRef.current = val;
-      }
     }
-  }, [translateY]);
+  }, []);
 
   const jumpTo = useCallback(
     (target: number) => {
       stopAnimation();
-      positionRef.current = target;
+      virtualRef.current = target;
+      setVirtual(target);
       const value = -target * latest.current.pageHeight;
       valueRef.current = value;
       translateY.setValue(value);
@@ -80,26 +95,24 @@ export function GamePager({
     [stopAnimation, translateY],
   );
 
-  // External changes (tab switch, catalogue reorder, initial page, page height)
-  // jump instantly. The parent echoing an index this pager itself reported
-  // must not interrupt the settle animation, hence the position check.
+  // External changes (tab switch, catalogue reorder, initial page, page
+  // height) jump instantly. The parent echoing an index this pager itself
+  // reported must not interrupt the settle animation, hence the comparison
+  // against the virtual position's actual index.
   const lastHeight = useRef(pageHeight);
   useEffect(() => {
     const heightChanged = lastHeight.current !== pageHeight;
     lastHeight.current = pageHeight;
-    if ((positionRef.current !== index || heightChanged) && !gesture.current.active) jumpTo(index);
-  }, [index, pageHeight, jumpTo]);
+    if ((toActual(virtualRef.current) !== index || heightChanged) && !gesture.current.active) jumpTo(index);
+  }, [index, pageHeight, jumpTo, toActual]);
 
   const settleTo = useCallback(
     (target: number) => {
       stopAnimation();
-      const h = latest.current.pageHeight;
-      const total = latest.current.count;
-      const isLoop = latest.current.loop && total > 1;
-      const toValue = -target * h;
+      const toValue = -target * latest.current.pageHeight;
       const animation = Animated.timing(translateY, {
         toValue,
-        duration: 240,
+        duration: FEED.settleDurationMs,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       });
@@ -107,17 +120,8 @@ export function GamePager({
       animation.start(({ finished }) => {
         if (animationRef.current === animation) animationRef.current = null;
         if (finished) {
-          if (isLoop) {
-            const normalized = ((target % total) + total) % total;
-            positionRef.current = normalized;
-            const normValue = -normalized * h;
-            valueRef.current = normValue;
-            translateY.setValue(normValue);
-            latest.current.onSettled(normalized);
-          } else {
-            valueRef.current = toValue;
-            latest.current.onSettled(target);
-          }
+          valueRef.current = toValue;
+          latest.current.onSettled(latest.current.toActual(target));
         }
       });
     },
@@ -129,10 +133,9 @@ export function GamePager({
       PanResponder.create({
         onStartShouldSetPanResponder: () => false,
         onStartShouldSetPanResponderCapture: event => {
-          touchStartRef.current = {
-            x: event.nativeEvent.locationX,
-            y: event.nativeEvent.locationY,
-          };
+          // The touch target is the page (WebView wrapper) that fills the
+          // viewport, so its local coordinates are page-relative.
+          touchStartRef.current = { x: event.nativeEvent.locationX, y: event.nativeEvent.locationY };
           return false;
         },
         onMoveShouldSetPanResponderCapture: () => false,
@@ -142,7 +145,7 @@ export function GamePager({
           const startedInZone = pointInZones(
             touchStartRef.current.x / w,
             touchStartRef.current.y / h,
-            zonesFor(positionRef.current),
+            zonesFor(latest.current.toActual(virtualRef.current)),
           );
           return shouldClaimSwipe({
             dx: state.dx,
@@ -160,18 +163,18 @@ export function GamePager({
         },
         onPanResponderMove: (_event, state) => {
           if (!gesture.current.active) return;
-          const { count: total, pageHeight: h, loop: isLoop } = latest.current;
-          const rest = -positionRef.current * h;
+          const { count: total, pageHeight: h, isLoop: wrap } = latest.current;
+          const rest = -virtualRef.current * h;
           // Distance from the resting position, including any interrupted settle.
           const dy = gesture.current.base - rest + (state.dy - gesture.current.dyAtGrant);
           const offset = dragOffset({
             dy,
-            current: positionRef.current,
+            current: virtualRef.current,
             count: total,
             pageHeight: h,
             resistance: FEED.overscrollResistance,
             maxOverscroll: FEED.overscrollMaxPx,
-            loop: isLoop && total > 1,
+            loop: wrap,
           });
           const value = rest + offset;
           valueRef.current = value;
@@ -180,8 +183,8 @@ export function GamePager({
         onPanResponderRelease: (_event, state) => {
           if (!gesture.current.active) return;
           gesture.current.active = false;
-          const { count: total, pageHeight: h, loop: isLoop, onIndexChange: notify } = latest.current;
-          const current = positionRef.current;
+          const { count: total, pageHeight: h, isLoop: wrap, onIndexChange: notify } = latest.current;
+          const current = virtualRef.current;
           const dy = valueRef.current + current * h;
           const target = resolveTarget({
             dy,
@@ -191,70 +194,63 @@ export function GamePager({
             pageHeight: h,
             thresholdRatio: FEED.swipeThresholdRatio,
             flingVelocity: FEED.swipeFlingVelocity,
-            loop: isLoop && total > 1,
+            loop: wrap,
           });
           if (target !== current) {
-            positionRef.current = target;
-            const norm = isLoop && total > 1 ? ((target % total) + total) % total : target;
-            notify(norm, target > current ? 1 : -1);
+            virtualRef.current = target;
+            setVirtual(target);
+            notify(latest.current.toActual(target), target > current ? 1 : -1);
           }
           settleTo(target);
         },
         onPanResponderTerminate: () => {
           if (!gesture.current.active) return;
           gesture.current.active = false;
-          settleTo(positionRef.current);
+          settleTo(virtualRef.current);
         },
       }),
     [settleTo, stopAnimation, translateY],
   );
 
-  // ViewPager2 offscreenPageLimit = 1: strictly render active item and immediate neighbors
+  // ViewPager2 offscreenPageLimit = 1: the current page and its two neighbours.
+  //
+  // Each page carries the shared translation itself and is a direct child of
+  // the viewport. Translating one tall container instead would draw the pages
+  // fine (React Native does not clip children) but Android only dispatches a
+  // touch to a child whose *own* bounds contain the point in the child's
+  // coordinate space — a container moved up by n pages puts the point n pages
+  // below its bottom edge, so every page after the first would be visible yet
+  // untouchable.
   const pages = useMemo(() => {
-    if (pageHeight <= 0 || width <= 0) return null;
-    const isLoop = loop && count > 1;
+    if (pageHeight <= 0 || width <= 0 || count <= 0) return null;
     const nodes: React.ReactNode[] = [];
-    const minOffset = -1;
-    const maxOffset = 1;
-    for (let offset = minOffset; offset <= maxOffset; offset++) {
-      const virtualIdx = index + offset;
-      if (!isLoop && (virtualIdx < 0 || virtualIdx >= count)) continue;
-      const actualIdx = ((virtualIdx % count) + count) % count;
-      const node = renderPage(actualIdx);
+    for (let offset = -1; offset <= 1; offset++) {
+      const v = virtual + offset;
+      if (!isLoop && (v < 0 || v >= count)) continue;
+      const actual = toActual(v);
+      const node = renderPage(actual);
       if (!node) continue;
       nodes.push(
-        <View
-          key={actualIdx}
+        <Animated.View
+          key={actual}
           pointerEvents={offset === 0 ? 'auto' : 'none'}
-          style={[styles.page, { top: virtualIdx * pageHeight, height: pageHeight, width }]}
+          style={[styles.page, { top: v * pageHeight, height: pageHeight, width, transform: [{ translateY }] }]}
         >
           {node}
-        </View>,
+        </Animated.View>,
       );
     }
     return nodes;
-  }, [count, pageHeight, width, index, loop, renderPage]);
+  }, [count, pageHeight, width, virtual, isLoop, toActual, renderPage, translateY]);
 
   return (
-    <View ref={rootRef} style={styles.root} collapsable={false} {...responder.panHandlers}>
-      <Animated.View
-        style={[
-          styles.track,
-          {
-            width,
-            height: Math.max(3, count + 2) * pageHeight,
-            transform: [{ translateY }],
-          },
-        ]}
-      >
-        {pages}
-      </Animated.View>
+    <View style={styles.root} collapsable={false} {...responder.panHandlers}>
+      {pages}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, overflow: 'hidden', backgroundColor: GAME_SURFACE },
-  track: { position: 'absolute', top: 0, left: 0 },
   page: { position: 'absolute', left: 0 },
 });

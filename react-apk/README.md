@@ -449,7 +449,9 @@ rules and API normalisation.
 * **Icons** are drawn with views and monochrome glyphs instead of the vector
   drawables, so they tint like the originals without an icon dependency.
 * **Wrap-around.** The native pager loops (`LOOP_FACTOR = 1000`). The React
-  pager is finite: the first and last page resist instead of wrapping.
+  pager loops too once the feed has three or more games (pages live on an
+  unbounded virtual strip, so wrapping never re-bases the translation); with
+  one or two games the ends resist instead.
 * **Swipe interception.** ViewPager2 intercepts natively; the React pager
   decides in JS from touch events. Because taps and the first pixels of every
   drag still reach the WebView, and the decision uses the same slop and

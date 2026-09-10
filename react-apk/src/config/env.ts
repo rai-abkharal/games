@@ -95,8 +95,17 @@ export const STORAGE_KEYS = {
 export const FEED = {
   /** Wait this long after the active game has loaded before preparing the next one. */
   warmDelayMs: 600,
+  /**
+   * Heavier next games (inline Phaser builds are 1–1.5 MB) parse on the Blink
+   * main thread that the active game shares, so they wait longer — by then the
+   * player is usually past the title screen and a brief parse is unnoticeable.
+   */
+  warmDelayHeavyMs: 1500,
+  heavyGameBytes: 400 * 1024,
   /** Prepare the next game anyway if the active one is still loading after this. */
   warmFallbackMs: 3500,
+  /** A page that was not prepared creates its WebView only once the pager has rested this long. */
+  restDebounceMs: 120,
   /** Start in-memory HTML prefetching for further games once the warm page is ready, or after this. */
   prefetchFallbackMs: 2500,
   /** Number of games beyond the warm page whose HTML is fetched into memory. */
@@ -106,8 +115,13 @@ export const FEED = {
   /** Total memory budget for prefetched HTML. */
   prefetchBudgetBytes: 8 * 1024 * 1024,
   prefetchTimeoutMs: 15_000,
-  /** Frames a freshly loaded background page may still render before its frame gate closes (0 = instant freeze like native). */
-  preloadGraceFrames: 0,
+  /**
+   * Frames a freshly loaded background page may still render before its frame
+   * gate closes. Engines finish booting and paint their title screen inside
+   * the first rAF callbacks; freezing at 0 would leave a dark canvas until the
+   * page is swiped to. ~0.75 s of offscreen work is the price of an instant reveal.
+   */
+  preloadGraceFrames: 45,
   /** Vertical movement (px) before the pager claims a drag from the game. */
   swipeSlopPx: 12,
   /** Fraction of the page height that must be dragged to change page without a fling. */

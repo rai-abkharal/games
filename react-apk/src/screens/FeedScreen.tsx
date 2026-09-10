@@ -111,6 +111,12 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const currentIdRef = useRef<string | null>(usePlayerStore.getState().lastPlayedGameId);
   const [swipeEnabled, setSwipeEnabled] = useState(true);
   const [stage, setStage] = useState({ width: 0, height: 0 });
+  const [appActive, setAppActive] = useState(true);
+  const [focused, setFocused] = useState(true);
+  /** True once the pager has been at rest for FEED.restDebounceMs (WebViews are created only then). */
+  const [rested, setRested] = useState(true);
+  const suspended = !appActive || !focused || fullScreenAdShowing;
+  const loop = list.length > 2;
 
   // When the list changes (tab switch, catalogue update) stay on the same game
   // if it is still there, otherwise clamp (MainActivity.filterGamesByTab).
@@ -164,7 +170,8 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     const { index, direction } = positionRef.current;
     const pages = listRef.current;
     if (pages.length === 0) return undefined;
-    const target = ((index + direction) % pages.length + pages.length) % pages.length;
+    const wrap = pages.length > 2;
+    const target = wrap ? ((index + direction) % pages.length + pages.length) % pages.length : index + direction;
     return pages[target];
   }, []);
 
@@ -189,15 +196,25 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     prefetchTimer.current = setTimeout(runPrefetch, FEED.prefetchFallbackMs);
   }, [aheadGame, runPrefetch]);
 
+  // Opens the "ahead" page's load gate. A next game that is already prepared
+  // (retained WebView or prefetched HTML) costs little, so it goes quickly;
+  // a heavy build that must be parsed on the Blink main thread the active game
+  // shares waits until the player is past the first seconds.
   const scheduleWarm = useCallback(() => {
     if (warmTimer.current) clearTimeout(warmTimer.current);
     const activeGameId = currentIdRef.current;
     const activePhase = activeGameId ? phasesRef.current.get(activeGameId) : undefined;
-    const delay = activePhase === 'ready' || activePhase === 'error' ? FEED.warmDelayMs : FEED.warmFallbackMs;
+    const ahead = aheadGame();
+    let delay: number = FEED.warmFallbackMs;
+    if (activePhase === 'ready' || activePhase === 'error') {
+      const aheadPhase = ahead ? phasesRef.current.get(ahead.id) : undefined;
+      const heavy = !!ahead && ahead.sizeBytes > FEED.heavyGameBytes && !gamePrefetcher.has(ahead) && aheadPhase !== 'ready';
+      delay = heavy ? FEED.warmDelayHeavyMs : FEED.warmDelayMs;
+    }
     warmTimer.current = setTimeout(() => {
       setWarmReady(true);
     }, delay);
-  }, []);
+  }, [aheadGame]);
 
   const onPhase = useCallback(
     (gameId: string, phase: PagePhase) => {
@@ -274,34 +291,28 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   }, [current]);
 
   /* ---------------- lifecycle: focus, background, ads, sound ------------------ */
+  // Run state is driven declaratively through the `suspended` prop (see
+  // GamePage): Settings on top, app in background, or a full-screen ad all
+  // freeze the page on screen, and clearing them wakes exactly that page —
+  // even when its load only finished while the host was away.
   useFocusEffect(
     useCallback(() => {
-      activePage()?.resume();
+      setFocused(true);
       void useCatalogStore.getState().refresh();
-      return () => {
-        activePage()?.pause();
-      };
-    }, [activePage]),
+      return () => setFocused(false);
+    }, []),
   );
 
   useAppStateChange(active => {
+    setAppActive(active);
     const game = listRef.current[positionRef.current.index];
     if (active) {
-      if (!useAdsStore.getState().fullScreenAdShowing) activePage()?.resume();
       if (game) analytics.onGameStart(game.id, game.title);
       void useCatalogStore.getState().refresh();
-    } else {
-      for (const page of pagesRef.current.values()) page.pause();
-      if (game && !useAdsStore.getState().fullScreenAdShowing) {
-        analytics.onGameExit(game.id, game.title, 'app_paused');
-      }
+    } else if (game && !useAdsStore.getState().fullScreenAdShowing) {
+      analytics.onGameExit(game.id, game.title, 'app_paused');
     }
   });
-
-  useEffect(() => {
-    if (fullScreenAdShowing) activePage()?.pause();
-    else activePage()?.resume();
-  }, [fullScreenAdShowing, activePage]);
 
   useEffect(() => {
     activePage()?.inject(buildSoundScript(!soundMuted));
@@ -401,6 +412,17 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   }, [scheduleWarm]);
   const touchZonesFor = useCallback((index: number) => listRef.current[index]?.touchZones, []);
 
+  // WebView inflation is UI-thread work; never do it while the snap animation
+  // runs there, and skip it entirely for pages a rapid flick flies past.
+  useEffect(() => {
+    if (position.settling) {
+      setRested(false);
+      return;
+    }
+    const timer = setTimeout(() => setRested(true), FEED.restDebounceMs);
+    return () => clearTimeout(timer);
+  }, [position.settling, position.index]);
+
   const { index, direction } = position;
   const renderPage = useCallback(
     (i: number) => {
@@ -409,9 +431,11 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       const actualIdx = ((i % count) + count) % count;
       const game = list[actualIdx];
       if (!game) return null;
-      const slot = slotFor(actualIdx, index, direction, count);
+      const slot = slotFor(actualIdx, index, direction, loop ? count : undefined);
       if (slot === 'far') return null;
-      const mayLoad = slot === 'active' || slot === 'behind' || (slot === 'ahead' && warmReady);
+      // Priority order: the page on screen (once the pager rests), then the
+      // next page (once the active game is ready), never the page behind.
+      const mayLoad = slot === 'active' ? rested : slot === 'ahead' ? warmReady && rested : false;
       return (
         <GamePage
           key={game.id}
@@ -420,12 +444,13 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           slot={slot}
           mayLoad={mayLoad}
           near={true}
+          suspended={suspended}
           onPhase={onPhase}
           onMessage={onMessage}
         />
       );
     },
-    [list, index, direction, warmReady, refFor, onPhase, onMessage],
+    [list, index, direction, loop, rested, warmReady, suspended, refFor, onPhase, onMessage],
   );
 
   /* ---------------- dock actions --------------------------------------------- */
@@ -472,7 +497,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         pageHeight={stage.height}
         width={stage.width}
         swipeEnabled={swipeEnabled && !fullScreenAdShowing}
-        loop={list.length > 1}
+        loop={loop}
         touchZonesFor={touchZonesFor}
         onIndexChange={onIndexChange}
         onSettled={onSettled}
