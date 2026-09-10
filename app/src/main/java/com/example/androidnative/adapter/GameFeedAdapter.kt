@@ -103,6 +103,20 @@ class GameFeedAdapter(
         )
     }
 
+    fun notifyBottomBarChange(visible: Boolean) {
+        for ((_, webView) in activeWebViews) {
+            webView.evaluateJavascript(
+                """
+                (function() {
+                    window.postMessage({ type: 'BOTTOM_BAR_CHANGE', action: 'bottomBar', visible: $visible }, '*');
+                    window.dispatchEvent(new CustomEvent('bottomBarChange', { detail: { visible: $visible } }));
+                })();
+                """.trimIndent(),
+                null
+            )
+        }
+    }
+
     fun sendSavedStateToGame(position: Int, level: Int, coins: Int, highScore: Int) {
         val webView = activeWebViews[position]
         webView?.evaluateJavascript(

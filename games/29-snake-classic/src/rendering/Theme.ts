@@ -49,10 +49,17 @@ export const THEME = {
   // Top Bar layout
   pauseBtn: { x: 360, y: 55, r: 24 },
   modeBadge: { x: 80, y: 35, w: 105, h: 44, r: 9 },
-  allTimeBadge: { x: 200, y: 35, w: 105, h: 44, r: 9 }
+  allTimeBadge: { x: 200, y: 35, w: 105, h: 44, r: 9 },
+
+  // Virtual Joystick metrics
+  joyRadius: 50,
+  joyKnobRadius: 25,
+  joyMaxDist: 32,
+  joyX: 200,
+  joyY: 650
 };
 
-export function updateLayout(width: number, height: number): void {
+export function updateLayout(width: number, height: number, isBottomBarVisible: boolean = true): void {
   // Safe top HUD space
   const topSafe = Math.max(70, Math.min(100, Math.round(height * 0.11)));
   const bottomMargin = Math.max(20, Math.min(45, Math.round(height * 0.04)));
@@ -113,4 +120,9 @@ export function updateLayout(width: number, height: number): void {
     h: badgeH,
     r: 9
   };
+
+  // Virtual Joystick positioning above floating dock
+  const bottomDockSafe = isBottomBarVisible ? Math.max(72, Math.round(height * 0.10)) : 22;
+  THEME.joyX = Math.round(width / 2);
+  THEME.joyY = Math.round(height - bottomDockSafe - THEME.joyRadius - 6);
 }

@@ -62,7 +62,7 @@ export class Renderer {
     this.ctx = context;
   }
 
-  public resize(): void {
+  public resize(isBottomBarVisible: boolean = true): void {
     const parent = this.canvas.parentElement || document.body;
     const rect = parent.getBoundingClientRect();
     const w = rect.width || window.innerWidth;
@@ -82,7 +82,7 @@ export class Renderer {
     this.ctx.imageSmoothingEnabled = true;
     this.ctx.imageSmoothingQuality = 'high';
 
-    updateLayout(w, h);
+    updateLayout(w, h, isBottomBarVisible);
   }
 
   public toVirtual(clientX: number, clientY: number): { x: number; y: number } {
@@ -116,7 +116,12 @@ export class Renderer {
     impactParticles: ImpactParticle[],
     impactStar: { x: number; y: number; scale: number; alpha: number } | null,
     overlayAlpha: number,
-    gameOverAnimTime: number
+    gameOverAnimTime: number,
+    joyKnobX: number = THEME.joyX,
+    joyKnobY: number = THEME.joyY,
+    isJoyActive: boolean = false,
+    joyDir: Direction | null = null,
+    currentJoyY?: number
   ): void {
     const ctx = this.ctx;
     const w = this.width;
@@ -141,17 +146,22 @@ export class Renderer {
     // 6. Impact Star & Burst Particles
     this.renderImpactVFX(ctx, impactStar, impactParticles);
 
-    // 7. Paused Screen Overlay
+    // 7. Floating Semi-Transparent Virtual Joystick (gameplay visible underneath)
+    if (state === GameState.PLAYING || state === GameState.PAUSED || state === GameState.COLLISION_FREEZE) {
+      this.renderJoystick(ctx, joyKnobX, joyKnobY, isJoyActive, joyDir, currentJoyY);
+    }
+
+    // 8. Paused Screen Overlay
     if (state === GameState.PAUSED) {
       this.renderPausedOverlay(ctx);
     }
 
-    // 8. Game Over / Result Card Transition & Screen
+    // 9. Game Over / Result Card Transition & Screen
     if (state === GameState.RESULT_TRANSITION || state === GameState.GAME_OVER) {
       this.renderGameOverCard(ctx, difficulty, score, stats, overlayAlpha, gameOverAnimTime);
     }
 
-    // 9. Difficulty Selection Modal
+    // 10. Difficulty Selection Modal
     if (state === GameState.DIFF_SELECT) {
       this.renderDifficultyDialog(ctx, sliderPos);
     }
@@ -1033,6 +1043,112 @@ export class Renderer {
     ctx.closePath();
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
+    ctx.restore();
+  }
+
+  // --------------------------------------------------------------------------
+  // FLOATING SEMI-TRANSPARENT CUTE VIRTUAL JOYSTICK
+  // --------------------------------------------------------------------------
+  public renderJoystick(
+    ctx: CanvasRenderingContext2D,
+    knobX: number,
+    knobY: number,
+    isJoyActive: boolean,
+    joyDir: Direction | null,
+    joyYOverride?: number
+  ): void {
+    const jx = THEME.joyX;
+    const jy = joyYOverride !== undefined ? joyYOverride : THEME.joyY;
+    const baseR = THEME.joyRadius;
+    const knobR = THEME.joyKnobRadius;
+
+    ctx.save();
+
+    // 1. Semi-transparent Cute Floating Glass Base Disc
+    ctx.shadowColor = 'rgba(20, 49, 78, 0.20)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 4;
+
+    ctx.beginPath();
+    ctx.arc(jx, jy, baseR, 0, Math.PI * 2);
+    const bgGrad = ctx.createRadialGradient(jx, jy, 2, jx, jy, baseR);
+    bgGrad.addColorStop(0, 'rgba(255, 255, 255, 0.32)');
+    bgGrad.addColorStop(0.75, 'rgba(255, 255, 255, 0.20)');
+    bgGrad.addColorStop(1, 'rgba(240, 248, 255, 0.12)');
+    ctx.fillStyle = bgGrad;
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.lineWidth = 2.0;
+    ctx.stroke();
+    ctx.restore();
+
+    // 2. Cute Directional Indicators (▲, ▼, ◀, ▶)
+    const dOffset = baseR * 0.62;
+    const dirIndicators = [
+      { dir: Direction.UP, text: '▲', x: jx, y: jy - dOffset },
+      { dir: Direction.DOWN, text: '▼', x: jx, y: jy + dOffset },
+      { dir: Direction.LEFT, text: '◀', x: jx - dOffset, y: jy },
+      { dir: Direction.RIGHT, text: '▶', x: jx + dOffset, y: jy }
+    ];
+
+    ctx.save();
+    for (const ind of dirIndicators) {
+      const isHighlighted = isJoyActive && joyDir === ind.dir;
+      ctx.font = `${isHighlighted ? '900' : '800'} ${isHighlighted ? '14px' : '11px'} Fredoka, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      if (isHighlighted) {
+        ctx.fillStyle = '#83CC43';
+        ctx.shadowColor = 'rgba(131, 204, 67, 0.85)';
+        ctx.shadowBlur = 10;
+      } else {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.shadowBlur = 0;
+      }
+      ctx.fillText(ind.text, ind.x, ind.y);
+    }
+    ctx.restore();
+
+    // 3. Inner Draggable Thumb Knob (Semi-transparent Floating Cute Disc)
+    const kx = knobX;
+    const ky = knobY;
+
+    ctx.save();
+    if (isJoyActive) {
+      ctx.shadowColor = 'rgba(131, 204, 67, 0.55)';
+      ctx.shadowBlur = 14;
+      ctx.shadowOffsetY = 3;
+    } else {
+      ctx.shadowColor = 'rgba(20, 49, 78, 0.22)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 3;
+    }
+
+    ctx.beginPath();
+    ctx.arc(kx, ky, knobR, 0, Math.PI * 2);
+    const kGrad = ctx.createRadialGradient(kx - 3, ky - 3, 2, kx, ky, knobR);
+    kGrad.addColorStop(0, 'rgba(255, 255, 255, 0.90)');
+    kGrad.addColorStop(0.7, 'rgba(240, 248, 255, 0.72)');
+    kGrad.addColorStop(1, 'rgba(224, 242, 254, 0.55)');
+    ctx.fillStyle = kGrad;
+    ctx.fill();
+
+    ctx.strokeStyle = isJoyActive ? '#83CC43' : 'rgba(255, 255, 255, 0.85)';
+    ctx.lineWidth = isJoyActive ? 2.5 : 1.8;
+    ctx.stroke();
+
+    // Cute Snake-Green Center Dot with subtle sparkle
+    ctx.beginPath();
+    ctx.arc(kx, ky, 6, 0, Math.PI * 2);
+    ctx.fillStyle = isJoyActive ? '#83CC43' : '#A3E635';
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(kx - 1.8, ky - 1.8, 2, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.fill();
+
     ctx.restore();
   }
 }

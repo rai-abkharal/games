@@ -702,6 +702,7 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
     // Bottom Bar Hide/Show Animation without Layout Reflow (Zero WebView shift)
     private fun toggleBottomBar(visible: Boolean, animate: Boolean = true) {
         isBottomBarVisible = visible
+        adapter.notifyBottomBarChange(visible)
         if (visible) {
             scheduleAutoHideBottomBar(5000L)
         } else {

@@ -59,9 +59,14 @@ export class Game {
   public impactStar: { x: number; y: number; scale: number; alpha: number } | null = null;
   public impactParticles: ImpactParticle[] = [];
 
-  // Gesture Controls
-  private pointerStartX: number = 0;
-  private pointerStartY: number = 0;
+  // Virtual Joystick State
+  public joyKnobX: number = THEME.joyX;
+  public joyKnobY: number = THEME.joyY;
+  public isJoyActive: boolean = false;
+  public joyDir: Direction | null = null;
+  public currentJoyY: number = THEME.joyY;
+  public targetJoyY: number = THEME.joyY;
+  public isBottomBarVisible: boolean = true;
   private isPointerDown: boolean = false;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -71,6 +76,11 @@ export class Game {
     this.statsManager = new StatsManager();
     this.snake = new Snake();
     this.foodManager = new FoodManager();
+
+    this.currentJoyY = THEME.joyY;
+    this.targetJoyY = THEME.joyY;
+    this.joyKnobX = THEME.joyX;
+    this.joyKnobY = THEME.joyY;
 
     // Read stored difficulty
     try {
@@ -268,6 +278,14 @@ export class Game {
     if (this.state === GameState.GAME_OVER) {
       this.gameOverAnimTime += dt;
     }
+
+    // 5. Smoothly animate joystick Y when bottom bar moves/toggles
+    this.targetJoyY = THEME.joyY;
+    this.currentJoyY += (this.targetJoyY - this.currentJoyY) * Math.min(1, dt * 12);
+    if (!this.isJoyActive) {
+      this.joyKnobX = THEME.joyX;
+      this.joyKnobY = this.currentJoyY;
+    }
   }
 
   public render(): void {
@@ -292,7 +310,12 @@ export class Game {
       this.impactParticles,
       this.impactStar,
       this.resultOverlayAlpha,
-      this.gameOverAnimTime
+      this.gameOverAnimTime,
+      this.joyKnobX,
+      this.joyKnobY,
+      this.isJoyActive,
+      this.joyDir,
+      this.currentJoyY
     );
   }
 
@@ -311,9 +334,6 @@ export class Game {
       const pos = this.renderer.toVirtual(e.clientX, e.clientY);
       const px = pos.x;
       const py = pos.y;
-
-      this.pointerStartX = px;
-      this.pointerStartY = py;
       this.isPointerDown = true;
 
       // 1. Difficulty Modal Input
@@ -396,8 +416,15 @@ export class Game {
         return;
       }
 
-      // 4. Top Bar HUD during Gameplay
+      // 4. Virtual Joystick & Top Bar HUD during Gameplay
       if (this.state === GameState.PLAYING) {
+        const joyDist = Math.hypot(px - THEME.joyX, py - this.currentJoyY);
+        if (joyDist <= THEME.joyRadius * 1.45) {
+          this.isJoyActive = true;
+          this.updateJoystick(px, py);
+          return;
+        }
+
         // Mode Badge -> Click to open Difficulty Selection Dialog!
         const mb = THEME.modeBadge;
         if (
@@ -429,38 +456,27 @@ export class Game {
       const px = pos.x;
       const py = pos.y;
 
+      // Virtual Joystick Drag
+      if (this.isJoyActive) {
+        this.updateJoystick(px, py);
+        return;
+      }
+
       // Handle slider drag
       if (this.state === GameState.DIFF_SELECT && this.isDraggingSlider) {
         const bounds = this.renderer.getDifficultyDialogBounds();
         this.updateSliderFromPointer(px, bounds);
         return;
       }
-
-      // Handle swipe gesture during playing
-      if (this.state === GameState.PLAYING) {
-        const dx = px - this.pointerStartX;
-        const dy = py - this.pointerStartY;
-        const dist = Math.hypot(dx, dy);
-
-        const minSwipe = Math.max(18, THEME.cellSize * 0.7);
-        if (dist >= minSwipe) {
-          if (Math.abs(dx) > Math.abs(dy)) {
-            if (dx > 0) this.snake.requestDirection(Direction.RIGHT);
-            else this.snake.requestDirection(Direction.LEFT);
-          } else {
-            if (dy > 0) this.snake.requestDirection(Direction.DOWN);
-            else this.snake.requestDirection(Direction.UP);
-          }
-          // Reset anchor for continuous multi-step swiping
-          this.pointerStartX = px;
-          this.pointerStartY = py;
-        }
-      }
+      // Note: Swipe gestures are completely disabled as requested!
     };
 
     // Pointer Up
     const handlePointerUp = () => {
       this.isPointerDown = false;
+      if (this.isJoyActive) {
+        this.resetJoystick();
+      }
       if (this.isDraggingSlider) {
         this.isDraggingSlider = false;
         // Snap to nearest notch
@@ -474,6 +490,25 @@ export class Game {
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
     window.addEventListener('pointercancel', handlePointerUp);
+
+    // Dynamic Bottom Bar notification listeners
+    window.addEventListener('message', (e: MessageEvent) => {
+      if (!e.data) return;
+      const act = e.data.action || e.data.type || e.data;
+      if (act === 'bottomBar' || act === 'BOTTOM_BAR_CHANGE') {
+        this.isBottomBarVisible = Boolean(e.data.visible);
+        this.renderer.resize(this.isBottomBarVisible);
+        this.targetJoyY = THEME.joyY;
+      }
+    });
+
+    window.addEventListener('bottomBarChange', (e: any) => {
+      if (e.detail) {
+        this.isBottomBarVisible = Boolean(e.detail.visible);
+        this.renderer.resize(this.isBottomBarVisible);
+        this.targetJoyY = THEME.joyY;
+      }
+    });
 
     // Keyboard Controls
     window.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -530,6 +565,49 @@ export class Game {
     if (this.difficulty !== DIFFICULTIES[snapped].id) {
       this.difficulty = DIFFICULTIES[snapped].id;
     }
+  }
+
+  private updateJoystick(px: number, py: number): void {
+    const dx = px - THEME.joyX;
+    const dy = py - this.currentJoyY;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > 0) {
+      const clampedDist = Math.min(dist, THEME.joyMaxDist);
+      const angle = Math.atan2(dy, dx);
+      this.joyKnobX = Math.cos(angle) * clampedDist;
+      this.joyKnobY = Math.sin(angle) * clampedDist;
+
+      // Pure 4-cardinal direction calculation (4 clean 90-degree quadrants)
+      // Deadzone of 8px to prevent accidental micro-touches
+      if (dist >= 8) {
+        let newDir: Direction;
+        if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
+          newDir = Direction.RIGHT;
+        } else if (angle > Math.PI / 4 && angle < (3 * Math.PI) / 4) {
+          newDir = Direction.DOWN;
+        } else if (angle < -Math.PI / 4 && angle > (-3 * Math.PI) / 4) {
+          newDir = Direction.UP;
+        } else {
+          newDir = Direction.LEFT;
+        }
+        this.joyDir = newDir;
+        if (this.state === GameState.PLAYING) {
+          this.snake.requestDirection(newDir);
+        }
+      }
+    } else {
+      this.joyKnobX = 0;
+      this.joyKnobY = 0;
+      this.joyDir = null;
+    }
+  }
+
+  private resetJoystick(): void {
+    this.isJoyActive = false;
+    this.joyKnobX = 0;
+    this.joyKnobY = 0;
+    this.joyDir = null;
   }
 }
 

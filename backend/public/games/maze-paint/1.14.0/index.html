@@ -4131,13 +4131,14 @@
         // Virtual On-Screen Joystick State
         this.joyX = 0;
         this.joyY = 0;
-        this.joyBaseRadius = 38;
-        this.joyKnobRadius = 19;
-        this.joyMaxDist = 26;
+        this.joyBaseRadius = 50;
+        this.joyKnobRadius = 25;
+        this.joyMaxDist = 32;
         this.joyKnobX = 0;
         this.joyKnobY = 0;
         this.isJoyActive = false;
         this.joyDir = null;
+        this.isBottomBarVisible = true;
 
         // Bottom Controls Coordinates
         this.hintBtnX = 0;
@@ -4322,17 +4323,17 @@
         this.headerY = 48;
 
         // Dynamic safe bottom spacing for floating dock and virtual joystick
-        const bottomDockSafe = Math.max(68, Math.round(this.height * 0.09));
+        const bottomDockSafe = this.isBottomBarVisible !== false ? Math.max(68, Math.round(this.height * 0.09)) : 22;
         this.joyX = Math.round(this.width / 2);
-        this.joyY = Math.round(this.height - bottomDockSafe - 46);
+        this.joyY = Math.round(this.height - bottomDockSafe - 56);
         if (!this.isJoyActive) {
           this.joyKnobX = this.joyX;
           this.joyKnobY = this.joyY;
         }
 
-        this.hintBtnX = Math.max(44, Math.round(this.width * 0.14));
+        this.hintBtnX = Math.max(40, Math.round(this.width * 0.13));
         this.hintBtnY = this.joyY;
-        this.restartBtnX = Math.min(this.width - 44, Math.round(this.width * 0.86));
+        this.restartBtnX = Math.min(this.width - 40, Math.round(this.width * 0.87));
         this.restartBtnY = this.joyY;
 
         // Maze viewport bounded cleanly between header and joystick area
@@ -4428,14 +4429,11 @@
 
           // Virtual On-Screen Joystick Interaction
           const joyDist = Math.hypot(px - this.joyX, py - this.joyY);
-          if (joyDist <= this.joyBaseRadius * 1.35) {
+          if (joyDist <= this.joyBaseRadius * 1.45) {
             this.isJoyActive = true;
             this.updateJoystick(px, py);
             return;
           }
-
-          this.touchStart = { px, py };
-          this.lastDrag = { px, py };
         };
 
         const handleMove = (e) => {
@@ -4452,26 +4450,7 @@
             this.updateJoystick(px, py);
             return;
           }
-
-          if (!this.touchStart) return;
-          const dx = px - this.lastDrag.px;
-          const dy = py - this.lastDrag.py;
-          const absX = Math.abs(dx);
-          const absY = Math.abs(dy);
-          const threshold = 14;
-
-          if (absX >= threshold || absY >= threshold) {
-            if (this.state === 'IDLE') {
-              if (absX > absY) {
-                if (dx > 0) this.tryRoll(0, 1);
-                else this.tryRoll(0, -1);
-              } else {
-                if (dy > 0) this.tryRoll(1, 0);
-                else this.tryRoll(-1, 0);
-              }
-              this.lastDrag = { px, py };
-            }
-          }
+          // Note: Swipe gestures are completely disabled as requested!
         };
 
         const handleUp = (e) => {
@@ -4486,26 +4465,6 @@
           if (this.isJoyActive) {
             this.resetJoystick();
             return;
-          }
-
-          if (!this.touchStart) return;
-          const dx = px - this.touchStart.px;
-          const dy = py - this.touchStart.py;
-          this.touchStart = null;
-          this.lastDrag = null;
-
-          const absX = Math.abs(dx);
-          const absY = Math.abs(dy);
-          const threshold = 12;
-
-          if (this.state === 'IDLE' && (absX >= threshold || absY >= threshold)) {
-            if (absX > absY) {
-              if (dx > 0) this.tryRoll(0, 1);
-              else this.tryRoll(0, -1);
-            } else {
-              if (dy > 0) this.tryRoll(1, 0);
-              else this.tryRoll(-1, 0);
-            }
           }
         };
 
@@ -4537,8 +4496,19 @@
         window.addEventListener('message', (e) => {
           if (!e.data) return;
           const act = e.data.action || e.data.type || e.data;
+          if (act === 'bottomBar' || act === 'BOTTOM_BAR_CHANGE') {
+            this.isBottomBarVisible = Boolean(e.data.visible);
+            this.initLayout();
+          }
           if (act === 'resume' || act === 'onGameActive' || act === 'active' || act === 'swipe_in' || act === 'show') {
             this.onPlatformSwipeIn();
+          }
+        });
+
+        window.addEventListener('bottomBarChange', (e) => {
+          if (e.detail) {
+            this.isBottomBarVisible = Boolean(e.detail.visible);
+            this.initLayout();
           }
         });
 
@@ -5344,27 +5314,28 @@
         const knobR = this.joyKnobRadius;
         const activeColor = this.colorObj ? this.colorObj.hex : '#06B6D4';
 
-        // 1. Outer Base Ring & Translucent Glass Disc
+        // 1. Outer Base Ring & Floating Semi-Transparent Glass Disc
         ctx.save();
         ctx.shadowColor = 'rgba(15, 23, 42, 0.08)';
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 12;
         ctx.shadowOffsetY = 3;
 
         ctx.beginPath();
         ctx.arc(jx, jy, baseR, 0, Math.PI * 2);
         const bgGrad = ctx.createRadialGradient(jx, jy, 2, jx, jy, baseR);
-        bgGrad.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
-        bgGrad.addColorStop(1, 'rgba(241, 245, 249, 0.90)');
+        bgGrad.addColorStop(0, 'rgba(255, 255, 255, 0.38)');
+        bgGrad.addColorStop(0.7, 'rgba(241, 245, 249, 0.22)');
+        bgGrad.addColorStop(1, 'rgba(226, 232, 240, 0.28)');
         ctx.fillStyle = bgGrad;
         ctx.fill();
 
-        ctx.strokeStyle = '#E2E8F0';
-        ctx.lineWidth = 1.8;
+        ctx.strokeStyle = this.isJoyActive ? activeColor + 'AA' : 'rgba(255, 255, 255, 0.65)';
+        ctx.lineWidth = 2.0;
         ctx.stroke();
         ctx.restore();
 
         // 2. Cardinal Direction Indicators (▲, ▼, ◀, ▶)
-        const dOffset = baseR * 0.62;
+        const dOffset = baseR * 0.64;
         const dirIndicators = [
           { dr: -1, dc: 0, text: '▲', x: jx, y: jy - dOffset },
           { dr: 1, dc: 0, text: '▼', x: jx, y: jy + dOffset },
@@ -5376,32 +5347,32 @@
         for (const ind of dirIndicators) {
           const isHighlighted = this.isJoyActive && this.joyDir &&
                                 this.joyDir.dr === ind.dr && this.joyDir.dc === ind.dc;
-          ctx.font = `${isHighlighted ? '900' : '700'} ${isHighlighted ? '12px' : '10px'} sans-serif`;
+          ctx.font = `${isHighlighted ? '900' : '700'} ${isHighlighted ? '13px' : '10px'} sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           if (isHighlighted) {
             ctx.fillStyle = activeColor;
-            ctx.shadowColor = activeColor + '88';
-            ctx.shadowBlur = 8;
+            ctx.shadowColor = activeColor + 'AA';
+            ctx.shadowBlur = 10;
           } else {
-            ctx.fillStyle = '#94A3B8';
+            ctx.fillStyle = 'rgba(100, 116, 139, 0.55)';
             ctx.shadowBlur = 0;
           }
           ctx.fillText(ind.text, ind.x, ind.y);
         }
         ctx.restore();
 
-        // 3. Inner Draggable Thumb Knob
+        // 3. Inner Draggable Cute Thumb Knob
         const kx = this.joyKnobX;
         const ky = this.joyKnobY;
 
         ctx.save();
         if (this.isJoyActive) {
-          ctx.shadowColor = activeColor + '66';
-          ctx.shadowBlur = 14;
+          ctx.shadowColor = activeColor + '88';
+          ctx.shadowBlur = 16;
           ctx.shadowOffsetY = 2;
         } else {
-          ctx.shadowColor = 'rgba(15, 23, 42, 0.14)';
+          ctx.shadowColor = 'rgba(15, 23, 42, 0.12)';
           ctx.shadowBlur = 8;
           ctx.shadowOffsetY = 2;
         }
@@ -5409,19 +5380,19 @@
         ctx.beginPath();
         ctx.arc(kx, ky, knobR, 0, Math.PI * 2);
         const kGrad = ctx.createRadialGradient(kx - 3, ky - 3, 2, kx, ky, knobR);
-        kGrad.addColorStop(0, '#FFFFFF');
-        kGrad.addColorStop(1, '#E2E8F0');
+        kGrad.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+        kGrad.addColorStop(1, 'rgba(241, 245, 249, 0.65)');
         ctx.fillStyle = kGrad;
         ctx.fill();
 
-        ctx.strokeStyle = this.isJoyActive ? activeColor : '#CBD5E1';
-        ctx.lineWidth = this.isJoyActive ? 2.0 : 1.5;
+        ctx.strokeStyle = this.isJoyActive ? activeColor : 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = this.isJoyActive ? 2.5 : 1.8;
         ctx.stroke();
 
         // Center Accent Dot
         ctx.beginPath();
-        ctx.arc(kx, ky, 5, 0, Math.PI * 2);
-        ctx.fillStyle = this.isJoyActive ? activeColor : '#94A3B8';
+        ctx.arc(kx, ky, 6, 0, Math.PI * 2);
+        ctx.fillStyle = this.isJoyActive ? activeColor : 'rgba(148, 163, 184, 0.8)';
         ctx.fill();
 
         ctx.restore();
@@ -5975,7 +5946,7 @@
           ctx.font = '800 13.5px Outfit, sans-serif';
           ctx.fillStyle = '#1E293B';
           ctx.textAlign = 'center';
-          ctx.fillText('Swipe in any direction to roll the', this.width / 2, cardY + 236);
+          ctx.fillText('Move joystick in any direction to roll the', this.width / 2, cardY + 236);
           ctx.fillText('marble paint ball through the maze.', this.width / 2, cardY + 256);
         }
         // Slide 2: The Ball Paints Every Tile Along Path
