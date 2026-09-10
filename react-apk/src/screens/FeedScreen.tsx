@@ -51,7 +51,7 @@ function listSignature(games: GameItem[]): string {
   return games
     .map(
       game =>
-        `${game.id}|${game.version}|${game.updatedAt ?? ''}|${game.title}|${game.category}|${JSON.stringify(game.ads ?? null)}|${JSON.stringify(game.touchZones ?? [])}`,
+        `${game.id}|${game.version}|${game.updatedAt ?? ''}|${game.title}|${game.category}|${game.ads?.enabled ? '1' : '0'}|${game.ads?.intervalMinutes ?? ''}|${game.touchZones?.length ?? 0}`,
     )
     .join('\n');
 }
@@ -150,15 +150,22 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const phasesRef = useRef(new Map<string, PagePhase>());
   const prefetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prefetchedFor = useRef<string | null>(null);
+  const [warmReady, setWarmReady] = useState(false);
+  const warmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearGateTimers = useCallback(() => {
     if (prefetchTimer.current) clearTimeout(prefetchTimer.current);
     prefetchTimer.current = null;
+    if (warmTimer.current) clearTimeout(warmTimer.current);
+    warmTimer.current = null;
   }, []);
 
   const aheadGame = useCallback((): GameItem | undefined => {
     const { index, direction } = positionRef.current;
-    return listRef.current[index + direction];
+    const pages = listRef.current;
+    if (pages.length === 0) return undefined;
+    const target = ((index + direction) % pages.length + pages.length) % pages.length;
+    return pages[target];
   }, []);
 
   const runPrefetch = useCallback(() => {
@@ -167,7 +174,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     prefetchedFor.current = key;
     const { index, direction } = positionRef.current;
     const pages = listRef.current;
-    const wanted = prefetchOrder(index, direction, pages.length, FEED.prefetchAhead).map(i => pages[i]);
+    const wanted = prefetchOrder(index, direction, pages.length, FEED.prefetchAhead, pages.length > 1).map(i => pages[i]);
     gamePrefetcher.request(wanted);
   }, []);
 
@@ -182,18 +189,29 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     prefetchTimer.current = setTimeout(runPrefetch, FEED.prefetchFallbackMs);
   }, [aheadGame, runPrefetch]);
 
+  const scheduleWarm = useCallback(() => {
+    if (warmTimer.current) clearTimeout(warmTimer.current);
+    const activeGameId = currentIdRef.current;
+    const activePhase = activeGameId ? phasesRef.current.get(activeGameId) : undefined;
+    const delay = activePhase === 'ready' || activePhase === 'error' ? FEED.warmDelayMs : FEED.warmFallbackMs;
+    warmTimer.current = setTimeout(() => {
+      setWarmReady(true);
+    }, delay);
+  }, []);
+
   const onPhase = useCallback(
     (gameId: string, phase: PagePhase) => {
       phasesRef.current.set(gameId, phase);
       if (gameId === currentIdRef.current) {
         if (phase === 'ready' || phase === 'error') {
+          scheduleWarm();
           schedulePrefetch();
         }
       } else if (gameId === aheadGame()?.id && (phase === 'ready' || phase === 'error')) {
         if (prefetchTimer.current) runPrefetch();
       }
     },
-    [schedulePrefetch, aheadGame, runPrefetch],
+    [scheduleWarm, schedulePrefetch, aheadGame, runPrefetch],
   );
 
   /* ---------------- dock auto-hide (5 s) -------------------------------------- */
@@ -237,16 +255,18 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     if (!game) return;
     currentIdRef.current = game.id;
     clearGateTimers();
+    setWarmReady(false);
     setSwipeEnabled(true);
     showDock();
     usePlayerStore.getState().setLastPlayed(game.id);
     analytics.onGameStart(game.id, game.title);
     adManager.setCurrentGame(game);
+    scheduleWarm();
     schedulePrefetch();
     const { index, direction } = positionRef.current;
     const pages = listRef.current;
-    gamePrefetcher.retain(retainWindow(index, direction, pages.length, FEED.prefetchAhead).map(i => pages[i]));
-  }, [currentId, clearGateTimers, showDock, schedulePrefetch]);
+    gamePrefetcher.retain(retainWindow(index, direction, pages.length, FEED.prefetchAhead, pages.length > 1).map(i => pages[i]));
+  }, [currentId, clearGateTimers, showDock, scheduleWarm, schedulePrefetch]);
 
   // Per-game ad rules may change on a catalogue refresh.
   useEffect(() => {
@@ -371,34 +391,41 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   /* ---------------- pager callbacks ------------------------------------------ */
   const onIndexChange = useCallback((index: number, direction: SwipeDirection) => {
+    setWarmReady(false);
+    if (warmTimer.current) clearTimeout(warmTimer.current);
     setPosition({ index, direction, settling: true });
   }, []);
   const onSettled = useCallback((index: number) => {
     setPosition(prev => (prev.index === index && !prev.settling ? prev : { ...prev, index, settling: false }));
-  }, []);
+    scheduleWarm();
+  }, [scheduleWarm]);
   const touchZonesFor = useCallback((index: number) => listRef.current[index]?.touchZones, []);
 
   const { index, direction } = position;
   const renderPage = useCallback(
     (i: number) => {
-      const game = list[i];
+      const count = list.length;
+      if (count === 0) return null;
+      const actualIdx = ((i % count) + count) % count;
+      const game = list[actualIdx];
       if (!game) return null;
-      const slot = slotFor(i, index, direction);
+      const slot = slotFor(actualIdx, index, direction, count);
       if (slot === 'far') return null;
+      const mayLoad = slot === 'active' || slot === 'behind' || (slot === 'ahead' && warmReady);
       return (
         <GamePage
           key={game.id}
           ref={refFor(game.id)}
           game={game}
           slot={slot}
-          mayLoad={true}
+          mayLoad={mayLoad}
           near={true}
           onPhase={onPhase}
           onMessage={onMessage}
         />
       );
     },
-    [list, index, direction, refFor, onPhase, onMessage],
+    [list, index, direction, warmReady, refFor, onPhase, onMessage],
   );
 
   /* ---------------- dock actions --------------------------------------------- */
@@ -445,6 +472,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         pageHeight={stage.height}
         width={stage.width}
         swipeEnabled={swipeEnabled && !fullScreenAdShowing}
+        loop={list.length > 1}
         touchZonesFor={touchZonesFor}
         onIndexChange={onIndexChange}
         onSettled={onSettled}

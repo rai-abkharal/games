@@ -48,19 +48,22 @@ export interface DragInput {
   pageHeight: number;
   resistance: number;
   maxOverscroll: number;
+  loop?: boolean;
 }
 
 /**
  * Visual offset for a drag of `dy` pixels: at most one page in either
- * direction, with resistance past the first/last page.
+ * direction, with resistance past the first/last page (unless loop is true).
  */
-export function dragOffset({ dy, current, count, pageHeight, resistance, maxOverscroll }: DragInput): number {
+export function dragOffset({ dy, current, count, pageHeight, resistance, maxOverscroll, loop = false }: DragInput): number {
   if (pageHeight <= 0 || count <= 0) return 0;
-  const atStart = current <= 0 && dy > 0;
-  const atEnd = current >= count - 1 && dy < 0;
-  if (atStart || atEnd) {
-    const eased = dy * resistance;
-    return Math.max(-maxOverscroll, Math.min(maxOverscroll, eased));
+  if (!loop || count <= 1) {
+    const atStart = current <= 0 && dy > 0;
+    const atEnd = current >= count - 1 && dy < 0;
+    if (atStart || atEnd) {
+      const eased = dy * resistance;
+      return Math.max(-maxOverscroll, Math.min(maxOverscroll, eased));
+    }
   }
   return Math.max(-pageHeight, Math.min(pageHeight, dy));
 }
@@ -74,10 +77,11 @@ export interface SettleInput {
   pageHeight: number;
   thresholdRatio: number;
   flingVelocity: number;
+  loop?: boolean;
 }
 
 /** Which page the pager should settle on after the finger lifts. */
-export function resolveTarget({ dy, vy, current, count, pageHeight, thresholdRatio, flingVelocity }: SettleInput): number {
+export function resolveTarget({ dy, vy, current, count, pageHeight, thresholdRatio, flingVelocity, loop = false }: SettleInput): number {
   if (count <= 1 || pageHeight <= 0) return current;
   const isSignificantDrag = Math.abs(dy) >= pageHeight * 0.05;
   const dragDir = isSignificantDrag ? (dy < 0 ? 1 : -1) : 0;
@@ -87,6 +91,9 @@ export function resolveTarget({ dy, vy, current, count, pageHeight, thresholdRat
     target = current + flingDir;
   } else if (Math.abs(dy) >= pageHeight * thresholdRatio) {
     target = current + (dy < 0 ? 1 : -1);
+  }
+  if (loop) {
+    return target;
   }
   return Math.min(count - 1, Math.max(0, target));
 }

@@ -36,7 +36,7 @@ export const FeedHeader = memo(function FeedHeaderInner({
       <View style={[styles.glass, { backgroundColor: glass.fill, borderColor: glass.border }]}>
         <View pointerEvents="none" style={[styles.sheen, { backgroundColor: glass.sheen }]} />
         {bannerEnabled ? (
-          <View style={styles.bannerSlot}>
+          <View style={[styles.bannerSlot, theme.isDark ? styles.bannerSlotDark : styles.bannerSlotLight]}>
             <AdBanner />
           </View>
         ) : null}
@@ -88,8 +88,18 @@ const styles = StyleSheet.create({
   bannerSlot: {
     height: 50,
     marginBottom: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(191, 227, 255, 0.43)',
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  bannerSlotDark: {
+    backgroundColor: 'rgba(30, 41, 59, 0.32)',
+  },
+  bannerSlotLight: {
+    backgroundColor: 'rgba(241, 245, 249, 0.25)',
   },
   row: {
     flexDirection: 'row',

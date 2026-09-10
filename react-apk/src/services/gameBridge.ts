@@ -62,7 +62,13 @@ export const BRIDGE_BOOTSTRAP_SCRIPT = `
     var OrigCtx = window.AudioContext || window.webkitAudioContext;
     if (OrigCtx) {
       var HookedCtx = function () {
-        var ctx = new OrigCtx();
+        var args = Array.prototype.slice.call(arguments);
+        var ctx;
+        try {
+          ctx = new (Function.prototype.bind.apply(OrigCtx, [null].concat(args)))();
+        } catch (e) {
+          ctx = new OrigCtx();
+        }
         window.__ALL_AUDIO_CONTEXTS__.push(ctx);
         return ctx;
       };
@@ -115,7 +121,15 @@ export const BRIDGE_BOOTSTRAP_SCRIPT = `
       gate.freezeAt = 0;
       var list = gate.pending;
       gate.pending = [];
-      if (list.length > 0) schedule(list[list.length - 1].cb);
+      var seen = typeof Set === 'function' ? new Set() : null;
+      for (var i = list.length - 1; i >= 0; i--) {
+        var cb = list[i].cb;
+        if (seen) {
+          if (seen.has(cb)) continue;
+          seen.add(cb);
+        }
+        schedule(cb);
+      }
     };
   }
 })();
@@ -241,7 +255,7 @@ export function buildPauseScript(graceFrames = 0): string {
   try {
     var styleEl = document.getElementById('__freeze_css_style__');
     if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = '__freeze_css_style__'; document.head.appendChild(styleEl); }
-    styleEl.textContent = '* { animation-play-state: paused !important; -webkit-animation-play-state: paused !important; transition: none !important; }';
+    styleEl.textContent = 'body, #game, #app, canvas { animation-play-state: paused !important; -webkit-animation-play-state: paused !important; }';
   } catch (e) {}
   try {
     var g = window.__PHASER_GAME__;
@@ -253,7 +267,10 @@ export function buildPauseScript(graceFrames = 0): string {
         if (s.tweens && typeof s.tweens.pauseAll === 'function') s.tweens.pauseAll();
         if (s.anims && typeof s.anims.pauseAll === 'function') s.anims.pauseAll();
         if (s.time && s.time.paused !== undefined) s.time.paused = true;
-        if (s.physics && s.physics.world && typeof s.physics.world.pause === 'function') s.physics.world.pause();
+        if (s.physics && s.physics.world && typeof s.physics.world.pause === 'function') {
+          s.physics.world.pause();
+          if (s.physics.world.accumulator !== undefined) s.physics.world.accumulator = 0;
+        }
       });
     }
   } catch (e) {}
@@ -298,15 +315,31 @@ export function buildResumeScript(soundEnabled: boolean): string {
     try {
       var g = window.__PHASER_GAME__;
       if (g) {
-        if (g.loop) g.loop.wake();
+        if (g.loop) {
+          if (typeof g.loop.resetDelta === 'function') g.loop.resetDelta();
+          g.loop.actualFps = 60;
+          g.loop.delta = 16.666;
+          g.loop.lastTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+          g.loop.wake();
+        }
         if (g.sound) { g.sound.mute = !${sound}; if (${sound} && g.sound.context && g.sound.context.state === 'suspended') g.sound.context.resume(); }
         if (g.scene && g.scene.scenes) g.scene.scenes.forEach(function (s) {
+          if (s.time && s.time.paused !== undefined) s.time.paused = false;
+          if (s.time && typeof s.time.now === 'number') s.time.now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
           if (s.scene && typeof s.scene.resume === 'function') s.scene.resume();
           if (s.tweens && typeof s.tweens.resumeAll === 'function') s.tweens.resumeAll();
           if (s.anims && typeof s.anims.resumeAll === 'function') s.anims.resumeAll();
-          if (s.time && s.time.paused !== undefined) s.time.paused = false;
-          if (s.physics && s.physics.world && typeof s.physics.world.resume === 'function') s.physics.world.resume();
+          if (s.physics && s.physics.world) {
+            if (typeof s.physics.world.resume === 'function') s.physics.world.resume();
+            if (s.physics.world.accumulator !== undefined) s.physics.world.accumulator = 0;
+            if (s.physics.world.prev !== undefined) s.physics.world.prev = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+          }
+          if (s.input) {
+            s.input.enabled = true;
+            if (typeof s.input.processQueue === 'function') s.input.processQueue();
+          }
         });
+        if (g.input) g.input.enabled = true;
       }
     } catch (e) {}
     try { if (window.PIXI && window.PIXI.Ticker && window.PIXI.Ticker.shared) window.PIXI.Ticker.shared.start(); } catch (e) {}
@@ -331,6 +364,12 @@ export function buildResumeScript(soundEnabled: boolean): string {
         }
       }
       window.dispatchEvent(new Event('flutter:resume'));
+    } catch (e) {}
+    try {
+      window.focus();
+      if (document.body && typeof document.body.focus === 'function') document.body.focus();
+      var canvas = document.querySelector('canvas');
+      if (canvas && typeof canvas.focus === 'function') canvas.focus();
     } catch (e) {}
   `);
 }

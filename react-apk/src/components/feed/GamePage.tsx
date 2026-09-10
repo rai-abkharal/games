@@ -161,17 +161,27 @@ export const GamePage = memo(
       );
     }, [game.id, inject]);
 
+    const isResumedRef = useRef(false);
+
     const resume = useCallback(() => {
-      if (phaseRef.current !== 'ready') return;
+      if (phaseRef.current !== 'ready' || isResumedRef.current) return;
+      isResumedRef.current = true;
+      try {
+        (webviewRef.current as any)?.requestFocus?.();
+      } catch {
+        /* ignore */
+      }
       inject(buildResumeScript(!usePlayerStore.getState().soundMuted));
     }, [inject]);
 
     const pause = useCallback(() => {
+      isResumedRef.current = false;
       if (phaseRef.current !== 'ready') return;
       inject(PAUSE_SCRIPT);
     }, [inject]);
 
     const retry = useCallback(() => {
+      isResumedRef.current = false;
       if (live) inject(DESTROY_SCRIPT);
       setErrorText(null);
       setAttempt(value => value + 1);
@@ -205,6 +215,16 @@ export const GamePage = memo(
       }
     }, [slot, phase, injectSavedState, resume, pause, inject]);
 
+    // Safety fallback: once the page is ready, ensure placeholder cannot linger
+    useEffect(() => {
+      if (phase === 'ready') {
+        const timer = setTimeout(() => {
+          setPlaceholderShown(false);
+        }, 150);
+        return () => clearTimeout(timer);
+      }
+    }, [phase]);
+
     // A page that failed while it was being prepared gets one automatic retry
     // when the player actually reaches it (the network may be back).
     useEffect(() => {
@@ -225,8 +245,8 @@ export const GamePage = memo(
         duration: 120,
         easing: Easing.linear,
         useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished) setPlaceholderShown(false);
+      }).start(() => {
+        setPlaceholderShown(false);
       });
     }, [clearTimer, setPhase, placeholderOpacity]);
 
@@ -318,13 +338,13 @@ export const GamePage = memo(
 
         {showPlaceholder ? (
           <Animated.View style={[styles.placeholder, { opacity: placeholderOpacity }]} pointerEvents="none">
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoEmoji}>🎮</Text>
+            <View pointerEvents="none" style={styles.logoCircle}>
+              <Text pointerEvents="none" style={styles.logoEmoji}>🎮</Text>
             </View>
-            <Text style={styles.placeholderTitle} numberOfLines={2} allowFontScaling={false}>
+            <Text pointerEvents="none" style={styles.placeholderTitle} numberOfLines={2} allowFontScaling={false}>
               {game.title}
             </Text>
-            <Text style={styles.placeholderMeta} allowFontScaling={false}>
+            <Text pointerEvents="none" style={styles.placeholderMeta} allowFontScaling={false}>
               {displayCategory(game.category).toUpperCase()} • 120 FPS ENGINE
             </Text>
             <LoadingLine animate={animateLoadLine} />
@@ -363,12 +383,12 @@ function LoadingLine({ animate }: { animate: boolean }) {
   }, [animate, width, progress]);
   const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [-width * 0.6, width] });
   return (
-    <View style={styles.loadTrack} onLayout={event => setWidth(event.nativeEvent.layout.width)}>
+    <View pointerEvents="none" style={styles.loadTrack} onLayout={event => setWidth(event.nativeEvent.layout.width)}>
       {animate ? (
-        <Animated.View style={[styles.loadBar, { width: width * 0.6, transform: [{ translateX }] }]}>
-          <View style={[styles.loadSegment, styles.loadSky]} />
-          <View style={[styles.loadSegment, styles.loadIndigo]} />
-          <View style={[styles.loadSegment, styles.loadPink]} />
+        <Animated.View pointerEvents="none" style={[styles.loadBar, { width: width * 0.6, transform: [{ translateX }] }]}>
+          <View pointerEvents="none" style={[styles.loadSegment, styles.loadSky]} />
+          <View pointerEvents="none" style={[styles.loadSegment, styles.loadIndigo]} />
+          <View pointerEvents="none" style={[styles.loadSegment, styles.loadPink]} />
         </Animated.View>
       ) : null}
     </View>

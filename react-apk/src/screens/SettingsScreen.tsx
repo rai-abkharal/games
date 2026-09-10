@@ -107,6 +107,18 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
             <Text style={styles.buttonText}>{clearing ? 'Refreshing…' : 'Refresh catalogue cache'}</Text>
           </Pressable>
         </Card>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Confirm and return to game"
+          onPress={() => navigation.goBack()}
+          style={({ pressed }) => [
+            styles.confirmButton,
+            { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
+          ]}
+        >
+          <Text style={styles.confirmButtonText}>✓ Confirm & Return to Game</Text>
+        </Pressable>
       </ScrollView>
     </View>
   );
@@ -170,4 +182,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonText: { color: '#FFFFFF', fontWeight: '800' },
+  confirmButton: {
+    height: 54,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    elevation: 4,
+  },
+  confirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
 });

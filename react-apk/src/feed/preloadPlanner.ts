@@ -16,7 +16,17 @@
 export type PageSlot = 'active' | 'ahead' | 'behind' | 'far';
 export type SwipeDirection = 1 | -1;
 
-export function slotFor(index: number, current: number, direction: SwipeDirection): PageSlot {
+export function slotFor(index: number, current: number, direction: SwipeDirection, count?: number): PageSlot {
+  if (count !== undefined && count > 1) {
+    const normIndex = ((index % count) + count) % count;
+    const normCurrent = ((current % count) + count) % count;
+    if (normIndex === normCurrent) return 'active';
+    const ahead = ((normCurrent + direction) % count + count) % count;
+    if (normIndex === ahead) return 'ahead';
+    const behind = ((normCurrent - direction) % count + count) % count;
+    if (normIndex === behind) return 'behind';
+    return 'far';
+  }
   if (index === current) return 'active';
   if (index === current + direction) return 'ahead';
   if (index === current - direction) return 'behind';
@@ -32,11 +42,18 @@ export function isLiveSlot(slot: PageSlot): boolean {
  * Indices whose HTML should be fetched into memory, nearest first: the games
  * beyond the warm ("ahead") page in the direction of travel.
  */
-export function prefetchOrder(current: number, direction: SwipeDirection, count: number, ahead: number): number[] {
+export function prefetchOrder(current: number, direction: SwipeDirection, count: number, ahead: number, loop = false): number[] {
   const out: number[] = [];
+  if (count <= 1) return out;
   for (let step = 2; step < 2 + ahead; step++) {
-    const index = current + direction * step;
-    if (index >= 0 && index < count) out.push(index);
+    if (loop) {
+      if (step >= count) break;
+      const index = ((current + direction * step) % count + count) % count;
+      if (!out.includes(index)) out.push(index);
+    } else {
+      const index = current + direction * step;
+      if (index >= 0 && index < count) out.push(index);
+    }
   }
   return out;
 }
@@ -45,12 +62,23 @@ export function prefetchOrder(current: number, direction: SwipeDirection, count:
  * Everything worth keeping around: the three live slots plus the prefetch
  * targets. Anything else can be evicted from memory.
  */
-export function retainWindow(current: number, direction: SwipeDirection, count: number, ahead: number): number[] {
+export function retainWindow(current: number, direction: SwipeDirection, count: number, ahead: number, loop = false): number[] {
   const keep = new Set<number>();
-  for (const index of [current - 1, current, current + 1]) {
-    if (index >= 0 && index < count) keep.add(index);
+  if (count <= 0) return [];
+  if (loop && count > 1) {
+    const prev = ((current - 1) % count + count) % count;
+    const curr = ((current % count) + count) % count;
+    const next = (current + 1) % count;
+    keep.add(prev);
+    keep.add(curr);
+    keep.add(next);
+    for (const index of prefetchOrder(current, direction, count, ahead, true)) keep.add(index);
+  } else {
+    for (const index of [current - 1, current, current + 1]) {
+      if (index >= 0 && index < count) keep.add(index);
+    }
+    for (const index of prefetchOrder(current, direction, count, ahead, false)) keep.add(index);
   }
-  for (const index of prefetchOrder(current, direction, count, ahead)) keep.add(index);
   return Array.from(keep).sort((a, b) => a - b);
 }
 

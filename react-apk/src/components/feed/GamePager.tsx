@@ -13,6 +13,7 @@ interface Props {
   pageHeight: number;
   width: number;
   swipeEnabled: boolean;
+  loop?: boolean;
   touchZonesFor: (index: number) => readonly TouchZone[] | undefined;
   /** Fired the moment a swipe's destination is known (ViewPager2's onPageSelected). */
   onIndexChange: (index: number, direction: SwipeDirection) => void;
@@ -40,6 +41,7 @@ export function GamePager({
   pageHeight,
   width,
   swipeEnabled,
+  loop = true,
   touchZonesFor,
   onIndexChange,
   onSettled,
@@ -53,8 +55,8 @@ export function GamePager({
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
   const gesture = useRef({ base: 0, dyAtGrant: 0, active: false });
 
-  const latest = useRef({ count, pageHeight, width, swipeEnabled, touchZonesFor, onIndexChange, onSettled });
-  latest.current = { count, pageHeight, width, swipeEnabled, touchZonesFor, onIndexChange, onSettled };
+  const latest = useRef({ count, pageHeight, width, swipeEnabled, loop, touchZonesFor, onIndexChange, onSettled });
+  latest.current = { count, pageHeight, width, swipeEnabled, loop, touchZonesFor, onIndexChange, onSettled };
 
   const stopAnimation = useCallback(() => {
     if (animationRef.current) {
@@ -91,7 +93,10 @@ export function GamePager({
   const settleTo = useCallback(
     (target: number) => {
       stopAnimation();
-      const toValue = -target * latest.current.pageHeight;
+      const h = latest.current.pageHeight;
+      const total = latest.current.count;
+      const isLoop = latest.current.loop && total > 1;
+      const toValue = -target * h;
       const animation = Animated.timing(translateY, {
         toValue,
         duration: 240,
@@ -102,8 +107,17 @@ export function GamePager({
       animation.start(({ finished }) => {
         if (animationRef.current === animation) animationRef.current = null;
         if (finished) {
-          valueRef.current = toValue;
-          latest.current.onSettled(target);
+          if (isLoop) {
+            const normalized = ((target % total) + total) % total;
+            positionRef.current = normalized;
+            const normValue = -normalized * h;
+            valueRef.current = normValue;
+            translateY.setValue(normValue);
+            latest.current.onSettled(normalized);
+          } else {
+            valueRef.current = toValue;
+            latest.current.onSettled(target);
+          }
         }
       });
     },
@@ -146,7 +160,7 @@ export function GamePager({
         },
         onPanResponderMove: (_event, state) => {
           if (!gesture.current.active) return;
-          const { count: total, pageHeight: h } = latest.current;
+          const { count: total, pageHeight: h, loop: isLoop } = latest.current;
           const rest = -positionRef.current * h;
           // Distance from the resting position, including any interrupted settle.
           const dy = gesture.current.base - rest + (state.dy - gesture.current.dyAtGrant);
@@ -157,6 +171,7 @@ export function GamePager({
             pageHeight: h,
             resistance: FEED.overscrollResistance,
             maxOverscroll: FEED.overscrollMaxPx,
+            loop: isLoop && total > 1,
           });
           const value = rest + offset;
           valueRef.current = value;
@@ -165,7 +180,7 @@ export function GamePager({
         onPanResponderRelease: (_event, state) => {
           if (!gesture.current.active) return;
           gesture.current.active = false;
-          const { count: total, pageHeight: h, onIndexChange: notify } = latest.current;
+          const { count: total, pageHeight: h, loop: isLoop, onIndexChange: notify } = latest.current;
           const current = positionRef.current;
           const dy = valueRef.current + current * h;
           const target = resolveTarget({
@@ -176,10 +191,12 @@ export function GamePager({
             pageHeight: h,
             thresholdRatio: FEED.swipeThresholdRatio,
             flingVelocity: FEED.swipeFlingVelocity,
+            loop: isLoop && total > 1,
           });
           if (target !== current) {
             positionRef.current = target;
-            notify(target, target > current ? 1 : -1);
+            const norm = isLoop && total > 1 ? ((target % total) + total) % total : target;
+            notify(norm, target > current ? 1 : -1);
           }
           settleTo(target);
         },
@@ -195,30 +212,49 @@ export function GamePager({
   // ViewPager2 offscreenPageLimit = 1: strictly render active item and immediate neighbors
   const pages = useMemo(() => {
     if (pageHeight <= 0 || width <= 0) return null;
+    const isLoop = loop && count > 1;
     const nodes: React.ReactNode[] = [];
-    const minIdx = Math.max(0, index - 1);
-    const maxIdx = Math.min(count - 1, index + 1);
-    for (let i = minIdx; i <= maxIdx; i++) {
-      const node = renderPage(i);
+    const minOffset = -1;
+    const maxOffset = 1;
+    for (let offset = minOffset; offset <= maxOffset; offset++) {
+      const virtualIdx = index + offset;
+      if (!isLoop && (virtualIdx < 0 || virtualIdx >= count)) continue;
+      const actualIdx = ((virtualIdx % count) + count) % count;
+      const node = renderPage(actualIdx);
       if (!node) continue;
       nodes.push(
-        <View key={i} style={[styles.page, { top: i * pageHeight, height: pageHeight, width }]}>
+        <View
+          key={actualIdx}
+          pointerEvents={offset === 0 ? 'auto' : 'none'}
+          style={[styles.page, { top: virtualIdx * pageHeight, height: pageHeight, width }]}
+        >
           {node}
         </View>,
       );
     }
     return nodes;
-  }, [count, pageHeight, width, index, renderPage]);
+  }, [count, pageHeight, width, index, loop, renderPage]);
 
   return (
     <View ref={rootRef} style={styles.root} collapsable={false} {...responder.panHandlers}>
-      <Animated.View style={[styles.track, { transform: [{ translateY }] }]}>{pages}</Animated.View>
+      <Animated.View
+        style={[
+          styles.track,
+          {
+            width,
+            height: Math.max(3, count + 2) * pageHeight,
+            transform: [{ translateY }],
+          },
+        ]}
+      >
+        {pages}
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, overflow: 'hidden', backgroundColor: GAME_SURFACE },
-  track: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  track: { position: 'absolute', top: 0, left: 0 },
   page: { position: 'absolute', left: 0 },
 });

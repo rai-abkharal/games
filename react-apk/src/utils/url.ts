@@ -57,7 +57,7 @@ export function buildGameEntryUrl(game: GameItem): string {
     ? hashCode(game.updatedAt)
     : game.sha256
       ? game.sha256.slice(0, 8)
-      : String(Date.now());
+      : String(hashCode(`${game.id}:${game.version}`));
   const sep = game.entryUrl.includes('?') ? '&' : '?';
   return `${game.entryUrl}${sep}v=${encodeURIComponent(game.version)}&t=${token}`;
 }

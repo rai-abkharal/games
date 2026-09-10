@@ -684,9 +684,9 @@ export function createAdminRouter(
           : "1.0.0");
 
       // Destination directory: public/games/<gameId>/<version>/
-      // Only a new immutable version may be published; prior live versions survive.
+      // When updating a game, allow existing version directory to be updated/overwritten.
       const targetGameDir = path.join(gamesDir, gameId, version);
-      if (fs.existsSync(targetGameDir))
+      if (fs.existsSync(targetGameDir) && !existingGame && !targetGameId)
         throw new SecurityError(
           409,
           "Version already exists. Upload a new version.",

@@ -42,6 +42,10 @@ describe('dragOffset', () => {
     expect(dragOffset({ ...opts, dy: 1000, current: 0 })).toBe(48);
     expect(dragOffset({ ...opts, dy: -100, current: 9 })).toBe(-25);
   });
+  test('loop mode allows dragging past boundaries without resistance', () => {
+    expect(dragOffset({ ...opts, dy: 300, current: 0, loop: true })).toBe(300);
+    expect(dragOffset({ ...opts, dy: -300, current: 9, loop: true })).toBe(-300);
+  });
 });
 
 describe('resolveTarget (one page per gesture)', () => {
@@ -57,9 +61,13 @@ describe('resolveTarget (one page per gesture)', () => {
   test('a fling against the drag direction does not jump', () => {
     expect(resolveTarget({ ...opts, dy: -100, vy: 1.5, current: 4 })).toBe(4);
   });
-  test('never leaves the list', () => {
+  test('never leaves the list when loop is false', () => {
     expect(resolveTarget({ ...opts, dy: 400, vy: 2, current: 0 })).toBe(0);
     expect(resolveTarget({ ...opts, dy: -400, vy: -2, current: 9 })).toBe(9);
     expect(resolveTarget({ ...opts, count: 1, dy: -400, vy: -2, current: 0 })).toBe(0);
+  });
+  test('allows crossing boundaries when loop is true', () => {
+    expect(resolveTarget({ ...opts, dy: 400, vy: 2, current: 0, loop: true })).toBe(-1);
+    expect(resolveTarget({ ...opts, dy: -400, vy: -2, current: 9, loop: true })).toBe(10);
   });
 });

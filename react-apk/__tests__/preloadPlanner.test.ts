@@ -13,6 +13,12 @@ describe('slotFor (ViewPager2 offscreenPageLimit = 1 semantics)', () => {
     expect(slotFor(4, 5, -1)).toBe('ahead');
     expect(slotFor(6, 5, -1)).toBe('behind');
   });
+  test('looping slotFor wraps cleanly around edges', () => {
+    expect(slotFor(0, 4, 1, 5)).toBe('ahead');
+    expect(slotFor(3, 4, 1, 5)).toBe('behind');
+    expect(slotFor(4, 0, -1, 5)).toBe('ahead');
+    expect(slotFor(1, 0, -1, 5)).toBe('behind');
+  });
 });
 
 describe('prefetchOrder', () => {
@@ -21,10 +27,14 @@ describe('prefetchOrder', () => {
     expect(prefetchOrder(5, -1, 30, 3)).toEqual([3, 2, 1]);
   });
 
-  test('stops at the list bounds', () => {
+  test('stops at the list bounds when not looping', () => {
     expect(prefetchOrder(27, 1, 30, 3)).toEqual([29]);
     expect(prefetchOrder(28, 1, 30, 3)).toEqual([]);
     expect(prefetchOrder(0, -1, 30, 3)).toEqual([]);
+  });
+
+  test('wraps circularly when loop is true', () => {
+    expect(prefetchOrder(4, 1, 5, 3, true)).toEqual([1, 2, 3]);
   });
 
   test('first five games are covered at launch: active, warm, and three prefetched', () => {
@@ -41,6 +51,10 @@ describe('retainWindow', () => {
   test('small lists', () => {
     expect(retainWindow(0, 1, 3, 3)).toEqual([0, 1, 2]);
     expect(retainWindow(0, 1, 1, 3)).toEqual([0]);
+  });
+
+  test('circular retainWindow wraps boundaries', () => {
+    expect(retainWindow(0, 1, 5, 3, true)).toEqual([0, 1, 2, 3, 4]);
   });
 });
 
