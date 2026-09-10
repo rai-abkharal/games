@@ -106,8 +106,8 @@ export const FEED = {
   /** Total memory budget for prefetched HTML. */
   prefetchBudgetBytes: 8 * 1024 * 1024,
   prefetchTimeoutMs: 15_000,
-  /** Frames a freshly loaded background page may still render before its frame gate closes. */
-  preloadGraceFrames: 90,
+  /** Frames a freshly loaded background page may still render before its frame gate closes (0 = instant freeze like native). */
+  preloadGraceFrames: 0,
   /** Vertical movement (px) before the pager claims a drag from the game. */
   swipeSlopPx: 12,
   /** Fraction of the page height that must be dragged to change page without a fling. */
@@ -118,7 +118,7 @@ export const FEED = {
   overscrollResistance: 0.25,
   overscrollMaxPx: 48,
   /** Settle animation length (ViewPager2 snaps in roughly this time). */
-  settleDurationMs: 280,
+  settleDurationMs: 240,
   /** Floating dock auto-hides after this much inactivity (MainActivity: 5 s). */
   dockAutoHideMs: 5000,
   dockAnimationMs: 260,

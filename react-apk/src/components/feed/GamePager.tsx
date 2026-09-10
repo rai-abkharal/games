@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, PanResponder, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { Animated, Easing, PanResponder, StyleSheet, View } from 'react-native';
 import { FEED } from '../../config/env';
 import { dragOffset, pointInZones, resolveTarget, shouldClaimSwipe } from '../../feed/pagerGesture';
 import type { SwipeDirection } from '../../feed/preloadPlanner';
@@ -48,7 +48,7 @@ export function GamePager({
   const translateY = useRef(new Animated.Value(-index * pageHeight)).current;
   const valueRef = useRef(-index * pageHeight);
   const positionRef = useRef(index);
-  const originRef = useRef({ x: 0, y: 0 });
+  const touchStartRef = useRef({ x: 0, y: 0 });
   const rootRef = useRef<React.ComponentRef<typeof View>>(null);
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
   const gesture = useRef({ base: 0, dyAtGrant: 0, active: false });
@@ -56,20 +56,16 @@ export function GamePager({
   const latest = useRef({ count, pageHeight, width, swipeEnabled, touchZonesFor, onIndexChange, onSettled });
   latest.current = { count, pageHeight, width, swipeEnabled, touchZonesFor, onIndexChange, onSettled };
 
-  // Track the animated value so an interrupted settle continues from where it is.
-  useEffect(() => {
-    const id = translateY.addListener(({ value }) => {
-      valueRef.current = value;
-    });
-    return () => translateY.removeListener(id);
-  }, [translateY]);
-
   const stopAnimation = useCallback(() => {
     if (animationRef.current) {
       animationRef.current.stop();
       animationRef.current = null;
+      const val = (translateY as any)._value;
+      if (typeof val === 'number') {
+        valueRef.current = val;
+      }
     }
-  }, []);
+  }, [translateY]);
 
   const jumpTo = useCallback(
     (target: number) => {
@@ -98,7 +94,7 @@ export function GamePager({
       const toValue = -target * latest.current.pageHeight;
       const animation = Animated.timing(translateY, {
         toValue,
-        duration: FEED.settleDurationMs,
+        duration: 240,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       });
@@ -114,31 +110,26 @@ export function GamePager({
     [stopAnimation, translateY],
   );
 
-  const measureOrigin = useCallback(() => {
-    rootRef.current?.measureInWindow((x, y) => {
-      originRef.current = { x, y };
-    });
-  }, []);
-
-  const onLayout = useCallback(
-    (_event: LayoutChangeEvent) => {
-      measureOrigin();
-    },
-    [measureOrigin],
-  );
-
   const responder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => false,
-        onStartShouldSetPanResponderCapture: () => false,
+        onStartShouldSetPanResponderCapture: event => {
+          touchStartRef.current = {
+            x: event.nativeEvent.locationX,
+            y: event.nativeEvent.locationY,
+          };
+          return false;
+        },
         onMoveShouldSetPanResponderCapture: () => false,
-        onMoveShouldSetPanResponder: (event, state) => {
+        onMoveShouldSetPanResponder: (_event, state) => {
           const { swipeEnabled: enabled, count: total, pageHeight: h, width: w, touchZonesFor: zonesFor } = latest.current;
           if (!enabled || total <= 1 || h <= 0 || w <= 0) return false;
-          const startX = event.nativeEvent.pageX - state.dx - originRef.current.x;
-          const startY = event.nativeEvent.pageY - state.dy - originRef.current.y;
-          const startedInZone = pointInZones(startX / w, startY / h, zonesFor(positionRef.current));
+          const startedInZone = pointInZones(
+            touchStartRef.current.x / w,
+            touchStartRef.current.y / h,
+            zonesFor(positionRef.current),
+          );
           return shouldClaimSwipe({
             dx: state.dx,
             dy: state.dy,
@@ -201,10 +192,13 @@ export function GamePager({
     [settleTo, stopAnimation, translateY],
   );
 
+  // ViewPager2 offscreenPageLimit = 1: strictly render active item and immediate neighbors
   const pages = useMemo(() => {
     if (pageHeight <= 0 || width <= 0) return null;
     const nodes: React.ReactNode[] = [];
-    for (let i = 0; i < count; i++) {
+    const minIdx = Math.max(0, index - 1);
+    const maxIdx = Math.min(count - 1, index + 1);
+    for (let i = minIdx; i <= maxIdx; i++) {
       const node = renderPage(i);
       if (!node) continue;
       nodes.push(
@@ -214,10 +208,10 @@ export function GamePager({
       );
     }
     return nodes;
-  }, [count, pageHeight, width, renderPage]);
+  }, [count, pageHeight, width, index, renderPage]);
 
   return (
-    <View ref={rootRef} style={styles.root} onLayout={onLayout} collapsable={false} {...responder.panHandlers}>
+    <View ref={rootRef} style={styles.root} collapsable={false} {...responder.panHandlers}>
       <Animated.View style={[styles.track, { transform: [{ translateY }] }]}>{pages}</Animated.View>
     </View>
   );

@@ -79,13 +79,14 @@ export interface SettleInput {
 /** Which page the pager should settle on after the finger lifts. */
 export function resolveTarget({ dy, vy, current, count, pageHeight, thresholdRatio, flingVelocity }: SettleInput): number {
   if (count <= 1 || pageHeight <= 0) return current;
-  const dragDir = dy < 0 ? 1 : dy > 0 ? -1 : 0;
+  const isSignificantDrag = Math.abs(dy) >= pageHeight * 0.05;
+  const dragDir = isSignificantDrag ? (dy < 0 ? 1 : -1) : 0;
   const flingDir = vy < 0 ? 1 : vy > 0 ? -1 : 0;
   let target = current;
   if (Math.abs(vy) >= flingVelocity && flingDir !== 0 && (dragDir === 0 || flingDir === dragDir)) {
     target = current + flingDir;
-  } else if (Math.abs(dy) >= pageHeight * thresholdRatio && dragDir !== 0) {
-    target = current + dragDir;
+  } else if (Math.abs(dy) >= pageHeight * thresholdRatio) {
+    target = current + (dy < 0 ? 1 : -1);
   }
   return Math.min(count - 1, Math.max(0, target));
 }

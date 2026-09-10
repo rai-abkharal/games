@@ -10,7 +10,6 @@ import { MessageView } from '../components/StateViews';
 import { FEED, GAMEPLAY } from '../config/env';
 import {
   clampIndex,
-  isNear,
   prefetchOrder,
   retainWindow,
   slotFor,
@@ -149,15 +148,11 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const activePage = useCallback(() => (currentIdRef.current ? pagesRef.current.get(currentIdRef.current) : undefined), []);
 
   const phasesRef = useRef(new Map<string, PagePhase>());
-  const [warmGate, setWarmGate] = useState(false);
-  const warmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prefetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prefetchedFor = useRef<string | null>(null);
 
   const clearGateTimers = useCallback(() => {
-    if (warmTimer.current) clearTimeout(warmTimer.current);
     if (prefetchTimer.current) clearTimeout(prefetchTimer.current);
-    warmTimer.current = null;
     prefetchTimer.current = null;
   }, []);
 
@@ -187,28 +182,18 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     prefetchTimer.current = setTimeout(runPrefetch, FEED.prefetchFallbackMs);
   }, [aheadGame, runPrefetch]);
 
-  const openWarmGate = useCallback(() => {
-    if (warmTimer.current) clearTimeout(warmTimer.current);
-    warmTimer.current = null;
-    setWarmGate(true);
-    schedulePrefetch();
-  }, [schedulePrefetch]);
-
   const onPhase = useCallback(
     (gameId: string, phase: PagePhase) => {
       phasesRef.current.set(gameId, phase);
       if (gameId === currentIdRef.current) {
-        if (phase === 'ready') {
-          if (warmTimer.current) clearTimeout(warmTimer.current);
-          warmTimer.current = setTimeout(openWarmGate, FEED.warmDelayMs);
-        } else if (phase === 'error') {
-          openWarmGate();
+        if (phase === 'ready' || phase === 'error') {
+          schedulePrefetch();
         }
       } else if (gameId === aheadGame()?.id && (phase === 'ready' || phase === 'error')) {
         if (prefetchTimer.current) runPrefetch();
       }
     },
-    [openWarmGate, aheadGame, runPrefetch],
+    [schedulePrefetch, aheadGame, runPrefetch],
   );
 
   /* ---------------- dock auto-hide (5 s) -------------------------------------- */
@@ -252,21 +237,16 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     if (!game) return;
     currentIdRef.current = game.id;
     clearGateTimers();
-    setWarmGate(false);
     setSwipeEnabled(true);
     showDock();
     usePlayerStore.getState().setLastPlayed(game.id);
     analytics.onGameStart(game.id, game.title);
     adManager.setCurrentGame(game);
-    // A page that is already running (swiped back to) frees the gate quickly;
-    // otherwise warm the next page even if this one is slow (native binds it
-    // regardless).
-    const alreadyReady = phasesRef.current.get(game.id) === 'ready';
-    warmTimer.current = setTimeout(openWarmGate, alreadyReady ? FEED.warmDelayMs : FEED.warmFallbackMs);
+    schedulePrefetch();
     const { index, direction } = positionRef.current;
     const pages = listRef.current;
     gamePrefetcher.retain(retainWindow(index, direction, pages.length, FEED.prefetchAhead).map(i => pages[i]));
-  }, [currentId, clearGateTimers, showDock, openWarmGate]);
+  }, [currentId, clearGateTimers, showDock, schedulePrefetch]);
 
   // Per-game ad rules may change on a catalogue refresh.
   useEffect(() => {
@@ -398,29 +378,27 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   }, []);
   const touchZonesFor = useCallback((index: number) => listRef.current[index]?.touchZones, []);
 
-  const { index, direction, settling } = position;
+  const { index, direction } = position;
   const renderPage = useCallback(
     (i: number) => {
       const game = list[i];
       if (!game) return null;
       const slot = slotFor(i, index, direction);
-      const near = isNear(i, index, 2);
-      if (slot === 'far' && !near) return null;
-      const mayLoad = slot === 'active' ? !settling : slot === 'ahead' ? warmGate && !settling : false;
+      if (slot === 'far') return null;
       return (
         <GamePage
           key={game.id}
           ref={refFor(game.id)}
           game={game}
           slot={slot}
-          mayLoad={mayLoad}
-          near={near}
+          mayLoad={true}
+          near={true}
           onPhase={onPhase}
           onMessage={onMessage}
         />
       );
     },
-    [list, index, direction, settling, warmGate, refFor, onPhase, onMessage],
+    [list, index, direction, refFor, onPhase, onMessage],
   );
 
   /* ---------------- dock actions --------------------------------------------- */

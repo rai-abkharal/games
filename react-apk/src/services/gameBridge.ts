@@ -115,7 +115,7 @@ export const BRIDGE_BOOTSTRAP_SCRIPT = `
       gate.freezeAt = 0;
       var list = gate.pending;
       gate.pending = [];
-      for (var i = 0; i < list.length; i++) schedule(list[i].cb);
+      if (list.length > 0) schedule(list[list.length - 1].cb);
     };
   }
 })();

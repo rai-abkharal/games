@@ -91,7 +91,6 @@ export const GamePage = memo(
       timeoutRef.current = null;
     }, []);
 
-    /* ---------------- slot → WebView ownership ------------------------------ */
     useEffect(() => {
       if (slot === 'far') {
         if (live) {
@@ -105,7 +104,6 @@ export const GamePage = memo(
         }
         return;
       }
-      if (slot === 'behind') return; // retain whatever exists, never start a load
       if (mayLoad && !live) setLive(true);
     }, [slot, mayLoad, live]);
 
