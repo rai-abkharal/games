@@ -84,6 +84,12 @@ export class GamePrefetcher {
   private queue: GameItem[] = [];
   private inflight: { key: string; cancelled: boolean } | null = null;
   private online = true;
+  private paused = false;
+
+  setPaused(paused: boolean): void {
+    this.paused = paused;
+    if (!paused) this.pump();
+  }
   private readonly limits: PrefetchLimits;
 
   constructor(
@@ -159,7 +165,7 @@ export class GamePrefetcher {
   }
 
   private pump(): void {
-    if (this.inflight || !this.online) return;
+    if (this.inflight || !this.online || this.paused) return;
     const next = this.queue.find(game => this.eligible(game));
     if (!next) {
       this.queue = [];
@@ -180,6 +186,9 @@ export class GamePrefetcher {
       if (response.contentLength !== null && response.contentLength > this.limits.maxBytes) {
         throw new Error('too large');
       }
+      // Avoid materializing a large response on JS during gameplay or a swipe.
+      if (job.cancelled) return;
+      if (this.paused) { this.queue.unshift(game); return; }
       const html = await response.text();
       const bytes = html.length;
       if (job.cancelled || bytes === 0 || bytes > this.limits.maxBytes) return;

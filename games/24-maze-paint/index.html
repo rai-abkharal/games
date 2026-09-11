@@ -4136,6 +4136,8 @@
         this.joyMaxDist = 44;
         this.joyKnobX = 0;
         this.joyKnobY = 0;
+        this.joyTargetKnobX = 0;
+        this.joyTargetKnobY = 0;
         this.isJoyActive = false;
         this.joyDir = null;
         this.isBottomBarVisible = true;
@@ -4327,6 +4329,8 @@
         this.joyX = Math.round(this.width / 2);
         this.joyY = Math.round(this.height - bottomDockSafe - 68);
         if (!this.isJoyActive) {
+          this.joyTargetKnobX = this.joyX;
+          this.joyTargetKnobY = this.joyY;
           this.joyKnobX = this.joyX;
           this.joyKnobY = this.joyY;
         }
@@ -4488,12 +4492,39 @@
             this.loadLevel(this.levelIndex + 1, true);
             return;
           }
-          if (this.state !== 'IDLE') return;
-          if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') this.tryRoll(0, 1);
-          else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') this.tryRoll(0, -1);
-          else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') this.tryRoll(1, 0);
-          else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') this.tryRoll(-1, 0);
-          else if (e.key === 'r' || e.key === 'R') this.restartCurrentLevel();
+          if (e.key === 'r' || e.key === 'R') {
+            this.restartCurrentLevel();
+            return;
+          }
+
+          let dr = null;
+          let dc = null;
+          if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { dr = 0; dc = 1; }
+          else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { dr = 0; dc = -1; }
+          else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { dr = 1; dc = 0; }
+          else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { dr = -1; dc = 0; }
+
+          if (dr !== null && dc !== null) {
+            this.joyDir = { dr, dc };
+            this.isJoyActive = true;
+            const offset = this.joyMaxDist * 0.88;
+            if (dc === 1) { this.joyTargetKnobX = this.joyX + offset; this.joyTargetKnobY = this.joyY; }
+            else if (dc === -1) { this.joyTargetKnobX = this.joyX - offset; this.joyTargetKnobY = this.joyY; }
+            else if (dr === 1) { this.joyTargetKnobX = this.joyX; this.joyTargetKnobY = this.joyY + offset; }
+            else if (dr === -1) { this.joyTargetKnobX = this.joyX; this.joyTargetKnobY = this.joyY - offset; }
+
+            if (this.state === 'IDLE') {
+              this.tryRoll(dr, dc);
+            }
+          }
+        });
+
+        window.addEventListener('keyup', (e) => {
+          if (['ArrowRight', 'd', 'D', 'ArrowLeft', 'a', 'A', 'ArrowDown', 's', 'S', 'ArrowUp', 'w', 'W'].includes(e.key)) {
+            if (this.isJoyActive && !this.isPointerDown) {
+              this.resetJoystick();
+            }
+          }
         });
 
         window.addEventListener('message', (e) => {
@@ -4950,6 +4981,61 @@
             this.rippleRadius += dt * 380;
           }
 
+          // 4-Directional Locked Orthogonal Cross-Gated Smoothing:
+          // Guarantees knob ONLY moves along Left, Right, Up, Down channels (ZERO diagonal positioning)
+          if (!this.isJoyActive) {
+            this.joyTargetKnobX = this.joyX;
+            this.joyTargetKnobY = this.joyY;
+          }
+
+          const cx = this.joyX;
+          const cy = this.joyY;
+          const lerpFactor = 1 - Math.exp(-32 * dt);
+
+          const targetX = this.joyTargetKnobX;
+          const targetY = this.joyTargetKnobY;
+
+          const isDisplacedX = Math.abs(this.joyKnobX - cx) > 0.8;
+          const isDisplacedY = Math.abs(this.joyKnobY - cy) > 0.8;
+
+          const targetCallsForY = Math.abs(targetY - cy) > 0.8;
+          const targetCallsForX = Math.abs(targetX - cx) > 0.8;
+
+          if (targetCallsForY && isDisplacedX) {
+            // Transitioning to vertical axis: slide horizontal arm into center junction first
+            this.joyKnobX += (cx - this.joyKnobX) * lerpFactor;
+            if (Math.abs(this.joyKnobX - cx) <= 0.8) {
+              this.joyKnobX = cx;
+            }
+            this.joyKnobY = cy;
+          } else if (targetCallsForX && isDisplacedY) {
+            // Transitioning to horizontal axis: slide vertical arm into center junction first
+            this.joyKnobY += (cy - this.joyKnobY) * lerpFactor;
+            if (Math.abs(this.joyKnobY - cy) <= 0.8) {
+              this.joyKnobY = cy;
+            }
+            this.joyKnobX = cx;
+          } else {
+            // Move along the active axis or return to center
+            if (targetCallsForX || (!targetCallsForY && isDisplacedX)) {
+              this.joyKnobX += (targetX - this.joyKnobX) * lerpFactor;
+              if (Math.abs(this.joyKnobX - targetX) < 0.4) this.joyKnobX = targetX;
+              this.joyKnobY = cy;
+            } else if (targetCallsForY || (!targetCallsForX && isDisplacedY)) {
+              this.joyKnobY += (targetY - this.joyKnobY) * lerpFactor;
+              if (Math.abs(this.joyKnobY - targetY) < 0.4) this.joyKnobY = targetY;
+              this.joyKnobX = cx;
+            } else {
+              this.joyKnobX = cx;
+              this.joyKnobY = cy;
+            }
+          }
+
+          // Holding joystick: roll ball if idle and corridor is open
+          if (this.state === 'IDLE' && this.isJoyActive && this.joyDir) {
+            this.tryRoll(this.joyDir.dr, this.joyDir.dc);
+          }
+
           this.render();
         } catch (err) {
           console.error("ColorMaze loop error:", err);
@@ -5269,50 +5355,87 @@
       }
 
       updateJoystick(px, py) {
-        const dx = px - this.joyX;
-        const dy = py - this.joyY;
+        const cx = this.joyX;
+        const cy = this.joyY;
+        const dx = px - cx;
+        const dy = py - cy;
         const dist = Math.hypot(dx, dy);
+        const deadzone = 9;
 
-        // Limit thumb knob displacement to outer rim
-        const clampedDist = Math.min(dist, this.joyMaxDist);
-        const angle = Math.atan2(dy, dx);
+        if (dist < deadzone) {
+          this.joyDir = null;
+          this.joyTargetKnobX = cx;
+          this.joyTargetKnobY = cy;
+          return;
+        }
 
-        this.joyKnobX = this.joyX + Math.cos(angle) * clampedDist;
-        this.joyKnobY = this.joyY + Math.sin(angle) * clampedDist;
+        const absX = Math.abs(dx);
+        const absY = Math.abs(dy);
+        let dr = 0;
+        let dc = 0;
 
-        // Deadzone check
-        const deadzone = 11;
-        if (dist >= deadzone) {
-          // Determine cardinal direction (Right: 0, Down: 1, Left: 2, Up: 3)
-          let dr = 0;
-          let dc = 0;
+        // Directional Hysteresis: require perpendicular axis to clearly exceed active axis by 25%
+        // to prevent jitter along 45-degree diagonal movements
+        const isCurrentlyHorizontal = this.joyDir && this.joyDir.dc !== 0;
+        const isCurrentlyVertical = this.joyDir && this.joyDir.dr !== 0;
 
-          if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
-            dc = 1; // Right
-          } else if (angle >= Math.PI / 4 && angle <= 3 * Math.PI / 4) {
-            dr = 1; // Down
-          } else if (angle <= -Math.PI / 4 && angle >= -3 * Math.PI / 4) {
-            dr = -1; // Up
+        if (isCurrentlyHorizontal) {
+          if (absY > absX * 1.25) {
+            dr = dy > 0 ? 1 : -1;
+            dc = 0;
           } else {
-            dc = -1; // Left
+            dc = dx > 0 ? 1 : -1;
+            dr = 0;
           }
-
-          const isNewDir = !this.joyDir || this.joyDir.dr !== dr || this.joyDir.dc !== dc;
-          this.joyDir = { dr, dc };
-
-          if (this.state === 'IDLE' && isNewDir) {
-            this.tryRoll(dr, dc);
+        } else if (isCurrentlyVertical) {
+          if (absX > absY * 1.25) {
+            dc = dx > 0 ? 1 : -1;
+            dr = 0;
+          } else {
+            dr = dy > 0 ? 1 : -1;
+            dc = 0;
           }
         } else {
-          this.joyDir = null;
+          if (absX >= absY) {
+            dc = dx > 0 ? 1 : -1;
+            dr = 0;
+          } else {
+            dr = dy > 0 ? 1 : -1;
+            dc = 0;
+          }
+        }
+
+        const isNewDir = !this.joyDir || this.joyDir.dr !== dr || this.joyDir.dc !== dc;
+        this.joyDir = { dr, dc };
+
+        // Strict 4-Directional Locked Target:
+        // Knob target is locked strictly to cardinal axis (zero diagonal offset)
+        const clampedOffset = Math.min(dist, this.joyMaxDist);
+
+        if (dc === 1) {
+          this.joyTargetKnobX = cx + clampedOffset;
+          this.joyTargetKnobY = cy;
+        } else if (dc === -1) {
+          this.joyTargetKnobX = cx - clampedOffset;
+          this.joyTargetKnobY = cy;
+        } else if (dr === 1) {
+          this.joyTargetKnobX = cx;
+          this.joyTargetKnobY = cy + clampedOffset;
+        } else if (dr === -1) {
+          this.joyTargetKnobX = cx;
+          this.joyTargetKnobY = cy - clampedOffset;
+        }
+
+        if (this.state === 'IDLE' && isNewDir) {
+          this.tryRoll(dr, dc);
         }
       }
 
       resetJoystick() {
         this.isJoyActive = false;
         this.joyDir = null;
-        this.joyKnobX = this.joyX;
-        this.joyKnobY = this.joyY;
+        this.joyTargetKnobX = this.joyX;
+        this.joyTargetKnobY = this.joyY;
         if (window.FlutterGameBridge && typeof window.FlutterGameBridge.setSwipeEnabled === 'function') {
           window.FlutterGameBridge.setSwipeEnabled(true);
         }
@@ -5341,12 +5464,62 @@
         ctx.fillStyle = bgGrad;
         ctx.fill();
 
-        ctx.strokeStyle = this.isJoyActive ? activeColor + 'AA' : 'rgba(255, 255, 255, 0.65)';
+        ctx.strokeStyle = this.isJoyActive ? activeColor + '88' : 'rgba(255, 255, 255, 0.65)';
         ctx.lineWidth = 2.0;
         ctx.stroke();
         ctx.restore();
 
-        // 2. Cardinal Direction Indicators (▲, ▼, ◀, ▶)
+        // 2. 4-Way Cross Guide Slots / Channels (Cross-Gated Track)
+        ctx.save();
+        const trackW = knobR * 1.25;
+        const trackLen = this.joyMaxDist * 2 + knobR * 0.7;
+        const trackCorner = trackW / 2;
+
+        // Inset track slots background
+        ctx.beginPath();
+        ctx.roundRect(jx - trackLen / 2, jy - trackW / 2, trackLen, trackW, trackCorner);
+        ctx.roundRect(jx - trackW / 2, jy - trackLen / 2, trackW, trackLen, trackCorner);
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.06)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        // Active Arm Glow Highlight
+        if (this.isJoyActive && this.joyDir) {
+          ctx.beginPath();
+          let armX = jx;
+          let armY = jy;
+          let armW = trackW;
+          let armH = trackW;
+          if (this.joyDir.dc === 1) {
+            armX = jx - trackW / 2;
+            armY = jy - trackW / 2;
+            armW = this.joyMaxDist + trackW;
+            armH = trackW;
+          } else if (this.joyDir.dc === -1) {
+            armX = jx - this.joyMaxDist - trackW / 2;
+            armY = jy - trackW / 2;
+            armW = this.joyMaxDist + trackW;
+            armH = trackW;
+          } else if (this.joyDir.dr === 1) {
+            armX = jx - trackW / 2;
+            armY = jy - trackW / 2;
+            armW = trackW;
+            armH = this.joyMaxDist + trackW;
+          } else if (this.joyDir.dr === -1) {
+            armX = jx - trackW / 2;
+            armY = jy - this.joyMaxDist - trackW / 2;
+            armW = trackW;
+            armH = this.joyMaxDist + trackW;
+          }
+          ctx.roundRect(armX, armY, armW, armH, trackCorner);
+          ctx.fillStyle = activeColor + '33';
+          ctx.fill();
+        }
+        ctx.restore();
+
+        // 3. Cardinal Direction Indicators (▲, ▼, ◀, ▶)
         const dOffset = baseR * 0.64;
         const dirIndicators = [
           { dr: -1, dc: 0, text: '▲', x: jx, y: jy - dOffset },
@@ -5958,7 +6131,7 @@
           ctx.font = '800 13.5px Outfit, sans-serif';
           ctx.fillStyle = '#1E293B';
           ctx.textAlign = 'center';
-          ctx.fillText('Move joystick in any direction to roll the', this.width / 2, cardY + 236);
+          ctx.fillText('Move joystick Up, Down, Left, or Right to roll the', this.width / 2, cardY + 236);
           ctx.fillText('marble paint ball through the maze.', this.width / 2, cardY + 256);
         }
         // Slide 2: The Ball Paints Every Tile Along Path

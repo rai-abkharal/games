@@ -1078,12 +1078,62 @@ export class Renderer {
     ctx.fillStyle = bgGrad;
     ctx.fill();
 
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.strokeStyle = isJoyActive ? 'rgba(131, 204, 67, 0.45)' : 'rgba(255, 255, 255, 0.55)';
     ctx.lineWidth = 2.0;
     ctx.stroke();
     ctx.restore();
 
-    // 2. Cute Directional Indicators (▲, ▼, ◀, ▶)
+    // 2. 4-Way Cross Guide Slots / Channels (Cross-Gated Track)
+    ctx.save();
+    const trackW = knobR * 1.25;
+    const trackLen = THEME.joyMaxDist * 2 + knobR * 0.7;
+    const trackCorner = trackW / 2;
+
+    // Inset track slots background
+    ctx.beginPath();
+    (ctx as any).roundRect(jx - trackLen / 2, jy - trackW / 2, trackLen, trackW, trackCorner);
+    (ctx as any).roundRect(jx - trackW / 2, jy - trackLen / 2, trackW, trackLen, trackCorner);
+    ctx.fillStyle = 'rgba(20, 49, 78, 0.08)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Active Arm Glow Highlight
+    if (isJoyActive && joyDir) {
+      ctx.beginPath();
+      let armX = jx;
+      let armY = jy;
+      let armW = trackW;
+      let armH = trackW;
+      if (joyDir === Direction.RIGHT) {
+        armX = jx - trackW / 2;
+        armY = jy - trackW / 2;
+        armW = THEME.joyMaxDist + trackW;
+        armH = trackW;
+      } else if (joyDir === Direction.LEFT) {
+        armX = jx - THEME.joyMaxDist - trackW / 2;
+        armY = jy - trackW / 2;
+        armW = THEME.joyMaxDist + trackW;
+        armH = trackW;
+      } else if (joyDir === Direction.DOWN) {
+        armX = jx - trackW / 2;
+        armY = jy - trackW / 2;
+        armW = trackW;
+        armH = THEME.joyMaxDist + trackW;
+      } else if (joyDir === Direction.UP) {
+        armX = jx - trackW / 2;
+        armY = jy - THEME.joyMaxDist - trackW / 2;
+        armW = trackW;
+        armH = THEME.joyMaxDist + trackW;
+      }
+      (ctx as any).roundRect(armX, armY, armW, armH, trackCorner);
+      ctx.fillStyle = 'rgba(131, 204, 67, 0.22)';
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 3. Cute Directional Indicators (▲, ▼, ◀, ▶)
     const dOffset = baseR * 0.62;
     const dirIndicators = [
       { dir: Direction.UP, text: '▲', x: jx, y: jy - dOffset },

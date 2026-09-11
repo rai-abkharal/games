@@ -39,6 +39,30 @@ function makeFetcher() {
 }
 
 describe('GamePrefetcher', () => {
+  test('suspends the queue and defers response text until gameplay ends', async () => {
+    const { calls, fetcher, respond } = makeFetcher();
+    const prefetcher = new GamePrefetcher(fetcher);
+    const text = jest.fn(async () => '<html>a</html>');
+    prefetcher.setPaused(true);
+    prefetcher.request([game('a'), game('b')]);
+    expect(calls).toHaveLength(0);
+    prefetcher.setPaused(false);
+    expect(calls).toHaveLength(1);
+    prefetcher.setPaused(true);
+    respond(0, '', { text });
+    await flush();
+    expect(text).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(1);
+    prefetcher.setPaused(false);
+    expect(calls).toHaveLength(2);
+    respond(1, '<html>a</html>');
+    await flush();
+    expect(prefetcher.has(game('a'))).toBe(true);
+    expect(calls).toHaveLength(3);
+    respond(2, '<html>b</html>');
+    await flush();
+  });
+
   test('fetches the wish-list in priority order, one at a time, and serves documents from memory', async () => {
     const { calls, fetcher, respond } = makeFetcher();
     const prefetcher = new GamePrefetcher(fetcher, { maxBytes: 10_000, budgetBytes: 100_000 });

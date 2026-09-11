@@ -18,6 +18,7 @@ import type { TouchZone } from '../types/game';
  */
 
 export function pointInZones(nx: number, ny: number, zones: readonly TouchZone[] | undefined | null): boolean {
+  'worklet';
   if (!zones || zones.length === 0) return false;
   for (const zone of zones) {
     const x = Number(zone.x) || 0;
@@ -36,6 +37,7 @@ export type DragAxis = 'none' | 'horizontal' | 'vertical';
  * 'none' while it is still a tap or a jitter. Ties go to the game.
  */
 export function dragAxis(dx: number, dy: number, slopPx: number): DragAxis {
+  'worklet';
   const adx = Math.abs(dx);
   const ady = Math.abs(dy);
   if (adx < slopPx && ady < slopPx) return 'none';
@@ -54,6 +56,7 @@ export interface ClaimInput {
 
 /** Should the pager take the gesture away from the game? */
 export function shouldClaimSwipe({ dx, dy, slopPx, enabled, startedInZone, gameOwnsTouch = false }: ClaimInput): boolean {
+  'worklet';
   if (!enabled || startedInZone || gameOwnsTouch) return false;
   const ady = Math.abs(dy);
   return ady >= slopPx && ady > Math.abs(dx);
@@ -74,6 +77,7 @@ export interface DragInput {
  * direction, with resistance past the first/last page (unless loop is true).
  */
 export function dragOffset({ dy, current, count, pageHeight, resistance, maxOverscroll, loop = false }: DragInput): number {
+  'worklet';
   if (pageHeight <= 0 || count <= 0) return 0;
   if (!loop || count <= 1) {
     const atStart = current <= 0 && dy > 0;
@@ -100,6 +104,7 @@ export interface SettleInput {
 
 /** Which page the pager should settle on after the finger lifts. */
 export function resolveTarget({ dy, vy, current, count, pageHeight, thresholdRatio, flingVelocity, loop = false }: SettleInput): number {
+  'worklet';
   if (count <= 1 || pageHeight <= 0) return current;
   const isSignificantDrag = Math.abs(dy) >= pageHeight * 0.05;
   const dragDir = isSignificantDrag ? (dy < 0 ? 1 : -1) : 0;
@@ -135,6 +140,7 @@ export interface SettleDurationInput {
  * proportionally faster so a small snap-back never crawls.
  */
 export function settleDuration({ distance, velocity, pageHeight, baseMs, minMs }: SettleDurationInput): number {
+  'worklet';
   const remaining = Math.abs(distance);
   if (remaining < 1 || pageHeight <= 0) return 0;
   const byDistance = baseMs * Math.min(1, Math.max(0.55, Math.sqrt(remaining / pageHeight)));

@@ -13,6 +13,7 @@ import {
   parseGameMessage,
 } from '../../services/gameBridge';
 import { gamePrefetcher } from '../../services/gamePrefetcher';
+import { GAME_VIEWPORT_SCRIPT } from '../../services/gameViewport';
 import { usePlayerStore } from '../../store/playerStore';
 import { GAME_SURFACE, GLASS, HUD, THEMES } from '../../theme/themes';
 import type { GameToHostMessage } from '../../types/bridge';
@@ -52,6 +53,7 @@ interface Props {
 }
 
 type WebSource = { uri: string } | { html: string; baseUrl: string };
+const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
 
 /**
  * One page of the feed — item_game_page.xml. Owns a WebView only while its
@@ -80,6 +82,7 @@ export const GamePage = memo(
     const [errorText, setErrorText] = useState<string | null>(null);
     const [placeholderShown, setPlaceholderShown] = useState(true);
     const phaseRef = useRef<PagePhase>('idle');
+    const isResumedRef = useRef(false);
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const autoRetried = useRef(false);
     const placeholderOpacity = useRef(new Animated.Value(1)).current;
@@ -131,6 +134,7 @@ export const GamePage = memo(
 
     // Load lifecycle: a WebView instance appears → loading with a hard timeout.
     useEffect(() => {
+      isResumedRef.current = false;
       if (!source) {
         clearTimer();
         setErrorText(null);
@@ -173,7 +177,6 @@ export const GamePage = memo(
       );
     }, [game.id, inject]);
 
-    const isResumedRef = useRef(false);
 
     const resume = useCallback(() => {
       if (phaseRef.current !== 'ready' || isResumedRef.current) return;
@@ -216,14 +219,19 @@ export const GamePage = memo(
     // is frozen instead of resumed, and un-suspending wakes exactly the page on
     // screen.
     const justLoaded = useRef(false);
+    const activePrimed = useRef(false);
     useEffect(() => {
+      if (slot !== 'active') activePrimed.current = false;
       if (phase !== 'ready') return;
       const fresh = justLoaded.current;
       justLoaded.current = false;
       if (slot === 'active' && !suspended) {
-        injectSavedState();
+        // A cancelled swipe resumes the same session; replaying saved state
+        // here could reset gameplay and repeats bridge work on every drag.
+        if (fresh || !activePrimed.current) injectSavedState();
+        activePrimed.current = true;
         resume();
-      } else if (fresh && slot !== 'active') {
+      } else if (fresh && slot !== 'active' && !suspended) {
         injectSavedState();
         inject(buildPauseScript(FEED.preloadGraceFrames));
       } else {
@@ -318,6 +326,8 @@ export const GamePage = memo(
             originWhitelist={['*']}
             javaScriptEnabled
             domStorageEnabled
+            contentInsetAdjustmentBehavior="never"
+            automaticallyAdjustContentInsets={false}
             scalesPageToFit
             allowFileAccess
             allowsInlineMediaPlayback
@@ -339,11 +349,12 @@ export const GamePage = memo(
             // Let the pager intercept vertical drags exactly like ViewPager2 does
             // with a plain WebView child; touch zones are honoured by the pager.
             nestedScrollEnabled={false}
-            injectedJavaScriptBeforeContentLoaded={BRIDGE_BOOTSTRAP_SCRIPT}
+            injectedJavaScriptBeforeContentLoaded={BOOTSTRAP_SCRIPT}
+            injectedJavaScript={BOOTSTRAP_SCRIPT}
             injectedJavaScriptBeforeContentLoadedForMainFrameOnly
             onMessage={handleMessage}
             onLoadStart={handleLoadStart}
-            onLoadEnd={handleLoadEnd}
+            onLoad={handleLoadEnd}
             onError={event => fail(event.nativeEvent.description || 'The game could not be loaded.')}
             onHttpError={event => {
               if (event.nativeEvent.url === entryUrl || event.nativeEvent.url.startsWith(game.entryUrl)) {

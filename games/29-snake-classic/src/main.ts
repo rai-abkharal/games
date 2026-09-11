@@ -62,6 +62,8 @@ export class Game {
   // Virtual Joystick State
   public joyKnobX: number = THEME.joyX;
   public joyKnobY: number = THEME.joyY;
+  public joyTargetKnobX: number = THEME.joyX;
+  public joyTargetKnobY: number = THEME.joyY;
   public isJoyActive: boolean = false;
   public joyDir: Direction | null = null;
   public currentJoyY: number = THEME.joyY;
@@ -282,9 +284,55 @@ export class Game {
     // 5. Smoothly animate joystick Y when bottom bar moves/toggles
     this.targetJoyY = THEME.joyY;
     this.currentJoyY += (this.targetJoyY - this.currentJoyY) * Math.min(1, dt * 12);
+
     if (!this.isJoyActive) {
-      this.joyKnobX = THEME.joyX;
-      this.joyKnobY = this.currentJoyY;
+      this.joyTargetKnobX = THEME.joyX;
+      this.joyTargetKnobY = this.currentJoyY;
+    }
+
+    // 4-Directional Locked Orthogonal Cross-Gated Smoothing:
+    // Guarantees knob ONLY moves along Left, Right, Up, Down channels (ZERO diagonal positioning)
+    const cx = THEME.joyX;
+    const cy = this.currentJoyY;
+    const lerpFactor = 1 - Math.exp(-32 * dt);
+
+    const targetX = this.joyTargetKnobX;
+    const targetY = this.joyTargetKnobY;
+
+    const isDisplacedX = Math.abs(this.joyKnobX - cx) > 0.8;
+    const isDisplacedY = Math.abs(this.joyKnobY - cy) > 0.8;
+
+    const targetCallsForY = Math.abs(targetY - cy) > 0.8;
+    const targetCallsForX = Math.abs(targetX - cx) > 0.8;
+
+    if (targetCallsForY && isDisplacedX) {
+      // Transitioning to vertical axis: slide horizontal arm into center junction first
+      this.joyKnobX += (cx - this.joyKnobX) * lerpFactor;
+      if (Math.abs(this.joyKnobX - cx) <= 0.8) {
+        this.joyKnobX = cx;
+      }
+      this.joyKnobY = cy;
+    } else if (targetCallsForX && isDisplacedY) {
+      // Transitioning to horizontal axis: slide vertical arm into center junction first
+      this.joyKnobY += (cy - this.joyKnobY) * lerpFactor;
+      if (Math.abs(this.joyKnobY - cy) <= 0.8) {
+        this.joyKnobY = cy;
+      }
+      this.joyKnobX = cx;
+    } else {
+      // Move along the active axis or return to center
+      if (targetCallsForX || (!targetCallsForY && isDisplacedX)) {
+        this.joyKnobX += (targetX - this.joyKnobX) * lerpFactor;
+        if (Math.abs(this.joyKnobX - targetX) < 0.4) this.joyKnobX = targetX;
+        this.joyKnobY = cy;
+      } else if (targetCallsForY || (!targetCallsForX && isDisplacedY)) {
+        this.joyKnobY += (targetY - this.joyKnobY) * lerpFactor;
+        if (Math.abs(this.joyKnobY - targetY) < 0.4) this.joyKnobY = targetY;
+        this.joyKnobX = cx;
+      } else {
+        this.joyKnobX = cx;
+        this.joyKnobY = cy;
+      }
     }
   }
 
@@ -536,23 +584,59 @@ export class Game {
 
       if (this.state !== GameState.PLAYING) return;
 
+      let dir: Direction | null = null;
       switch (e.code) {
         case 'ArrowUp':
         case 'KeyW':
-          this.snake.requestDirection(Direction.UP);
+          dir = Direction.UP;
           break;
         case 'ArrowDown':
         case 'KeyS':
-          this.snake.requestDirection(Direction.DOWN);
+          dir = Direction.DOWN;
           break;
         case 'ArrowLeft':
         case 'KeyA':
-          this.snake.requestDirection(Direction.LEFT);
+          dir = Direction.LEFT;
           break;
         case 'ArrowRight':
         case 'KeyD':
-          this.snake.requestDirection(Direction.RIGHT);
+          dir = Direction.RIGHT;
           break;
+      }
+
+      if (dir !== null) {
+        this.snake.requestDirection(dir);
+        this.joyDir = dir;
+        this.isJoyActive = true;
+        const cx = THEME.joyX;
+        const cy = this.currentJoyY;
+        const offset = THEME.joyMaxDist * 0.88;
+        switch (dir) {
+          case Direction.RIGHT:
+            this.joyTargetKnobX = cx + offset;
+            this.joyTargetKnobY = cy;
+            break;
+          case Direction.LEFT:
+            this.joyTargetKnobX = cx - offset;
+            this.joyTargetKnobY = cy;
+            break;
+          case Direction.UP:
+            this.joyTargetKnobX = cx;
+            this.joyTargetKnobY = cy - offset;
+            break;
+          case Direction.DOWN:
+            this.joyTargetKnobX = cx;
+            this.joyTargetKnobY = cy + offset;
+            break;
+        }
+      }
+    });
+
+    window.addEventListener('keyup', (e: KeyboardEvent) => {
+      if (['ArrowUp', 'KeyW', 'ArrowDown', 'KeyS', 'ArrowLeft', 'KeyA', 'ArrowRight', 'KeyD'].includes(e.code)) {
+        if (this.isJoyActive && !this.isPointerDown) {
+          this.resetJoystick();
+        }
       }
     });
   }
@@ -572,46 +656,84 @@ export class Game {
   }
 
   private updateJoystick(px: number, py: number): void {
-    const dx = px - THEME.joyX;
-    const dy = py - this.currentJoyY;
+    const cx = THEME.joyX;
+    const cy = this.currentJoyY;
+    const dx = px - cx;
+    const dy = py - cy;
     const dist = Math.hypot(dx, dy);
+    const deadzone = 9;
 
-    if (dist > 0) {
-      const clampedDist = Math.min(dist, THEME.joyMaxDist);
-      const angle = Math.atan2(dy, dx);
-      this.joyKnobX = THEME.joyX + Math.cos(angle) * clampedDist;
-      this.joyKnobY = this.currentJoyY + Math.sin(angle) * clampedDist;
+    if (dist < deadzone) {
+      this.joyDir = null;
+      this.joyTargetKnobX = cx;
+      this.joyTargetKnobY = cy;
+      return;
+    }
 
-      // Pure 4-cardinal direction calculation (4 clean 90-degree quadrants)
-      // Deadzone of 8px to prevent accidental micro-touches
-      if (dist >= 8) {
-        let newDir: Direction;
-        if (angle >= -Math.PI / 4 && angle <= Math.PI / 4) {
-          newDir = Direction.RIGHT;
-        } else if (angle > Math.PI / 4 && angle < (3 * Math.PI) / 4) {
-          newDir = Direction.DOWN;
-        } else if (angle < -Math.PI / 4 && angle > (-3 * Math.PI) / 4) {
-          newDir = Direction.UP;
-        } else {
-          newDir = Direction.LEFT;
-        }
-        this.joyDir = newDir;
-        if (this.state === GameState.PLAYING) {
-          this.snake.requestDirection(newDir);
-        }
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+    let newDir: Direction;
+
+    // Directional Hysteresis: require perpendicular axis to clearly exceed active axis by 25%
+    // to prevent jitter along 45-degree diagonal movements
+    const isCurrentlyHorizontal = this.joyDir === Direction.LEFT || this.joyDir === Direction.RIGHT;
+    const isCurrentlyVertical = this.joyDir === Direction.UP || this.joyDir === Direction.DOWN;
+
+    if (isCurrentlyHorizontal) {
+      if (absY > absX * 1.25) {
+        newDir = dy > 0 ? Direction.DOWN : Direction.UP;
+      } else {
+        newDir = dx > 0 ? Direction.RIGHT : Direction.LEFT;
+      }
+    } else if (isCurrentlyVertical) {
+      if (absX > absY * 1.25) {
+        newDir = dx > 0 ? Direction.RIGHT : Direction.LEFT;
+      } else {
+        newDir = dy > 0 ? Direction.DOWN : Direction.UP;
       }
     } else {
-      this.joyKnobX = THEME.joyX;
-      this.joyKnobY = this.currentJoyY;
-      this.joyDir = null;
+      if (absX >= absY) {
+        newDir = dx > 0 ? Direction.RIGHT : Direction.LEFT;
+      } else {
+        newDir = dy > 0 ? Direction.DOWN : Direction.UP;
+      }
+    }
+
+    this.joyDir = newDir;
+
+    // Strict 4-Directional Locked Target:
+    // Knob target is locked strictly to cardinal axis (zero diagonal offset)
+    const clampedOffset = Math.min(dist, THEME.joyMaxDist);
+
+    switch (newDir) {
+      case Direction.RIGHT:
+        this.joyTargetKnobX = cx + clampedOffset;
+        this.joyTargetKnobY = cy;
+        break;
+      case Direction.LEFT:
+        this.joyTargetKnobX = cx - clampedOffset;
+        this.joyTargetKnobY = cy;
+        break;
+      case Direction.UP:
+        this.joyTargetKnobX = cx;
+        this.joyTargetKnobY = cy - clampedOffset;
+        break;
+      case Direction.DOWN:
+        this.joyTargetKnobX = cx;
+        this.joyTargetKnobY = cy + clampedOffset;
+        break;
+    }
+
+    if (this.state === GameState.PLAYING) {
+      this.snake.requestDirection(newDir);
     }
   }
 
   private resetJoystick(): void {
     this.isJoyActive = false;
-    this.joyKnobX = THEME.joyX;
-    this.joyKnobY = this.currentJoyY;
     this.joyDir = null;
+    this.joyTargetKnobX = THEME.joyX;
+    this.joyTargetKnobY = this.currentJoyY;
   }
 }
 

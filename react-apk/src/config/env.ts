@@ -103,7 +103,7 @@ export const FEED = {
   /** Heavy next builds (inline engines) give the active game's own boot a little longer. */
   warmDelayHeavyMs: 350,
   heavyGameBytes: 400 * 1024,
-  /** Prepare the next game anyway if the active one is still loading after this. */
+  /** Recheck readiness after this delay; never warm alongside the active game boot. */
   warmFallbackMs: 3500,
   /**
    * The next game's WebView is never created under a finger or while pages
@@ -112,8 +112,6 @@ export const FEED = {
    * long after the finger lifts…
    */
   warmQuietMs: 150,
-  /** …or, once it has waited this long, just for the next lift (tap-heavy games). */
-  warmMaxDeferMs: 1500,
   /** Start in-memory HTML prefetching for further games once the warm page is ready, or after this. */
   prefetchFallbackMs: 2500,
   /** Number of games beyond the warm page whose HTML is fetched into memory. */
@@ -127,9 +125,9 @@ export const FEED = {
    * Frames a freshly loaded background page may still render before its frame
    * gate closes. Engines finish booting and paint their title screen inside
    * the first rAF callbacks; freezing at 0 would leave a dark canvas until the
-   * page is swiped to. ~0.75 s of offscreen work is the price of an instant reveal.
+   * page is swiped to. Two callbacks allow a first paint without running an offscreen game for 0.75 s.
    */
-  preloadGraceFrames: 45,
+  preloadGraceFrames: 2,
   /** Vertical movement (px) before the pager claims a drag from the game. */
   swipeSlopPx: 12,
   /** Fraction of the page height that must be dragged to change page without a fling. */

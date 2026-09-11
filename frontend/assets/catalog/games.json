@@ -1,6 +1,6 @@
 {
   "version": 30,
-  "updatedAt": "2026-09-10T11:37:12.179Z",
+  "updatedAt": "2026-09-11T12:05:51.534Z",
   "games": [
     {
       "id": "game-mtmsq289",
@@ -920,14 +920,14 @@
       "version": "1.14.0",
       "entryUrl": "http://localhost:8080/games/maze-paint/1.14.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/maze-paint.webp",
-      "sizeBytes": 124057,
+      "sizeBytes": 131307,
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/maze-paint/1.14.0/manifest.json",
       "feedOrder": 24,
       "category": "Puzzle",
       "description": "Masterwork 3D underground sunken roller paint puzzle game. Features ultra-elegant soft marimba acoustic wall audio, single-stream touch deduplication, instant-opening Sudoku Pro-style difficulty modal, equal-sized bottom controls, and AAA victory celebration.",
-      "sha256": "f28ca4b6ba01e8f501a4932df09e70f651325c727074c563762afebadc4aa314",
+      "sha256": "1b74af60aa85a62d112e489a5fc41211685e3d2e2006fd2aafee8d7684d9c1a8",
       "status": "published",
       "touchZones": [],
       "features": {
@@ -1156,14 +1156,14 @@
       "version": "1.0.0",
       "entryUrl": "http://localhost:8080/games/snake-classic/1.0.0/index.html",
       "thumbnailUrl": "http://localhost:8080/thumbnails/snake-classic.webp",
-      "sizeBytes": 41347,
+      "sizeBytes": 43760,
       "orientation": "portrait",
       "engine": "canvas2d",
       "manifestUrl": "http://localhost:8080/games/snake-classic/1.0.0/manifest.json",
       "feedOrder": 49,
       "category": "Arcade",
       "description": "Cute cartoon snake arcade adventure! Slither across the 13x21 checkerboard arena, gobble tasty berries, grow your tail, and smash all-time high scores across Easy, Medium, and Hard tiers!",
-      "sha256": "7415fa6995246681930e8145e1799d2d78bc07243a11d5beaf2bb5ec95d1e3ce",
+      "sha256": "17d6821a5e6a2ac5bf71b9534e9a253025166c4a782e8cc163d184e7e59996fa",
       "status": "published",
       "touchZones": [],
       "features": {

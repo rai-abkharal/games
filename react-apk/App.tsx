@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Splash } from './src/components/Splash';
 import { Toast } from './src/components/Toast';
 import { RootNavigator } from './src/navigation/RootNavigator';
@@ -30,13 +31,15 @@ function App() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <View style={styles.root}>
-        {hydrated ? <RootNavigator /> : null}
-        {splashDone ? null : <Splash minimumMs={SPLASH_MS} onDone={hideSplash} />}
-      </View>
-      <Toast />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <View style={styles.root}>
+          {hydrated ? <RootNavigator /> : null}
+          {splashDone ? null : <Splash minimumMs={SPLASH_MS} onDone={hideSplash} />}
+        </View>
+        <Toast />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
