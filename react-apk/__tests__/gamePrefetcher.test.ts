@@ -85,7 +85,7 @@ describe('GamePrefetcher', () => {
     expect(calls).toHaveLength(2);
   });
 
-  test('a download that is no longer wanted is discarded; retain() evicts the rest', async () => {
+  test('a download that is no longer wanted is discarded', async () => {
     const { calls, fetcher, respond } = makeFetcher();
     const prefetcher = new GamePrefetcher(fetcher);
     const [a, b, c] = [game('a'), game('b'), game('c')];
@@ -98,8 +98,25 @@ describe('GamePrefetcher', () => {
     respond(1, 'c');
     await flush();
     expect(prefetcher.has(c)).toBe(true);
-    prefetcher.retain([b]);
-    expect(prefetcher.has(c)).toBe(false);
+  });
+
+  test('retain() protects the live window; other documents stay until the budget needs the room', async () => {
+    let now = 0;
+    const { fetcher, respond } = makeFetcher();
+    const prefetcher = new GamePrefetcher(fetcher, { maxBytes: 1000, budgetBytes: 250 }, () => now++);
+    const [a, b, c] = [game('a'), game('b'), game('c')];
+    prefetcher.request([a, b, c]);
+    respond(0, 'a'.repeat(100));
+    await flush();
+    respond(1, 'b'.repeat(100));
+    await flush();
+    prefetcher.retain([a]); // a is the oldest entry, but it is in the window
+    expect(prefetcher.has(b)).toBe(true); // within budget: nothing is dropped
+    respond(2, 'c'.repeat(100));
+    await flush();
+    expect(prefetcher.has(a)).toBe(true);
+    expect(prefetcher.has(b)).toBe(false);
+    expect(prefetcher.has(c)).toBe(true);
   });
 
   test('stays within the byte budget by evicting the least recently used entry', async () => {

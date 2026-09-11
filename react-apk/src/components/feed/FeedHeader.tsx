@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { usePlayerStore } from '../../store/playerStore';
 import { GLASS, HUD, type ThemeColors } from '../../theme/themes';
 import { AdBanner } from '../AdBanner';
 
@@ -7,11 +8,10 @@ interface Props {
   theme: ThemeColors;
   insetTop: number;
   bannerEnabled: boolean;
-  playerId: string;
-  coins: number;
+  /** Game on screen, for its best score. */
+  gameId: string | null;
   title: string;
   meta: string;
-  highScore: number;
 }
 
 /**
@@ -19,17 +19,15 @@ interface Props {
  * bottom-rounded corners sitting on the theme background above the pager —
  * banner slot, player name + coins pill on the left, game title + "n of N •
  * category" right-aligned, and the gold high-score pill.
+ *
+ * Player name, coins and best score are read from the store here rather
+ * than passed down, so a coin update during play re-renders this header
+ * only — not the feed screen and its pager.
  */
-export const FeedHeader = memo(function FeedHeaderInner({
-  theme,
-  insetTop,
-  bannerEnabled,
-  playerId,
-  coins,
-  title,
-  meta,
-  highScore,
-}: Props) {
+export const FeedHeader = memo(function FeedHeaderInner({ theme, insetTop, bannerEnabled, gameId, title, meta }: Props) {
+  const playerId = usePlayerStore(state => state.playerId);
+  const coins = usePlayerStore(state => state.coins);
+  const highScore = usePlayerStore(state => (gameId ? state.highScores[gameId] ?? 0 : 0));
   const glass = theme.isDark ? GLASS.topBar.dark : GLASS.topBar.light;
   const bannerThemeStyle = theme.isDark
     ? styles.bannerSlotDark

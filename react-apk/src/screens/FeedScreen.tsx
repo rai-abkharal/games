@@ -1,6 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, StatusBar, StyleSheet, Vibration, View, type LayoutChangeEvent } from 'react-native';
+import { ActivityIndicator, StatusBar, StyleSheet, Vibration, View, type LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FeedDock, type FeedTab } from '../components/feed/FeedDock';
 import { FeedHeader } from '../components/feed/FeedHeader';
@@ -13,6 +13,7 @@ import {
   prefetchOrder,
   retainWindow,
   slotFor,
+  type PageSlot,
   type SwipeDirection,
 } from '../feed/preloadPlanner';
 import { useAppStateChange } from '../hooks/useAppState';
@@ -69,9 +70,12 @@ function useStableList(games: GameItem[]): GameItem[] {
  *
  * Loading strategy (see preloadPlanner):
  *   active page   → WebView created once the pager rests on it, runs at full speed
- *   ahead page    → WebView created once the active game is ready (or after a
- *                   fallback), loads, renders its first frames, then is frozen
+ *   ahead page    → WebView created shortly after the active game is ready (or
+ *                   after a fallback) and only while no finger is on the feed;
+ *                   loads, renders its first frames, then is frozen
  *   behind page   → keeps its frozen WebView so going back is instant
+ *   leaving page  → the page a swipe pushes out of the window stays frozen
+ *                   until the snap ends; only then is its WebView destroyed
  *   next 3 games  → entry HTML fetched into memory after the ahead page is
  *                   ready, so their WebViews later render without a network
  *                   round-trip
@@ -79,21 +83,25 @@ function useStableList(games: GameItem[]): GameItem[] {
  */
 export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const theme = useTheme();
+  // This app is edge-to-edge (targetSdk 36 + edgeToEdgeEnabled), so the root
+  // view spans the status and navigation bars. The native app (targetSdk 34)
+  // is laid out *between* them: topBar starts under the status bar and the
+  // pager ends above the navigation bar. Reserving both insets gives the game
+  // the exact size the native ViewPager2 gives it; without them every page
+  // was taller by both bars and fit-to-screen games letterboxed a dark band
+  // under the header.
   const insets = useSafeAreaInsets();
-  const safeInsetTop = useMemo(() => {
-    // On Android, window bounds already exclude the status bar (matching native activity_main.xml topBar)
-    return Platform.OS === 'android' ? 0 : insets.top;
-  }, [insets.top]);
   const offline = useIsOffline();
 
   const games = useCatalogStore(state => state.games);
   const status = useCatalogStore(state => state.status);
   const error = useCatalogStore(state => state.error);
-  const refreshing = useCatalogStore(state => state.refreshing);
+  // Only the empty-feed retry view shows this; selecting it unconditionally
+  // re-rendered the whole feed twice on every background catalogue refresh.
+  const refreshing = useCatalogStore(state => state.refreshing && state.games.length === 0);
   const favorites = usePlayerStore(state => state.favorites);
-  const playerId = usePlayerStore(state => state.playerId);
-  const coins = usePlayerStore(state => state.coins);
-  const highScores = usePlayerStore(state => state.highScores);
+  // Player name, coins and best score are read by FeedHeader itself, so coins
+  // changing during a game re-render the header, not the feed and its pager.
   const soundMuted = usePlayerStore(state => state.soundMuted);
   const bannerEnabled = useAdsStore(state => state.bannerEnabled);
   const fullScreenAdShowing = useAdsStore(state => state.fullScreenAdShowing);
@@ -117,8 +125,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const [stage, setStage] = useState({ width: 0, height: 0 });
   const [appActive, setAppActive] = useState(true);
   const [focused, setFocused] = useState(true);
-  /** True once the pager has been at rest for FEED.restDebounceMs (WebViews are created only then). */
-  const [rested, setRested] = useState(true);
   const suspended = !appActive || !focused || fullScreenAdShowing;
   const loop = list.length > 2;
 
@@ -162,13 +168,56 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const prefetchedFor = useRef<string | null>(null);
   const [warmReady, setWarmReady] = useState(false);
   const warmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warmQuietTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** When the warm gate first wanted to open while the pager was busy (0 = not waiting). */
+  const warmWaitingSince = useRef(0);
+  /** A finger is on the feed or the pages are moving (GamePager.onBusyChange). */
+  const pagerBusyRef = useRef(false);
+
+  const cancelWarm = useCallback(() => {
+    if (warmTimer.current) clearTimeout(warmTimer.current);
+    warmTimer.current = null;
+    if (warmQuietTimer.current) clearTimeout(warmQuietTimer.current);
+    warmQuietTimer.current = null;
+    warmWaitingSince.current = 0;
+  }, []);
 
   const clearGateTimers = useCallback(() => {
     if (prefetchTimer.current) clearTimeout(prefetchTimer.current);
     prefetchTimer.current = null;
-    if (warmTimer.current) clearTimeout(warmTimer.current);
-    warmTimer.current = null;
+    cancelWarm();
+  }, [cancelWarm]);
+
+  // Creating the next page's WebView costs a UI-thread inflation plus a parse
+  // on the Blink main thread the active game shares, so it never happens
+  // under a finger or while pages move: a busy pager defers it to a quiet gap
+  // after the finger lifts (or to the next lift once it has waited long).
+  const openWarmGate = useCallback(() => {
+    if (pagerBusyRef.current) {
+      if (!warmWaitingSince.current) warmWaitingSince.current = Date.now();
+      return;
+    }
+    warmWaitingSince.current = 0;
+    setWarmReady(true);
   }, []);
+
+  const onPagerBusy = useCallback(
+    (busy: boolean) => {
+      pagerBusyRef.current = busy;
+      if (warmQuietTimer.current) clearTimeout(warmQuietTimer.current);
+      warmQuietTimer.current = null;
+      if (busy || !warmWaitingSince.current) return;
+      if (Date.now() - warmWaitingSince.current >= FEED.warmMaxDeferMs) {
+        openWarmGate();
+        return;
+      }
+      warmQuietTimer.current = setTimeout(() => {
+        warmQuietTimer.current = null;
+        openWarmGate();
+      }, FEED.warmQuietMs);
+    },
+    [openWarmGate],
+  );
 
   const aheadGame = useCallback((): GameItem | undefined => {
     const { index, direction } = positionRef.current;
@@ -200,10 +249,10 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     prefetchTimer.current = setTimeout(runPrefetch, FEED.prefetchFallbackMs);
   }, [aheadGame, runPrefetch]);
 
-  // Opens the "ahead" page's load gate. A next game that is already prepared
-  // (retained WebView or prefetched HTML) costs little, so it goes quickly;
-  // a heavy build that must be parsed on the Blink main thread the active game
-  // shares waits until the player is past the first seconds.
+  // Opens the "ahead" page's load gate shortly after the active game is ready,
+  // so the next game prepares while the player is still on the title screen;
+  // a heavy build that is not in memory gives the active game's boot a little
+  // longer. The gate itself still waits for the pager to be idle.
   const scheduleWarm = useCallback(() => {
     if (warmTimer.current) clearTimeout(warmTimer.current);
     const activeGameId = currentIdRef.current;
@@ -216,9 +265,10 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       delay = heavy ? FEED.warmDelayHeavyMs : FEED.warmDelayMs;
     }
     warmTimer.current = setTimeout(() => {
-      setWarmReady(true);
+      warmTimer.current = null;
+      openWarmGate();
     }, delay);
-  }, [aheadGame]);
+  }, [aheadGame, openWarmGate]);
 
   const onPhase = useCallback(
     (gameId: string, phase: PagePhase) => {
@@ -280,7 +330,8 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     setSwipeEnabled(true);
     showDock();
     usePlayerStore.getState().setLastPlayed(game.id);
-    analytics.onGameStart(game.id, game.title);
+    analytics.onGameSelect(game.id, game.title, game.category);
+    analytics.onGameStart(game.id, game.title, game.category);
     adManager.setCurrentGame(game);
     scheduleWarm();
     schedulePrefetch();
@@ -302,6 +353,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   useFocusEffect(
     useCallback(() => {
       setFocused(true);
+      analytics.onScreenView('Feed');
       void useCatalogStore.getState().refresh();
       return () => setFocused(false);
     }, []),
@@ -311,9 +363,11 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     setAppActive(active);
     const game = listRef.current[positionRef.current.index];
     if (active) {
-      if (game) analytics.onGameStart(game.id, game.title);
+      analytics.resumeAfterBackground();
+      if (game) analytics.onGameStart(game.id, game.title, game.category);
       void useCatalogStore.getState().refresh();
     } else if (game && !useAdsStore.getState().fullScreenAdShowing) {
+      analytics.pauseForBackground();
       analytics.onGameExit(game.id, game.title, 'app_paused');
     }
   });
@@ -381,16 +435,20 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         }
         case 'earnCoins':
           store.addCoins(message.amount);
+          analytics.onGameAction(game.id, game.title, 'earn_coins', message.amount);
           toast(`+${message.amount} 🪙 Coins Earned!`);
           break;
         case 'requestHint':
+          analytics.onGameAction(game.id, game.title, 'request_hint', message.action);
           void grantHint(message.action);
           break;
         case 'showRewardedAd':
+          analytics.onGameAction(game.id, game.title, 'rewarded_ad_request', message.rewardType);
           void grantHint(message.rewardType);
           break;
         case 'saveLevelState':
           store.saveLevel(game.id, message.level);
+          analytics.onLevelStart(game.id, game.title, message.level);
           break;
         case 'setSwipeEnabled':
           setSwipeEnabled(message.enabled);
@@ -408,27 +466,21 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   /* ---------------- pager callbacks ------------------------------------------ */
   const onIndexChange = useCallback((index: number, direction: SwipeDirection) => {
     setWarmReady(false);
-    if (warmTimer.current) clearTimeout(warmTimer.current);
+    cancelWarm();
     setPosition({ index, direction, settling: true });
-  }, []);
+  }, [cancelWarm]);
   const onSettled = useCallback((index: number) => {
     setPosition(prev => (prev.index === index && !prev.settling ? prev : { ...prev, index, settling: false }));
     scheduleWarm();
   }, [scheduleWarm]);
   const touchZonesFor = useCallback((index: number) => listRef.current[index]?.touchZones, []);
 
-  // WebView inflation is UI-thread work; never do it while the snap animation
-  // runs there, and skip it entirely for pages a rapid flick flies past.
-  useEffect(() => {
-    if (position.settling) {
-      setRested(false);
-      return;
-    }
-    const timer = setTimeout(() => setRested(true), FEED.restDebounceMs);
-    return () => clearTimeout(timer);
-  }, [position.settling, position.index]);
-
-  const { index, direction } = position;
+  // WebViews are created and destroyed only while the pager is at rest: never
+  // during the snap animation (UI-thread inflation/teardown would drop its
+  // frames), and never for pages a rapid flick flies past. Derived rather
+  // than kept in state, which cost two extra feed renders per swipe.
+  const { index, direction, settling } = position;
+  const rested = !settling;
   const renderPage = useCallback(
     (i: number) => {
       const count = list.length;
@@ -436,8 +488,13 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       const actualIdx = ((i % count) + count) % count;
       const game = list[actualIdx];
       if (!game) return null;
-      const slot = slotFor(actualIdx, index, direction, loop ? count : undefined);
-      if (slot === 'far') return null;
+      let slot: PageSlot = slotFor(actualIdx, index, direction, loop ? count : undefined);
+      if (slot === 'far') {
+        // Leaving → cleanup: pages the pager is sliding away from stay
+        // mounted and frozen until it rests, then unmount (WebView freed).
+        if (!settling) return null;
+        slot = 'leaving';
+      }
       // Priority order: the page on screen (once the pager rests), then the
       // next page (once the active game is ready), never the page behind.
       const mayLoad = slot === 'active' ? rested : slot === 'ahead' ? warmReady && rested : false;
@@ -455,7 +512,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         />
       );
     },
-    [list, index, direction, loop, rested, warmReady, suspended, refFor, onPhase, onMessage],
+    [list, index, direction, loop, settling, rested, warmReady, suspended, refFor, onPhase, onMessage],
   );
 
   /* ---------------- dock actions --------------------------------------------- */
@@ -465,6 +522,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   }, [resetDockTimer]);
   const onFavorites = useCallback(() => {
     resetDockTimer();
+    analytics.onGameAction('global', 'Feed', 'view_favorites');
     if (usePlayerStore.getState().favorites.length === 0) {
       toast('⭐ Tap the Heart ❤️ on any game to add it to Favorites!', 3200);
     }
@@ -475,11 +533,13 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     const game = listRef.current[positionRef.current.index];
     if (!game) return;
     const isFav = usePlayerStore.getState().toggleFavorite(game.id);
+    analytics.onGameAction(game.id, game.title, isFav ? 'favorite_add' : 'favorite_remove');
     toast(isFav ? `❤️ Added "${game.title}" to Favorites!` : 'Removed from Favorites');
   }, [resetDockTimer]);
   const onSettings = useCallback(() => {
     resetDockTimer();
     adManager.onNavigationEvent();
+    analytics.onScreenView('Settings');
     navigation.navigate('Settings');
   }, [navigation, resetDockTimer]);
 
@@ -490,7 +550,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   /* ---------------- render --------------------------------------------------- */
   const isFavorite = current ? favorites.includes(current.id) : false;
-  const highScore = current ? (highScores[current.id] ?? 0) : 0;
   const meta = current ? `${index + 1} of ${list.length} • ${displayCategory(current.category)}` : '';
 
   let body: React.ReactNode = null;
@@ -506,6 +565,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         touchZonesFor={touchZonesFor}
         onIndexChange={onIndexChange}
         onSettled={onSettled}
+        onBusyChange={onPagerBusy}
         renderPage={renderPage}
       />
     );
@@ -543,17 +603,15 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.bg }]}>
+    <View style={[styles.root, { backgroundColor: theme.bg, paddingBottom: insets.bottom }]}>
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} />
       <FeedHeader
         theme={theme}
-        insetTop={safeInsetTop}
+        insetTop={insets.top}
         bannerEnabled={bannerEnabled}
-        playerId={playerId}
-        coins={coins}
+        gameId={currentId}
         title={current?.title ?? 'Swipe Play'}
         meta={meta}
-        highScore={highScore}
       />
       <View style={styles.stage} onLayout={onStageLayout}>
         {body}
@@ -562,7 +620,8 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           visible={dockVisible}
           tab={tab}
           isFavorite={isFavorite}
-          insetBottom={insets.bottom}
+          // The stage already ends above the navigation bar, like the native dock.
+          insetBottom={0}
           onAllGames={onAllGames}
           onLike={onLike}
           onFavorites={onFavorites}
@@ -576,6 +635,8 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  stage: { flex: 1 },
+  // Clips the hidden dock at the stage edge the way the native window edge
+  // does, instead of letting it show through a translucent navigation bar.
+  stage: { flex: 1, overflow: 'hidden' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

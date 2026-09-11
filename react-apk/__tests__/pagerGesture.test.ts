@@ -1,4 +1,4 @@
-import { dragOffset, pointInZones, resolveTarget, shouldClaimSwipe } from '../src/feed/pagerGesture';
+import { dragAxis, dragOffset, pointInZones, resolveTarget, settleDuration, shouldClaimSwipe } from '../src/feed/pagerGesture';
 
 const PAGE = 1000;
 
@@ -28,6 +28,24 @@ describe('shouldClaimSwipe (RecyclerView slop + dominant axis)', () => {
   test('blocked zones and setSwipeEnabled(false) win', () => {
     expect(shouldClaimSwipe({ ...base, dx: 0, dy: -50, startedInZone: true })).toBe(false);
     expect(shouldClaimSwipe({ ...base, dx: 0, dy: -50, enabled: false })).toBe(false);
+  });
+  test('a touch the game already owns never becomes a swipe, even once it turns vertical', () => {
+    expect(shouldClaimSwipe({ ...base, dx: 30, dy: -120, gameOwnsTouch: true })).toBe(false);
+  });
+});
+
+describe('dragAxis (decided once per touch)', () => {
+  test('inside the slop nothing is decided', () => {
+    expect(dragAxis(5, -8, 12)).toBe('none');
+    expect(dragAxis(0, 0, 12)).toBe('none');
+  });
+  test('the dominant axis wins once the slop is left', () => {
+    expect(dragAxis(14, 3, 12)).toBe('horizontal');
+    expect(dragAxis(-20, 10, 12)).toBe('horizontal');
+    expect(dragAxis(4, -13, 12)).toBe('vertical');
+  });
+  test('a perfect diagonal stays with the game', () => {
+    expect(dragAxis(15, 15, 12)).toBe('horizontal');
   });
 });
 
@@ -69,5 +87,27 @@ describe('resolveTarget (one page per gesture)', () => {
   test('allows crossing boundaries when loop is true', () => {
     expect(resolveTarget({ ...opts, dy: 400, vy: 2, current: 0, loop: true })).toBe(-1);
     expect(resolveTarget({ ...opts, dy: -400, vy: -2, current: 9, loop: true })).toBe(10);
+  });
+});
+
+describe('settleDuration (snap continues the finger)', () => {
+  const opts = { pageHeight: PAGE, baseMs: 240, minMs: 100 };
+  test('a full page without a fling takes the base duration', () => {
+    expect(settleDuration({ ...opts, distance: -PAGE, velocity: 0 })).toBe(240);
+  });
+  test('short distances snap faster, down to a floor', () => {
+    expect(settleDuration({ ...opts, distance: 100, velocity: 0 })).toBe(132);
+  });
+  test('a fling faster than the default snap shortens it to match the finger', () => {
+    // ease-out cubic starts at 3 × 500 / 150 = 10 px/ms — the finger's speed
+    expect(settleDuration({ ...opts, distance: 500, velocity: 10 })).toBe(150);
+    expect(settleDuration({ ...opts, distance: 500, velocity: 50 })).toBe(100);
+  });
+  test('a finger moving away or slower than the snap does not slow it down', () => {
+    expect(settleDuration({ ...opts, distance: 500, velocity: -5 })).toBe(170);
+    expect(settleDuration({ ...opts, distance: 500, velocity: 0.5 })).toBe(170);
+  });
+  test('nothing left to travel', () => {
+    expect(settleDuration({ ...opts, distance: 0.4, velocity: 3 })).toBe(0);
   });
 });

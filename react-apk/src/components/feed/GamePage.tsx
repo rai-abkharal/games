@@ -62,6 +62,8 @@ type WebSource = { uri: string } | { html: string; baseUrl: string };
  *  - `ahead`   → creates it once the feed says the active game is ready,
  *                loads, renders its first frames, then is frozen;
  *  - `behind`  → keeps whatever it has (frozen) so swiping back is instant;
+ *  - `leaving` → same as behind, for a page the pager is sliding out of the
+ *                window; it is unmounted once the pager rests;
  *  - `far`     → tears the WebView down and frees its memory.
  *
  * A prefetched document (GamePrefetcher) is rendered from memory via
@@ -110,10 +112,10 @@ export const GamePage = memo(
         }
         return;
       }
-      // "behind" only retains a WebView it already has; starting a fresh load
-      // there would put a third page on the shared Blink main thread for a
-      // game the player has just left.
-      if (slot === 'behind') return;
+      // "behind" and "leaving" only retain a WebView they already have;
+      // starting a fresh load there would put another page on the shared
+      // Blink main thread for a game the player has just left.
+      if (slot === 'behind' || slot === 'leaving') return;
       if (mayLoad && !live) setLive(true);
     }, [slot, mayLoad, live]);
 

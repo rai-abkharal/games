@@ -16,9 +16,12 @@ import { buildGameEntryUrl } from '../utils/url';
  * the warm/active page its WebView renders from memory and only the game's
  * own sub-resources (which *are* cacheable) touch the network.
  *
- * Budgeted (entry count + bytes), one download at a time, nearest game first,
- * and silent on failure — a prefetch that fails just means the WebView loads
- * the URL itself, exactly as it would without this service.
+ * Budgeted (bytes, least recently used out first), one download at a time,
+ * nearest game first, and silent on failure — a prefetch that fails just
+ * means the WebView loads the URL itself, exactly as it would without this
+ * service. Documents outside the feed's current window are kept while the
+ * budget allows, so swiping back to a game whose WebView was freed does not
+ * download its no-store HTML again.
  */
 export interface PrefetchedGame {
   html: string;
@@ -75,6 +78,8 @@ export function prefetchKey(game: Pick<GameItem, 'id' | 'version' | 'updatedAt' 
 
 export class GamePrefetcher {
   private readonly entries = new Map<string, Entry>();
+  /** The feed's current window (see retain); evicted only after everything else. */
+  private protectedKeys = new Set<string>();
   private readonly failedUntil = new Map<string, number>();
   private queue: GameItem[] = [];
   private inflight: { key: string; cancelled: boolean } | null = null;
@@ -121,16 +126,19 @@ export class GamePrefetcher {
     this.pump();
   }
 
-  /** Drops every entry that is not for one of `games`. */
+  /**
+   * Marks the documents the feed needs soon (live pages + prefetch targets).
+   * Everything else stays cached until the byte budget needs the room, and
+   * then goes first, least recently used first.
+   */
   retain(games: GameItem[]): void {
-    const keep = new Set(games.map(prefetchKey));
-    for (const key of Array.from(this.entries.keys())) {
-      if (!keep.has(key)) this.entries.delete(key);
-    }
+    this.protectedKeys = new Set(games.map(prefetchKey));
+    this.enforceBudget(null);
   }
 
   clear(): void {
     this.entries.clear();
+    this.protectedKeys.clear();
     this.queue = [];
     if (this.inflight) this.inflight.cancelled = true;
   }
@@ -185,23 +193,28 @@ export class GamePrefetcher {
     }
   }
 
-  private enforceBudget(justAdded: string): void {
+  private enforceBudget(justAdded: string | null): void {
     let total = 0;
     for (const entry of this.entries.values()) total += entry.bytes;
     while (total > this.limits.budgetBytes && this.entries.size > 1) {
-      let oldestKey: string | null = null;
-      let oldestAt = Number.POSITIVE_INFINITY;
-      for (const [key, entry] of this.entries) {
-        if (key === justAdded) continue;
-        if (entry.usedAt < oldestAt) {
-          oldestAt = entry.usedAt;
-          oldestKey = key;
-        }
-      }
-      if (!oldestKey) break;
-      total -= this.entries.get(oldestKey)?.bytes ?? 0;
-      this.entries.delete(oldestKey);
+      const victim = this.leastRecentlyUsed(justAdded, false) ?? this.leastRecentlyUsed(justAdded, true);
+      if (!victim) break;
+      total -= this.entries.get(victim)?.bytes ?? 0;
+      this.entries.delete(victim);
     }
+  }
+
+  private leastRecentlyUsed(except: string | null, includeProtected: boolean): string | null {
+    let oldestKey: string | null = null;
+    let oldestAt = Number.POSITIVE_INFINITY;
+    for (const [key, entry] of this.entries) {
+      if (key === except || (!includeProtected && this.protectedKeys.has(key))) continue;
+      if (entry.usedAt < oldestAt) {
+        oldestAt = entry.usedAt;
+        oldestKey = key;
+      }
+    }
+    return oldestKey;
   }
 }
 

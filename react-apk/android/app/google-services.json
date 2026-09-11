@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "636984344295",
+    "project_id": "sogei-test",
+    "storage_bucket": "sogei-test.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:636984344295:android:b908946318bf5f5a472c42",
+        "android_client_info": {
+          "package_name": "com.sogeitest"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDqiW1DGlejKEFgJwjJ3p8ehqohW9DBPg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

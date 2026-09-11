@@ -7,6 +7,9 @@ import type { TouchZone } from '../types/game';
  *  - a drag only becomes a page swipe once it exceeds the slop *and* is more
  *    vertical than horizontal (RecyclerView's dominant-axis rule), so games
  *    that drag sideways keep their gesture;
+ *  - the axis is decided once per touch: a drag that first leaves the slop
+ *    horizontally belongs to the game until the finger lifts, even if it
+ *    later drifts vertically (sliders, dragged pieces);
  *  - a touch that starts inside one of the game's `touchZones` never becomes
  *    a swipe — the equivalent of GameFeedAdapter calling
  *    requestDisallowInterceptTouchEvent(true) for blocked zones;
@@ -26,17 +29,32 @@ export function pointInZones(nx: number, ny: number, zones: readonly TouchZone[]
   return false;
 }
 
+export type DragAxis = 'none' | 'horizontal' | 'vertical';
+
+/**
+ * The axis a touch commits to the first time it leaves the slop square;
+ * 'none' while it is still a tap or a jitter. Ties go to the game.
+ */
+export function dragAxis(dx: number, dy: number, slopPx: number): DragAxis {
+  const adx = Math.abs(dx);
+  const ady = Math.abs(dy);
+  if (adx < slopPx && ady < slopPx) return 'none';
+  return ady > adx ? 'vertical' : 'horizontal';
+}
+
 export interface ClaimInput {
   dx: number;
   dy: number;
   slopPx: number;
   enabled: boolean;
   startedInZone: boolean;
+  /** The current touch already committed to a horizontal (game) drag. */
+  gameOwnsTouch?: boolean;
 }
 
 /** Should the pager take the gesture away from the game? */
-export function shouldClaimSwipe({ dx, dy, slopPx, enabled, startedInZone }: ClaimInput): boolean {
-  if (!enabled || startedInZone) return false;
+export function shouldClaimSwipe({ dx, dy, slopPx, enabled, startedInZone, gameOwnsTouch = false }: ClaimInput): boolean {
+  if (!enabled || startedInZone || gameOwnsTouch) return false;
   const ady = Math.abs(dy);
   return ady >= slopPx && ady > Math.abs(dx);
 }
@@ -96,4 +114,30 @@ export function resolveTarget({ dy, vy, current, count, pageHeight, thresholdRat
     return target;
   }
   return Math.min(count - 1, Math.max(0, target));
+}
+
+export interface SettleDurationInput {
+  /** Pixels the track still has to travel. */
+  distance: number;
+  /** Finger speed at release (px/ms) along the direction of travel; negative when moving away. */
+  velocity: number;
+  pageHeight: number;
+  /** Duration of a full-page snap without a fling. */
+  baseMs: number;
+  minMs: number;
+}
+
+/**
+ * Snap duration. The snap is an ease-out cubic, whose starting speed is
+ * 3 × distance / duration: a release faster than the default snap shortens
+ * it so the pages carry on at the finger's speed instead of braking (the
+ * continuity ViewPager2's scroller has), and shorter distances snap
+ * proportionally faster so a small snap-back never crawls.
+ */
+export function settleDuration({ distance, velocity, pageHeight, baseMs, minMs }: SettleDurationInput): number {
+  const remaining = Math.abs(distance);
+  if (remaining < 1 || pageHeight <= 0) return 0;
+  const byDistance = baseMs * Math.min(1, Math.max(0.55, Math.sqrt(remaining / pageHeight)));
+  const byVelocity = velocity > 0 ? (3 * remaining) / velocity : Number.POSITIVE_INFINITY;
+  return Math.round(Math.max(minMs, Math.min(byDistance, byVelocity)));
 }

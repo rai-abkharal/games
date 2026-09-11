@@ -11,9 +11,17 @@
  *  - behind  – the page the player just left; keeps its WebView (frozen) if it
  *              already has one so swiping back is instant, but never starts a
  *              fresh load.
+ *  - leaving – a page the pager is sliding out of the window: frozen, keeps
+ *              what it has, and is only torn down once the pager rests
+ *              (never during the snap animation). Assigned by the feed, not
+ *              by slotFor.
  *  - far     – no WebView. Nearby far pages may have their HTML prefetched.
+ *
+ * Lifecycle of a page: idle (no WebView) → ahead (preparing, frozen after
+ * its first frames) → active (running) → behind/leaving (frozen) → far
+ * (WebView destroyed).
  */
-export type PageSlot = 'active' | 'ahead' | 'behind' | 'far';
+export type PageSlot = 'active' | 'ahead' | 'behind' | 'leaving' | 'far';
 export type SwipeDirection = 1 | -1;
 
 export function slotFor(index: number, current: number, direction: SwipeDirection, count?: number): PageSlot {

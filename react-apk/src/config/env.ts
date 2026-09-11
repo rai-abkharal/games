@@ -93,18 +93,27 @@ export const STORAGE_KEYS = {
  * CPU, GPU and network.
  */
 export const FEED = {
-  /** Wait this long after the active game has loaded before preparing the next one. */
-  warmDelayMs: 250,
   /**
-   * Heavier next games parse on the background thread/Blink main thread;
-   * shorter delay ensures the next game is already warm before the user swipes.
+   * Wait this long after the active game has loaded before preparing the next
+   * one — enough for the active game's first frames. Early is better: every
+   * WebView shares one Blink main thread, so the next game should parse while
+   * the player is still on the title screen rather than mid-game.
    */
-  warmDelayHeavyMs: 600,
+  warmDelayMs: 150,
+  /** Heavy next builds (inline engines) give the active game's own boot a little longer. */
+  warmDelayHeavyMs: 350,
   heavyGameBytes: 400 * 1024,
   /** Prepare the next game anyway if the active one is still loading after this. */
   warmFallbackMs: 3500,
-  /** A page that was not prepared creates its WebView instantly once rested (0 ms delay). */
-  restDebounceMs: 0,
+  /**
+   * The next game's WebView is never created under a finger or while pages
+   * move: its UI-thread inflation and its parse on the shared Blink thread
+   * would hitch the drag or the gameplay touch. It waits for a quiet gap this
+   * long after the finger lifts…
+   */
+  warmQuietMs: 150,
+  /** …or, once it has waited this long, just for the next lift (tap-heavy games). */
+  warmMaxDeferMs: 1500,
   /** Start in-memory HTML prefetching for further games once the warm page is ready, or after this. */
   prefetchFallbackMs: 2500,
   /** Number of games beyond the warm page whose HTML is fetched into memory. */
@@ -130,8 +139,13 @@ export const FEED = {
   /** Resistance applied when dragging past the first/last page. */
   overscrollResistance: 0.25,
   overscrollMaxPx: 48,
-  /** Settle animation length (ViewPager2 snaps in roughly this time). */
+  /**
+   * Snap length for a full page without a fling (ViewPager2 snaps in roughly
+   * this time). Shorter distances and flings snap faster — see settleDuration.
+   */
   settleDurationMs: 240,
+  /** Floor so even a hard fling reads as movement rather than a cut. */
+  settleMinDurationMs: 100,
   /** Floating dock auto-hides after this much inactivity (MainActivity: 5 s). */
   dockAutoHideMs: 5000,
   dockAnimationMs: 260,
