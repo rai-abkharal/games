@@ -316,6 +316,7 @@ export const GamePage = memo(
             originWhitelist={['*']}
             javaScriptEnabled
             domStorageEnabled
+            scalesPageToFit
             allowFileAccess
             allowsInlineMediaPlayback
             mediaPlaybackRequiresUserAction={false}

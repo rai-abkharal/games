@@ -4131,9 +4131,9 @@
         // Virtual On-Screen Joystick State
         this.joyX = 0;
         this.joyY = 0;
-        this.joyBaseRadius = 50;
-        this.joyKnobRadius = 25;
-        this.joyMaxDist = 32;
+        this.joyBaseRadius = 66;
+        this.joyKnobRadius = 34;
+        this.joyMaxDist = 44;
         this.joyKnobX = 0;
         this.joyKnobY = 0;
         this.isJoyActive = false;
@@ -4325,7 +4325,7 @@
         // Dynamic safe bottom spacing for floating dock and virtual joystick
         const bottomDockSafe = this.isBottomBarVisible !== false ? Math.max(68, Math.round(this.height * 0.09)) : 22;
         this.joyX = Math.round(this.width / 2);
-        this.joyY = Math.round(this.height - bottomDockSafe - 56);
+        this.joyY = Math.round(this.height - bottomDockSafe - 68);
         if (!this.isJoyActive) {
           this.joyKnobX = this.joyX;
           this.joyKnobY = this.joyY;
@@ -4431,6 +4431,9 @@
           const joyDist = Math.hypot(px - this.joyX, py - this.joyY);
           if (joyDist <= this.joyBaseRadius * 1.45) {
             this.isJoyActive = true;
+            if (window.FlutterGameBridge && typeof window.FlutterGameBridge.setSwipeEnabled === 'function') {
+              window.FlutterGameBridge.setSwipeEnabled(false);
+            }
             this.updateJoystick(px, py);
             return;
           }
@@ -4587,6 +4590,9 @@
         // Slider Touch
         if (py >= trackY - 24 && py <= trackY + 32 && px >= trackX - 16 && px <= trackX + trackW + 16) {
           this.isDraggingSlider = true;
+          if (window.FlutterGameBridge && typeof window.FlutterGameBridge.setSwipeEnabled === 'function') {
+            window.FlutterGameBridge.setSwipeEnabled(false);
+          }
           this.updateDifficultySlider(px);
           return;
         }
@@ -4613,6 +4619,9 @@
       handleDifficultyModalUp(px, py) {
         if (this.isDraggingSlider) {
           this.isDraggingSlider = false;
+          if (window.FlutterGameBridge && typeof window.FlutterGameBridge.setSwipeEnabled === 'function') {
+            window.FlutterGameBridge.setSwipeEnabled(true);
+          }
           this.snapDifficultySlider();
           return;
         }
@@ -5304,6 +5313,9 @@
         this.joyDir = null;
         this.joyKnobX = this.joyX;
         this.joyKnobY = this.joyY;
+        if (window.FlutterGameBridge && typeof window.FlutterGameBridge.setSwipeEnabled === 'function') {
+          window.FlutterGameBridge.setSwipeEnabled(true);
+        }
       }
 
       // ELEGANT RESPONSIVE ON-SCREEN VIRTUAL JOYSTICK

@@ -360,6 +360,7 @@ export class Game {
           px <= bounds.trackX + bounds.trackW + 16
         ) {
           this.isDraggingSlider = true;
+          Host.post('setSwipeEnabled', { enabled: false });
           this.updateSliderFromPointer(px, bounds);
           return;
         }
@@ -421,6 +422,7 @@ export class Game {
         const joyDist = Math.hypot(px - THEME.joyX, py - this.currentJoyY);
         if (joyDist <= THEME.joyRadius * 1.45) {
           this.isJoyActive = true;
+          Host.post('setSwipeEnabled', { enabled: false });
           this.updateJoystick(px, py);
           return;
         }
@@ -476,9 +478,11 @@ export class Game {
       this.isPointerDown = false;
       if (this.isJoyActive) {
         this.resetJoystick();
+        Host.post('setSwipeEnabled', { enabled: true });
       }
       if (this.isDraggingSlider) {
         this.isDraggingSlider = false;
+        Host.post('setSwipeEnabled', { enabled: true });
         // Snap to nearest notch
         this.sliderPos = Math.max(0, Math.min(2, Math.round(this.sliderPos)));
         this.difficulty = DIFFICULTIES[this.sliderPos].id;
@@ -575,8 +579,8 @@ export class Game {
     if (dist > 0) {
       const clampedDist = Math.min(dist, THEME.joyMaxDist);
       const angle = Math.atan2(dy, dx);
-      this.joyKnobX = Math.cos(angle) * clampedDist;
-      this.joyKnobY = Math.sin(angle) * clampedDist;
+      this.joyKnobX = THEME.joyX + Math.cos(angle) * clampedDist;
+      this.joyKnobY = this.currentJoyY + Math.sin(angle) * clampedDist;
 
       // Pure 4-cardinal direction calculation (4 clean 90-degree quadrants)
       // Deadzone of 8px to prevent accidental micro-touches
@@ -597,16 +601,16 @@ export class Game {
         }
       }
     } else {
-      this.joyKnobX = 0;
-      this.joyKnobY = 0;
+      this.joyKnobX = THEME.joyX;
+      this.joyKnobY = this.currentJoyY;
       this.joyDir = null;
     }
   }
 
   private resetJoystick(): void {
     this.isJoyActive = false;
-    this.joyKnobX = 0;
-    this.joyKnobY = 0;
+    this.joyKnobX = THEME.joyX;
+    this.joyKnobY = this.currentJoyY;
     this.joyDir = null;
   }
 }

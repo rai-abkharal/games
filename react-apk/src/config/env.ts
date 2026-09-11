@@ -94,18 +94,17 @@ export const STORAGE_KEYS = {
  */
 export const FEED = {
   /** Wait this long after the active game has loaded before preparing the next one. */
-  warmDelayMs: 600,
+  warmDelayMs: 250,
   /**
-   * Heavier next games (inline Phaser builds are 1–1.5 MB) parse on the Blink
-   * main thread that the active game shares, so they wait longer — by then the
-   * player is usually past the title screen and a brief parse is unnoticeable.
+   * Heavier next games parse on the background thread/Blink main thread;
+   * shorter delay ensures the next game is already warm before the user swipes.
    */
-  warmDelayHeavyMs: 1500,
+  warmDelayHeavyMs: 600,
   heavyGameBytes: 400 * 1024,
   /** Prepare the next game anyway if the active one is still loading after this. */
   warmFallbackMs: 3500,
-  /** A page that was not prepared creates its WebView only once the pager has rested this long. */
-  restDebounceMs: 120,
+  /** A page that was not prepared creates its WebView instantly once rested (0 ms delay). */
+  restDebounceMs: 0,
   /** Start in-memory HTML prefetching for further games once the warm page is ready, or after this. */
   prefetchFallbackMs: 2500,
   /** Number of games beyond the warm page whose HTML is fetched into memory. */

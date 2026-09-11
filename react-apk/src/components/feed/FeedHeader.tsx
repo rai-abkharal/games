@@ -31,23 +31,35 @@ export const FeedHeader = memo(function FeedHeaderInner({
   highScore,
 }: Props) {
   const glass = theme.isDark ? GLASS.topBar.dark : GLASS.topBar.light;
+  const bannerThemeStyle = theme.isDark
+    ? styles.bannerSlotDark
+    : theme.id === 'off_white'
+    ? styles.bannerSlotWarm
+    : styles.bannerSlotLight;
   return (
-    <View style={[styles.root, { backgroundColor: theme.bg, paddingTop: insetTop }]}>
-      <View style={[styles.glass, { backgroundColor: glass.fill, borderColor: glass.border }]}>
+    <View
+      pointerEvents="box-none"
+      style={[styles.root, { backgroundColor: insetTop > 0 ? theme.bg : 'transparent', paddingTop: insetTop }]}
+    >
+      <View
+        pointerEvents="box-none"
+        style={[styles.glass, { backgroundColor: glass.fill, borderColor: glass.border }]}
+      >
         <View pointerEvents="none" style={[styles.sheen, { backgroundColor: glass.sheen }]} />
-        {bannerEnabled ? (
-          <View style={[styles.bannerSlot, theme.isDark ? styles.bannerSlotDark : styles.bannerSlotLight]}>
-            <AdBanner />
-          </View>
-        ) : null}
-        <View style={styles.row}>
-          <View style={styles.profile}>
+        <View
+          pointerEvents="box-none"
+          style={[styles.bannerSlot, bannerThemeStyle]}
+        >
+          {bannerEnabled ? <AdBanner /> : null}
+        </View>
+        <View style={styles.row} pointerEvents="box-none">
+          <View style={styles.profile} pointerEvents="box-none">
             <Text numberOfLines={1} style={styles.player}>
               {playerId}
             </Text>
             <Text style={styles.coinsPill}>🪙 {coins}</Text>
           </View>
-          <View style={styles.titleBlock}>
+          <View style={styles.titleBlock} pointerEvents="box-none">
             <Text numberOfLines={1} style={styles.title}>
               {title}
             </Text>
@@ -87,6 +99,7 @@ const styles = StyleSheet.create({
   },
   bannerSlot: {
     height: 50,
+    width: '100%',
     marginBottom: 6,
     borderRadius: 16,
     borderWidth: 1,
@@ -97,6 +110,9 @@ const styles = StyleSheet.create({
   },
   bannerSlotDark: {
     backgroundColor: 'rgba(30, 41, 59, 0.32)',
+  },
+  bannerSlotWarm: {
+    backgroundColor: 'rgba(234, 230, 222, 0.25)',
   },
   bannerSlotLight: {
     backgroundColor: 'rgba(241, 245, 249, 0.25)',

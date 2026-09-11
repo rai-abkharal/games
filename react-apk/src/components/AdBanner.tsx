@@ -28,6 +28,6 @@ export function AdBanner() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { height: 50, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  wrap: { height: 50, width: '100%', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   hidden: { opacity: 0 },
 });

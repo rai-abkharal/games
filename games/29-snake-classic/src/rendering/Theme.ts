@@ -51,10 +51,10 @@ export const THEME = {
   modeBadge: { x: 80, y: 35, w: 105, h: 44, r: 9 },
   allTimeBadge: { x: 200, y: 35, w: 105, h: 44, r: 9 },
 
-  // Virtual Joystick metrics
-  joyRadius: 50,
-  joyKnobRadius: 25,
-  joyMaxDist: 32,
+  // Virtual Joystick metrics (enlarged for responsive touch play)
+  joyRadius: 66,
+  joyKnobRadius: 34,
+  joyMaxDist: 44,
   joyX: 200,
   joyY: 650
 };

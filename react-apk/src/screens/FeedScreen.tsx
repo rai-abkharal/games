@@ -1,6 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, Vibration, View, type LayoutChangeEvent } from 'react-native';
+import { ActivityIndicator, Platform, StatusBar, StyleSheet, Vibration, View, type LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FeedDock, type FeedTab } from '../components/feed/FeedDock';
 import { FeedHeader } from '../components/feed/FeedHeader';
@@ -80,6 +80,10 @@ function useStableList(games: GameItem[]): GameItem[] {
 export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const safeInsetTop = useMemo(() => {
+    // On Android, window bounds already exclude the status bar (matching native activity_main.xml topBar)
+    return Platform.OS === 'android' ? 0 : insets.top;
+  }, [insets.top]);
   const offline = useIsOffline();
 
   const games = useCatalogStore(state => state.games);
@@ -322,6 +326,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     gamePrefetcher.setOnline(!offline);
   }, [offline]);
 
+
   /* ---------------- bridge messages from the active game --------------------- */
   const grantHint = useCallback(
     async (rewardType: string) => {
@@ -542,7 +547,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} />
       <FeedHeader
         theme={theme}
-        insetTop={insets.top}
+        insetTop={safeInsetTop}
         bannerEnabled={bannerEnabled}
         playerId={playerId}
         coins={coins}

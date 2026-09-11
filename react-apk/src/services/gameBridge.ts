@@ -193,8 +193,10 @@ export function parseGameMessage(raw: string): GameToHostMessage | null {
       const level = Math.max(1, pickInt(payload.level, obj.level) ?? 1);
       return { type: 'completed', score, level };
     }
-    case 'setSwipeEnabled':
-      return { type: 'setSwipeEnabled', enabled: payload.enabled !== false };
+    case 'setSwipeEnabled': {
+      const rawEnabled = payload.enabled !== undefined ? payload.enabled : (obj.enabled !== undefined ? obj.enabled : true);
+      return { type: 'setSwipeEnabled', enabled: rawEnabled !== false && rawEnabled !== 'false' };
+    }
     case 'haptic': {
       const type = String(payload.type ?? 'light');
       return { type: 'haptic', haptic: (HAPTICS.has(type) ? type : 'light') as HapticType };
