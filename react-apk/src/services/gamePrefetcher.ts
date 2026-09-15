@@ -236,7 +236,10 @@ export class GamePrefetcher {
       if (job.cancelled || job.controller.signal.aborted || bytes === 0 || bytes > this.limits.maxBytes) return;
       this.entries.set(key, { html, baseUrl: url, bytes, usedAt: this.now() });
       this.enforceBudget(key);
-      this.saveLaunch();
+      // No launch-cache write here: a download completing says nothing about
+      // whether the player is mid-run, and stringifying a document into
+      // AsyncStorage from this path put a disk write inside gameplay. The feed
+      // calls saveLaunch() at an explicit game end instead.
     } catch {
       if (!job.cancelled) this.failedUntil.set(key, this.now() + this.limits.failureBackoffMs);
     } finally {

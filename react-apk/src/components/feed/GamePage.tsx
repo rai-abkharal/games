@@ -49,6 +49,13 @@ interface Props {
   suspended: boolean;
   /** Allow warming up a standby WebView for the immediate ahead game while paused at frame 2. */
   warmStandby?: boolean;
+  /**
+   * Gameplay has resumed, so a page that was warmed on speculation and never
+   * actually visited must give its WebView back: a frozen document still holds
+   * a slot in the renderer the running game shares. Only ever set while the
+   * pager is at rest, so this cannot fire on a page a swipe is sliding in.
+   */
+  releaseStandby?: boolean;
   /** Callbacks are keyed by game id, which stays valid across catalogue reorders. */
   onPhase: (gameId: string, phase: PagePhase) => void;
   onMessage: (gameId: string, message: GameToHostMessage) => void;
@@ -76,7 +83,7 @@ const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
  * retry state instead of taking the feed down.
  */
 export const GamePage = memo(
-  forwardRef<GamePageHandle, Props>(function GamePageInner({ game, slot, mayLoad, near, suspended, warmStandby = false, onPhase, onMessage }, ref) {
+  forwardRef<GamePageHandle, Props>(function GamePageInner({ game, slot, mayLoad, near, suspended, warmStandby = false, releaseStandby = false, onPhase, onMessage }, ref) {
     const webviewRef = useRef<WebView<object>>(null);
     // The selected page (or an authorized warm standby neighbor) can create its view.
     const isTarget = slot === 'active' || (slot === 'ahead' && warmStandby);
@@ -86,6 +93,8 @@ export const GamePage = memo(
     const [errorText, setErrorText] = useState<string | null>(null);
     const [placeholderShown, setPlaceholderShown] = useState(true);
     const phaseRef = useRef<PagePhase>('idle');
+    /** True once the player has actually been on this page, not just warmed it. */
+    const visitedRef = useRef(false);
     const isResumedRef = useRef(false);
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const autoRetried = useRef(false);
@@ -107,6 +116,7 @@ export const GamePage = memo(
     }, []);
 
     useEffect(() => {
+      if (slot === 'active') visitedRef.current = true;
       if (slot === 'far') {
         if (live) {
           // Tear the engine down while the view still exists (GameViewHolder.cleanup).
@@ -127,11 +137,23 @@ export const GamePage = memo(
         if (live && phaseRef.current === 'loading') {
           webviewRef.current?.stopLoading();
           setLive(false);
+          return;
+        }
+        // A page the player actually visited keeps its session so swiping back
+        // is instant. One that was only warmed on speculation has no session
+        // worth keeping, so it is released the moment gameplay resumes.
+        if (live && releaseStandby && !visitedRef.current) {
+          try {
+            webviewRef.current?.injectJavaScript(DESTROY_SCRIPT);
+          } catch {
+            /* ignore */
+          }
+          setLive(false);
         }
         return;
       }
       if (mayLoad && !live) setLive(true);
-    }, [slot, mayLoad, live, phase, warmStandby]);
+    }, [slot, mayLoad, live, phase, warmStandby, releaseStandby]);
 
     // Source is decided once per WebView instance so a catalogue refresh (new
     // game object, same build) never reloads a running game.

@@ -41,6 +41,20 @@ describe('prefetchOrder', () => {
     // index 0 active, 1..3 are HTML targets after an explicit game end
     expect(prefetchOrder(0, 1, 30, 3)).toEqual([1, 2, 3]);
   });
+
+  test('never targets the page on screen — it is already rendering its document', () => {
+    for (const count of [2, 3, 5, 30]) {
+      for (let current = 0; current < count; current++) {
+        for (const direction of [1, -1] as const) {
+          for (const loop of [false, true]) {
+            // `ahead` deliberately exceeds the list so a wrap cannot land back
+            // on the current index without being caught here.
+            expect(prefetchOrder(current, direction, count, count + 2, loop)).not.toContain(current);
+          }
+        }
+      }
+    }
+  });
 });
 
 describe('retainWindow', () => {

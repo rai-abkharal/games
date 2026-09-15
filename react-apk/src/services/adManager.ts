@@ -71,6 +71,10 @@ class AdManager {
   private appStateSub: NativeEventSubscription | null = null;
   private started = false;
   private sdkReady = false;
+  /** Set by the feed: a game currently owns the WebView renderer. */
+  private playing = false;
+  private interstitialDeferred = false;
+  private rewardedDeferred = false;
 
   async start(): Promise<void> {
     if (this.started) return;
@@ -224,6 +228,25 @@ class AdManager {
   }
 
   /**
+   * Whether a game currently owns the WebView renderer. Loading a creative
+   * builds another WebView inside that same renderer process, which costs the
+   * running game frames, so preloads are held until play ends — a game over, a
+   * level end, Settings, a full-screen ad, or the app going to the background.
+   * Nothing about *showing* an ad changes: a creative that is already loaded
+   * is still shown on exactly the same schedule as before.
+   */
+  setPlaying(playing: boolean): void {
+    if (this.playing === playing) return;
+    this.playing = playing;
+    if (playing) return;
+    // The flags are cleared by the loaders themselves, so a load that is still
+    // blocked for another reason (an ad on screen, a failure back-off) stays
+    // remembered instead of being silently dropped here.
+    if (this.interstitialDeferred) this.loadInterstitial();
+    if (this.rewardedDeferred) this.loadRewarded();
+  }
+
+  /**
    * MainActivity.checkAndShowInterstitialAd. Shows immediately when an ad is
    * loaded, otherwise marks it due and requests a preload so it appears as
    * soon as it arrives.
@@ -287,6 +310,13 @@ class AdManager {
     ) {
       return;
     }
+    if (this.playing) {
+      // Remembered rather than dropped: `adDue` stays set, so the ad still
+      // shows at the first opportunity once play ends.
+      this.interstitialDeferred = true;
+      return;
+    }
+    this.interstitialDeferred = false;
     this.disposeInterstitial();
     const unitId = this.interstitialUnitId;
     const ad = InterstitialAd.createForAdRequest(unitId);
@@ -335,6 +365,11 @@ class AdManager {
 
   private loadRewarded(): void {
     if (!this.sdkReady || this.rewardedLoading || this.rewarded?.loaded) return;
+    if (this.playing) {
+      this.rewardedDeferred = true;
+      return;
+    }
+    this.rewardedDeferred = false;
     this.disposeRewarded();
     const ad = RewardedAd.createForAdRequest(this.rewardedUnitId);
     this.rewarded = ad;

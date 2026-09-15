@@ -71,11 +71,15 @@ function useStableList(games: GameItem[]): GameItem[] {
  *
  * Loading strategy (see preloadPlanner):
  *   active page   → WebView created once the pager rests on it, runs at full speed
- *   ahead page    ? placeholder only; never boot another engine during play
+ *   ahead page    → placeholder only while a game is being played; may be
+ *                   warmed into a standby WebView only in the idle window
+ *                   between an explicit game end and the next run, and gives
+ *                   that WebView back as soon as play resumes
  *   behind page   → keeps its frozen WebView so going back is instant
  *   leaving page  → the page a swipe pushes out of the window stays frozen
  *                   until the snap ends; only then is its WebView destroyed
- *   next 3 games  ? cancellable HTML-only prefetch after an explicit game end
+ *   next 3 games  → cancellable HTML-only prefetch of upcoming games; the page
+ *                   on screen is never queued, it is already rendering
  *   everything else → nothing lives; WebViews two or more pages away are destroyed
  */
 export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
@@ -163,9 +167,24 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const prefetchedFor = useRef<string | null>(null);
   /** A finger is on the feed or the pages are moving (GamePager.onBusyChange). */
   const pagerBusyRef = useRef(false);
+  /**
+   * True while the game on screen owns the renderer: from the moment a page is
+   * selected (or a finger touches the feed) until the game reports an explicit
+   * end. Mirrored into state because two decisions have to be *re-rendered*
+   * when it changes, not just read: whether a standby WebView may exist, and
+   * whether the ad SDK may start loading a creative. Both of those boot a
+   * second document inside the one renderer process Android gives the app, so
+   * neither may happen while a game is running.
+   */
+  const [playing, setPlayingState] = useState(true);
   const playingRef = useRef(true);
   const suspendedRef = useRef(suspended);
   suspendedRef.current = suspended;
+
+  const setPlaying = useCallback((next: boolean) => {
+    playingRef.current = next;
+    setPlayingState(prev => (prev === next ? prev : next));
+  }, []);
 
   const clearGateTimers = useCallback(() => {
     if (prefetchTimer.current) clearTimeout(prefetchTimer.current);
@@ -181,10 +200,12 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     prefetchedFor.current = key;
     const { index, direction } = positionRef.current;
     const pages = listRef.current;
+    // Upcoming games only. The page on screen already has its document — the
+    // WebView is rendering it — so queueing it here downloaded the running
+    // game a second time and then wrote it back out to storage mid-play.
     const wanted = prefetchOrder(index, direction, pages.length, FEED.prefetchAhead, pages.length > 1).map(i => pages[i]);
-    gamePrefetcher.saveLaunch();
     gamePrefetcher.setPaused(false);
-    gamePrefetcher.request(wanted.length ? [wanted[0], pages[index], ...wanted.slice(1)] : [pages[index]]);
+    gamePrefetcher.request(wanted);
   }, []);
 
   const scheduleIdlePrefetch = useCallback(() => {
@@ -198,7 +219,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const onPagerBusy = useCallback((busy: boolean) => {
     pagerBusyRef.current = busy;
     if (busy) {
-      playingRef.current = true;
+      setPlaying(true);
       if (idlePrefetchTimer.current) clearTimeout(idlePrefetchTimer.current);
       idlePrefetchTimer.current = null;
     }
@@ -206,22 +227,14 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     if (!busy && !positionRef.current.settling) {
       scheduleIdlePrefetch();
     }
-  }, [scheduleIdlePrefetch]);
+  }, [scheduleIdlePrefetch, setPlaying]);
 
+  /** The game-end fallback path: same wish-list, gated on the page having settled. */
   const runPrefetch = useCallback(() => {
     const phase = phasesRef.current.get(currentIdRef.current ?? '');
     if (phase !== 'ready' && phase !== 'error') return;
-    if (pagerBusyRef.current || suspendedRef.current || positionRef.current.settling) return;
-    const key = currentIdRef.current;
-    if (!key || prefetchedFor.current === key) return;
-    prefetchedFor.current = key;
-    const { index, direction } = positionRef.current;
-    const pages = listRef.current;
-    const wanted = prefetchOrder(index, direction, pages.length, FEED.prefetchAhead, pages.length > 1).map(i => pages[i]);
-    gamePrefetcher.saveLaunch();
-    gamePrefetcher.setPaused(false);
-    gamePrefetcher.request(wanted.length ? [wanted[0], pages[index], ...wanted.slice(1)] : [pages[index]]);
-  }, []);
+    triggerBackgroundPrefetch();
+  }, [triggerBackgroundPrefetch]);
 
   const schedulePrefetch = useCallback(() => {
     if (suspendedRef.current) return;
@@ -281,7 +294,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     if (!game) return;
     currentIdRef.current = game.id;
     gamePrefetcher.setLaunchGame(game);
-    playingRef.current = true;
+    setPlaying(true);
     gamePrefetcher.setPaused(true);
     // Replace obsolete wishes while paused, before a future game-end can resume them.
     gamePrefetcher.request([]);
@@ -298,7 +311,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     const { index, direction } = positionRef.current;
     const pages = listRef.current;
     gamePrefetcher.retain(retainWindow(index, direction, pages.length, FEED.prefetchAhead, pages.length > 1).map(i => pages[i]));
-  }, [currentId, clearGateTimers, showDock, schedulePrefetch, scheduleIdlePrefetch]);
+  }, [currentId, clearGateTimers, showDock, schedulePrefetch, scheduleIdlePrefetch, setPlaying]);
 
   // Per-game ad rules may change on a catalogue refresh.
   useEffect(() => {
@@ -340,6 +353,13 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     gamePrefetcher.setOnline(!offline);
   }, [offline]);
 
+  // An interstitial load spins up its own WebView in the renderer the game is
+  // drawing from, so the ad SDK is told when that renderer is busy. Suspended
+  // counts as free: the game is frozen, so nothing is competing for frames.
+  useEffect(() => {
+    adManager.setPlaying(playing && !suspended);
+  }, [playing, suspended]);
+
   useEffect(() => {
     gamePrefetcher.setPaused(suspended || pagerBusyRef.current || position.settling);
     if (suspended) clearGateTimers();
@@ -379,14 +399,17 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       const store = usePlayerStore.getState();
       switch (message.type) {
         case 'gameStarted':
-          playingRef.current = true;
+          setPlaying(true);
           clearGateTimers();
           gamePrefetcher.setPaused(true);
           resetDockTimer();
           break;
         case 'gameOver': {
-          playingRef.current = false;
           gamePrefetcher.setPaused(pagerBusyRef.current || suspendedRef.current);
+          // Persisting the launch document belongs to an explicit game end, not
+          // to a download completing while the player is still in a run.
+          gamePrefetcher.saveLaunch();
+          setPlaying(false);
           schedulePrefetch();
           analytics.onGameOver(game.id, game.title, message.score, message.stats);
           store.saveHighScore(game.id, message.score);
@@ -398,8 +421,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           break;
         }
         case 'completed': {
-          playingRef.current = false;
           gamePrefetcher.setPaused(pagerBusyRef.current || suspendedRef.current);
+          gamePrefetcher.saveLaunch();
+          setPlaying(false);
           schedulePrefetch();
           analytics.onGameCompleted(game.id, game.title, message.score, message.level);
           store.saveHighScore(game.id, message.score);
@@ -438,16 +462,16 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           break;
       }
     },
-    [grantHint, resetDockTimer, showDock, clearGateTimers, schedulePrefetch],
+    [grantHint, resetDockTimer, showDock, clearGateTimers, schedulePrefetch, setPlaying],
   );
 
   /* ---------------- pager callbacks ------------------------------------------ */
   const onSwipeStart = useCallback(() => {
-    playingRef.current = true;
+    setPlaying(true);
     clearGateTimers();
     gamePrefetcher.setPaused(true);
     setPosition(prev => ({ ...prev, settling: true }));
-  }, [clearGateTimers]);
+  }, [clearGateTimers, setPlaying]);
 
   const onSwipeCommit = useCallback((targetIndex: number, commitDirection: SwipeDirection) => {
     setCommittedIndex(targetIndex);
@@ -478,7 +502,23 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     : (index + direction >= 0 && index + direction < list.length ? index + direction : null);
   const aheadGameId = aheadIdx !== null ? list[aheadIdx]?.id : null;
   const activeReady = phasesRef.current.get(currentIdRef.current ?? '') === 'ready';
-  const allowStandby = rested && !suspended && activeReady && aheadGameId !== null;
+  /**
+   * A standby page is a second document inside the one renderer process the
+   * app gets, so booting one costs the running game frames. It is allowed only
+   * in the idle window between an explicit game end and the next run — never
+   * while `playing`, and never mid-swipe.
+   */
+  const allowStandby = rested && !suspended && !playing && activeReady && aheadGameId !== null;
+  /**
+   * The mirror of `allowStandby`: once play resumes, a speculative page that
+   * was never actually visited gives its WebView back. Deliberately biased
+   * towards *not* releasing — it requires the pager to be at rest with no
+   * finger down, because a touch is just as likely to become a swipe onto that
+   * very page as it is to be a tap inside the running game. Skipping a release
+   * only leaves a frozen page alive (exactly what a visited `behind` page does
+   * today); releasing one too eagerly would blank the page sliding in.
+   */
+  const releaseStandby = rested && !suspended && playing && !pagerBusyRef.current;
 
   const renderPage = useCallback(
     (i: number) => {
@@ -506,13 +546,14 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           mayLoad={mayLoad}
           near={true}
           warmStandby={isStandby}
+          releaseStandby={releaseStandby}
           suspended={suspended}
           onPhase={onPhase}
           onMessage={onMessage}
         />
       );
     },
-    [list, index, direction, loop, settling, rested, suspended, allowStandby, aheadGameId, committedIndex, refFor, onPhase, onMessage],
+    [list, index, direction, loop, settling, rested, suspended, allowStandby, releaseStandby, aheadGameId, committedIndex, refFor, onPhase, onMessage],
   );
 
   /* ---------------- dock actions --------------------------------------------- */

@@ -64,6 +64,11 @@ describe('GamePrefetcher', () => {
     first.request([game('a')]);
     respond(0, '<html>original entry</html>');
     await flush();
+    // A completed download says nothing about whether the player is mid-run,
+    // so it must not put a storage write on the gameplay path. The feed calls
+    // saveLaunch() itself at an explicit game end.
+    expect(storage.write).not.toHaveBeenCalled();
+    first.saveLaunch();
     expect(storage.write).toHaveBeenCalledTimes(1);
     const second = makePrefetcher(fetcher, {}, Date.now, storage);
     await second.restoreLaunch();

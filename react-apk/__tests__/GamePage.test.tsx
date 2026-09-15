@@ -88,6 +88,34 @@ test('swiping away during load stops and releases the abandoned WebView', async 
   expect(webviews()).toHaveLength(0);
 });
 
+test('a standby warmed while idle gives its WebView back when gameplay resumes', async () => {
+  await act(async () => {
+    tree = TestRenderer.create(<GamePage {...props} slot="ahead" warmStandby />);
+  });
+  expect(webviews()).toHaveLength(1);
+  await act(async () => {
+    webviews()[0].props.onLoad();
+  });
+  await act(async () => {
+    tree.update(<GamePage {...props} slot="ahead" mayLoad={false} warmStandby={false} releaseStandby />);
+  });
+  expect(webviews()).toHaveLength(0);
+});
+
+test('a page the player actually visited keeps its WebView when gameplay resumes', async () => {
+  await act(async () => {
+    tree = TestRenderer.create(<GamePage {...props} slot="active" />);
+  });
+  await act(async () => {
+    webviews()[0].props.onLoad();
+  });
+  await act(async () => {
+    tree.update(<GamePage {...props} slot="behind" mayLoad={false} releaseStandby />);
+  });
+  expect(webviews()).toHaveLength(1);
+  expect(mockStopLoading).not.toHaveBeenCalled();
+});
+
 test('a completed game stays mounted when swiped away and back', async () => {
   await act(async () => {
     tree = TestRenderer.create(<GamePage {...props} slot="active" />);
