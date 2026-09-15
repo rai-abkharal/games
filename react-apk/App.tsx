@@ -11,8 +11,8 @@ import { usePlayerStore } from './src/store/playerStore';
 import { gamePrefetcher } from './src/services/gamePrefetcher';
 import { useStartupStore } from './src/services/startup';
 
-/** SplashActivity shows its brand for 1200 ms before MainActivity appears. */
-const SPLASH_MS = 1200;
+/** SplashActivity shows its brand briefly before MainActivity appears. */
+const SPLASH_MS = 600;
 
 /**
  * Boot: hydrate the player profile (a few ms from storage) and kick off the
@@ -23,7 +23,6 @@ const SPLASH_MS = 1200;
 function App() {
   const hydrated = usePlayerStore(state => state.hydrated);
   const gameReady = useStartupStore(state => state.gameReady);
-  const [cacheRestored, setCacheRestored] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
   const hideSplash = useCallback(() => setSplashDone(true), []);
 
@@ -31,7 +30,7 @@ function App() {
     let mounted = true;
     void usePlayerStore.getState().hydrate();
     void useCatalogStore.getState().hydrate();
-    void gamePrefetcher.restoreLaunch().finally(() => { if (mounted) setCacheRestored(true); });
+    void gamePrefetcher.restoreLaunch();
     void adManager.start();
     return () => { mounted = false; adManager.stop(); };
   }, []);
@@ -40,7 +39,7 @@ function App() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <View style={styles.root}>
-          {hydrated && cacheRestored ? <RootNavigator /> : null}
+          {hydrated ? <RootNavigator /> : null}
           {splashDone ? null : <Splash minimumMs={SPLASH_MS} ready={gameReady} onDone={hideSplash} />}
         </View>
         <Toast />

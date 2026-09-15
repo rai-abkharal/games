@@ -201,9 +201,8 @@ export function createApp(
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
         if (filePath.endsWith(".html") || filePath.endsWith(".json")) {
-          res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+          res.setHeader("Cache-Control", "no-cache, must-revalidate");
           res.setHeader("Pragma", "no-cache");
-          res.setHeader("Expires", "0");
         } else {
           res.setHeader("Cache-Control", "public, max-age=86400");
         }

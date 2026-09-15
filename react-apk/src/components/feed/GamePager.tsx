@@ -43,6 +43,8 @@ interface Props {
   onIndexChange: (index: number, direction: SwipeDirection) => void;
   /** Fired when the settle animation finishes and the pager is at rest. */
   onSettled: (index: number) => void;
+  /** Fired the moment the user lifts their finger and the swipe target has committed. */
+  onSwipeCommit?: (targetIndex: number, direction: SwipeDirection) => void;
   /**
    * `true` while a finger is on the pager or the pages are moving, `false`
    * once it is at rest with no finger down. UI-thread-heavy work (creating a
@@ -64,6 +66,7 @@ export function GamePager({
   touchZonesFor,
   onIndexChange,
   onSettled,
+  onSwipeCommit,
   onBusyChange,
   onSwipeStart,
   renderPage,
@@ -76,10 +79,11 @@ export function GamePager({
   const latest = useRef({
     onIndexChange,
     onSettled,
+    onSwipeCommit,
     onBusyChange,
     onSwipeStart,
   });
-  latest.current = { onIndexChange, onSettled, onBusyChange, onSwipeStart };
+  latest.current = { onIndexChange, onSettled, onSwipeCommit, onBusyChange, onSwipeStart };
   const offset = useSharedValue(-index * pageHeight);
   const base = useSharedValue(0);
   const grantY = useSharedValue(0);
@@ -210,6 +214,11 @@ export function GamePager({
             loop: wrap,
           })
         : center;
+      if (target !== center && latest.current.onSwipeCommit) {
+        const actualTarget = wrap ? ((target % count) + count) % count : target;
+        const commitDir: SwipeDirection = target > center ? 1 : -1;
+        scheduleOnRN(latest.current.onSwipeCommit, actualTarget, commitDir);
+      }
       const destination = -target * pageHeight;
       const distance = destination - offset.value;
       const token = generation.value;

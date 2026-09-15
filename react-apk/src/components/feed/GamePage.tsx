@@ -47,6 +47,8 @@ interface Props {
    * which also covers a load that finishes while the app is backgrounded.
    */
   suspended: boolean;
+  /** Allow warming up a standby WebView for the immediate ahead game while paused at frame 2. */
+  warmStandby?: boolean;
   /** Callbacks are keyed by game id, which stays valid across catalogue reorders. */
   onPhase: (gameId: string, phase: PagePhase) => void;
   onMessage: (gameId: string, message: GameToHostMessage) => void;
@@ -61,7 +63,8 @@ const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
  *
  *  - `active`  → creates the WebView as soon as `mayLoad` (after the pager has
  *                settled) and runs the game at full speed;
- *  - `ahead`   retains a previously visited view; cold pages stay placeholders;
+ *  - `ahead`   retains a previously visited view or warms up a standby view if
+ *                `warmStandby` is enabled; otherwise stays a placeholder;
  *  - `behind`  → keeps whatever it has (frozen) so swiping back is instant;
  *  - `leaving` → same as behind, for a page the pager is sliding out of the
  *                window; it is unmounted once the pager rests;
@@ -73,11 +76,11 @@ const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
  * retry state instead of taking the feed down.
  */
 export const GamePage = memo(
-  forwardRef<GamePageHandle, Props>(function GamePageInner({ game, slot, mayLoad, near, suspended, onPhase, onMessage }, ref) {
+  forwardRef<GamePageHandle, Props>(function GamePageInner({ game, slot, mayLoad, near, suspended, warmStandby = false, onPhase, onMessage }, ref) {
     const webviewRef = useRef<WebView<object>>(null);
-    // The selected page can create its view in the first commit. Neighbors
-    // still cannot initialize an engine, even when their load gate is open.
-    const [live, setLive] = useState(() => slot === 'active' && mayLoad && !suspended);
+    // The selected page (or an authorized warm standby neighbor) can create its view.
+    const isTarget = slot === 'active' || (slot === 'ahead' && warmStandby);
+    const [live, setLive] = useState(() => isTarget && mayLoad && !suspended);
     const [attempt, setAttempt] = useState(0);
     const [phase, setPhaseState] = useState<PagePhase>('idle');
     const [errorText, setErrorText] = useState<string | null>(null);
@@ -116,9 +119,8 @@ export const GamePage = memo(
         }
         return;
       }
-      // Offscreen pages retain an existing view only. A cold engine cannot
-      // be preempted by setting mayLoad=false after it has begun parsing.
-      if (slot !== 'active') {
+      // Offscreen pages retain an existing view only, unless designated as a warm standby.
+      if (slot !== 'active' && !(slot === 'ahead' && warmStandby)) {
         // A fast swipe can leave the selected game before its load finishes.
         // Retain completed games only; otherwise that abandoned load competes
         // with the new foreground game. Slot changes occur after the snap.
@@ -129,7 +131,7 @@ export const GamePage = memo(
         return;
       }
       if (mayLoad && !live) setLive(true);
-    }, [slot, mayLoad, live, phase]);
+    }, [slot, mayLoad, live, phase, warmStandby]);
 
     // Source is decided once per WebView instance so a catalogue refresh (new
     // game object, same build) never reloads a running game.
@@ -359,7 +361,6 @@ export const GamePage = memo(
             // with a plain WebView child; touch zones are honoured by the pager.
             nestedScrollEnabled={false}
             injectedJavaScriptBeforeContentLoaded={BOOTSTRAP_SCRIPT}
-            injectedJavaScript={BOOTSTRAP_SCRIPT}
             injectedJavaScriptBeforeContentLoadedForMainFrameOnly
             onMessage={handleMessage}
             onLoadStart={handleLoadStart}

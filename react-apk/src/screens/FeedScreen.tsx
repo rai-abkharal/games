@@ -109,6 +109,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     index: Math.max(0, list.findIndex(game => game.id === usePlayerStore.getState().lastPlayedGameId)),
     direction: 1, settling: false,
   }));
+  const [committedIndex, setCommittedIndex] = useState<number | null>(null);
   const positionRef = useRef(position);
   positionRef.current = position;
   const listRef = useRef(list);
@@ -158,11 +159,10 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   const phasesRef = useRef(new Map<string, PagePhase>());
   const prefetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idlePrefetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prefetchedFor = useRef<string | null>(null);
   /** A finger is on the feed or the pages are moving (GamePager.onBusyChange). */
   const pagerBusyRef = useRef(false);
-  // No input is not proof of idleness: several games auto-start without a bridge event.
-  // Only gameOver/completed permits speculative work.
   const playingRef = useRef(true);
   const suspendedRef = useRef(suspended);
   suspendedRef.current = suspended;
@@ -170,18 +170,12 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const clearGateTimers = useCallback(() => {
     if (prefetchTimer.current) clearTimeout(prefetchTimer.current);
     prefetchTimer.current = null;
+    if (idlePrefetchTimer.current) clearTimeout(idlePrefetchTimer.current);
+    idlePrefetchTimer.current = null;
   }, []);
 
-  const onPagerBusy = useCallback((busy: boolean) => {
-    pagerBusyRef.current = busy;
-    if (busy) playingRef.current = true;
-    gamePrefetcher.setPaused(busy || playingRef.current || suspendedRef.current || positionRef.current.settling);
-  }, []);
-
-  const runPrefetch = useCallback(() => {
-    const phase = phasesRef.current.get(currentIdRef.current ?? '');
-    if (phase !== 'ready' && phase !== 'error') return;
-    if (pagerBusyRef.current || playingRef.current || suspendedRef.current || positionRef.current.settling) return;
+  const triggerBackgroundPrefetch = useCallback(() => {
+    if (pagerBusyRef.current || suspendedRef.current || positionRef.current.settling) return;
     const key = currentIdRef.current;
     if (!key || prefetchedFor.current === key) return;
     prefetchedFor.current = key;
@@ -189,13 +183,48 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     const pages = listRef.current;
     const wanted = prefetchOrder(index, direction, pages.length, FEED.prefetchAhead, pages.length > 1).map(i => pages[i]);
     gamePrefetcher.saveLaunch();
-    // Next swipe first, then the last-played launch document and further games.
-    // This path is still restricted to an explicit game-end window.
+    gamePrefetcher.setPaused(false);
+    gamePrefetcher.request(wanted.length ? [wanted[0], pages[index], ...wanted.slice(1)] : [pages[index]]);
+  }, []);
+
+  const scheduleIdlePrefetch = useCallback(() => {
+    if (idlePrefetchTimer.current) clearTimeout(idlePrefetchTimer.current);
+    idlePrefetchTimer.current = setTimeout(() => {
+      idlePrefetchTimer.current = null;
+      triggerBackgroundPrefetch();
+    }, FEED.prefetchIdleDelayMs);
+  }, [triggerBackgroundPrefetch]);
+
+  const onPagerBusy = useCallback((busy: boolean) => {
+    pagerBusyRef.current = busy;
+    if (busy) {
+      playingRef.current = true;
+      if (idlePrefetchTimer.current) clearTimeout(idlePrefetchTimer.current);
+      idlePrefetchTimer.current = null;
+    }
+    gamePrefetcher.setPaused(busy || suspendedRef.current || positionRef.current.settling);
+    if (!busy && !positionRef.current.settling) {
+      scheduleIdlePrefetch();
+    }
+  }, [scheduleIdlePrefetch]);
+
+  const runPrefetch = useCallback(() => {
+    const phase = phasesRef.current.get(currentIdRef.current ?? '');
+    if (phase !== 'ready' && phase !== 'error') return;
+    if (pagerBusyRef.current || suspendedRef.current || positionRef.current.settling) return;
+    const key = currentIdRef.current;
+    if (!key || prefetchedFor.current === key) return;
+    prefetchedFor.current = key;
+    const { index, direction } = positionRef.current;
+    const pages = listRef.current;
+    const wanted = prefetchOrder(index, direction, pages.length, FEED.prefetchAhead, pages.length > 1).map(i => pages[i]);
+    gamePrefetcher.saveLaunch();
+    gamePrefetcher.setPaused(false);
     gamePrefetcher.request(wanted.length ? [wanted[0], pages[index], ...wanted.slice(1)] : [pages[index]]);
   }, []);
 
   const schedulePrefetch = useCallback(() => {
-    if (playingRef.current || suspendedRef.current) return;
+    if (suspendedRef.current) return;
     if (prefetchTimer.current) clearTimeout(prefetchTimer.current);
     prefetchTimer.current = setTimeout(() => {
       prefetchTimer.current = null;
@@ -205,8 +234,11 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   const onPhase = useCallback((gameId: string, phase: PagePhase) => {
     phasesRef.current.set(gameId, phase);
-    if (phase === 'ready' && gameId === currentIdRef.current) markFirstGameReady();
-  }, []);
+    if (phase === 'ready' && gameId === currentIdRef.current) {
+      markFirstGameReady();
+      scheduleIdlePrefetch();
+    }
+  }, [scheduleIdlePrefetch]);
 
   /* ---------------- dock auto-hide (5 s) -------------------------------------- */
   const [dockVisible, setDockVisible] = useState(true);
@@ -262,10 +294,11 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     analytics.onGameStart(game.id, game.title, game.category);
     adManager.setCurrentGame(game);
     schedulePrefetch();
+    scheduleIdlePrefetch();
     const { index, direction } = positionRef.current;
     const pages = listRef.current;
     gamePrefetcher.retain(retainWindow(index, direction, pages.length, FEED.prefetchAhead, pages.length > 1).map(i => pages[i]));
-  }, [currentId, clearGateTimers, showDock, schedulePrefetch]);
+  }, [currentId, clearGateTimers, showDock, schedulePrefetch, scheduleIdlePrefetch]);
 
   // Per-game ad rules may change on a catalogue refresh.
   useEffect(() => {
@@ -308,11 +341,14 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   }, [offline]);
 
   useEffect(() => {
-    gamePrefetcher.setPaused(suspended || playingRef.current || pagerBusyRef.current || position.settling);
+    gamePrefetcher.setPaused(suspended || pagerBusyRef.current || position.settling);
     if (suspended) clearGateTimers();
-    else if (!position.settling) schedulePrefetch();
+    else if (!position.settling) {
+      schedulePrefetch();
+      scheduleIdlePrefetch();
+    }
     return () => gamePrefetcher.setPaused(true);
-  }, [suspended, position.settling, currentId, clearGateTimers, schedulePrefetch]);
+  }, [suspended, position.settling, currentId, clearGateTimers, schedulePrefetch, scheduleIdlePrefetch]);
 
   /* ---------------- bridge messages from the active game --------------------- */
   const grantHint = useCallback(
@@ -412,21 +448,38 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     gamePrefetcher.setPaused(true);
     setPosition(prev => ({ ...prev, settling: true }));
   }, [clearGateTimers]);
+
+  const onSwipeCommit = useCallback((targetIndex: number, commitDirection: SwipeDirection) => {
+    setCommittedIndex(targetIndex);
+    setPosition(prev => ({ ...prev, direction: commitDirection }));
+  }, []);
+
   const onIndexChange = useCallback((index: number, direction: SwipeDirection) => {
     clearGateTimers();
     setPosition({ index, direction, settling: true });
   }, [clearGateTimers]);
+
   const onSettled = useCallback((index: number) => {
+    setCommittedIndex(null);
     setPosition(prev => (prev.index === index && !prev.settling ? prev : { ...prev, index, settling: false }));
-  }, []);
+    scheduleIdlePrefetch();
+  }, [scheduleIdlePrefetch]);
+
   const touchZonesFor = useCallback((index: number) => listRef.current[index]?.touchZones, []);
 
-  // WebViews are created and destroyed only while the pager is at rest: never
-  // during the snap animation (UI-thread inflation/teardown would drop its
-  // frames), and never for pages a rapid flick flies past. Derived rather
-  // than kept in state, which cost two extra feed renders per swipe.
+  // WebViews are created and destroyed only while the pager is at rest or in standby.
+  // Derived rather than kept in state, which cost two extra feed renders per swipe.
   const { index, direction, settling } = position;
   const rested = !settling;
+
+  // Identify the immediate ahead game for warm standby pre-rendering
+  const aheadIdx = loop && list.length > 2
+    ? ((index + direction) % list.length + list.length) % list.length
+    : (index + direction >= 0 && index + direction < list.length ? index + direction : null);
+  const aheadGameId = aheadIdx !== null ? list[aheadIdx]?.id : null;
+  const activeReady = phasesRef.current.get(currentIdRef.current ?? '') === 'ready';
+  const allowStandby = rested && !suspended && activeReady && aheadGameId !== null;
+
   const renderPage = useCallback(
     (i: number) => {
       const count = list.length;
@@ -441,9 +494,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         if (!settling) return null;
         slot = 'leaving';
       }
-      // An offscreen WebView cannot be safely preempted once its engine starts.
-      // Keep loaded neighbors, but initialize cold games only when selected.
-      const mayLoad = !suspended && slot === 'active' && rested;
+      const isStandby = allowStandby && slot === 'ahead' && game.id === aheadGameId;
+      const isCommittedTarget = committedIndex !== null && actualIdx === committedIndex;
+      const mayLoad = !suspended && ((slot === 'active' && (rested || isCommittedTarget)) || isStandby);
       return (
         <GamePage
           key={game.id}
@@ -452,13 +505,14 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           slot={slot}
           mayLoad={mayLoad}
           near={true}
-          suspended={suspended || settling}
+          warmStandby={isStandby}
+          suspended={suspended}
           onPhase={onPhase}
           onMessage={onMessage}
         />
       );
     },
-    [list, index, direction, loop, settling, rested, suspended, refFor, onPhase, onMessage],
+    [list, index, direction, loop, settling, rested, suspended, allowStandby, aheadGameId, committedIndex, refFor, onPhase, onMessage],
   );
 
   /* ---------------- dock actions --------------------------------------------- */
@@ -512,6 +566,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         onSwipeStart={onSwipeStart}
         onIndexChange={onIndexChange}
         onSettled={onSettled}
+        onSwipeCommit={onSwipeCommit}
         onBusyChange={onPagerBusy}
         renderPage={renderPage}
       />
