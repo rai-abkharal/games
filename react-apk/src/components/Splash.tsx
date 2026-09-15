@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { ActivityIndicator, Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { GamepadIcon } from './feed/NavIcons';
 
 interface Props {
   /** How long the splash stays before fading (SplashActivity: 1200 ms). */
   minimumMs: number;
+  ready?: boolean;
   onDone: () => void;
 }
 
@@ -13,11 +14,19 @@ interface Props {
  * over 800 ms, the feed boots underneath, and after `minimumMs` the splash
  * fades away — so the first game is often already running when it does.
  */
-export function Splash({ minimumMs, onDone }: Props) {
+export function Splash({ minimumMs, ready = false, onDone }: Props) {
   const enter = useRef(new Animated.Value(0)).current;
   const fade = useRef(new Animated.Value(1)).current;
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
+  const fading = useRef(false);
+  const reveal = useCallback(() => {
+    if (fading.current) return;
+    fading.current = true;
+    Animated.timing(fade, { toValue: 0, duration: 260, useNativeDriver: true }).start(({ finished }) => {
+      if (finished) onDoneRef.current();
+    });
+  }, [fade]);
 
   useEffect(() => {
     Animated.timing(enter, {
@@ -26,13 +35,15 @@ export function Splash({ minimumMs, onDone }: Props) {
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     }).start();
-    const timer = setTimeout(() => {
-      Animated.timing(fade, { toValue: 0, duration: 260, useNativeDriver: true }).start(({ finished }) => {
-        if (finished) onDoneRef.current();
-      });
-    }, minimumMs);
-    return () => clearTimeout(timer);
-  }, [enter, fade, minimumMs]);
+    return () => enter.stopAnimation();
+  }, [enter]);
+
+  useEffect(() => {
+    const timer = setTimeout(reveal, minimumMs);
+    return () => { clearTimeout(timer); fading.current = false; fade.stopAnimation(); };
+  }, [fade, minimumMs, reveal]);
+
+  useEffect(() => { if (ready) reveal(); }, [ready, reveal]);
 
   const translateY = enter.interpolate({ inputRange: [0, 1], outputRange: [50, 0] });
 

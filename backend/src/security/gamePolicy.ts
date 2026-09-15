@@ -162,6 +162,12 @@ export function gamePolicy(store: SecurityStore): RequestHandler {
                     : typeof body?.error === "string"
                       ? body.error
                       : "Invalid request",
+                ...(typeof body?.details === "string"
+                  ? { details: body.details }
+                  : {}),
+                ...(body?.validationReport
+                  ? { validationReport: body.validationReport }
+                  : {}),
                 requestId: res.locals.requestId,
               }
             : body,

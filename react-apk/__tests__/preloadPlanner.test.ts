@@ -22,30 +22,30 @@ describe('slotFor (ViewPager2 offscreenPageLimit = 1 semantics)', () => {
 });
 
 describe('prefetchOrder', () => {
-  test('targets the games beyond the warm page, nearest first', () => {
-    expect(prefetchOrder(5, 1, 30, 3)).toEqual([7, 8, 9]);
-    expect(prefetchOrder(5, -1, 30, 3)).toEqual([3, 2, 1]);
+  test('targets the immediate next game first in either direction', () => {
+    expect(prefetchOrder(5, 1, 30, 3)).toEqual([6, 7, 8]);
+    expect(prefetchOrder(5, -1, 30, 3)).toEqual([4, 3, 2]);
   });
 
   test('stops at the list bounds when not looping', () => {
-    expect(prefetchOrder(27, 1, 30, 3)).toEqual([29]);
-    expect(prefetchOrder(28, 1, 30, 3)).toEqual([]);
+    expect(prefetchOrder(27, 1, 30, 3)).toEqual([28, 29]);
+    expect(prefetchOrder(28, 1, 30, 3)).toEqual([29]);
     expect(prefetchOrder(0, -1, 30, 3)).toEqual([]);
   });
 
   test('wraps circularly when loop is true', () => {
-    expect(prefetchOrder(4, 1, 5, 3, true)).toEqual([1, 2, 3]);
+    expect(prefetchOrder(4, 1, 5, 3, true)).toEqual([0, 1, 2]);
   });
 
-  test('first five games are covered at launch: active, warm, and three prefetched', () => {
-    // index 0 active, 1 warm (live WebView), 2..4 HTML in memory
-    expect(prefetchOrder(0, 1, 30, 3)).toEqual([2, 3, 4]);
+  test('prefetch targets begin with the next cold page', () => {
+    // index 0 active, 1..3 are HTML targets after an explicit game end
+    expect(prefetchOrder(0, 1, 30, 3)).toEqual([1, 2, 3]);
   });
 });
 
 describe('retainWindow', () => {
   test('keeps the live triple plus prefetch targets', () => {
-    expect(retainWindow(5, 1, 30, 3)).toEqual([4, 5, 6, 7, 8, 9]);
+    expect(retainWindow(5, 1, 30, 3)).toEqual([4, 5, 6, 7, 8]);
   });
 
   test('small lists', () => {

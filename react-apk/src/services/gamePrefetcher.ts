@@ -1,7 +1,7 @@
-import { fetchWithTimeout } from '../api/http';
 import { FEED } from '../config/env';
 import type { GameItem } from '../types/game';
 import { buildGameEntryUrl } from '../utils/url';
+import { LAUNCH_CACHE_BYTES, launchCacheStorage, type LaunchCacheStorage } from './launchCacheStorage';
 
 /**
  * In-memory prefetch of upcoming games' entry documents.
@@ -37,7 +37,7 @@ export interface PrefetchResponse {
   text: () => Promise<string>;
 }
 
-export type PrefetchFetcher = (url: string, timeoutMs: number) => Promise<PrefetchResponse>;
+export type PrefetchFetcher = (url: string, timeoutMs: number, signal: AbortSignal) => Promise<PrefetchResponse>;
 
 export interface PrefetchLimits {
   maxBytes: number;
@@ -57,9 +57,10 @@ const DEFAULT_LIMITS: PrefetchLimits = {
   failureBackoffMs: 20_000,
 };
 
-const defaultFetcher: PrefetchFetcher = async (url, timeoutMs) => {
-  const response = await fetchWithTimeout(url, {
-    timeoutMs,
+const defaultFetcher: PrefetchFetcher = async (url, _timeoutMs, signal) => {
+  // The job owns cancellation/timeout through both fetch and response.text().
+  const response = await fetch(url, {
+    signal,
     headers: { Accept: 'text/html' },
   });
   const length = Number(response.headers.get('content-length'));
@@ -72,8 +73,8 @@ const defaultFetcher: PrefetchFetcher = async (url, timeoutMs) => {
 };
 
 /** Identity of a game build: a re-upload (new updatedAt/sha) invalidates the entry. */
-export function prefetchKey(game: Pick<GameItem, 'id' | 'version' | 'updatedAt' | 'sha256'>): string {
-  return `${game.id}|${game.version}|${game.updatedAt ?? game.sha256 ?? ''}`;
+export function prefetchKey(game: Pick<GameItem, 'id' | 'version' | 'updatedAt' | 'sha256' | 'entryUrl'>): string {
+  return `${game.id}|${game.version}|${game.updatedAt ?? ''}|${game.sha256 ?? ''}|${game.entryUrl}`;
 }
 
 export class GamePrefetcher {
@@ -82,13 +83,43 @@ export class GamePrefetcher {
   private protectedKeys = new Set<string>();
   private readonly failedUntil = new Map<string, number>();
   private queue: GameItem[] = [];
-  private inflight: { key: string; cancelled: boolean } | null = null;
+  private inflight: { key: string; game: GameItem; cancelled: boolean; controller: AbortController } | null = null;
   private online = true;
   private paused = false;
+  private launchKey: string | null = null;
+  private savedLaunchKey: string | null = null;
+
+  /** Restore concurrently with profile/catalog reads, before mounting the feed. */
+  async restoreLaunch(): Promise<void> {
+    try {
+      const saved = await this.launchStorage?.read();
+      if (!saved || typeof saved.key !== 'string' || typeof saved.html !== 'string' ||
+          typeof saved.baseUrl !== 'string' || !saved.html.length) return;
+      const bytes = saved.html.length * 2;
+      if (bytes > Math.min(LAUNCH_CACHE_BYTES, this.limits.maxBytes, this.limits.budgetBytes)) return;
+      this.entries.set(saved.key, { html: saved.html, baseUrl: saved.baseUrl, bytes, usedAt: this.now() });
+      this.savedLaunchKey = saved.key;
+    } catch { /* Fall back to the normal URL load. */ }
+  }
+
+  setLaunchGame(game: GameItem): void { this.launchKey = prefetchKey(game); }
+
+  /** Called only in an explicit game-end window, never from the frame/load callbacks. */
+  saveLaunch(): void {
+    if (this.paused || !this.launchStorage || !this.launchKey || this.savedLaunchKey === this.launchKey) return;
+    const entry = this.entries.get(this.launchKey);
+    if (!entry || entry.bytes > LAUNCH_CACHE_BYTES) return;
+    const key = this.launchKey;
+    this.savedLaunchKey = key;
+    void this.launchStorage.write({ key, html: entry.html, baseUrl: entry.baseUrl }).catch(() => {
+      if (this.savedLaunchKey === key) this.savedLaunchKey = null;
+    });
+  }
 
   setPaused(paused: boolean): void {
     this.paused = paused;
-    if (!paused) this.pump();
+    if (paused) this.cancelInflight(true);
+    else this.pump();
   }
   private readonly limits: PrefetchLimits;
 
@@ -96,13 +127,15 @@ export class GamePrefetcher {
     private readonly fetcher: PrefetchFetcher = defaultFetcher,
     limits: Partial<PrefetchLimits> = {},
     private readonly now: () => number = Date.now,
+    private readonly launchStorage?: LaunchCacheStorage,
   ) {
     this.limits = { ...DEFAULT_LIMITS, ...limits };
   }
 
   setOnline(online: boolean): void {
     this.online = online;
-    if (online) this.pump();
+    if (!online) this.cancelInflight(true);
+    else this.pump();
   }
 
   has(game: GameItem): boolean {
@@ -128,7 +161,7 @@ export class GamePrefetcher {
       if (!wanted.has(key) && this.eligible(game)) wanted.set(key, game);
     }
     this.queue = Array.from(wanted.values());
-    if (this.inflight && !wanted.has(this.inflight.key)) this.inflight.cancelled = true;
+    if (this.inflight && !wanted.has(this.inflight.key)) this.cancelInflight(false);
     this.pump();
   }
 
@@ -146,7 +179,7 @@ export class GamePrefetcher {
     this.entries.clear();
     this.protectedKeys.clear();
     this.queue = [];
-    if (this.inflight) this.inflight.cancelled = true;
+    this.cancelInflight(false);
   }
 
   stats(): { entries: number; bytes: number; queued: number; inflight: boolean } {
@@ -164,6 +197,14 @@ export class GamePrefetcher {
     return true;
   }
 
+  private cancelInflight(requeue: boolean): void {
+    const job = this.inflight;
+    if (!job || job.cancelled) return;
+    job.cancelled = true;
+    if (requeue && !this.queue.some(game => prefetchKey(game) === job.key)) this.queue.unshift(job.game);
+    job.controller.abort();
+  }
+
   private pump(): void {
     if (this.inflight || !this.online || this.paused) return;
     const next = this.queue.find(game => this.eligible(game));
@@ -177,26 +218,29 @@ export class GamePrefetcher {
 
   private async load(game: GameItem): Promise<void> {
     const key = prefetchKey(game);
-    const job = { key, cancelled: false };
+    const job = { key, game, cancelled: false, controller: new AbortController() };
     this.inflight = job;
+    const timeout = setTimeout(() => job.controller.abort(), this.limits.timeoutMs);
     try {
       const url = buildGameEntryUrl(game);
-      const response = await this.fetcher(url, this.limits.timeoutMs);
+      const response = await this.fetcher(url, this.limits.timeoutMs, job.controller.signal);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       if (response.contentLength !== null && response.contentLength > this.limits.maxBytes) {
         throw new Error('too large');
       }
       // Avoid materializing a large response on JS during gameplay or a swipe.
       if (job.cancelled) return;
-      if (this.paused) { this.queue.unshift(game); return; }
       const html = await response.text();
-      const bytes = html.length;
-      if (job.cancelled || bytes === 0 || bytes > this.limits.maxBytes) return;
+      // Account conservatively for UTF-16 string storage, not just code units.
+      const bytes = html.length * 2;
+      if (job.cancelled || job.controller.signal.aborted || bytes === 0 || bytes > this.limits.maxBytes) return;
       this.entries.set(key, { html, baseUrl: url, bytes, usedAt: this.now() });
       this.enforceBudget(key);
+      this.saveLaunch();
     } catch {
-      this.failedUntil.set(key, this.now() + this.limits.failureBackoffMs);
+      if (!job.cancelled) this.failedUntil.set(key, this.now() + this.limits.failureBackoffMs);
     } finally {
+      clearTimeout(timeout);
       if (this.inflight === job) this.inflight = null;
       this.pump();
     }
@@ -227,4 +271,4 @@ export class GamePrefetcher {
   }
 }
 
-export const gamePrefetcher = new GamePrefetcher();
+export const gamePrefetcher = new GamePrefetcher(undefined, {}, Date.now, launchCacheStorage);

@@ -6,8 +6,7 @@
  *
  * Slots:
  *  - active  – the page on screen; loads immediately and runs at full speed.
- *  - ahead   – the page in the direction of travel; gets a WebView once the
- *              active game is ready, loads, and is frozen after its first frames.
+ *  - ahead   - the next page; retains a visited view, otherwise a placeholder.
  *  - behind  – the page the player just left; keeps its WebView (frozen) if it
  *              already has one so swiping back is instant, but never starts a
  *              fresh load.
@@ -17,9 +16,8 @@
  *              by slotFor.
  *  - far     – no WebView. Nearby far pages may have their HTML prefetched.
  *
- * Lifecycle of a page: idle (no WebView) → ahead (preparing, frozen after
- * its first frames) → active (running) → behind/leaving (frozen) → far
- * (WebView destroyed).
+ * Lifecycle: placeholder -> active (loads/runs) -> neighbor (retained/frozen)
+ * -> far (WebView destroyed). Cold offscreen engines are never initialized.
  */
 export type PageSlot = 'active' | 'ahead' | 'behind' | 'leaving' | 'far';
 export type SwipeDirection = 1 | -1;
@@ -48,12 +46,13 @@ export function isLiveSlot(slot: PageSlot): boolean {
 
 /**
  * Indices whose HTML should be fetched into memory, nearest first: the games
- * beyond the warm ("ahead") page in the direction of travel.
+ * starting with the immediate neighbor. Cold neighbors no longer have a
+ * warming WebView, so skipping one would miss the most likely next game.
  */
 export function prefetchOrder(current: number, direction: SwipeDirection, count: number, ahead: number, loop = false): number[] {
   const out: number[] = [];
   if (count <= 1) return out;
-  for (let step = 2; step < 2 + ahead; step++) {
+  for (let step = 1; step <= ahead; step++) {
     if (loop) {
       if (step >= count) break;
       const index = ((current + direction * step) % count + count) % count;

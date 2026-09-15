@@ -64,15 +64,17 @@ export async function fetchWithTimeout(
 /* ------------------------------------------------------------------------ */
 
 let activeBaseUrl = DEFAULT_BASE_URL;
-let hydrated = false;
+let baseHydration: Promise<string> | null = null;
 
-export async function hydrateBaseUrl(): Promise<string> {
-  if (!hydrated) {
-    hydrated = true;
-    const saved = await readString(STORAGE_KEYS.activeBaseUrl);
-    if (saved && CANDIDATE_BASE_URLS.includes(saved)) activeBaseUrl = saved;
+export function hydrateBaseUrl(): Promise<string> {
+  if (!baseHydration) {
+    baseHydration = (async () => {
+      const saved = await readString(STORAGE_KEYS.activeBaseUrl);
+      if (saved && CANDIDATE_BASE_URLS.includes(saved)) activeBaseUrl = saved;
+      return activeBaseUrl;
+    })();
   }
-  return activeBaseUrl;
+  return baseHydration;
 }
 
 export function getActiveBaseUrl(): string {
@@ -110,6 +112,9 @@ export async function requestJsonWithFallback<T>(
   path: (typeof API_PATHS)[keyof typeof API_PATHS],
   options: RequestOptions,
 ): Promise<{ data: T; baseUrl: string }> {
+  // Concurrent boot requests must all wait for the remembered working host.
+  // Otherwise a screen can spend a full timeout on the default endpoint first.
+  await hydrateBaseUrl();
   let lastError: unknown = null;
   for (const base of orderedBaseUrls()) {
     if (options.signal?.aborted) throw abortError();

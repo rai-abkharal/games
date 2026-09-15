@@ -61,8 +61,7 @@ const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
  *
  *  - `active`  → creates the WebView as soon as `mayLoad` (after the pager has
  *                settled) and runs the game at full speed;
- *  - `ahead`   → creates it once the feed says the active game is ready,
- *                loads, renders its first frames, then is frozen;
+ *  - `ahead`   retains a previously visited view; cold pages stay placeholders;
  *  - `behind`  → keeps whatever it has (frozen) so swiping back is instant;
  *  - `leaving` → same as behind, for a page the pager is sliding out of the
  *                window; it is unmounted once the pager rests;
@@ -76,7 +75,9 @@ const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
 export const GamePage = memo(
   forwardRef<GamePageHandle, Props>(function GamePageInner({ game, slot, mayLoad, near, suspended, onPhase, onMessage }, ref) {
     const webviewRef = useRef<WebView<object>>(null);
-    const [live, setLive] = useState(false);
+    // The selected page can create its view in the first commit. Neighbors
+    // still cannot initialize an engine, even when their load gate is open.
+    const [live, setLive] = useState(() => slot === 'active' && mayLoad && !suspended);
     const [attempt, setAttempt] = useState(0);
     const [phase, setPhaseState] = useState<PagePhase>('idle');
     const [errorText, setErrorText] = useState<string | null>(null);
@@ -115,12 +116,20 @@ export const GamePage = memo(
         }
         return;
       }
-      // "behind" and "leaving" only retain a WebView they already have;
-      // starting a fresh load there would put another page on the shared
-      // Blink main thread for a game the player has just left.
-      if (slot === 'behind' || slot === 'leaving') return;
+      // Offscreen pages retain an existing view only. A cold engine cannot
+      // be preempted by setting mayLoad=false after it has begun parsing.
+      if (slot !== 'active') {
+        // A fast swipe can leave the selected game before its load finishes.
+        // Retain completed games only; otherwise that abandoned load competes
+        // with the new foreground game. Slot changes occur after the snap.
+        if (live && phaseRef.current === 'loading') {
+          webviewRef.current?.stopLoading();
+          setLive(false);
+        }
+        return;
+      }
       if (mayLoad && !live) setLive(true);
-    }, [slot, mayLoad, live]);
+    }, [slot, mayLoad, live, phase]);
 
     // Source is decided once per WebView instance so a catalogue refresh (new
     // game object, same build) never reloads a running game.

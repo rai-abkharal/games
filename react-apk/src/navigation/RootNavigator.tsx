@@ -2,7 +2,6 @@ import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useMemo } from 'react';
 import { FeedScreen } from '../screens/FeedScreen';
-import { SettingsScreen } from '../screens/SettingsScreen';
 import { useTheme } from '../theme/useTheme';
 import type { RootStackParamList } from './types';
 
@@ -45,7 +44,7 @@ export function RootNavigator() {
             gestureEnabled: false,
           }}
         />
-        <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'fade' }} />
+        <Stack.Screen name="Settings" getComponent={() => require('../screens/SettingsScreen').SettingsScreen} options={{ animation: 'fade' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

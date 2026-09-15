@@ -626,6 +626,7 @@ export default function App() {
 
     setUploading(true);
     setUploadSuccess(null);
+    setValidationReport(null);
     const formData = new FormData();
     formData.append("file", file);
 
@@ -653,9 +654,9 @@ export default function App() {
       }
 
       if (res.ok && data.success !== false) {
-        setUploadSuccess(
-          data.message || "Upload staged. Review it above before publishing.",
-        );
+        const msg =
+          data.message || "Upload staged. Review it above before publishing.";
+        setUploadSuccess(msg.startsWith("✨") ? msg : `✨ ${msg}`);
         await refreshUploads();
         if (data.validationReport) {
           setValidationReport(data.validationReport);
@@ -667,15 +668,39 @@ export default function App() {
           data.error ||
           `Upload failed (HTTP ${res.status}): Please check package contents.`;
         setUploadSuccess(`❌ Upload failed: ${failureReason}`);
-        if (data.validationReport) {
-          setValidationReport(data.validationReport);
-        }
+        setValidationReport(
+          data.validationReport || {
+            gameId: targetGame?.id || "unknown",
+            slug: targetGame?.id || "unknown",
+            version: "1.0.0",
+            allPassed: false,
+            checks: [
+              {
+                rule: "Package Verification",
+                passed: false,
+                message: failureReason,
+              },
+            ],
+          },
+        );
       }
     } catch (err: any) {
       console.error("Upload failed:", err);
-      setUploadSuccess(
-        `❌ Network error: ${err.message}. Please verify the server is running on ${API_BASE}.`,
-      );
+      const networkMsg = `Network error: ${err.message}. Please verify the server is running on ${API_BASE}.`;
+      setUploadSuccess(`❌ ${networkMsg}`);
+      setValidationReport({
+        gameId: targetGame?.id || "unknown",
+        slug: targetGame?.id || "unknown",
+        version: "1.0.0",
+        allPassed: false,
+        checks: [
+          {
+            rule: "Network Connection",
+            passed: false,
+            message: networkMsg,
+          },
+        ],
+      });
     } finally {
       setUploading(false);
       // Reset input element value so same file can be re-uploaded if modified
@@ -3126,7 +3151,42 @@ export default function App() {
                     )}
                   </div>
 
-                  {validationReport ? (
+                  {uploading ? (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: "60px 20px",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      <RefreshCw
+                        size={40}
+                        style={{
+                          margin: "0 auto 12px",
+                          color: "#818cf8",
+                          animation: "spin 1s linear infinite",
+                        }}
+                      />
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          color: "#fff",
+                          fontSize: "15px",
+                        }}
+                      >
+                        Auditing Game Package...
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          color: "var(--text-dim)",
+                          marginTop: "4px",
+                        }}
+                      >
+                        Running automatic 7-point validation audit
+                      </div>
+                    </div>
+                  ) : validationReport ? (
                     <div
                       style={{
                         display: "flex",
@@ -3138,7 +3198,7 @@ export default function App() {
                         style={{
                           fontSize: "13px",
                           color: "var(--text-muted)",
-                          marginBottom: "8px",
+                          marginBottom: "4px",
                         }}
                       >
                         Target:{" "}
@@ -3147,17 +3207,46 @@ export default function App() {
                         </strong>
                       </div>
 
+                      {!validationReport.allPassed && (
+                        <div
+                          style={{
+                            padding: "10px 14px",
+                            borderRadius: "8px",
+                            background: "rgba(239, 68, 68, 0.15)",
+                            border: "1px solid #ef4444",
+                            color: "#f87171",
+                            fontSize: "13px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          <AlertTriangle
+                            size={16}
+                            color="#ef4444"
+                            style={{ flexShrink: 0 }}
+                          />
+                          <span>
+                            Upload verification failed. See checklist below for details.
+                          </span>
+                        </div>
+                      )}
+
                       {validationReport.checks.map((check, idx) => (
                         <div
                           key={idx}
                           style={{
                             padding: "12px 16px",
                             borderRadius: "10px",
-                            background: "rgba(0,0,0,0.25)",
-                            border: "1px solid var(--border-subtle)",
+                            background: check.passed
+                              ? "rgba(0,0,0,0.25)"
+                              : "rgba(239, 68, 68, 0.1)",
+                            border: `1px solid ${check.passed ? "var(--border-subtle)" : "rgba(239, 68, 68, 0.35)"}`,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
+                            gap: "12px",
                           }}
                         >
                           <div
@@ -3165,14 +3254,30 @@ export default function App() {
                               display: "flex",
                               alignItems: "center",
                               gap: "10px",
+                              minWidth: "180px",
+                              flexShrink: 0,
                             }}
                           >
                             {check.passed ? (
-                              <CheckCircle2 size={18} color="#34d399" />
+                              <CheckCircle2
+                                size={18}
+                                color="#34d399"
+                                style={{ flexShrink: 0 }}
+                              />
                             ) : (
-                              <XCircle size={18} color="#ef4444" />
+                              <XCircle
+                                size={18}
+                                color="#ef4444"
+                                style={{ flexShrink: 0 }}
+                              />
                             )}
-                            <span style={{ fontSize: "14px", fontWeight: 600 }}>
+                            <span
+                              style={{
+                                fontSize: "14px",
+                                fontWeight: 600,
+                                color: check.passed ? "inherit" : "#fca5a5",
+                              }}
+                            >
                               {check.rule}
                             </span>
                           </div>
@@ -3183,6 +3288,8 @@ export default function App() {
                                 ? "var(--text-muted)"
                                 : "#f87171",
                               fontFamily: "var(--font-mono)",
+                              textAlign: "right",
+                              wordBreak: "break-word",
                             }}
                           >
                             {check.message}
@@ -3506,7 +3613,42 @@ export default function App() {
                     )}
                   </div>
 
-                  {validationReport ? (
+                  {uploading ? (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: "60px 20px",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      <RefreshCw
+                        size={40}
+                        style={{
+                          margin: "0 auto 12px",
+                          color: "#f59e0b",
+                          animation: "spin 1s linear infinite",
+                        }}
+                      />
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          color: "#fff",
+                          fontSize: "15px",
+                        }}
+                      >
+                        Auditing Update Package...
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          color: "var(--text-dim)",
+                          marginTop: "4px",
+                        }}
+                      >
+                        Running automatic package validation audit
+                      </div>
+                    </div>
+                  ) : validationReport ? (
                     <div
                       style={{
                         display: "flex",
@@ -3518,7 +3660,7 @@ export default function App() {
                         style={{
                           fontSize: "13px",
                           color: "var(--text-muted)",
-                          marginBottom: "8px",
+                          marginBottom: "4px",
                         }}
                       >
                         Updated Target:{" "}
@@ -3527,17 +3669,46 @@ export default function App() {
                         </strong>
                       </div>
 
+                      {!validationReport.allPassed && (
+                        <div
+                          style={{
+                            padding: "10px 14px",
+                            borderRadius: "8px",
+                            background: "rgba(239, 68, 68, 0.15)",
+                            border: "1px solid #ef4444",
+                            color: "#f87171",
+                            fontSize: "13px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          <AlertTriangle
+                            size={16}
+                            color="#ef4444"
+                            style={{ flexShrink: 0 }}
+                          />
+                          <span>
+                            Update verification failed. See checklist below for details.
+                          </span>
+                        </div>
+                      )}
+
                       {validationReport.checks.map((check, idx) => (
                         <div
                           key={idx}
                           style={{
                             padding: "12px 16px",
                             borderRadius: "10px",
-                            background: "rgba(0,0,0,0.25)",
-                            border: "1px solid var(--border-subtle)",
+                            background: check.passed
+                              ? "rgba(0,0,0,0.25)"
+                              : "rgba(239, 68, 68, 0.1)",
+                            border: `1px solid ${check.passed ? "var(--border-subtle)" : "rgba(239, 68, 68, 0.35)"}`,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
+                            gap: "12px",
                           }}
                         >
                           <div
@@ -3545,14 +3716,30 @@ export default function App() {
                               display: "flex",
                               alignItems: "center",
                               gap: "10px",
+                              minWidth: "180px",
+                              flexShrink: 0,
                             }}
                           >
                             {check.passed ? (
-                              <CheckCircle2 size={18} color="#34d399" />
+                              <CheckCircle2
+                                size={18}
+                                color="#34d399"
+                                style={{ flexShrink: 0 }}
+                              />
                             ) : (
-                              <XCircle size={18} color="#ef4444" />
+                              <XCircle
+                                size={18}
+                                color="#ef4444"
+                                style={{ flexShrink: 0 }}
+                              />
                             )}
-                            <span style={{ fontSize: "14px", fontWeight: 600 }}>
+                            <span
+                              style={{
+                                fontSize: "14px",
+                                fontWeight: 600,
+                                color: check.passed ? "inherit" : "#fca5a5",
+                              }}
+                            >
                               {check.rule}
                             </span>
                           </div>
@@ -3563,6 +3750,8 @@ export default function App() {
                                 ? "var(--text-muted)"
                                 : "#f87171",
                               fontFamily: "var(--font-mono)",
+                              textAlign: "right",
+                              wordBreak: "break-word",
                             }}
                           >
                             {check.message}

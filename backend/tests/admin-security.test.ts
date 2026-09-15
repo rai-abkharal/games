@@ -532,6 +532,42 @@ describe("Admin security boundaries", () => {
       ).toBe(400);
     expect(store.all("SELECT * FROM uploads")).toHaveLength(0);
   });
+  it("preserves verification status and validationReport on upload failure", async () => {
+    const c = await login();
+    // 1. Corrupted zip
+    const badZipRes = await call(c, "post", "/v1/admin/games/upload").attach(
+      "file",
+      Buffer.from("not-a-zip"),
+      "bad.zip",
+    );
+    expect(badZipRes.status).toBe(400);
+    expect(badZipRes.body.validationReport).toBeDefined();
+    expect(badZipRes.body.validationReport.allPassed).toBe(false);
+    expect(badZipRes.body.validationReport.checks.length).toBeGreaterThan(0);
+    expect(badZipRes.body.details).toBeDefined();
+
+    // 2. Package missing index.html entry point
+    const noIndexZip = new AdmZip();
+    noIndexZip.addFile(
+      "manifest.json",
+      Buffer.from(
+        JSON.stringify({ id: "no-index", title: "No Index", version: "1.0.0" }),
+      ),
+    );
+    const noIndexRes = await call(c, "post", "/v1/admin/games/upload").attach(
+      "file",
+      noIndexZip.toBuffer(),
+      "no-index.zip",
+    );
+    expect(noIndexRes.status).toBe(400);
+    expect(noIndexRes.body.validationReport).toBeDefined();
+    expect(noIndexRes.body.validationReport.allPassed).toBe(false);
+    const indexCheck = noIndexRes.body.validationReport.checks.find(
+      (chk: any) => chk.rule === "Entry Point (index.html)",
+    );
+    expect(indexCheck).toBeDefined();
+    expect(indexCheck.passed).toBe(false);
+  });
   it("denies unknown endpoints and invalid configuration; does not leak secrets in audit", async () => {
     const c = await login();
     expect(

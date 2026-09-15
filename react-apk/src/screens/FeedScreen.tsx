@@ -22,6 +22,7 @@ import type { RootScreenProps } from '../navigation/types';
 import { adManager, useAdsStore } from '../services/adManager';
 import { analytics } from '../services/analytics';
 import { buildRewardScript, buildSoundScript } from '../services/gameBridge';
+import { markFirstGameReady } from '../services/startup';
 import { gamePrefetcher } from '../services/gamePrefetcher';
 import { useCatalogStore } from '../store/catalogStore';
 import { usePlayerStore } from '../store/playerStore';
@@ -70,15 +71,11 @@ function useStableList(games: GameItem[]): GameItem[] {
  *
  * Loading strategy (see preloadPlanner):
  *   active page   → WebView created once the pager rests on it, runs at full speed
- *   ahead page    → WebView created shortly after the active game is ready (or
- *                   after a fallback) and only while no finger is on the feed;
- *                   loads, renders its first frames, then is frozen
+ *   ahead page    ? placeholder only; never boot another engine during play
  *   behind page   → keeps its frozen WebView so going back is instant
  *   leaving page  → the page a swipe pushes out of the window stays frozen
  *                   until the snap ends; only then is its WebView destroyed
- *   next 3 games  → entry HTML fetched into memory after the ahead page is
- *                   ready, so their WebViews later render without a network
- *                   round-trip
+ *   next 3 games  ? cancellable HTML-only prefetch after an explicit game end
  *   everything else → nothing lives; WebViews two or more pages away are destroyed
  */
 export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
@@ -108,7 +105,10 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const list = useStableList(filtered);
 
   /* ---------------- position ------------------------------------------------- */
-  const [position, setPosition] = useState<FeedPosition>({ index: 0, direction: 1, settling: false });
+  const [position, setPosition] = useState<FeedPosition>(() => ({
+    index: Math.max(0, list.findIndex(game => game.id === usePlayerStore.getState().lastPlayedGameId)),
+    direction: 1, settling: false,
+  }));
   const positionRef = useRef(position);
   positionRef.current = position;
   const listRef = useRef(list);
@@ -121,18 +121,18 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const suspended = !appActive || !focused || fullScreenAdShowing;
   const loop = list.length > 2;
 
-  // When the list changes (tab switch, catalogue update) stay on the same game
-  // if it is still there, otherwise clamp (MainActivity.filterGamesByTab).
-  useEffect(() => {
-    if (list.length === 0) return;
-    const wantedId = currentIdRef.current;
-    let index = wantedId ? list.findIndex(game => game.id === wantedId) : -1;
-    if (index < 0) index = clampIndex(positionRef.current.index, list.length);
-    currentIdRef.current = list[index].id;
-    if (index !== positionRef.current.index || positionRef.current.settling) {
-      setPosition(prev => ({ index, direction: prev.direction, settling: false }));
+  // Reconcile before committing children: starting page zero then correcting
+  // in an effect used to create and abandon the wrong WebView at launch.
+  const [positionList, setPositionList] = useState(list);
+  if (positionList !== list) {
+    setPositionList(list);
+    if (list.length) {
+      const wanted = list.findIndex(game => game.id === currentIdRef.current);
+      const next = wanted >= 0 ? wanted : clampIndex(position.index, list.length);
+      currentIdRef.current = list[next].id;
+      setPosition({ index: next, direction: position.direction, settling: false });
     }
-  }, [list]);
+  }
 
   const current = list[position.index] ?? null;
   const currentId = current?.id ?? null;
@@ -159,69 +159,23 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const phasesRef = useRef(new Map<string, PagePhase>());
   const prefetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prefetchedFor = useRef<string | null>(null);
-  const [warmReady, setWarmReady] = useState(false);
-  const warmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const warmQuietTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Whether the warm gate is waiting for an idle title/end screen. */
-  const warmWaitingSince = useRef(0);
   /** A finger is on the feed or the pages are moving (GamePager.onBusyChange). */
   const pagerBusyRef = useRef(false);
-  const playingRef = useRef(false);
+  // No input is not proof of idleness: several games auto-start without a bridge event.
+  // Only gameOver/completed permits speculative work.
+  const playingRef = useRef(true);
   const suspendedRef = useRef(suspended);
   suspendedRef.current = suspended;
-
-  const cancelWarm = useCallback(() => {
-    if (warmTimer.current) clearTimeout(warmTimer.current);
-    warmTimer.current = null;
-    if (warmQuietTimer.current) clearTimeout(warmQuietTimer.current);
-    warmQuietTimer.current = null;
-    warmWaitingSince.current = 0;
-  }, []);
 
   const clearGateTimers = useCallback(() => {
     if (prefetchTimer.current) clearTimeout(prefetchTimer.current);
     prefetchTimer.current = null;
-    cancelWarm();
-  }, [cancelWarm]);
-
-  // Creating the next page's WebView costs a UI-thread inflation plus a parse
-  // on the Blink main thread the active game shares, so it never happens
-  // under a finger or while pages move: a busy pager defers it to a quiet gap
-  // on a title/end screen. Finger-up alone does not mean gameplay ended.
-  const openWarmGate = useCallback(() => {
-    const phase = phasesRef.current.get(currentIdRef.current ?? '');
-    if (phase !== 'ready' && phase !== 'error') return;
-    if (pagerBusyRef.current || playingRef.current || suspendedRef.current || positionRef.current.settling) {
-      if (!warmWaitingSince.current) warmWaitingSince.current = Date.now();
-      return;
-    }
-    warmWaitingSince.current = 0;
-    setWarmReady(true);
   }, []);
 
-  const onPagerBusy = useCallback(
-    (busy: boolean) => {
-      pagerBusyRef.current = busy;
-      if (busy) { playingRef.current = true; setWarmReady(false); }
-      gamePrefetcher.setPaused(busy || playingRef.current || suspendedRef.current || positionRef.current.settling);
-      if (warmQuietTimer.current) clearTimeout(warmQuietTimer.current);
-      warmQuietTimer.current = null;
-      if (busy || !warmWaitingSince.current) return;
-      warmQuietTimer.current = setTimeout(() => {
-        warmQuietTimer.current = null;
-        openWarmGate();
-      }, FEED.warmQuietMs);
-    },
-    [openWarmGate],
-  );
-
-  const aheadGame = useCallback((): GameItem | undefined => {
-    const { index, direction } = positionRef.current;
-    const pages = listRef.current;
-    if (pages.length === 0) return undefined;
-    const wrap = pages.length > 2;
-    const target = wrap ? ((index + direction) % pages.length + pages.length) % pages.length : index + direction;
-    return pages[target];
+  const onPagerBusy = useCallback((busy: boolean) => {
+    pagerBusyRef.current = busy;
+    if (busy) playingRef.current = true;
+    gamePrefetcher.setPaused(busy || playingRef.current || suspendedRef.current || positionRef.current.settling);
   }, []);
 
   const runPrefetch = useCallback(() => {
@@ -234,55 +188,25 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     const { index, direction } = positionRef.current;
     const pages = listRef.current;
     const wanted = prefetchOrder(index, direction, pages.length, FEED.prefetchAhead, pages.length > 1).map(i => pages[i]);
-    gamePrefetcher.request(wanted);
+    gamePrefetcher.saveLaunch();
+    // Next swipe first, then the last-played launch document and further games.
+    // This path is still restricted to an explicit game-end window.
+    gamePrefetcher.request(wanted.length ? [wanted[0], pages[index], ...wanted.slice(1)] : [pages[index]]);
   }, []);
 
   const schedulePrefetch = useCallback(() => {
+    if (playingRef.current || suspendedRef.current) return;
     if (prefetchTimer.current) clearTimeout(prefetchTimer.current);
-    const ahead = aheadGame();
-    const aheadPhase = ahead ? phasesRef.current.get(ahead.id) : undefined;
-    if (!ahead || aheadPhase === 'ready' || aheadPhase === 'error') {
+    prefetchTimer.current = setTimeout(() => {
+      prefetchTimer.current = null;
       runPrefetch();
-      return;
-    }
-    prefetchTimer.current = setTimeout(runPrefetch, FEED.prefetchFallbackMs);
-  }, [aheadGame, runPrefetch]);
+    }, FEED.prefetchFallbackMs);
+  }, [runPrefetch]);
 
-  // Opens the "ahead" page's load gate shortly after the active game is ready,
-  // so the next game prepares while the player is still on the title screen;
-  // a heavy build that is not in memory gives the active game's boot a little
-  // longer. The gate itself still waits for the pager to be idle.
-  const scheduleWarm = useCallback(() => {
-    if (warmTimer.current) clearTimeout(warmTimer.current);
-    const activeGameId = currentIdRef.current;
-    const activePhase = activeGameId ? phasesRef.current.get(activeGameId) : undefined;
-    const ahead = aheadGame();
-    let delay: number = FEED.warmFallbackMs;
-    if (activePhase === 'ready' || activePhase === 'error') {
-      const aheadPhase = ahead ? phasesRef.current.get(ahead.id) : undefined;
-      const heavy = !!ahead && ahead.sizeBytes > FEED.heavyGameBytes && !gamePrefetcher.has(ahead) && aheadPhase !== 'ready';
-      delay = heavy ? FEED.warmDelayHeavyMs : FEED.warmDelayMs;
-    }
-    warmTimer.current = setTimeout(() => {
-      warmTimer.current = null;
-      openWarmGate();
-    }, delay);
-  }, [aheadGame, openWarmGate]);
-
-  const onPhase = useCallback(
-    (gameId: string, phase: PagePhase) => {
-      phasesRef.current.set(gameId, phase);
-      if (gameId === currentIdRef.current) {
-        if (phase === 'ready' || phase === 'error') {
-          scheduleWarm();
-          schedulePrefetch();
-        }
-      } else if (gameId === aheadGame()?.id && (phase === 'ready' || phase === 'error')) {
-        if (prefetchTimer.current) runPrefetch();
-      }
-    },
-    [scheduleWarm, schedulePrefetch, aheadGame, runPrefetch],
-  );
+  const onPhase = useCallback((gameId: string, phase: PagePhase) => {
+    phasesRef.current.set(gameId, phase);
+    if (phase === 'ready' && gameId === currentIdRef.current) markFirstGameReady();
+  }, []);
 
   /* ---------------- dock auto-hide (5 s) -------------------------------------- */
   const [dockVisible, setDockVisible] = useState(true);
@@ -324,21 +248,24 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     const game = listRef.current[positionRef.current.index];
     if (!game) return;
     currentIdRef.current = game.id;
-    playingRef.current = false;
+    gamePrefetcher.setLaunchGame(game);
+    playingRef.current = true;
+    gamePrefetcher.setPaused(true);
+    // Replace obsolete wishes while paused, before a future game-end can resume them.
+    gamePrefetcher.request([]);
+    prefetchedFor.current = null;
     clearGateTimers();
-    setWarmReady(false);
     setSwipeEnabled(true);
     showDock();
     usePlayerStore.getState().setLastPlayed(game.id);
     analytics.onGameSelect(game.id, game.title, game.category);
     analytics.onGameStart(game.id, game.title, game.category);
     adManager.setCurrentGame(game);
-    scheduleWarm();
     schedulePrefetch();
     const { index, direction } = positionRef.current;
     const pages = listRef.current;
     gamePrefetcher.retain(retainWindow(index, direction, pages.length, FEED.prefetchAhead, pages.length > 1).map(i => pages[i]));
-  }, [currentId, clearGateTimers, showDock, scheduleWarm, schedulePrefetch]);
+  }, [currentId, clearGateTimers, showDock, schedulePrefetch]);
 
   // Per-game ad rules may change on a catalogue refresh.
   useEffect(() => {
@@ -380,13 +307,12 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     gamePrefetcher.setOnline(!offline);
   }, [offline]);
 
-
   useEffect(() => {
     gamePrefetcher.setPaused(suspended || playingRef.current || pagerBusyRef.current || position.settling);
-    if (suspended) { clearGateTimers(); setWarmReady(false); }
-    else if (!position.settling) { scheduleWarm(); schedulePrefetch(); }
+    if (suspended) clearGateTimers();
+    else if (!position.settling) schedulePrefetch();
     return () => gamePrefetcher.setPaused(true);
-  }, [suspended, position.settling, currentId, clearGateTimers, scheduleWarm, schedulePrefetch]);
+  }, [suspended, position.settling, currentId, clearGateTimers, schedulePrefetch]);
 
   /* ---------------- bridge messages from the active game --------------------- */
   const grantHint = useCallback(
@@ -419,14 +345,12 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         case 'gameStarted':
           playingRef.current = true;
           clearGateTimers();
-          setWarmReady(false);
           gamePrefetcher.setPaused(true);
           resetDockTimer();
           break;
         case 'gameOver': {
           playingRef.current = false;
           gamePrefetcher.setPaused(pagerBusyRef.current || suspendedRef.current);
-          scheduleWarm();
           schedulePrefetch();
           analytics.onGameOver(game.id, game.title, message.score, message.stats);
           store.saveHighScore(game.id, message.score);
@@ -440,7 +364,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         case 'completed': {
           playingRef.current = false;
           gamePrefetcher.setPaused(pagerBusyRef.current || suspendedRef.current);
-          scheduleWarm();
           schedulePrefetch();
           analytics.onGameCompleted(game.id, game.title, message.score, message.level);
           store.saveHighScore(game.id, message.score);
@@ -479,25 +402,23 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           break;
       }
     },
-    [grantHint, resetDockTimer, showDock, clearGateTimers, scheduleWarm, schedulePrefetch],
+    [grantHint, resetDockTimer, showDock, clearGateTimers, schedulePrefetch],
   );
 
   /* ---------------- pager callbacks ------------------------------------------ */
   const onSwipeStart = useCallback(() => {
+    playingRef.current = true;
     clearGateTimers();
-    setWarmReady(false);
     gamePrefetcher.setPaused(true);
     setPosition(prev => ({ ...prev, settling: true }));
   }, [clearGateTimers]);
   const onIndexChange = useCallback((index: number, direction: SwipeDirection) => {
-    setWarmReady(false);
-    cancelWarm();
+    clearGateTimers();
     setPosition({ index, direction, settling: true });
-  }, [cancelWarm]);
+  }, [clearGateTimers]);
   const onSettled = useCallback((index: number) => {
     setPosition(prev => (prev.index === index && !prev.settling ? prev : { ...prev, index, settling: false }));
-    scheduleWarm();
-  }, [scheduleWarm]);
+  }, []);
   const touchZonesFor = useCallback((index: number) => listRef.current[index]?.touchZones, []);
 
   // WebViews are created and destroyed only while the pager is at rest: never
@@ -520,9 +441,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         if (!settling) return null;
         slot = 'leaving';
       }
-      // Priority order: the page on screen (once the pager rests), then the
-      // next page (once the active game is ready), never the page behind.
-      const mayLoad = !suspended && (slot === 'active' ? rested : slot === 'ahead' ? warmReady && rested : false);
+      // An offscreen WebView cannot be safely preempted once its engine starts.
+      // Keep loaded neighbors, but initialize cold games only when selected.
+      const mayLoad = !suspended && slot === 'active' && rested;
       return (
         <GamePage
           key={game.id}
@@ -537,7 +458,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         />
       );
     },
-    [list, index, direction, loop, settling, rested, warmReady, suspended, refFor, onPhase, onMessage],
+    [list, index, direction, loop, settling, rested, suspended, refFor, onPhase, onMessage],
   );
 
   /* ---------------- dock actions --------------------------------------------- */

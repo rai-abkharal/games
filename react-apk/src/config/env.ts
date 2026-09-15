@@ -93,28 +93,9 @@ export const STORAGE_KEYS = {
  * CPU, GPU and network.
  */
 export const FEED = {
-  /**
-   * Wait this long after the active game has loaded before preparing the next
-   * one — enough for the active game's first frames. Early is better: every
-   * WebView shares one Blink main thread, so the next game should parse while
-   * the player is still on the title screen rather than mid-game.
-   */
-  warmDelayMs: 150,
-  /** Heavy next builds (inline engines) give the active game's own boot a little longer. */
-  warmDelayHeavyMs: 350,
-  heavyGameBytes: 400 * 1024,
-  /** Recheck readiness after this delay; never warm alongside the active game boot. */
-  warmFallbackMs: 3500,
-  /**
-   * The next game's WebView is never created under a finger or while pages
-   * move: its UI-thread inflation and its parse on the shared Blink thread
-   * would hitch the drag or the gameplay touch. It waits for a quiet gap this
-   * long after the finger lifts…
-   */
-  warmQuietMs: 150,
-  /** Start in-memory HTML prefetching for further games once the warm page is ready, or after this. */
+  /** Short delay after an explicit game-end before HTML-only speculation. */
   prefetchFallbackMs: 2500,
-  /** Number of games beyond the warm page whose HTML is fetched into memory. */
+  /** Number of upcoming games whose HTML is fetched after an explicit game-end. */
   prefetchAhead: 3,
   /** Games larger than this are not prefetched (they load straight from the network). */
   prefetchMaxBytes: 3 * 1024 * 1024,

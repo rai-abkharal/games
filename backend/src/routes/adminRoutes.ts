@@ -686,7 +686,7 @@ export function createAdminRouter(
       // Destination directory: public/games/<gameId>/<version>/
       // When updating a game, allow existing version directory to be updated/overwritten.
       const targetGameDir = path.join(gamesDir, gameId, version);
-      if (fs.existsSync(targetGameDir) && !existingGame && !targetGameId)
+      if (fs.existsSync(targetGameDir))
         throw new SecurityError(
           409,
           "Version already exists. Upload a new version.",
@@ -893,20 +893,35 @@ export function createAdminRouter(
           .startsWith(path.resolve(gamesDir) + path.sep)
       )
         fs.rmSync(incompleteDirectory, { recursive: true, force: true });
-      res
-        .status(
-          err instanceof SecurityError
-            ? err.status
-            : err?.name === "ZodError"
-              ? 400
-              : 500,
-        )
-        .json({
-          error:
-            err instanceof SecurityError
-              ? err.message
-              : "Failed to process game package",
-        });
+      const status =
+        err instanceof SecurityError
+          ? err.status
+          : err?.name === "ZodError"
+            ? 400
+            : 500;
+      const errorMessage =
+        err instanceof SecurityError
+          ? err.message
+          : err?.name === "ZodError"
+            ? "Invalid game package configuration or metadata format"
+            : "Failed to process game package";
+      res.status(status).json({
+        error: errorMessage,
+        details: err?.message || errorMessage,
+        validationReport: {
+          gameId: targetGameId || "unknown",
+          slug: targetGameId || "unknown",
+          version: "1.0.0",
+          allPassed: false,
+          checks: [
+            {
+              rule: "Package Verification",
+              passed: false,
+              message: errorMessage,
+            },
+          ],
+        },
+      });
     }
   }
 
