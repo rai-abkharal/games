@@ -9,10 +9,14 @@ import { adManager } from './src/services/adManager';
 import { useCatalogStore } from './src/store/catalogStore';
 import { usePlayerStore } from './src/store/playerStore';
 import { gamePrefetcher } from './src/services/gamePrefetcher';
+import { isBundleStoreAvailable, startBundleStore, stopBundleStore } from './src/services/gameBundles';
 import { useStartupStore } from './src/services/startup';
 
 /** SplashActivity shows its brand briefly before MainActivity appears. */
 const SPLASH_MS = 600;
+
+/** Hard cap on waiting for the local game store before mounting the feed anyway. */
+const BUNDLE_STORE_BOOT_MS = 1200;
 
 /**
  * Boot: hydrate the player profile (a few ms from storage) and kick off the
@@ -24,6 +28,12 @@ function App() {
   const hydrated = usePlayerStore(state => state.hydrated);
   const gameReady = useStartupStore(state => state.gameReady);
   const [splashDone, setSplashDone] = useState(false);
+  // The local game store answers "which builds can I play from disk?", and the
+  // first page picks its source once, when its WebView is created. Waiting the
+  // few milliseconds it takes to come up is what lets the very first game open
+  // from local files instead of the network — but it is never allowed to hold
+  // the app back, so a slow or missing store falls through on a timer.
+  const [bundlesSettled, setBundlesSettled] = useState(!isBundleStoreAvailable());
   const hideSplash = useCallback(() => setSplashDone(true), []);
 
   useEffect(() => {
@@ -32,14 +42,24 @@ function App() {
     void useCatalogStore.getState().hydrate();
     void gamePrefetcher.restoreLaunch();
     void adManager.start();
-    return () => { mounted = false; adManager.stop(); };
+    const settle = () => {
+      if (mounted) setBundlesSettled(true);
+    };
+    const timer = setTimeout(settle, BUNDLE_STORE_BOOT_MS);
+    void startBundleStore().finally(settle);
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+      adManager.stop();
+      stopBundleStore();
+    };
   }, []);
 
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <View style={styles.root}>
-          {hydrated ? <RootNavigator /> : null}
+          {hydrated && bundlesSettled ? <RootNavigator /> : null}
           {splashDone ? null : <Splash minimumMs={SPLASH_MS} ready={gameReady} onDone={hideSplash} />}
         </View>
         <Toast />

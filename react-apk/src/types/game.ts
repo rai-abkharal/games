@@ -43,6 +43,16 @@ export interface GameItem {
   category: string;
   description: string;
   sha256?: string;
+  /**
+   * Identity of the whole build — every file, not just index.html. Produced by
+   * the backend's bundleService and the key the on-device store answers
+   * "do I already have this?" with.
+   */
+  buildId?: string;
+  /** Absolute URL of the build's `bundle.json` (file list + per-file hashes). */
+  bundleUrl?: string;
+  /** Extracted size of the build, as opposed to `sizeBytes` (the uploaded zip). */
+  bundleBytes?: number;
   controls?: string[];
   tags?: string[];
   ageRating?: string;

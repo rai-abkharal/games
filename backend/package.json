@@ -11,7 +11,8 @@
     "deploy-game": "tsx scripts/deploy-game.ts",
     "verify-catalog": "node scripts/verify-catalog.mjs",
     "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
-    "security:migrate": "tsx scripts/security-migrate.ts"
+    "security:migrate": "tsx scripts/security-migrate.ts",
+    "bundles": "tsx scripts/build-bundles.ts"
   },
   "keywords": [
     "mini-games",

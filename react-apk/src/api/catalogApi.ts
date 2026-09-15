@@ -46,7 +46,11 @@ export async function fetchCatalog(signal?: AbortSignal | null): Promise<Catalog
   const { data, baseUrl } = await requestJsonWithFallback<GameCatalog>(API_PATHS.catalog, {
     timeoutMs: NETWORK.catalogTimeoutMs,
     signal,
-    bustCache: true,
+    // No cache-buster: the endpoint now answers with `Cache-Control: no-cache`
+    // plus an ETag, so a stable URL still revalidates on every read — an admin
+    // change is picked up just as immediately — but an unchanged catalogue
+    // costs a 304 instead of re-downloading every entry.
+    bustCache: false,
   });
   if (!data || !Array.isArray(data.games)) {
     throw new Error('Catalogue response is malformed');

@@ -193,6 +193,12 @@ echo ""
 echo "🔨 [4/5] Building Backend TypeScript to Production JS..."
 cd "$PROJECT_DIR/backend"
 npm run build
+
+# Per-build manifests (file list + per-file SHA-256 + buildId) for the on-device
+# game store. The server generates any that are missing on first request, so
+# this only moves the cost off the first player and onto the deploy.
+npm run bundles || echo "[Bundles] Generation failed; the server will build manifests on demand."
+
 NODE_ENV=production npm run security:migrate
 
 echo ""

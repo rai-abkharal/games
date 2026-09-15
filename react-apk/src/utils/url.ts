@@ -44,6 +44,10 @@ export function normalizeGameUrls(game: GameItem, activeBase: string): GameItem 
     entryUrl: normalizeAssetUrl(game.entryUrl, activeBase),
     thumbnailUrl: normalizeAssetUrl(game.thumbnailUrl, activeBase),
     manifestUrl: normalizeAssetUrl(game.manifestUrl, activeBase),
+    // The bundle manifest is fetched by the native downloader, which has no
+    // notion of candidate hosts — it must arrive already pointed at the base
+    // that actually answered.
+    ...(game.bundleUrl ? { bundleUrl: normalizeAssetUrl(game.bundleUrl, activeBase) } : {}),
   };
 }
 

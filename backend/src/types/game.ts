@@ -67,6 +67,12 @@ export const GameSchema = z.object({
   category: z.string().default('Arcade'),
   description: z.string().default(''),
   sha256: z.string().optional(),
+  // Identity of the whole build (every file, not just index.html), produced by
+  // bundleService. Attached at serve time, so a catalogue file written before
+  // bundles existed stays valid.
+  buildId: z.string().optional(),
+  bundleUrl: z.string().optional(),
+  bundleBytes: z.number().int().nonnegative().optional(),
   controls: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
   ageRating: z.string().optional(),

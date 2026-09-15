@@ -21,6 +21,7 @@ import { useIsOffline } from '../hooks/useNetworkStatus';
 import type { RootScreenProps } from '../navigation/types';
 import { adManager, useAdsStore } from '../services/adManager';
 import { analytics } from '../services/analytics';
+import { markBundlePlayed, setBundlePaused, setBundlePlaying, syncBundles } from '../services/gameBundles';
 import { buildRewardScript, buildSoundScript } from '../services/gameBridge';
 import { markFirstGameReady } from '../services/startup';
 import { gamePrefetcher } from '../services/gamePrefetcher';
@@ -53,7 +54,7 @@ function listSignature(games: GameItem[]): string {
   return games
     .map(
       game =>
-        `${game.id}|${game.version}|${game.updatedAt ?? ''}|${game.title}|${game.category}|${game.ads?.enabled ? '1' : '0'}|${game.ads?.intervalMinutes ?? ''}|${JSON.stringify(game.touchZones ?? [])}|${game.entryUrl}|${game.sha256 ?? ''}|${game.sizeBytes}`,
+        `${game.id}|${game.version}|${game.updatedAt ?? ''}|${game.buildId ?? ''}|${game.title}|${game.category}|${game.ads?.enabled ? '1' : '0'}|${game.ads?.intervalMinutes ?? ''}|${JSON.stringify(game.touchZones ?? [])}|${game.entryUrl}|${game.sha256 ?? ''}|${game.sizeBytes}`,
     )
     .join('\n');
 }
@@ -303,6 +304,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     setSwipeEnabled(true);
     showDock();
     usePlayerStore.getState().setLastPlayed(game.id);
+    // Least-recently-played is what the on-device store evicts by, so it has to
+    // hear about every selection, not just the ones that persist a profile.
+    markBundlePlayed(game.id);
     analytics.onGameSelect(game.id, game.title, game.category);
     analytics.onGameStart(game.id, game.title, game.category);
     adManager.setCurrentGame(game);
@@ -356,9 +360,48 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   // An interstitial load spins up its own WebView in the renderer the game is
   // drawing from, so the ad SDK is told when that renderer is busy. Suspended
   // counts as free: the game is frozen, so nothing is competing for frames.
+  // The bundle downloader gets the same signal, but only throttles on it — it
+  // keeps making progress during play, slowly, so a player who never reaches a
+  // game over still fills their library.
   useEffect(() => {
-    adManager.setPlaying(playing && !suspended);
+    const active = playing && !suspended;
+    adManager.setPlaying(active);
+    setBundlePlaying(active);
   }, [playing, suspended]);
+
+  useEffect(() => {
+    setBundlePaused(offline);
+  }, [offline]);
+
+  /**
+   * The download wish-list, in priority order: the page on screen first (so a
+   * game the player is looking at becomes local for next time), then outwards
+   * in the direction they are swiping, then the rest of the feed. The native
+   * side drops anything already stored at the advertised build, so a relaunch
+   * against an unchanged catalogue issues no requests at all.
+   */
+  useEffect(() => {
+    // Only while the pager is at rest: re-scoring the queue is cheap, but it
+    // has no business running during a snap animation.
+    if (!list.length || position.settling) return;
+    const count = list.length;
+    const at = position.index;
+    const heading = position.direction;
+    const ordered: GameItem[] = [];
+    const seen = new Set<string>();
+    const push = (game?: GameItem) => {
+      if (!game || seen.has(game.id)) return;
+      seen.add(game.id);
+      ordered.push(game);
+    };
+    push(list[at]);
+    for (let step = 1; step <= count; step++) {
+      push(list[(((at + heading * step) % count) + count) % count]);
+      push(list[(((at - heading * step) % count) + count) % count]);
+    }
+    for (const game of list) push(game);
+    syncBundles(ordered);
+  }, [list, position.index, position.direction, position.settling]);
 
   useEffect(() => {
     gamePrefetcher.setPaused(suspended || pagerBusyRef.current || position.settling);

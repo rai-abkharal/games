@@ -6,6 +6,7 @@ import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import com.swipeplay.app.bundles.GameBundlePackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -14,8 +15,10 @@ class MainApplication : Application(), ReactApplication {
       context = applicationContext,
       packageList =
         PackageList(this).packages.apply {
-          // Packages that cannot be autolinked yet can be added manually here, for example:
-          // add(MyReactNativePackage())
+          // The on-device game store: bundle downloads and the loopback origin
+          // that serves them. Lives in the app rather than a library because it
+          // is specific to this catalogue's layout.
+          add(GameBundlePackage())
         },
     )
   }

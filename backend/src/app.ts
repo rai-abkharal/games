@@ -3,7 +3,9 @@ import cors from "cors";
 import compression from "compression";
 import path from "path";
 import fs from "fs";
+import crypto from "node:crypto";
 import { CatalogService } from "./services/catalogService";
+import { ensureManifest } from "./services/bundleService";
 import { createAdminRouter } from "./routes/adminRoutes";
 import { createPublicAnalyticsRouter, createAdminAnalyticsRouter } from "./routes/analyticsRoutes";
 import { SecurityStore } from "./security/store";
@@ -52,7 +54,17 @@ export function createApp(
   }
 
   // Middlewares
-  app.use(compression({ level: 6 }));
+  // Range requests are served uncompressed on purpose. A resumed download asks
+  // for a byte offset into the *file*; compressing the slice would make the
+  // offsets the client is tracking meaningless and break its hash check. Fresh
+  // downloads carry no Range header and are still compressed normally.
+  app.use(
+    compression({
+      level: 6,
+      filter: (req, res) =>
+        !req.headers.range && compression.filter(req, res),
+    }),
+  );
   const publicCors = cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
@@ -194,12 +206,54 @@ export function createApp(
     });
   }
 
+  /**
+   * Per-build manifest. Generated on demand the first time it is asked for, so
+   * games deployed before bundles existed need no migration step. Revalidated
+   * rather than cached outright: it is the one document whose whole job is to
+   * tell a client whether its local copy is still current.
+   */
+  app.get(
+    "/games/:id/:version/bundle.json",
+    (req: Request, res: Response, next: NextFunction) => {
+      if (
+        !/^[a-z0-9-]+$/.test(req.params.id) ||
+        !/^\d+\.\d+\.\d+$/.test(req.params.version)
+      ) {
+        return next();
+      }
+      try {
+        const manifest = ensureManifest(gamesDir, req.params.id, req.params.version);
+        if (!manifest) return next();
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+        res.setHeader("Cache-Control", "no-cache");
+        // Strong validator: the buildId already is a content hash of the build.
+        res.setHeader("ETag", `"${manifest.buildId}"`);
+        if (req.headers["if-none-match"] === `"${manifest.buildId}"`) {
+          return res.status(304).end();
+        }
+        return res.json(manifest);
+      } catch (error) {
+        return next(error);
+      }
+    },
+  );
+
   app.use(
     "/games",
     express.static(gamesDir, {
       setHeaders: (res, filePath) => {
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+        // A request that names the build it wants (`?b=<buildId>`) can never be
+        // answered with the wrong bytes, so it is safe to cache forever. Plain
+        // requests keep revalidating, because a re-upload can replace files
+        // underneath an unchanged /games/<id>/<version>/ path.
+        const req = (res as unknown as { req?: Request }).req;
+        if (req && typeof req.query?.b === "string" && req.query.b.length > 0) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          return;
+        }
         if (filePath.endsWith(".html") || filePath.endsWith(".json")) {
           res.setHeader("Cache-Control", "no-cache, must-revalidate");
           res.setHeader("Pragma", "no-cache");
@@ -230,23 +284,96 @@ export function createApp(
     });
   });
 
+  /** Attaches the build identity a client needs to decide "do I already have this?". */
+  const withBuildIds = (games: any[]) =>
+    games.map((game) => {
+      try {
+        const manifest = ensureManifest(gamesDir, game.id, game.version);
+        if (!manifest) return game;
+        const base = String(game.entryUrl || "").replace(/[^/]*$/, "");
+        return {
+          ...game,
+          buildId: manifest.buildId,
+          bundleUrl: base ? `${base}bundle.json` : undefined,
+          bundleBytes: manifest.totalBytes,
+        };
+      } catch {
+        // A game whose manifest cannot be built still plays from the network;
+        // it just never becomes eligible for the on-device store.
+        return game;
+      }
+    });
+
+  const applyRequestBaseUrl = (req: Request) => {
+    // Dynamic base URL detection if client host header differs (e.g. Android 10.0.2.2)
+    const host = req.get("host");
+    const protocol = req.protocol || "http";
+    if (host && !process.env.BASE_URL) {
+      catalogService.setBaseUrl(`${protocol}://${host}`);
+    }
+  };
+
+  /**
+   * Version probe. A client that already has every game on disk only needs to
+   * know whether any build changed, and this answers that in a few hundred
+   * bytes — or in a 304 with none at all — instead of the full catalogue.
+   * Registered before `/api/games/:id` so it is not swallowed by that route.
+   */
+  app.get("/api/games/versions", (req: Request, res: Response, next: NextFunction) => {
+    try {
+      applyRequestBaseUrl(req);
+      const catalog = catalogService.getCatalog(true);
+      const games = withBuildIds(catalog.games as any[]).map((game: any) => ({
+        id: game.id,
+        version: game.version,
+        buildId: game.buildId,
+        updatedAt: game.updatedAt,
+      }));
+      const body = {
+        version: catalog.version,
+        updatedAt: catalog.updatedAt,
+        games,
+      };
+      const etag = `"v${crypto
+        .createHash("sha256")
+        .update(JSON.stringify(games))
+        .digest("hex")
+        .slice(0, 32)}"`;
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("ETag", etag);
+      if (req.headers["if-none-match"] === etag) {
+        res.status(304).end();
+        return;
+      }
+      res.json(body);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // Games Catalog Endpoint
   app.get("/api/games", (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Dynamic base URL detection if client host header differs (e.g. Android 10.0.2.2)
-      const host = req.get("host");
-      const protocol = req.protocol || "http";
-      if (host && !process.env.BASE_URL) {
-        catalogService.setBaseUrl(`${protocol}://${host}`);
-      }
+      applyRequestBaseUrl(req);
 
       const catalog = catalogService.getCatalog(true);
+      const payload = { ...catalog, games: withBuildIds(catalog.games as any[]) };
 
-      // Instant live headers: Never cache catalog on client/intermediary
-      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
-      res.json(catalog);
+      // `no-cache` rather than `no-store`: the client must still revalidate on
+      // every read, so an Admin Panel change is picked up just as immediately,
+      // but an unchanged catalogue costs a 304 instead of a full re-download.
+      const etag = `"c${crypto
+        .createHash("sha256")
+        .update(JSON.stringify(payload))
+        .digest("hex")
+        .slice(0, 32)}"`;
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("ETag", etag);
+      if (req.headers["if-none-match"] === etag) {
+        res.status(304).end();
+        return;
+      }
+      res.json(payload);
     } catch (err) {
       next(err);
     }

@@ -27,6 +27,11 @@ Thumbs.db
 # System Generated
 .system_generated/
 
+# Per-build bundle manifests. Derived entirely from the game files beside them:
+# the server generates any that are missing, and deploy.sh pre-generates them
+# all, so committing them would only add churn on every game upload.
+backend/public/games/**/bundle.json
+
 # Runtime catalogue state (admin uploads must survive Git deployments)
 backend/catalog/games.runtime.json
 backend/catalog/deleted_games.json

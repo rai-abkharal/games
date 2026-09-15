@@ -5,6 +5,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { CatalogService } from "../services/catalogService";
+import { ensureManifest, invalidateManifest } from "../services/bundleService";
 import { normalizeGameFeatures } from "../utils/gameFeatures";
 import { z } from "zod";
 import { SecurityStore, SecurityError, randomToken } from "../security/store";
@@ -779,6 +780,16 @@ export function createAdminRouter(
         sha256 = crypto.createHash("sha256").update(fileBuffer).digest("hex");
       }
 
+      // Generate the per-build manifest now rather than on the first player's
+      // request, and drop any manifest cached for a build this upload replaced.
+      invalidateManifest(gameId);
+      try {
+        ensureManifest(gamesDir, gameId, version);
+      } catch {
+        // A manifest that cannot be generated only costs this build its place
+        // in the on-device store; the upload itself is still valid.
+      }
+
       const nowIso = new Date().toISOString();
       // The packaged name may change between uploads, but an Admin Panel rename
       // outranks it: only sourceTitle follows the manifest.
@@ -1124,6 +1135,7 @@ export function createAdminRouter(
       if (fs.existsSync(targetGameDir)) {
         fs.rmSync(targetGameDir, { recursive: true, force: true });
       }
+      invalidateManifest(id);
 
       // 3. Delete thumbnails from public/thumbnails/<id>.*
       for (const ext of [".webp", ".svg", ".png", ".jpg"]) {

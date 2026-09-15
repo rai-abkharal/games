@@ -12,6 +12,7 @@ import {
   buildSavedStateScript,
   parseGameMessage,
 } from '../../services/gameBridge';
+import { localUrlFor } from '../../services/gameBundles';
 import { gamePrefetcher } from '../../services/gamePrefetcher';
 import { GAME_VIEWPORT_SCRIPT } from '../../services/gameViewport';
 import { usePlayerStore } from '../../store/playerStore';
@@ -156,13 +157,26 @@ export const GamePage = memo(
     }, [slot, mayLoad, live, phase, warmStandby, releaseStandby]);
 
     // Source is decided once per WebView instance so a catalogue refresh (new
-    // game object, same build) never reloads a running game.
-    const sourceKey = `${game.id}:${game.version}:${game.updatedAt ?? game.sha256 ?? ''}`;
+    // game object, same build) never reloads a running game. `buildId` is part
+    // of the key: a genuinely new build *should* replace the document.
+    const sourceKey = `${game.id}:${game.version}:${game.buildId ?? game.updatedAt ?? game.sha256 ?? ''}`;
     const entryUrl = useMemo(() => buildGameEntryUrl(game), [sourceKey]); // eslint-disable-line react-hooks/exhaustive-deps
     const source = useMemo<WebSource | null>(() => {
       if (!live) return null;
+      // Preference order, best first:
+      //   1. the build stored on this device, served over the loopback origin —
+      //      no network at all, and a real http origin so module scripts,
+      //      fonts, fetch and localStorage behave exactly as they always have;
+      //   2. a document the in-memory prefetcher happens to hold;
+      //   3. the network, exactly as before.
+      const local = localUrlFor(game);
+      if (local) return { uri: local };
       const prefetched = gamePrefetcher.get(game);
       return prefetched ? { html: prefetched.html, baseUrl: prefetched.baseUrl } : { uri: entryUrl };
+      // Read once, when this WebView comes to life. A bundle that finishes
+      // downloading while the page is already running must *not* swap the
+      // source underneath it — that would reload a game mid-play. The local
+      // copy is picked up the next time the page is created.
     }, [live, attempt, sourceKey, entryUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Load lifecycle: a WebView instance appears → loading with a hard timeout.
