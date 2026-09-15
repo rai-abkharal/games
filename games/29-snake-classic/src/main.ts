@@ -59,7 +59,7 @@ export class Game {
   public impactStar: { x: number; y: number; scale: number; alpha: number } | null = null;
   public impactParticles: ImpactParticle[] = [];
 
-  // Virtual Joystick State
+  // Diagonal / Square Touch Gesture State
   public joyKnobX: number = THEME.joyX;
   public joyKnobY: number = THEME.joyY;
   public joyTargetKnobX: number = THEME.joyX;
@@ -70,6 +70,8 @@ export class Game {
   public targetJoyY: number = THEME.joyY;
   public isBottomBarVisible: boolean = true;
   private isPointerDown: boolean = false;
+  private gestureStartX: number = 0;
+  private gestureStartY: number = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -281,58 +283,23 @@ export class Game {
       this.gameOverAnimTime += dt;
     }
 
-    // 5. Smoothly animate joystick Y when bottom bar moves/toggles
+    // 5. Smoothly animate touch control area position when bottom bar moves/toggles
     this.targetJoyY = THEME.joyY;
     this.currentJoyY += (this.targetJoyY - this.currentJoyY) * Math.min(1, dt * 12);
 
-    if (!this.isJoyActive) {
-      this.joyTargetKnobX = THEME.joyX;
-      this.joyTargetKnobY = this.currentJoyY;
-    }
-
-    // 4-Directional Locked Orthogonal Cross-Gated Smoothing:
-    // Guarantees knob ONLY moves along Left, Right, Up, Down channels (ZERO diagonal positioning)
     const cx = THEME.joyX;
     const cy = this.currentJoyY;
-    const lerpFactor = 1 - Math.exp(-32 * dt);
 
-    const targetX = this.joyTargetKnobX;
-    const targetY = this.joyTargetKnobY;
-
-    const isDisplacedX = Math.abs(this.joyKnobX - cx) > 0.8;
-    const isDisplacedY = Math.abs(this.joyKnobY - cy) > 0.8;
-
-    const targetCallsForY = Math.abs(targetY - cy) > 0.8;
-    const targetCallsForX = Math.abs(targetX - cx) > 0.8;
-
-    if (targetCallsForY && isDisplacedX) {
-      // Transitioning to vertical axis: slide horizontal arm into center junction first
-      this.joyKnobX += (cx - this.joyKnobX) * lerpFactor;
-      if (Math.abs(this.joyKnobX - cx) <= 0.8) {
-        this.joyKnobX = cx;
-      }
-      this.joyKnobY = cy;
-    } else if (targetCallsForX && isDisplacedY) {
-      // Transitioning to horizontal axis: slide vertical arm into center junction first
-      this.joyKnobY += (cy - this.joyKnobY) * lerpFactor;
-      if (Math.abs(this.joyKnobY - cy) <= 0.8) {
-        this.joyKnobY = cy;
-      }
-      this.joyKnobX = cx;
+    if (this.isJoyActive) {
+      // Follow finger smoothly and responsively across 360 degrees
+      const followFactor = 1 - Math.exp(-42 * dt);
+      this.joyKnobX += (this.joyTargetKnobX - this.joyKnobX) * followFactor;
+      this.joyKnobY += (this.joyTargetKnobY - this.joyKnobY) * followFactor;
     } else {
-      // Move along the active axis or return to center
-      if (targetCallsForX || (!targetCallsForY && isDisplacedX)) {
-        this.joyKnobX += (targetX - this.joyKnobX) * lerpFactor;
-        if (Math.abs(this.joyKnobX - targetX) < 0.4) this.joyKnobX = targetX;
-        this.joyKnobY = cy;
-      } else if (targetCallsForY || (!targetCallsForX && isDisplacedY)) {
-        this.joyKnobY += (targetY - this.joyKnobY) * lerpFactor;
-        if (Math.abs(this.joyKnobY - targetY) < 0.4) this.joyKnobY = targetY;
-        this.joyKnobX = cx;
-      } else {
-        this.joyKnobX = cx;
-        this.joyKnobY = cy;
-      }
+      // Smooth return to center when finger released
+      const returnFactor = 1 - Math.exp(-20 * dt);
+      this.joyKnobX += (cx - this.joyKnobX) * returnFactor;
+      this.joyKnobY += (cy - this.joyKnobY) * returnFactor;
     }
   }
 
@@ -465,13 +432,17 @@ export class Game {
         return;
       }
 
-      // 4. Virtual Joystick & Top Bar HUD during Gameplay
+      // 4. Diagonal/Square Touch Gesture Area & Top Bar HUD during Gameplay
       if (this.state === GameState.PLAYING) {
-        const joyDist = Math.hypot(px - THEME.joyX, py - this.currentJoyY);
-        if (joyDist <= THEME.joyRadius * 1.45) {
+        const dx = px - THEME.joyX;
+        const dy = py - this.currentJoyY;
+        const inTouchZone = (Math.abs(dx) + Math.abs(dy)) <= THEME.joyRadius * 1.28;
+        if (inTouchZone) {
           this.isJoyActive = true;
           Host.post('setSwipeEnabled', { enabled: false });
-          this.updateJoystick(px, py);
+          this.gestureStartX = px;
+          this.gestureStartY = py;
+          this.updateTouchGesture(px, py, true);
           return;
         }
 
@@ -506,9 +477,9 @@ export class Game {
       const px = pos.x;
       const py = pos.y;
 
-      // Virtual Joystick Drag
+      // Free Touch Gesture Tracking inside Diagonal Control Area
       if (this.isJoyActive) {
-        this.updateJoystick(px, py);
+        this.updateTouchGesture(px, py, false);
         return;
       }
 
@@ -525,7 +496,7 @@ export class Game {
     const handlePointerUp = () => {
       this.isPointerDown = false;
       if (this.isJoyActive) {
-        this.resetJoystick();
+        this.resetTouchGesture();
         Host.post('setSwipeEnabled', { enabled: true });
       }
       if (this.isDraggingSlider) {
@@ -635,7 +606,7 @@ export class Game {
     window.addEventListener('keyup', (e: KeyboardEvent) => {
       if (['ArrowUp', 'KeyW', 'ArrowDown', 'KeyS', 'ArrowLeft', 'KeyA', 'ArrowRight', 'KeyD'].includes(e.code)) {
         if (this.isJoyActive && !this.isPointerDown) {
-          this.resetJoystick();
+          this.resetTouchGesture();
         }
       }
     });
@@ -655,81 +626,118 @@ export class Game {
     }
   }
 
-  private updateJoystick(px: number, py: number): void {
+  private updateTouchGesture(px: number, py: number, isInitialDown: boolean = false): void {
     const cx = THEME.joyX;
     const cy = this.currentJoyY;
-    const dx = px - cx;
-    const dy = py - cy;
-    const dist = Math.hypot(dx, dy);
-    const deadzone = 9;
+    const padR = THEME.joyRadius;
 
-    if (dist < deadzone) {
-      this.joyDir = null;
-      this.joyTargetKnobX = cx;
-      this.joyTargetKnobY = cy;
+    // 1. Clamp visual feedback position gracefully inside the diamond / diagonal box
+    const dxFromCenter = px - cx;
+    const dyFromCenter = py - cy;
+    const manhattanDist = Math.abs(dxFromCenter) + Math.abs(dyFromCenter);
+    const maxBoundary = padR - 10;
+
+    if (manhattanDist > maxBoundary) {
+      const scale = maxBoundary / manhattanDist;
+      this.joyTargetKnobX = cx + dxFromCenter * scale;
+      this.joyTargetKnobY = cy + dyFromCenter * scale;
+    } else {
+      this.joyTargetKnobX = px;
+      this.joyTargetKnobY = py;
+    }
+
+    if (isInitialDown) {
+      this.joyKnobX = this.joyTargetKnobX;
+      this.joyKnobY = this.joyTargetKnobY;
+    }
+
+    // 2. Gesture Vector Computation
+    const vx = px - this.gestureStartX;
+    const vy = py - this.gestureStartY;
+    const distFromStart = Math.hypot(vx, vy);
+
+    if (isInitialDown) {
+      // If tapped away from center, trigger tap-to-turn direction immediately
+      const distCenter = Math.hypot(dxFromCenter, dyFromCenter);
+      if (distCenter > 14) {
+        this.processDirectionGesture(dxFromCenter, dyFromCenter);
+      }
       return;
     }
 
-    const absX = Math.abs(dx);
-    const absY = Math.abs(dy);
-    let newDir: Direction;
-
-    // Directional Hysteresis: require perpendicular axis to clearly exceed active axis by 25%
-    // to prevent jitter along 45-degree diagonal movements
-    const isCurrentlyHorizontal = this.joyDir === Direction.LEFT || this.joyDir === Direction.RIGHT;
-    const isCurrentlyVertical = this.joyDir === Direction.UP || this.joyDir === Direction.DOWN;
-
-    if (isCurrentlyHorizontal) {
-      if (absY > absX * 1.25) {
-        newDir = dy > 0 ? Direction.DOWN : Direction.UP;
-      } else {
-        newDir = dx > 0 ? Direction.RIGHT : Direction.LEFT;
-      }
-    } else if (isCurrentlyVertical) {
-      if (absX > absY * 1.25) {
-        newDir = dx > 0 ? Direction.RIGHT : Direction.LEFT;
-      } else {
-        newDir = dy > 0 ? Direction.DOWN : Direction.UP;
-      }
-    } else {
-      if (absX >= absY) {
-        newDir = dx > 0 ? Direction.RIGHT : Direction.LEFT;
-      } else {
-        newDir = dy > 0 ? Direction.DOWN : Direction.UP;
-      }
-    }
-
-    this.joyDir = newDir;
-
-    // Strict 4-Directional Locked Target:
-    // Knob target is locked strictly to cardinal axis (zero diagonal offset)
-    const clampedOffset = Math.min(dist, THEME.joyMaxDist);
-
-    switch (newDir) {
-      case Direction.RIGHT:
-        this.joyTargetKnobX = cx + clampedOffset;
-        this.joyTargetKnobY = cy;
-        break;
-      case Direction.LEFT:
-        this.joyTargetKnobX = cx - clampedOffset;
-        this.joyTargetKnobY = cy;
-        break;
-      case Direction.UP:
-        this.joyTargetKnobX = cx;
-        this.joyTargetKnobY = cy - clampedOffset;
-        break;
-      case Direction.DOWN:
-        this.joyTargetKnobX = cx;
-        this.joyTargetKnobY = cy + clampedOffset;
-        break;
-    }
-
-    if (this.state === GameState.PLAYING) {
-      this.snake.requestDirection(newDir);
+    // Continuous swipe / movement threshold: 12px
+    if (distFromStart >= 12) {
+      this.processDirectionGesture(vx, vy);
+      // Reset gesture anchor to current point for continuous fluid chaining without lifting finger
+      this.gestureStartX = px;
+      this.gestureStartY = py;
     }
   }
 
-  private resetJoystick(): void {
+  private processDirectionGesture(vx: number, vy: number): void {
+    if (this.state !== GameState.PLAYING) return;
+
+    const absX = Math.abs(vx);
+    const absY = Math.abs(vy);
+
+    // If movement is negligible, ignore
+    if (absX < 2 && absY < 2) return;
+
+    const dirH = vx > 0 ? Direction.RIGHT : Direction.LEFT;
+    const dirV = vy > 0 ? Direction.DOWN : Direction.UP;
+
+    // Last planned direction in buffer or current direction of snake
+    const lastPlanned = this.snake.directionQueue.length > 0
+      ? this.snake.directionQueue[this.snake.directionQueue.length - 1]
+      : this.snake.currentDirection;
+
+    const isCurrentHorizontal = lastPlanned === Direction.LEFT || lastPlanned === Direction.RIGHT;
+    const isCurrentVertical = lastPlanned === Direction.UP || lastPlanned === Direction.DOWN;
+
+    // Cardinal Threshold: if one component is more than 2x the other, it's a cardinal swipe
+    if (absX > absY * 2.0) {
+      this.snake.requestDirection(dirH);
+      this.joyDir = dirH;
+      return;
+    }
+    if (absY > absX * 2.0) {
+      this.snake.requestDirection(dirV);
+      this.joyDir = dirV;
+      return;
+    }
+
+    // Diagonal Movement Gesture Handling:
+    // Natural snake following for diagonal inputs (horizontal, vertical, and diagonal directions)
+    if (isCurrentHorizontal) {
+      // Snake is moving horizontally: perpendicular turn is vertical
+      this.snake.requestDirection(dirV);
+      this.joyDir = dirV;
+      // If moving in opposite horizontal direction, queue the requested horizontal turn
+      if (dirH !== lastPlanned) {
+        this.snake.requestDirection(dirH);
+      }
+    } else if (isCurrentVertical) {
+      // Snake is moving vertically: perpendicular turn is horizontal
+      this.snake.requestDirection(dirH);
+      this.joyDir = dirH;
+      // If moving in opposite vertical direction, queue the requested vertical turn
+      if (dirV !== lastPlanned) {
+        this.snake.requestDirection(dirV);
+      }
+    } else {
+      if (absX >= absY) {
+        this.snake.requestDirection(dirH);
+        this.snake.requestDirection(dirV);
+        this.joyDir = dirH;
+      } else {
+        this.snake.requestDirection(dirV);
+        this.snake.requestDirection(dirH);
+        this.joyDir = dirV;
+      }
+    }
+  }
+
+  private resetTouchGesture(): void {
     this.isJoyActive = false;
     this.joyDir = null;
     this.joyTargetKnobX = THEME.joyX;

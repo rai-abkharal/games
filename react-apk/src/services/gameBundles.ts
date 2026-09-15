@@ -27,12 +27,31 @@ export interface ReadyBundle {
   url: string;
 }
 
+interface BundleRequest {
+  gameId: string;
+  version: string;
+  buildId: string;
+  bundleUrl: string;
+  /** The game on screen — exempt from every speculative rate ceiling. */
+  foreground: boolean;
+}
+
+interface BundlePolicy {
+  /** Ceiling for speculative bundles while a game is running. 0 = no limit. */
+  playingRateBytesPerSecond?: number;
+  /** Ceiling for speculative bundles on a metered link. 0 = no limit. */
+  meteredRateBytesPerSecond?: number;
+  storageBudgetBytes?: number;
+  /** Cellular or otherwise expensive connection. */
+  metered?: boolean;
+}
+
 interface NativeGameBundles {
   start(): Promise<{ available: boolean; port: number; ready: ReadyBundle[] }>;
-  sync(requests: Array<{ gameId: string; version: string; buildId: string; bundleUrl: string }>): void;
+  sync(requests: BundleRequest[]): void;
   setPlaying(playing: boolean): void;
   setPaused(paused: boolean): void;
-  setPolicy(policy: { playingRateBytesPerSecond?: number; storageBudgetBytes?: number }): void;
+  setPolicy(policy: BundlePolicy): void;
   markPlayed(gameId: string): void;
   getStatus(): Promise<{ available: boolean; port: number; usedBytes: number; ready: ReadyBundle[] }>;
   addListener(eventName: string): void;
@@ -122,21 +141,30 @@ export function stopBundleStore(): void {
  * Builds already stored are filtered out natively, so a relaunch with an
  * unchanged catalogue issues no requests at all.
  */
-export function syncBundles(games: GameItem[]): void {
+export function syncBundles(games: GameItem[], foregroundGameId: string | null = null): void {
   if (!native) return;
-  const requests = games
+  const requests: BundleRequest[] = games
     .filter(game => game.buildId && game.bundleUrl)
     .map(game => ({
       gameId: game.id,
       version: game.version,
       buildId: String(game.buildId),
       bundleUrl: String(game.bundleUrl),
+      foreground: game.id === foregroundGameId,
     }));
   if (!requests.length) return;
   try {
     native.sync(requests);
   } catch {
     /* the feed still plays from the network */
+  }
+}
+
+export function setBundlePolicy(policy: BundlePolicy): void {
+  try {
+    native?.setPolicy(policy);
+  } catch {
+    /* ignore */
   }
 }
 

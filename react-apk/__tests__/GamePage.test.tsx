@@ -16,10 +16,6 @@ jest.mock('react-native-webview', () => {
     }),
   };
 });
-const mockPrefetched: { value: { html: string; baseUrl: string } | null } = { value: null };
-jest.mock('../src/services/gamePrefetcher', () => ({
-  gamePrefetcher: { get: () => mockPrefetched.value },
-}));
 const mockLocalUrl: { value: string | null } = { value: null };
 jest.mock('../src/services/gameBundles', () => ({
   localUrlFor: () => mockLocalUrl.value,
@@ -65,7 +61,6 @@ const webviews = () =>
 beforeEach(() => {
   jest.useFakeTimers();
   mockStopLoading.mockClear();
-  mockPrefetched.value = null;
   mockLocalUrl.value = null;
 });
 afterEach(async () => {
@@ -97,14 +92,23 @@ test('swiping away during load stops and releases the abandoned WebView', async 
 
 test('a build stored on the device is loaded from the local origin, not the network', async () => {
   mockLocalUrl.value = 'http://127.0.0.1:42731/tok/test/build-1/index.html';
-  mockPrefetched.value = { html: '<html>prefetched</html>', baseUrl: 'https://games.example/' };
   await act(async () => {
     tree = TestRenderer.create(<GamePage {...props} slot="active" />);
   });
-  // Local disk beats the in-memory prefetch, which beats the network.
   expect(webviews()[0].props.source).toEqual({
     uri: 'http://127.0.0.1:42731/tok/test/build-1/index.html',
   });
+});
+
+test('a game with no local build loads from the network, never from a JS-held document', async () => {
+  await act(async () => {
+    tree = TestRenderer.create(<GamePage {...props} slot="active" />);
+  });
+  const source = webviews()[0].props.source;
+  // The only shapes a source may take now are two URLs. A document handed over
+  // as an HTML string is exactly the path that kept games in the JS heap.
+  expect(Object.keys(source)).toEqual(['uri']);
+  expect(source.uri).toContain('https://games.example/test/index.html');
 });
 
 test('a bundle that lands mid-run does not swap the source under a running game', async () => {

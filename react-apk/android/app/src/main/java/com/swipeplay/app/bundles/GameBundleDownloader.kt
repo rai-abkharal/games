@@ -29,8 +29,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  *     previous build exactly as it was.
  *  4. **Work is resumable.** A `.part` file is resumed with a Range request
  *     rather than restarted, so swiping mid-download costs nothing.
- *  5. **One host connection while a game is running**, and a byte-rate ceiling
- *     on top, both lifted when the player is idle.
+ *  5. **Rate ceilings apply to speculation, never to the game in hand.** The
+ *     bundle for the game on screen always runs at full link speed — storing it
+ *     is the entire point, and a 30 MB build behind a 400 KB/s ceiling would
+ *     need over a minute of play to become local. Games the player has not
+ *     asked for yet are the ones that yield.
  */
 class GameBundleDownloader(
   private val store: GameBundleStore,
@@ -48,6 +51,8 @@ class GameBundleDownloader(
     val version: String,
     val buildId: String,
     val bundleUrl: String,
+    /** The game on screen. Exempt from every speculative rate ceiling. */
+    val foreground: Boolean = false,
   )
 
   private val queue = LinkedBlockingDeque<Job>()
@@ -69,8 +74,19 @@ class GameBundleDownloader(
   @Volatile private var currentJob: Job? = null
   @Volatile private var currentCancelled = false
 
-  /** Bytes per second allowed while a game is on screen. Unlimited when idle. */
+  /**
+   * Ceilings for *speculative* bundles only — the game the player is actually
+   * on is never limited (see RateLimiter). Zero means no limit.
+   */
   @Volatile var playingRateBytesPerSecond: Long = 400 * 1024
+  @Volatile var meteredRateBytesPerSecond: Long = 150 * 1024
+
+  /** Cellular or otherwise expensive link, as reported by NetInfo through JS. */
+  private val metered = AtomicBoolean(false)
+
+  fun setMetered(value: Boolean) {
+    metered.set(value)
+  }
 
   /** Stop expanding the store past this. The whole catalogue is far smaller. */
   @Volatile var storageBudgetBytes: Long = 250L * 1024 * 1024
@@ -326,7 +342,7 @@ class GameBundleDownloader(
 
       var written = existing
       var reportedAt = System.currentTimeMillis()
-      val limiter = RateLimiter()
+      val limiter = RateLimiter(job.foreground)
 
       try {
         java.io.FileOutputStream(part, append).use { output ->
@@ -440,19 +456,41 @@ class GameBundleDownloader(
       java.net.URLEncoder.encode(segment, "UTF-8").replace("+", "%20")
     }
 
-  /** Token bucket, applied only while a game is on screen. */
-  private inner class RateLimiter {
+  /**
+   * Token bucket for *speculative* downloads only.
+   *
+   * The ceiling exists so that fetching games the player has not asked for
+   * cannot steal bandwidth from the game they are looking at. It has no
+   * business applying to that game's own bundle: the whole reason to store a
+   * game is to make its next open instant, and a 30 MB build metered at
+   * 400 KB/s would need over a minute of continuous play to get there. So the
+   * foreground bundle is exempt, and on an unmetered connection nothing is
+   * limited at all.
+   */
+  private inner class RateLimiter(private val foreground: Boolean) {
     private var windowStart = System.currentTimeMillis()
     private var windowBytes = 0L
 
     fun consume(bytes: Long) {
-      if (!playing.get()) {
-        windowBytes = 0
-        windowStart = System.currentTimeMillis()
+      // The game the player is on is never limited, on any connection.
+      if (foreground) {
+        reset()
         return
       }
-      val limit = playingRateBytesPerSecond
-      if (limit <= 0) return
+      val limit = when {
+        // Cellular: stay modest whether or not a game is running, because the
+        // cost here is the player's data plan, not their frame rate.
+        metered.get() -> meteredRateBytesPerSecond
+        // Unmetered with a game running: leave headroom for the game's own
+        // requests and the radio.
+        playing.get() -> playingRateBytesPerSecond
+        // Unmetered and idle: nothing to protect, go as fast as the link allows.
+        else -> 0L
+      }
+      if (limit <= 0) {
+        reset()
+        return
+      }
       windowBytes += bytes
       val now = System.currentTimeMillis()
       val elapsed = now - windowStart
@@ -473,6 +511,11 @@ class GameBundleDownloader(
         windowStart = System.currentTimeMillis()
         windowBytes = 0
       }
+    }
+
+    private fun reset() {
+      windowBytes = 0
+      windowStart = System.currentTimeMillis()
     }
   }
 

@@ -1,4 +1,4 @@
-import { clampIndex, isNear, prefetchOrder, retainWindow, slotFor } from '../src/feed/preloadPlanner';
+import { clampIndex, isNear, prefetchOrder, slotFor } from '../src/feed/preloadPlanner';
 
 describe('slotFor (ViewPager2 offscreenPageLimit = 1 semantics)', () => {
   test('forward travel: current, next ahead, previous behind, rest far', () => {
@@ -54,21 +54,6 @@ describe('prefetchOrder', () => {
         }
       }
     }
-  });
-});
-
-describe('retainWindow', () => {
-  test('keeps the live triple plus prefetch targets', () => {
-    expect(retainWindow(5, 1, 30, 3)).toEqual([4, 5, 6, 7, 8]);
-  });
-
-  test('small lists', () => {
-    expect(retainWindow(0, 1, 3, 3)).toEqual([0, 1, 2]);
-    expect(retainWindow(0, 1, 1, 3)).toEqual([0]);
-  });
-
-  test('circular retainWindow wraps boundaries', () => {
-    expect(retainWindow(0, 1, 5, 3, true)).toEqual([0, 1, 2, 3, 4]);
   });
 });
 

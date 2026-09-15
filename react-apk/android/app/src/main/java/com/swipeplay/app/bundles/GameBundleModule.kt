@@ -9,6 +9,9 @@ import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
+import android.os.Process
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /**
  * The JavaScript-facing edge of the on-device game store.
@@ -35,9 +38,25 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
 
   override fun getName(): String = NAME
 
+  /**
+   * Every method below that touches the filesystem runs here rather than on
+   * whichever thread the bridge happened to call it on. Binding a socket,
+   * walking the store or resolving entry documents is disk work, and the
+   * interop layer's choice of caller thread is not something to depend on —
+   * a single-threaded executor makes the answer irrelevant and also serialises
+   * these operations against each other.
+   */
+  private val io: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
+    Thread({
+      Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
+      runnable.run()
+    }, "game-bundle-io").apply { isDaemon = true }
+  }
+
   override fun invalidate() {
     downloader.stop()
     server.stop()
+    io.shutdownNow()
     super.invalidate()
   }
 
@@ -48,24 +67,26 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
    */
   @ReactMethod
   fun start(promise: Promise) {
-    try {
-      val started = server.start()
-      val result = Arguments.createMap()
-      result.putBoolean("available", started)
-      result.putInt("port", server.port)
-      val ready = Arguments.createArray()
-      if (started) {
-        for ((gameId, buildId) in store.activeBuilds()) {
-          val entry = resolveEntry(gameId, buildId) ?: continue
-          if (!store.verifyActive(gameId, entry)) continue
-          ready.pushMap(describe(gameId, buildId, entry))
+    io.execute {
+      try {
+        val started = server.start()
+        val result = Arguments.createMap()
+        result.putBoolean("available", started)
+        result.putInt("port", server.port)
+        val ready = Arguments.createArray()
+        if (started) {
+          for ((gameId, buildId) in store.activeBuilds()) {
+            val entry = resolveEntry(gameId, buildId) ?: continue
+            if (!store.verifyActive(gameId, entry)) continue
+            ready.pushMap(describe(gameId, buildId, entry))
+          }
         }
+        result.putArray("ready", ready)
+        downloader.start()
+        promise.resolve(result)
+      } catch (error: Exception) {
+        promise.reject("start_failed", error.message, error)
       }
-      result.putArray("ready", ready)
-      downloader.start()
-      promise.resolve(result)
-    } catch (error: Exception) {
-      promise.reject("start_failed", error.message, error)
     }
   }
 
@@ -76,6 +97,8 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
    */
   @ReactMethod
   fun sync(requests: ReadableArray) {
+    // The ReadableArray is only valid for the duration of this call, so it is
+    // copied into plain jobs here and everything else happens on the executor.
     val jobs = ArrayList<GameBundleDownloader.Job>(requests.size())
     val known = HashSet<String>()
     val wanted = HashMap<String, String>()
@@ -86,25 +109,29 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
       val bundleUrl = item.getString("bundleUrl") ?: continue
       val version = item.getString("version") ?: ""
       if (gameId.isEmpty() || buildId.isEmpty() || bundleUrl.isEmpty()) continue
+      val foreground = item.hasKey("foreground") && item.getBoolean("foreground")
       known.add(gameId)
       wanted[gameId] = buildId
-      if (store.isActive(gameId, buildId)) continue
-      jobs.add(GameBundleDownloader.Job(gameId, version, buildId, bundleUrl))
+      jobs.add(GameBundleDownloader.Job(gameId, version, buildId, bundleUrl, foreground))
     }
-    // Only prune against a wish-list that actually described the catalogue; an
-    // empty sync (a filtered feed, a failed refresh) must not wipe the store.
-    // The feed re-syncs on every swipe to re-score priorities, so the prune —
-    // which walks the whole store directory — runs only when the set of wanted
-    // builds actually changed, not on every gesture.
-    if (known.isNotEmpty()) {
-      val fingerprint = wanted.entries.sortedBy { it.key }
-        .joinToString(",") { "${it.key}=${it.value}" }
-      if (fingerprint != lastPurgeFingerprint) {
-        lastPurgeFingerprint = fingerprint
-        store.purgeUnknown(known, wanted)
+
+    io.execute {
+      // Only prune against a wish-list that actually described the catalogue;
+      // an empty sync (a filtered feed, a failed refresh) must not wipe the
+      // store. The feed re-syncs on every swipe to re-score priorities, so the
+      // prune — which walks the whole store directory — runs only when the set
+      // of wanted builds actually changed, not on every gesture.
+      if (known.isNotEmpty()) {
+        val fingerprint = wanted.entries.sortedBy { it.key }
+          .joinToString(",") { "${it.key}=${it.value}" }
+        if (fingerprint != lastPurgeFingerprint) {
+          lastPurgeFingerprint = fingerprint
+          store.purgeUnknown(known, wanted)
+        }
       }
+      // isActive() reads the store, so the already-have filter belongs here too.
+      downloader.submit(jobs.filter { !store.isActive(it.gameId, it.buildId) })
     }
-    downloader.submit(jobs)
   }
 
   /** Mirrors the feed's play state: see GameBundleDownloader for what it changes. */
@@ -124,32 +151,41 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
     if (policy.hasKey("playingRateBytesPerSecond")) {
       downloader.playingRateBytesPerSecond = policy.getDouble("playingRateBytesPerSecond").toLong()
     }
+    if (policy.hasKey("meteredRateBytesPerSecond")) {
+      downloader.meteredRateBytesPerSecond = policy.getDouble("meteredRateBytesPerSecond").toLong()
+    }
     if (policy.hasKey("storageBudgetBytes")) {
       downloader.storageBudgetBytes = policy.getDouble("storageBudgetBytes").toLong()
+    }
+    if (policy.hasKey("metered")) {
+      downloader.setMetered(policy.getBoolean("metered"))
     }
   }
 
   @ReactMethod
   fun markPlayed(gameId: String) {
-    store.markPlayed(gameId)
+    // Writes the store index; never on the caller's thread.
+    io.execute { store.markPlayed(gameId) }
   }
 
   @ReactMethod
   fun getStatus(promise: Promise) {
-    try {
-      val result = Arguments.createMap()
-      result.putBoolean("available", server.isRunning())
-      result.putInt("port", server.port)
-      result.putDouble("usedBytes", store.usedBytes().toDouble())
-      val ready = Arguments.createArray()
-      for ((gameId, buildId) in store.activeBuilds()) {
-        val entry = resolveEntry(gameId, buildId) ?: continue
-        ready.pushMap(describe(gameId, buildId, entry))
+    io.execute {
+      try {
+        val result = Arguments.createMap()
+        result.putBoolean("available", server.isRunning())
+        result.putInt("port", server.port)
+        result.putDouble("usedBytes", store.usedBytes().toDouble())
+        val ready = Arguments.createArray()
+        for ((gameId, buildId) in store.activeBuilds()) {
+          val entry = resolveEntry(gameId, buildId) ?: continue
+          ready.pushMap(describe(gameId, buildId, entry))
+        }
+        result.putArray("ready", ready)
+        promise.resolve(result)
+      } catch (error: Exception) {
+        promise.reject("status_failed", error.message, error)
       }
-      result.putArray("ready", ready)
-      promise.resolve(result)
-    } catch (error: Exception) {
-      promise.reject("status_failed", error.message, error)
     }
   }
 

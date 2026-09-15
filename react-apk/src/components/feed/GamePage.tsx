@@ -13,7 +13,6 @@ import {
   parseGameMessage,
 } from '../../services/gameBridge';
 import { localUrlFor } from '../../services/gameBundles';
-import { gamePrefetcher } from '../../services/gamePrefetcher';
 import { GAME_VIEWPORT_SCRIPT } from '../../services/gameViewport';
 import { usePlayerStore } from '../../store/playerStore';
 import { GAME_SURFACE, GLASS, HUD, THEMES } from '../../theme/themes';
@@ -62,7 +61,7 @@ interface Props {
   onMessage: (gameId: string, message: GameToHostMessage) => void;
 }
 
-type WebSource = { uri: string } | { html: string; baseUrl: string };
+type WebSource = { uri: string };
 const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
 
 /**
@@ -78,10 +77,10 @@ const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
  *                window; it is unmounted once the pager rests;
  *  - `far`     → tears the WebView down and frees its memory.
  *
- * A prefetched document (GamePrefetcher) is rendered from memory via
- * `source.html`; otherwise the cache-busted entry URL is loaded, exactly like
- * GameFeedAdapter. Load failures, timeouts and renderer crashes surface as a
- * retry state instead of taking the feed down.
+ * A build stored on the device is loaded from the loopback origin; otherwise
+ * the cache-busted entry URL is loaded straight from the server. Load failures,
+ * timeouts and renderer crashes surface as a retry state instead of taking the
+ * feed down.
  */
 export const GamePage = memo(
   forwardRef<GamePageHandle, Props>(function GamePageInner({ game, slot, mayLoad, near, suspended, warmStandby = false, releaseStandby = false, onPhase, onMessage }, ref) {
@@ -163,20 +162,17 @@ export const GamePage = memo(
     const entryUrl = useMemo(() => buildGameEntryUrl(game), [sourceKey]); // eslint-disable-line react-hooks/exhaustive-deps
     const source = useMemo<WebSource | null>(() => {
       if (!live) return null;
-      // Preference order, best first:
-      //   1. the build stored on this device, served over the loopback origin —
-      //      no network at all, and a real http origin so module scripts,
-      //      fonts, fetch and localStorage behave exactly as they always have;
-      //   2. a document the in-memory prefetcher happens to hold;
-      //   3. the network, exactly as before.
-      const local = localUrlFor(game);
-      if (local) return { uri: local };
-      const prefetched = gamePrefetcher.get(game);
-      return prefetched ? { html: prefetched.html, baseUrl: prefetched.baseUrl } : { uri: entryUrl };
+      // Two possibilities, and only two: the build stored on this device
+      // (served over the loopback origin — no network, and a real http origin
+      // so module scripts, fonts, fetch and localStorage behave exactly as
+      // they always have), or the server. There is no longer a third path
+      // handing over a document held in JS memory.
+      //
       // Read once, when this WebView comes to life. A bundle that finishes
       // downloading while the page is already running must *not* swap the
       // source underneath it — that would reload a game mid-play. The local
       // copy is picked up the next time the page is created.
+      return { uri: localUrlFor(game) ?? entryUrl };
     }, [live, attempt, sourceKey, entryUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Load lifecycle: a WebView instance appears → loading with a hard timeout.

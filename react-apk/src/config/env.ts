@@ -93,17 +93,16 @@ export const STORAGE_KEYS = {
  * CPU, GPU and network.
  */
 export const FEED = {
-  /** Short delay after an explicit game-end before HTML-only speculation. */
-  prefetchFallbackMs: 2500,
-  /** Idle delay after game launch before background prefetch begins (ms). */
-  prefetchIdleDelayMs: 2000,
-  /** Number of upcoming games whose HTML is fetched after an explicit game-end. */
+  /**
+   * How many upcoming games get download priority right behind the one on
+   * screen. Not a limit on how many are stored — everything in the catalogue is
+   * queued eventually — just the head of the priority order.
+   *
+   * There is deliberately no byte budget beside this. Games are streamed to the
+   * filesystem by the native store and never held in JavaScript, so their size
+   * is a disk question, answered by the store's own budget, not a memory one.
+   */
   prefetchAhead: 3,
-  /** Games larger than this are not prefetched (they load straight from the network). */
-  prefetchMaxBytes: 20 * 1024 * 1024,
-  /** Total memory budget for prefetched HTML. */
-  prefetchBudgetBytes: 24 * 1024 * 1024,
-  prefetchTimeoutMs: 15_000,
   /**
    * Frames a freshly loaded background page may still render before its frame
    * gate closes. Engines finish booting and paint their title screen inside

@@ -95,8 +95,29 @@ describe('syncBundles', () => {
     const payload = sync.mock.calls[0][0];
     expect(payload.map((item: any) => item.gameId)).toEqual(['alpha', 'beta']);
     for (const item of payload) {
-      expect(Object.keys(item).sort()).toEqual(['buildId', 'bundleUrl', 'gameId', 'version']);
+      expect(Object.keys(item).sort()).toEqual([
+        'buildId',
+        'bundleUrl',
+        'foreground',
+        'gameId',
+        'version',
+      ]);
     }
+  });
+
+  it('marks only the game on screen as foreground, so it alone escapes the rate ceiling', () => {
+    bundles.syncBundles([game('alpha'), game('beta'), game('gamma')], 'beta');
+    const payload = sync.mock.calls[0][0];
+    expect(payload.map((item: any) => [item.gameId, item.foreground])).toEqual([
+      ['alpha', false],
+      ['beta', true],
+      ['gamma', false],
+    ]);
+  });
+
+  it('marks nothing foreground when no game is named', () => {
+    bundles.syncBundles([game('alpha')]);
+    expect(sync.mock.calls[0][0][0].foreground).toBe(false);
   });
 
   it('does not call across the bridge when no game has a bundle', () => {

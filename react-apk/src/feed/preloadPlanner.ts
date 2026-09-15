@@ -45,9 +45,9 @@ export function isLiveSlot(slot: PageSlot): boolean {
 }
 
 /**
- * Indices whose HTML should be fetched into memory, nearest first: the games
- * starting with the immediate neighbor. Cold neighbors no longer have a
- * warming WebView, so skipping one would miss the most likely next game.
+ * Indices worth downloading next, nearest first, starting with the immediate
+ * neighbour. The page on screen is deliberately never included: it is already
+ * rendering, and its own bundle is queued ahead of this window by the feed.
  */
 export function prefetchOrder(current: number, direction: SwipeDirection, count: number, ahead: number, loop = false): number[] {
   const out: number[] = [];
@@ -63,30 +63,6 @@ export function prefetchOrder(current: number, direction: SwipeDirection, count:
     }
   }
   return out;
-}
-
-/**
- * Everything worth keeping around: the three live slots plus the prefetch
- * targets. Anything else can be evicted from memory.
- */
-export function retainWindow(current: number, direction: SwipeDirection, count: number, ahead: number, loop = false): number[] {
-  const keep = new Set<number>();
-  if (count <= 0) return [];
-  if (loop && count > 1) {
-    const prev = ((current - 1) % count + count) % count;
-    const curr = ((current % count) + count) % count;
-    const next = (current + 1) % count;
-    keep.add(prev);
-    keep.add(curr);
-    keep.add(next);
-    for (const index of prefetchOrder(current, direction, count, ahead, true)) keep.add(index);
-  } else {
-    for (const index of [current - 1, current, current + 1]) {
-      if (index >= 0 && index < count) keep.add(index);
-    }
-    for (const index of prefetchOrder(current, direction, count, ahead, false)) keep.add(index);
-  }
-  return Array.from(keep).sort((a, b) => a - b);
 }
 
 /** Only pages this close to the current one render placeholder chrome. */

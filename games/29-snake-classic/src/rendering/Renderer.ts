@@ -1047,158 +1047,154 @@ export class Renderer {
   }
 
   // --------------------------------------------------------------------------
-  // FLOATING SEMI-TRANSPARENT CUTE VIRTUAL JOYSTICK
+  // --------------------------------------------------------------------------
+  // FLOATING SEMI-TRANSPARENT DIAGONAL / SQUARE TOUCH GESTURE CONTROL AREA
   // --------------------------------------------------------------------------
   public renderJoystick(
     ctx: CanvasRenderingContext2D,
-    knobX: number,
-    knobY: number,
-    isJoyActive: boolean,
-    joyDir: Direction | null,
-    joyYOverride?: number
+    touchX: number,
+    touchY: number,
+    isTouchActive: boolean,
+    touchDir: Direction | null,
+    padYOverride?: number
   ): void {
-    const jx = THEME.joyX;
-    const jy = joyYOverride !== undefined ? joyYOverride : THEME.joyY;
-    const baseR = THEME.joyRadius;
-    const knobR = THEME.joyKnobRadius;
+    const cx = THEME.joyX;
+    const cy = padYOverride !== undefined ? padYOverride : THEME.joyY;
+    const padR = THEME.joyRadius;
+
+    // 1. Semi-transparent Diagonal / Diamond Box (Square rotated 45°)
+    const side = padR * Math.SQRT2; // ~110px side, ~156px corner-to-corner span
+    const cornerRadius = 24;
 
     ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI / 4);
 
-    // 1. Semi-transparent Cute Floating Glass Base Disc
-    ctx.shadowColor = 'rgba(20, 49, 78, 0.20)';
-    ctx.shadowBlur = 12;
+    // Subtle soft ambient shadow
+    ctx.shadowColor = 'rgba(20, 49, 78, 0.18)';
+    ctx.shadowBlur = 14;
     ctx.shadowOffsetY = 4;
 
     ctx.beginPath();
-    ctx.arc(jx, jy, baseR, 0, Math.PI * 2);
-    const bgGrad = ctx.createRadialGradient(jx, jy, 2, jx, jy, baseR);
-    bgGrad.addColorStop(0, 'rgba(255, 255, 255, 0.32)');
-    bgGrad.addColorStop(0.75, 'rgba(255, 255, 255, 0.20)');
-    bgGrad.addColorStop(1, 'rgba(240, 248, 255, 0.12)');
+    if (typeof (ctx as any).roundRect === 'function') {
+      (ctx as any).roundRect(-side / 2, -side / 2, side, side, cornerRadius);
+    } else {
+      const hs = side / 2;
+      const r = Math.min(cornerRadius, hs);
+      ctx.moveTo(-hs + r, -hs);
+      ctx.lineTo(hs - r, -hs);
+      ctx.quadraticCurveTo(hs, -hs, hs, -hs + r);
+      ctx.lineTo(hs, hs - r);
+      ctx.quadraticCurveTo(hs, hs, hs - r, hs);
+      ctx.lineTo(-hs + r, hs);
+      ctx.quadraticCurveTo(-hs, hs, -hs, hs - r);
+      ctx.lineTo(-hs, -hs + r);
+      ctx.quadraticCurveTo(-hs, -hs, -hs + r, -hs);
+    }
+    const bgGrad = ctx.createRadialGradient(0, 0, 4, 0, 0, side * 0.72);
+    bgGrad.addColorStop(0, isTouchActive ? 'rgba(255, 255, 255, 0.28)' : 'rgba(255, 255, 255, 0.20)');
+    bgGrad.addColorStop(0.75, isTouchActive ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.10)');
+    bgGrad.addColorStop(1, 'rgba(240, 248, 255, 0.05)');
     ctx.fillStyle = bgGrad;
     ctx.fill();
 
-    ctx.strokeStyle = isJoyActive ? 'rgba(131, 204, 67, 0.45)' : 'rgba(255, 255, 255, 0.55)';
-    ctx.lineWidth = 2.0;
+    ctx.strokeStyle = isTouchActive ? 'rgba(131, 204, 67, 0.45)' : 'rgba(255, 255, 255, 0.38)';
+    ctx.lineWidth = 1.8;
     ctx.stroke();
     ctx.restore();
 
-    // 2. 4-Way Cross Guide Slots / Channels (Cross-Gated Track)
+    // 2. Light Minimal Guide Lines for 4 Cardinal Directions (Up, Down, Left, Right)
     ctx.save();
-    const trackW = knobR * 1.25;
-    const trackLen = THEME.joyMaxDist * 2 + knobR * 0.7;
-    const trackCorner = trackW / 2;
+    const innerHub = 15;
+    const lineSpan = padR - 16;
 
-    // Inset track slots background
-    ctx.beginPath();
-    (ctx as any).roundRect(jx - trackLen / 2, jy - trackW / 2, trackLen, trackW, trackCorner);
-    (ctx as any).roundRect(jx - trackW / 2, jy - trackLen / 2, trackW, trackLen, trackCorner);
-    ctx.fillStyle = 'rgba(20, 49, 78, 0.08)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-
-    // Active Arm Glow Highlight
-    if (isJoyActive && joyDir) {
+    const drawGuideLine = (dir: Direction, x1: number, y1: number, x2: number, y2: number) => {
+      const isLit = isTouchActive && touchDir === dir;
       ctx.beginPath();
-      let armX = jx;
-      let armY = jy;
-      let armW = trackW;
-      let armH = trackW;
-      if (joyDir === Direction.RIGHT) {
-        armX = jx - trackW / 2;
-        armY = jy - trackW / 2;
-        armW = THEME.joyMaxDist + trackW;
-        armH = trackW;
-      } else if (joyDir === Direction.LEFT) {
-        armX = jx - THEME.joyMaxDist - trackW / 2;
-        armY = jy - trackW / 2;
-        armW = THEME.joyMaxDist + trackW;
-        armH = trackW;
-      } else if (joyDir === Direction.DOWN) {
-        armX = jx - trackW / 2;
-        armY = jy - trackW / 2;
-        armW = trackW;
-        armH = THEME.joyMaxDist + trackW;
-      } else if (joyDir === Direction.UP) {
-        armX = jx - trackW / 2;
-        armY = jy - THEME.joyMaxDist - trackW / 2;
-        armW = trackW;
-        armH = THEME.joyMaxDist + trackW;
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.strokeStyle = isLit ? 'rgba(131, 204, 67, 0.85)' : 'rgba(255, 255, 255, 0.24)';
+      ctx.lineWidth = isLit ? 2.2 : 1.2;
+      if (isLit) {
+        ctx.shadowColor = 'rgba(131, 204, 67, 0.8)';
+        ctx.shadowBlur = 8;
+      } else {
+        ctx.shadowBlur = 0;
       }
-      (ctx as any).roundRect(armX, armY, armW, armH, trackCorner);
-      ctx.fillStyle = 'rgba(131, 204, 67, 0.22)';
-      ctx.fill();
-    }
+      ctx.stroke();
+    };
+
+    // UP axis
+    drawGuideLine(Direction.UP, cx, cy - innerHub, cx, cy - lineSpan);
+    // DOWN axis
+    drawGuideLine(Direction.DOWN, cx, cy + innerHub, cx, cy + lineSpan);
+    // LEFT axis
+    drawGuideLine(Direction.LEFT, cx - innerHub, cy, cx - lineSpan, cy);
+    // RIGHT axis
+    drawGuideLine(Direction.RIGHT, cx + innerHub, cy, cx + lineSpan, cy);
+
+    // Subtle center crosshair dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = isTouchActive ? 'rgba(131, 204, 67, 0.60)' : 'rgba(255, 255, 255, 0.35)';
+    ctx.fill();
     ctx.restore();
 
-    // 3. Cute Directional Indicators (▲, ▼, ◀, ▶)
-    const dOffset = baseR * 0.62;
+    // 3. Directional Markers (▲, ▼, ◀, ▶)
+    const dOffset = padR * 0.70;
     const dirIndicators = [
-      { dir: Direction.UP, text: '▲', x: jx, y: jy - dOffset },
-      { dir: Direction.DOWN, text: '▼', x: jx, y: jy + dOffset },
-      { dir: Direction.LEFT, text: '◀', x: jx - dOffset, y: jy },
-      { dir: Direction.RIGHT, text: '▶', x: jx + dOffset, y: jy }
+      { dir: Direction.UP, text: '▲', x: cx, y: cy - dOffset },
+      { dir: Direction.DOWN, text: '▼', x: cx, y: cy + dOffset },
+      { dir: Direction.LEFT, text: '◀', x: cx - dOffset, y: cy },
+      { dir: Direction.RIGHT, text: '▶', x: cx + dOffset, y: cy },
     ];
 
     ctx.save();
     for (const ind of dirIndicators) {
-      const isHighlighted = isJoyActive && joyDir === ind.dir;
-      ctx.font = `${isHighlighted ? '900' : '800'} ${isHighlighted ? '14px' : '11px'} Fredoka, sans-serif`;
+      const isLit = isTouchActive && touchDir === ind.dir;
+      ctx.font = `${isLit ? '900' : '700'} ${isLit ? '13px' : '10px'} Fredoka, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      if (isHighlighted) {
+      if (isLit) {
         ctx.fillStyle = '#83CC43';
         ctx.shadowColor = 'rgba(131, 204, 67, 0.85)';
         ctx.shadowBlur = 10;
       } else {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.50)';
         ctx.shadowBlur = 0;
       }
       ctx.fillText(ind.text, ind.x, ind.y);
     }
     ctx.restore();
 
-    // 3. Inner Draggable Thumb Knob (Semi-transparent Floating Cute Disc)
-    const kx = knobX;
-    const ky = knobY;
+    // 4. Free Touch Gesture Feedback (Follows finger freely anywhere inside box)
+    if (isTouchActive) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(131, 204, 67, 0.50)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 2;
 
-    ctx.save();
-    if (isJoyActive) {
-      ctx.shadowColor = 'rgba(131, 204, 67, 0.55)';
-      ctx.shadowBlur = 14;
-      ctx.shadowOffsetY = 3;
-    } else {
-      ctx.shadowColor = 'rgba(20, 49, 78, 0.22)';
-      ctx.shadowBlur = 8;
-      ctx.shadowOffsetY = 3;
+      // Outer soft aura ring
+      ctx.beginPath();
+      ctx.arc(touchX, touchY, 20, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(131, 204, 67, 0.22)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(131, 204, 67, 0.75)';
+      ctx.lineWidth = 2.0;
+      ctx.stroke();
+
+      // Tactile center bead
+      ctx.beginPath();
+      ctx.arc(touchX, touchY, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#83CC43';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(touchX - 1.5, touchY - 1.5, 1.8, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fill();
+
+      ctx.restore();
     }
-
-    ctx.beginPath();
-    ctx.arc(kx, ky, knobR, 0, Math.PI * 2);
-    const kGrad = ctx.createRadialGradient(kx - 3, ky - 3, 2, kx, ky, knobR);
-    kGrad.addColorStop(0, 'rgba(255, 255, 255, 0.90)');
-    kGrad.addColorStop(0.7, 'rgba(240, 248, 255, 0.72)');
-    kGrad.addColorStop(1, 'rgba(224, 242, 254, 0.55)');
-    ctx.fillStyle = kGrad;
-    ctx.fill();
-
-    ctx.strokeStyle = isJoyActive ? '#83CC43' : 'rgba(255, 255, 255, 0.85)';
-    ctx.lineWidth = isJoyActive ? 2.5 : 1.8;
-    ctx.stroke();
-
-    // Cute Snake-Green Center Dot with subtle sparkle
-    ctx.beginPath();
-    ctx.arc(kx, ky, 6, 0, Math.PI * 2);
-    ctx.fillStyle = isJoyActive ? '#83CC43' : '#A3E635';
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(kx - 1.8, ky - 1.8, 2, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.fill();
-
-    ctx.restore();
   }
 }

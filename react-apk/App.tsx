@@ -8,7 +8,6 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 import { adManager } from './src/services/adManager';
 import { useCatalogStore } from './src/store/catalogStore';
 import { usePlayerStore } from './src/store/playerStore';
-import { gamePrefetcher } from './src/services/gamePrefetcher';
 import { isBundleStoreAvailable, startBundleStore, stopBundleStore } from './src/services/gameBundles';
 import { useStartupStore } from './src/services/startup';
 
@@ -40,7 +39,6 @@ function App() {
     let mounted = true;
     void usePlayerStore.getState().hydrate();
     void useCatalogStore.getState().hydrate();
-    void gamePrefetcher.restoreLaunch();
     void adManager.start();
     const settle = () => {
       if (mounted) setBundlesSettled(true);

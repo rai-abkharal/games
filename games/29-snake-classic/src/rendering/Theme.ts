@@ -51,10 +51,10 @@ export const THEME = {
   modeBadge: { x: 80, y: 35, w: 105, h: 44, r: 9 },
   allTimeBadge: { x: 200, y: 35, w: 105, h: 44, r: 9 },
 
-  // Virtual Joystick metrics (enlarged for responsive touch play)
-  joyRadius: 66,
-  joyKnobRadius: 34,
-  joyMaxDist: 44,
+  // Diagonal/Square Touch Gesture Control Area metrics
+  joyRadius: 78,
+  joyKnobRadius: 24,
+  joyMaxDist: 50,
   joyX: 200,
   joyY: 650
 };
@@ -121,8 +121,10 @@ export function updateLayout(width: number, height: number, isBottomBarVisible: 
     r: 9
   };
 
-  // Virtual Joystick positioning above floating dock
-  const bottomDockSafe = isBottomBarVisible ? Math.max(72, Math.round(height * 0.10)) : 22;
+  // Diagonal / Square Touch Control Area positioning safely above Android navigation bar and floating dock
+  const bottomDockSafe = isBottomBarVisible ? Math.max(78, Math.round(height * 0.11)) : Math.max(48, Math.round(height * 0.065));
+  const padR = Math.max(80, Math.min(94, Math.round(width * 0.215)));
+  THEME.joyRadius = padR;
   THEME.joyX = Math.round(width / 2);
-  THEME.joyY = Math.round(height - bottomDockSafe - THEME.joyRadius - 6);
+  THEME.joyY = Math.round(height - bottomDockSafe - padR - 8);
 }

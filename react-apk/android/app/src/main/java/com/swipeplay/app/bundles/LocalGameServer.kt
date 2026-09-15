@@ -248,9 +248,13 @@ class LocalGameServer(private val store: GameBundleStore) {
       "Content-Type" to mimeTypeOf(file.name),
       "Content-Length" to contentLength.toString(),
       "Accept-Ranges" to "bytes",
-      // The path already names an immutable build directory, so the WebView may
-      // keep these as long as it likes — a new build is a new path.
-      "Cache-Control" to "public, max-age=31536000, immutable",
+      // `no-store`, deliberately. Caching is what you do when re-fetching is
+      // expensive, and here the "origin" is a file on local disk a few hundred
+      // microseconds away. Letting Chromium keep its own copy would duplicate
+      // the whole build into the WebView's HTTP cache — up to another 50 MB for
+      // a large game — and that copy competes with the store for free space.
+      // The persistent store is the single source of truth.
+      "Cache-Control" to "no-store",
       "Access-Control-Allow-Origin" to "*",
       "Cross-Origin-Resource-Policy" to "cross-origin",
       "X-Content-Type-Options" to "nosniff",
