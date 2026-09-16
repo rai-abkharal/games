@@ -432,11 +432,13 @@ export class Game {
         return;
       }
 
-      // 4. Diagonal/Square Touch Gesture Area & Top Bar HUD during Gameplay
+      // 4. Rectangular Touch Control Area & Top Bar HUD during Gameplay
       if (this.state === GameState.PLAYING) {
-        const dx = px - THEME.joyX;
-        const dy = py - this.currentJoyY;
-        const inTouchZone = (Math.abs(dx) + Math.abs(dy)) <= THEME.joyRadius * 1.28;
+        const cx = THEME.joyX;
+        const cy = this.currentJoyY;
+        const halfW = THEME.joyBoxW / 2 + 16;
+        const halfH = THEME.joyBoxH / 2 + 16;
+        const inTouchZone = (px >= cx - halfW && px <= cx + halfW && py >= cy - halfH && py <= cy + halfH);
         if (inTouchZone) {
           this.isJoyActive = true;
           Host.post('setSwipeEnabled', { enabled: false });
@@ -629,46 +631,41 @@ export class Game {
   private updateTouchGesture(px: number, py: number, isInitialDown: boolean = false): void {
     const cx = THEME.joyX;
     const cy = this.currentJoyY;
-    const padR = THEME.joyRadius;
+    const maxDx = THEME.joyBoxW / 2 - THEME.joyKnobRadius - 4;
+    const maxDy = THEME.joyBoxH / 2 - THEME.joyKnobRadius - 4;
 
-    // 1. Clamp visual feedback position gracefully inside the diamond / diagonal box
-    const dxFromCenter = px - cx;
-    const dyFromCenter = py - cy;
-    const manhattanDist = Math.abs(dxFromCenter) + Math.abs(dyFromCenter);
-    const maxBoundary = padR - 10;
-
-    if (manhattanDist > maxBoundary) {
-      const scale = maxBoundary / manhattanDist;
-      this.joyTargetKnobX = cx + dxFromCenter * scale;
-      this.joyTargetKnobY = cy + dyFromCenter * scale;
-    } else {
-      this.joyTargetKnobX = px;
-      this.joyTargetKnobY = py;
-    }
+    // 1. Clamp round button position strictly inside the rectangular box
+    this.joyTargetKnobX = Math.max(cx - maxDx, Math.min(cx + maxDx, px));
+    this.joyTargetKnobY = Math.max(cy - maxDy, Math.min(cy + maxDy, py));
 
     if (isInitialDown) {
       this.joyKnobX = this.joyTargetKnobX;
       this.joyKnobY = this.joyTargetKnobY;
     }
 
-    // 2. Gesture Vector Computation
+    // 2. Compute displacement from center
+    const dxFromCenter = this.joyTargetKnobX - cx;
+    const dyFromCenter = this.joyTargetKnobY - cy;
+    const distCenter = Math.hypot(dxFromCenter, dyFromCenter);
+
+    // 3. Compute relative gesture vector from previous anchor
     const vx = px - this.gestureStartX;
     const vy = py - this.gestureStartY;
     const distFromStart = Math.hypot(vx, vy);
 
     if (isInitialDown) {
-      // If tapped away from center, trigger tap-to-turn direction immediately
-      const distCenter = Math.hypot(dxFromCenter, dyFromCenter);
-      if (distCenter > 14) {
+      // Tap or touch-down directly on/around the button
+      if (distCenter >= 9) {
         this.processDirectionGesture(dxFromCenter, dyFromCenter);
       }
       return;
     }
 
-    // Continuous swipe / movement threshold: 12px
+    // Directing snake through round button movement:
+    if (distCenter >= 9) {
+      this.processDirectionGesture(dxFromCenter, dyFromCenter);
+    }
     if (distFromStart >= 12) {
-      this.processDirectionGesture(vx, vy);
-      // Reset gesture anchor to current point for continuous fluid chaining without lifting finger
       this.gestureStartX = px;
       this.gestureStartY = py;
     }
@@ -680,7 +677,7 @@ export class Game {
     const absX = Math.abs(vx);
     const absY = Math.abs(vy);
 
-    // If movement is negligible, ignore
+    // Negligible movement
     if (absX < 2 && absY < 2) return;
 
     const dirH = vx > 0 ? Direction.RIGHT : Direction.LEFT;
@@ -694,33 +691,30 @@ export class Game {
     const isCurrentHorizontal = lastPlanned === Direction.LEFT || lastPlanned === Direction.RIGHT;
     const isCurrentVertical = lastPlanned === Direction.UP || lastPlanned === Direction.DOWN;
 
-    // Cardinal Threshold: if one component is more than 2x the other, it's a cardinal swipe
-    if (absX > absY * 2.0) {
+    // Rectangular / Orthogonal Movement Mapping:
+    // If clearly horizontal or vertical:
+    if (absX > absY * 1.35) {
       this.snake.requestDirection(dirH);
       this.joyDir = dirH;
       return;
     }
-    if (absY > absX * 2.0) {
+    if (absY > absX * 1.35) {
       this.snake.requestDirection(dirV);
       this.joyDir = dirV;
       return;
     }
 
-    // Diagonal Movement Gesture Handling:
-    // Natural snake following for diagonal inputs (horizontal, vertical, and diagonal directions)
+    // In corner/diagonal angle: snake moves on rectangular grid on screen.
+    // Turn along the perpendicular axis to keep motion natural and fluid:
     if (isCurrentHorizontal) {
-      // Snake is moving horizontally: perpendicular turn is vertical
       this.snake.requestDirection(dirV);
       this.joyDir = dirV;
-      // If moving in opposite horizontal direction, queue the requested horizontal turn
       if (dirH !== lastPlanned) {
         this.snake.requestDirection(dirH);
       }
     } else if (isCurrentVertical) {
-      // Snake is moving vertically: perpendicular turn is horizontal
       this.snake.requestDirection(dirH);
       this.joyDir = dirH;
-      // If moving in opposite vertical direction, queue the requested vertical turn
       if (dirV !== lastPlanned) {
         this.snake.requestDirection(dirV);
       }
