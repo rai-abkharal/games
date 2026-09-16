@@ -4,6 +4,8 @@ import { readJson, writeJson } from '../services/storage';
 import type { ThemeId } from '../theme/themes';
 import { uuid } from '../utils/misc';
 
+import type { LanguageCode } from '../i18n/translations';
+
 interface PersistedPlayer {
   playerId: string;
   coins: number;
@@ -17,6 +19,7 @@ interface PersistedSettings {
   soundMuted: boolean;
   vibrationEnabled: boolean;
   themeId: ThemeId;
+  language: LanguageCode;
 }
 
 interface PlayerState extends PersistedPlayer, PersistedSettings {
@@ -33,6 +36,7 @@ interface PlayerState extends PersistedPlayer, PersistedSettings {
   setSoundMuted: (muted: boolean) => void;
   setVibrationEnabled: (enabled: boolean) => void;
   setTheme: (themeId: ThemeId) => void;
+  setLanguage: (language: LanguageCode) => void;
 }
 
 const newPlayerId = () => `Guest_${uuid().slice(0, 5).toUpperCase()}`;
@@ -50,14 +54,14 @@ function persistPlayer(state: PlayerState) {
 }
 
 function persistSettings(state: PlayerState) {
-  const { soundMuted, vibrationEnabled, themeId } = state;
-  writeJson(STORAGE_KEYS.settings, { soundMuted, vibrationEnabled, themeId } satisfies PersistedSettings);
+  const { soundMuted, vibrationEnabled, themeId, language } = state;
+  writeJson(STORAGE_KEYS.settings, { soundMuted, vibrationEnabled, themeId, language } satisfies PersistedSettings);
 }
 
 /**
  * PlayerProgressManager + the user prefs that lived in SharedPreferences:
  * wallet, per-game high score & level, favourites, last played, sound,
- * vibration and theme. Everything is kept in memory and mirrored to storage.
+ * vibration, theme, and language. Everything is kept in memory and mirrored to storage.
  */
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   playerId: '',
@@ -69,6 +73,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   soundMuted: false,
   vibrationEnabled: true,
   themeId: 'pure_white',
+  language: 'en',
   hydrated: false,
 
   hydrate: async () => {
@@ -87,6 +92,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       soundMuted: settings?.soundMuted ?? false,
       vibrationEnabled: settings?.vibrationEnabled ?? true,
       themeId: settings?.themeId ?? 'pure_white',
+      language: settings?.language ?? 'en',
       hydrated: true,
     });
     if (!player?.playerId) persistPlayer(get());
@@ -144,6 +150,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   setTheme: themeId => {
     set({ themeId });
+    persistSettings(get());
+  },
+
+  setLanguage: language => {
+    set({ language });
     persistSettings(get());
   },
 }));

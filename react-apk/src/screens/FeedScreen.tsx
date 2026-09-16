@@ -37,9 +37,9 @@ import { useCatalogStore } from '../store/catalogStore';
 import { usePlayerStore } from '../store/playerStore';
 import { toast } from '../store/toastStore';
 import { useTheme } from '../theme/useTheme';
+import { useTranslation } from '../i18n/translations';
 import type { GameToHostMessage, HapticType } from '../types/bridge';
 import type { GameItem } from '../types/game';
-import { displayCategory } from '../utils/misc';
 
 const HAPTIC_PATTERNS: Record<HapticType, number | number[]> = {
   light: 10,
@@ -93,6 +93,7 @@ function useStableList(games: GameItem[]): GameItem[] {
  */
 export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const theme = useTheme();
+  const { t } = useTranslation();
   // Resolve insets relative to this screen, not the outer navigation window.
   const offline = useIsOffline();
   const metered = useIsMetered();
@@ -604,18 +605,18 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     resetDockTimer();
     analytics.onGameAction('global', 'Feed', 'view_favorites');
     if (usePlayerStore.getState().favorites.length === 0) {
-      toast('⭐ Tap the Heart ❤️ on any game to add it to Favorites!', 3200);
+      toast(t('favoriteHintToast'), 3200);
     }
     setTab('favorites');
-  }, [resetDockTimer]);
+  }, [resetDockTimer, t]);
   const onLike = useCallback(() => {
     resetDockTimer();
     const game = listRef.current[positionRef.current.index];
     if (!game) return;
     const isFav = usePlayerStore.getState().toggleFavorite(game.id);
     analytics.onGameAction(game.id, game.title, isFav ? 'favorite_add' : 'favorite_remove');
-    toast(isFav ? `❤️ Added "${game.title}" to Favorites!` : 'Removed from Favorites');
-  }, [resetDockTimer]);
+    toast(isFav ? `❤️ Added "${game.title}" to Favorites!` : t('removedFromFavorites'));
+  }, [resetDockTimer, t]);
   const onSettings = useCallback(() => {
     resetDockTimer();
     adManager.onNavigationEvent();
@@ -630,7 +631,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   /* ---------------- render --------------------------------------------------- */
   const isFavorite = current ? favorites.includes(current.id) : false;
-  const meta = current ? `${index + 1} of ${list.length} • ${displayCategory(current.category)}` : '';
 
   let body: React.ReactNode = null;
   if (list.length > 0 && stage.height > 0) {
@@ -662,9 +662,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       <MessageView
         theme={theme}
         emoji={offline ? '📴' : '🛰️'}
-        title={offline ? "You're offline" : "Can't reach the game server"}
-        body={offline ? 'Connect to the internet to download the game catalogue.' : error ?? undefined}
-        actionLabel="Try again"
+        title={offline ? t('offlineTitle') : t('serverErrorTitle')}
+        body={offline ? t('offlineBody') : error ?? undefined}
+        actionLabel={t('tryAgain')}
         onAction={() => {
           void useCatalogStore.getState().refresh({ force: true });
         }}
@@ -676,9 +676,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       <MessageView
         theme={theme}
         emoji="❤️"
-        title="No favourites yet"
-        body="Tap Like on any game to keep it here."
-        actionLabel="Browse all games"
+        title={t('noFavoritesTitle')}
+        body={t('noFavoritesBody')}
+        actionLabel={t('browseAllGames')}
         onAction={onAllGames}
       />
     );
@@ -692,9 +692,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           theme={theme}
           insetTop={0}
           bannerEnabled={bannerEnabled}
-          gameId={currentId}
           title={current?.title ?? 'Swipe Play'}
-          meta={meta}
         />
         <View style={styles.stage} onLayout={onStageLayout}>
           {body}

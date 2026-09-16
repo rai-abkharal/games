@@ -1,6 +1,7 @@
 import React, { memo, useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { FEED } from '../../config/env';
+import { useTranslation } from '../../i18n/translations';
 import { GLASS, HUD, type ThemeColors } from '../../theme/themes';
 import { GamepadIcon, GearIcon, HeartIcon, StarIcon } from './NavIcons';
 
@@ -24,12 +25,10 @@ const HANDLE_GAP = 6;
 const HIDE_EXTRA = 40;
 
 /**
- * The floating glass dock from activity_main.xml (`bottomNavBar` +
- * `bottomBarToggleHandle`): All Games / Like / Favorites / Settings over the
- * game, with the ⌃/⌄ pill that slides the bar in and out. Movement is a pure
- * translateY on the native driver, so showing or hiding the bar never
- * re-lays-out the WebView — the same "zero WebView shift" rule as
- * MainActivity.toggleBottomBar.
+ * The bottom dock:
+ * - Straight edges matching mobile screen from left to right (flush, no floating gaps)
+ * - Hide/show toggle arrow located on the RIGHT side (not in the center)
+ * - Localized navigation items
  */
 export const FeedDock = memo(function FeedDockInner({
   theme,
@@ -43,6 +42,7 @@ export const FeedDock = memo(function FeedDockInner({
   onSettings,
   onToggle,
 }: Props) {
+  const { t } = useTranslation();
   const barY = useRef(new Animated.Value(0)).current;
   const handleY = useRef(new Animated.Value(-(BAR_HEIGHT + HANDLE_GAP))).current;
   const first = useRef(true);
@@ -73,28 +73,43 @@ export const FeedDock = memo(function FeedDockInner({
 
   return (
     <View pointerEvents="box-none" style={styles.layer}>
+      {/* Edge-to-edge dock bar with straight edges matching screen */}
       <Animated.View
         style={[
           styles.bar,
-          { bottom: insetBottom, backgroundColor: glass.fill, borderColor: glass.border, transform: [{ translateY: barY }] },
+          {
+            bottom: insetBottom,
+            backgroundColor: glass.fill,
+            borderColor: glass.border,
+            transform: [{ translateY: barY }],
+          },
         ]}
       >
         <View pointerEvents="none" style={[styles.sheen, { backgroundColor: glass.sheen }]} />
-        <DockItem label="All Games" color={allColor} onPress={onAllGames} accessibilityLabel="All games">
+        <DockItem label={t('allGames')} color={allColor} onPress={onAllGames} accessibilityLabel="All games">
           <GamepadIcon size={22} color={allColor} />
         </DockItem>
         <DockItem label="Like" color={likeColor} onPress={onLike} accessibilityLabel="Like current game">
           <HeartIcon size={24} color={likeColor} filled={isFavorite} />
         </DockItem>
-        <DockItem label="Favorites" color={favColor} onPress={onFavorites} accessibilityLabel="Favorites">
+        <DockItem label={t('favorites')} color={favColor} onPress={onFavorites} accessibilityLabel="Favorites">
           <StarIcon size={22} color={favColor} />
         </DockItem>
-        <DockItem label="Settings" color={inactive} onPress={onSettings} accessibilityLabel="Settings">
+        <DockItem label={t('settingsTitle')} color={inactive} onPress={onSettings} accessibilityLabel="Settings">
           <GearIcon size={22} color={inactive} />
         </DockItem>
       </Animated.View>
 
-      <Animated.View style={[styles.handleWrap, { bottom: insetBottom + HANDLE_GAP, transform: [{ translateY: handleY }] }]}>
+      {/* Hide/Show Toggle Button positioned on the RIGHT side */}
+      <Animated.View
+        style={[
+          styles.handleWrap,
+          {
+            bottom: insetBottom + HANDLE_GAP,
+            transform: [{ translateY: handleY }],
+          },
+        ]}
+      >
         <Pressable
           onPress={onToggle}
           hitSlop={8}
@@ -132,7 +147,7 @@ function DockItem({
       accessibilityLabel={accessibilityLabel}
     >
       {children}
-      <Text style={[styles.itemLabel, { color }]} allowFontScaling={false}>
+      <Text style={[styles.itemLabel, { color }]} numberOfLines={1} allowFontScaling={false}>
         {label}
       </Text>
     </Pressable>
@@ -148,14 +163,18 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 3,
   },
+  // Straight dock bar matching the phone edges from left to right (no rounded corners)
   bar: {
     position: 'absolute',
-    left: 8,
-    right: 8,
+    left: 0,
+    right: 0,
     height: BAR_HEIGHT,
-    borderRadius: 30,
-    borderWidth: 1,
-    paddingHorizontal: 4,
+    borderRadius: 0,
+    borderTopWidth: 1,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
     elevation: 16,
@@ -163,31 +182,34 @@ const styles = StyleSheet.create({
   },
   sheen: {
     position: 'absolute',
-    left: 8,
-    right: 8,
-    top: 2,
+    left: 0,
+    right: 0,
+    top: 0,
     bottom: 38,
-    borderRadius: 22,
+    borderRadius: 0,
   },
   item: {
     flex: 1,
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 4,
   },
   itemPressed: { opacity: 0.7 },
   itemLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
-    marginTop: 1,
+    marginTop: 2,
+    textAlign: 'center',
   },
+  // Toggle Arrow placed on the RIGHT side
   handleWrap: {
     position: 'absolute',
-    alignSelf: 'center',
+    right: 18,
     elevation: 20,
   },
   handle: {
-    width: 56,
+    width: 52,
     height: 24,
     borderRadius: 12,
     backgroundColor: GLASS.handle.fill,
@@ -195,11 +217,16 @@ const styles = StyleSheet.create({
     borderColor: GLASS.handle.border,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
   },
   handleText: {
     color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     lineHeight: 16,
     includeFontPadding: false,
   },

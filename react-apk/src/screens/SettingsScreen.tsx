@@ -1,7 +1,25 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  FlatList,
+  Modal,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getActiveBaseUrl } from '../api/http';
 import { STORAGE_KEYS } from '../config/env';
+import {
+  LANGUAGES,
+  LANGUAGE_LIST,
+  useTranslation,
+  type LanguageCode,
+  type LanguageInfo,
+} from '../i18n/translations';
 import type { RootScreenProps } from '../navigation/types';
 import { adManager } from '../services/adManager';
 import { analytics, analyticsHealth } from '../services/analytics';
@@ -12,11 +30,12 @@ import { usePlayerStore } from '../store/playerStore';
 import { toast } from '../store/toastStore';
 import { THEMES, THEME_ORDER } from '../theme/themes';
 import { useTheme } from '../theme/useTheme';
-import { getActiveBaseUrl } from '../api/http';
 
 export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { t, language, setLanguage, currentLanguageInfo } = useTranslation();
+
   const playerId = usePlayerStore(state => state.playerId);
   const coins = usePlayerStore(state => state.coins);
   const soundMuted = usePlayerStore(state => state.soundMuted);
@@ -25,16 +44,10 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
   const setSoundMuted = usePlayerStore(state => state.setSoundMuted);
   const setVibrationEnabled = usePlayerStore(state => state.setVibrationEnabled);
   const setTheme = usePlayerStore(state => state.setTheme);
+
   const [clearing, setClearing] = useState(false);
-  /**
-   * Hidden behind five taps on the Profile heading rather than behind
-   * `__DEV__`, because the questions it answers — is Firebase actually
-   * initialised, is the on-device store running, how much is stored — are
-   * exactly the ones that only matter in a release build, where DebugView and
-   * logcat are not part of the picture.
-   */
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [diagnostics, setDiagnostics] = useState(false);
-  // A ref, not state: counting taps is not something the screen should re-render for.
   const taps = useRef(0);
 
   const clearCatalogCache = useCallback(async () => {
@@ -43,8 +56,8 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
     await useCatalogStore.getState().refresh({ force: true });
     void adManager.refreshConfig();
     setClearing(false);
-    toast('✅ Catalogue cache refreshed');
-  }, []);
+    toast(t('cacheRefreshedToast'));
+  }, [t]);
 
   const revealDiagnostics = useCallback(() => {
     taps.current += 1;
@@ -54,34 +67,95 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
     }
   }, []);
 
+  const handleSelectLanguage = (langCode: LanguageCode) => {
+    setLanguage(langCode);
+    setLanguageModalVisible(false);
+    toast(t('languageChangedToast'));
+  };
+
   return (
     <View style={[styles.root, { backgroundColor: theme.bg, paddingTop: insets.top }]}>
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} />
-      <View style={styles.toolbar}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12} accessibilityLabel="Back">
+
+      {/* Top Header Bar */}
+      <View style={[styles.toolbar, { borderBottomColor: theme.border }]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={12}
+          accessibilityLabel="Back"
+          style={styles.toolbarBtn}
+        >
           <Text style={[styles.back, { color: theme.textPrimary }]}>←</Text>
         </Pressable>
-        <Text style={[styles.title, { color: theme.textPrimary }]}>Settings</Text>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-          <Text style={[styles.done, { color: theme.accent }]}>Done</Text>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>{t('settingsTitle')}</Text>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={12}
+          style={styles.toolbarBtn}
+        >
+          <Text style={[styles.done, { color: theme.accent }]}>{t('done')}</Text>
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
-        <Card theme={theme} title="Audio & Haptics">
-          <Row theme={theme} label="Sound">
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 1. Language Section */}
+        <Card theme={theme} title={t('languageSection')}>
+          <Pressable
+            onPress={() => setLanguageModalVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel={t('selectLanguage')}
+            style={({ pressed }) => [
+              styles.languageCard,
+              {
+                backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                borderColor: theme.border,
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}
+          >
+            <View style={styles.languageCardLeft}>
+              <Text style={styles.languageFlag}>{currentLanguageInfo.flag}</Text>
+              <View>
+                <Text style={[styles.languageNative, { color: theme.textPrimary }]}>
+                  {currentLanguageInfo.nativeName}
+                </Text>
+                <Text style={[styles.languageEnglish, { color: theme.textSecondary }]}>
+                  {currentLanguageInfo.name}
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.changeBadge, { backgroundColor: theme.accent + '22' }]}>
+              <Text style={[styles.changeBadgeText, { color: theme.accent }]}>
+                {t('selectLanguage')} ›
+              </Text>
+            </View>
+          </Pressable>
+        </Card>
+
+        {/* 2. Audio & Haptics */}
+        <Card theme={theme} title={t('audioHapticsSection')}>
+          <Row theme={theme} label={t('sound')}>
             <Switch
               value={!soundMuted}
               onValueChange={value => setSoundMuted(!value)}
-              trackColor={{ true: theme.accent }}
+              trackColor={{ true: theme.accent, false: theme.border }}
             />
           </Row>
-          <Row theme={theme} label="Vibration">
-            <Switch value={vibrationEnabled} onValueChange={setVibrationEnabled} trackColor={{ true: theme.accent }} />
+          <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+          <Row theme={theme} label={t('vibration')}>
+            <Switch
+              value={vibrationEnabled}
+              onValueChange={setVibrationEnabled}
+              trackColor={{ true: theme.accent, false: theme.border }}
+            />
           </Row>
         </Card>
 
-        <Card theme={theme} title="Theme">
+        {/* 3. Theme */}
+        <Card theme={theme} title={t('themeSection')}>
           <View style={styles.themeRow}>
             {THEME_ORDER.map(id => {
               const option = THEMES[id];
@@ -100,62 +174,162 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
                     {
                       backgroundColor: option.bg,
                       borderColor: active ? theme.accent : theme.border,
-                      borderWidth: active ? 3 : StyleSheet.hairlineWidth,
+                      borderWidth: active ? 2.5 : StyleSheet.hairlineWidth,
                     },
                   ]}
                 >
                   <Text style={styles.themeEmoji}>{option.emoji}</Text>
-                  <Text style={[styles.themeName, { color: option.textPrimary }]}>{option.name}</Text>
+                  <Text style={[styles.themeName, { color: option.textPrimary }]}>
+                    {option.name}
+                  </Text>
                 </Pressable>
               );
             })}
           </View>
         </Card>
 
+        {/* 4. Profile */}
         <Pressable onPress={revealDiagnostics} accessibilityRole="button" accessibilityLabel="Profile">
-          <Card theme={theme} title="Profile">
-            <Text style={[styles.text, { color: theme.textPrimary }]}>Player ID: {playerId} (Guest)</Text>
-            <Text style={[styles.text, { color: theme.textPrimary }]}>🪙 Total wallet: {coins} coins</Text>
+          <Card theme={theme} title={t('profileSection')}>
+            <View style={styles.profileRow}>
+              <Text style={[styles.text, { color: theme.textPrimary }]}>
+                {t('playerId')}: {playerId || t('guest')}
+              </Text>
+            </View>
+            <View style={styles.profileRow}>
+              <Text style={[styles.text, { color: theme.textPrimary }]}>
+                🪙 {t('totalWallet')}: {coins} {t('coins')}
+              </Text>
+            </View>
           </Card>
         </Pressable>
 
+        {/* 5. Diagnostics (revealed on 5 taps) */}
         {diagnostics ? <Diagnostics theme={theme} /> : null}
 
-        <Card theme={theme} title="Data">
-          <Text style={[styles.hint, { color: theme.textSecondary }]}>Backend: {getActiveBaseUrl()}</Text>
+        {/* 6. Data & Storage */}
+        <Card theme={theme} title={t('dataSection')}>
+          <Text style={[styles.hint, { color: theme.textSecondary }]}>
+            {t('backendServer')}: {getActiveBaseUrl()}
+          </Text>
           <Pressable
             onPress={clearCatalogCache}
             disabled={clearing}
-            style={[styles.button, { backgroundColor: theme.accent, opacity: clearing ? 0.6 : 1 }]}
+            style={({ pressed }) => [
+              styles.button,
+              {
+                backgroundColor: theme.accent,
+                opacity: clearing ? 0.6 : pressed ? 0.85 : 1,
+              },
+            ]}
           >
-            <Text style={styles.buttonText}>{clearing ? 'Refreshing…' : 'Refresh catalogue cache'}</Text>
+            <Text style={styles.buttonText}>
+              {clearing ? t('refreshing') : t('refreshCache')}
+            </Text>
           </Pressable>
         </Card>
 
+        {/* 7. Confirm & Return */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Confirm and return to game"
+          accessibilityLabel={t('confirmReturn')}
           onPress={() => navigation.goBack()}
           style={({ pressed }) => [
             styles.confirmButton,
             { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
           ]}
         >
-          <Text style={styles.confirmButtonText}>✓ Confirm & Return to Game</Text>
+          <Text style={styles.confirmButtonText}>{t('confirmReturn')}</Text>
         </Pressable>
       </ScrollView>
+
+      {/* Language Selection Modal */}
+      <Modal
+        visible={languageModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setLanguageModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable
+            style={styles.modalDismissOverlay}
+            onPress={() => setLanguageModalVisible(false)}
+          />
+          <View
+            style={[
+              styles.modalSheet,
+              { backgroundColor: theme.card, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+                {t('selectLanguage')}
+              </Text>
+              <Pressable
+                onPress={() => setLanguageModalVisible(false)}
+                hitSlop={12}
+                style={styles.modalCloseBtn}
+              >
+                <Text style={[styles.modalCloseText, { color: theme.textSecondary }]}>✕</Text>
+              </Pressable>
+            </View>
+
+            <FlatList
+              data={LANGUAGE_LIST}
+              keyExtractor={item => item.code}
+              contentContainerStyle={styles.languageListContent}
+              renderItem={({ item }: { item: LanguageInfo }) => {
+                const isSelected = item.code === language;
+                return (
+                  <Pressable
+                    onPress={() => handleSelectLanguage(item.code)}
+                    style={({ pressed }) => [
+                      styles.languageItem,
+                      {
+                        backgroundColor: isSelected
+                          ? theme.accent + '18'
+                          : pressed
+                          ? 'rgba(0,0,0,0.04)'
+                          : 'transparent',
+                        borderColor: isSelected ? theme.accent : theme.border,
+                      },
+                    ]}
+                  >
+                    <View style={styles.languageItemLeft}>
+                      <Text style={styles.languageItemFlag}>{item.flag}</Text>
+                      <View>
+                        <Text
+                          style={[
+                            styles.languageItemNative,
+                            {
+                              color: isSelected ? theme.accent : theme.textPrimary,
+                              fontWeight: isSelected ? '800' : '600',
+                            },
+                          ]}
+                        >
+                          {item.nativeName}
+                        </Text>
+                        <Text style={[styles.languageItemEng, { color: theme.textSecondary }]}>
+                          {item.name}
+                        </Text>
+                      </View>
+                    </View>
+                    {isSelected ? (
+                      <View style={[styles.checkCircle, { backgroundColor: theme.accent }]}>
+                        <Text style={styles.checkText}>✓</Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
-/**
- * What the app can actually verify about itself in a build nobody can attach a
- * debugger to: whether Firebase came up, whether the on-device store is
- * serving, and how much of the catalogue is local. The ping is the part that
- * matters most — an event fired on demand, from a release APK, with a value
- * you can search for in GA4 an hour later, which is the only honest way to
- * confirm the production pipeline end to end.
- */
 function Diagnostics({ theme }: { theme: ReturnType<typeof useTheme> }) {
   const [store, setStore] = useState<Awaited<ReturnType<typeof bundleStatus>>>(null);
   const [pinged, setPinged] = useState<string | null>(null);
@@ -202,16 +376,45 @@ function Diagnostics({ theme }: { theme: ReturnType<typeof useTheme> }) {
   );
 }
 
-function Card({ theme, title, children }: { theme: ReturnType<typeof useTheme>; title: string; children: React.ReactNode }) {
+function Card({
+  theme,
+  title,
+  children,
+}: {
+  theme: ReturnType<typeof useTheme>;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: theme.card,
+          borderColor: theme.border,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: theme.isDark ? 0.25 : 0.06,
+          shadowRadius: 6,
+          elevation: 2,
+        },
+      ]}
+    >
       <Text style={[styles.cardTitle, { color: theme.textSecondary }]}>{title.toUpperCase()}</Text>
       {children}
     </View>
   );
 }
 
-function Row({ theme, label, children }: { theme: ReturnType<typeof useTheme>; label: string; children: React.ReactNode }) {
+function Row({
+  theme,
+  label,
+  children,
+}: {
+  theme: ReturnType<typeof useTheme>;
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <View style={styles.row}>
       <Text style={[styles.text, { color: theme.textPrimary }]}>{label}</Text>
@@ -228,21 +431,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  back: { fontSize: 24, fontWeight: '800' },
-  title: { fontSize: 18, fontWeight: '900' },
+  toolbarBtn: {
+    minWidth: 44,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  back: { fontSize: 22, fontWeight: '800' },
+  title: { fontSize: 18, fontWeight: '900', letterSpacing: 0.2 },
   done: { fontSize: 15, fontWeight: '800' },
-  content: { paddingHorizontal: 16, gap: 14 },
+  content: { paddingHorizontal: 16, paddingTop: 14, gap: 14 },
   card: {
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 16,
     gap: 12,
   },
-  cardTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 34 },
+  rowDivider: { height: StyleSheet.hairlineWidth, width: '100%' },
+  profileRow: { paddingVertical: 2 },
   text: { fontSize: 15, fontWeight: '600' },
-  hint: { fontSize: 12 },
+  hint: { fontSize: 12, lineHeight: 17 },
   themeRow: { flexDirection: 'row', gap: 10 },
   themeCard: {
     flex: 1,
@@ -259,19 +471,142 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonText: { color: '#FFFFFF', fontWeight: '800' },
+  buttonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 14 },
   confirmButton: {
-    height: 54,
+    height: 52,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
     elevation: 4,
   },
   confirmButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15.5,
     fontWeight: '800',
     letterSpacing: 0.3,
+  },
+
+  // Language Card Styles
+  languageCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  languageCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  languageFlag: {
+    fontSize: 28,
+  },
+  languageNative: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  languageEnglish: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+  changeBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  changeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Modal Styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalDismissOverlay: {
+    flex: 1,
+  },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    paddingTop: 16,
+    paddingBottom: 32,
+    maxHeight: '75%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(150, 150, 150, 0.2)',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(150, 150, 150, 0.15)',
+  },
+  modalCloseText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  languageListContent: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    gap: 8,
+  },
+  languageItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  languageItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  languageItemFlag: {
+    fontSize: 24,
+  },
+  languageItemNative: {
+    fontSize: 15,
+  },
+  languageItemEng: {
+    fontSize: 11.5,
+    marginTop: 1,
+  },
+  checkCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
   },
 });
