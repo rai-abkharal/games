@@ -91,9 +91,14 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
   }
 
   /**
-   * Replaces the download wish-list, highest priority first. Games already
-   * stored at the requested build are skipped, which is what makes a relaunch
-   * free: local `gameId + buildId` matching the server means no request at all.
+   * Replaces the download wish-list, highest priority first. Each entry carries
+   * how close its game is to the player (`priority`: 0 = on screen, 1 = one
+   * swipe away, 2 = the short lookahead, 3 = the rest of the catalogue), which
+   * decides both queue order and whether a rate ceiling applies.
+   *
+   * Games already stored at the requested build are skipped, which is what
+   * makes a relaunch free: local `gameId + buildId` matching the server means
+   * no request at all.
    */
   @ReactMethod
   fun sync(requests: ReadableArray) {
@@ -109,10 +114,18 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
       val bundleUrl = item.getString("bundleUrl") ?: continue
       val version = item.getString("version") ?: ""
       if (gameId.isEmpty() || buildId.isEmpty() || bundleUrl.isEmpty()) continue
-      val foreground = item.hasKey("foreground") && item.getBoolean("foreground")
+      // `foreground` is still honoured so a JS bundle from before priorities
+      // existed keeps working: it simply means "on screen".
+      val priority = when {
+        item.hasKey("priority") -> item.getInt("priority")
+          .coerceIn(GameBundleDownloader.PRIORITY_CURRENT, GameBundleDownloader.PRIORITY_REST)
+        item.hasKey("foreground") && item.getBoolean("foreground") ->
+          GameBundleDownloader.PRIORITY_CURRENT
+        else -> GameBundleDownloader.PRIORITY_REST
+      }
       known.add(gameId)
       wanted[gameId] = buildId
-      jobs.add(GameBundleDownloader.Job(gameId, version, buildId, bundleUrl, foreground))
+      jobs.add(GameBundleDownloader.Job(gameId, version, buildId, bundleUrl, priority))
     }
 
     io.execute {
@@ -154,11 +167,31 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
     if (policy.hasKey("meteredRateBytesPerSecond")) {
       downloader.meteredRateBytesPerSecond = policy.getDouble("meteredRateBytesPerSecond").toLong()
     }
+    if (policy.hasKey("nextRateBytesPerSecond")) {
+      downloader.nextRateBytesPerSecond = policy.getDouble("nextRateBytesPerSecond").toLong()
+    }
+    if (policy.hasKey("meteredNextRateBytesPerSecond")) {
+      downloader.meteredNextRateBytesPerSecond =
+        policy.getDouble("meteredNextRateBytesPerSecond").toLong()
+    }
     if (policy.hasKey("storageBudgetBytes")) {
       downloader.storageBudgetBytes = policy.getDouble("storageBudgetBytes").toLong()
     }
     if (policy.hasKey("metered")) {
       downloader.setMetered(policy.getBoolean("metered"))
+    }
+  }
+
+  /**
+   * Pulls a stored build through the kernel page cache so the WebView's first
+   * read of it comes from memory. Called for the game one swipe away, on the
+   * IO thread, and silently does nothing when that build is not stored.
+   */
+  @ReactMethod
+  fun warm(gameId: String) {
+    io.execute {
+      val buildId = store.activeBuild(gameId) ?: return@execute
+      store.warm(gameId, buildId)
     }
   }
 
@@ -200,9 +233,29 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
   /* Downloader callbacks                                                */
   /* ------------------------------------------------------------------ */
 
-  override fun onBundleReady(gameId: String, buildId: String, entry: String) {
+  override fun onBundleReady(
+    gameId: String,
+    buildId: String,
+    entry: String,
+    bytes: Long,
+    elapsedMs: Long,
+  ) {
     synchronized(entriesLock) { entries[gameId] = entry }
-    emit("GameBundleReady", describe(gameId, buildId, entry))
+    val payload = describe(gameId, buildId, entry)
+    // Carried so the feed can report a download's real cost to analytics
+    // without timing it from JavaScript, where a busy bridge would skew it.
+    payload.putDouble("bytes", bytes.toDouble())
+    payload.putDouble("elapsedMs", elapsedMs.toDouble())
+    emit("GameBundleReady", payload)
+  }
+
+  override fun onBundleStarted(gameId: String, buildId: String, bytesTotal: Long, bytesDone: Long) {
+    val payload = Arguments.createMap()
+    payload.putString("gameId", gameId)
+    payload.putString("buildId", buildId)
+    payload.putDouble("bytesDone", bytesDone.toDouble())
+    payload.putDouble("bytesTotal", bytesTotal.toDouble())
+    emit("GameBundleStarted", payload)
   }
 
   override fun onBundleProgress(gameId: String, buildId: String, bytesDone: Long, bytesTotal: Long) {
@@ -214,11 +267,12 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
     emit("GameBundleProgress", payload)
   }
 
-  override fun onBundleFailed(gameId: String, buildId: String, reason: String) {
+  override fun onBundleFailed(gameId: String, buildId: String, reason: String, retryInMs: Long) {
     val payload = Arguments.createMap()
     payload.putString("gameId", gameId)
     payload.putString("buildId", buildId)
     payload.putString("reason", reason)
+    payload.putDouble("retryInMs", retryInMs.toDouble())
     emit("GameBundleFailed", payload)
   }
 

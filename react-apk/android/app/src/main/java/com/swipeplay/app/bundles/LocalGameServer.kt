@@ -36,21 +36,30 @@ import java.util.concurrent.ThreadFactory
  *    contains the port, so a port that moved between launches would silently
  *    wipe every game's saved progress. The chosen port is remembered in the
  *    store's index and reused.
- *  - **The path carries a per-process token.** Any app on the device can reach
+ *  - **The path carries a secret token.** Any app on the device can reach
  *    127.0.0.1; without the token they could enumerate and read the store.
  *    The token is not part of the origin, so it does not affect saved state.
+ *    It is persisted alongside the port rather than regenerated per process,
+ *    because every URL contains it and a token that moved invalidated the
+ *    WebView's HTTP cache — and V8's compiled-code cache with it — on every
+ *    single launch. Re-parsing a megabyte-plus engine bundle from scratch was
+ *    a larger, more certain cost than the narrow replay window a rotating
+ *    token closed.
+ *
+ * Responses are cacheable, and deliberately so: a URL here names a specific
+ * *build* (`/<token>/<gameId>/<buildId>/<path>`), and a buildId is a content
+ * hash of that whole build. The bytes behind a given URL can therefore never
+ * change, which is exactly the condition `immutable` describes. Letting
+ * Chromium keep its own copy costs disk the store already proves the device
+ * has, and buys a warm code cache on the second open of every game.
  */
 class LocalGameServer(private val store: GameBundleStore) {
 
   @Volatile private var socket: ServerSocket? = null
   @Volatile private var acceptor: Thread? = null
 
-  /** Random per process: a link that leaks cannot be replayed by another app. */
-  val token: String = buildString {
-    val alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
-    val random = java.security.SecureRandom()
-    repeat(24) { append(alphabet[random.nextInt(alphabet.length)]) }
-  }
+  /** Unguessable, and stable across launches so cached resources stay valid. */
+  val token: String get() = store.pathToken
 
   var port: Int = 0
     private set
@@ -248,13 +257,15 @@ class LocalGameServer(private val store: GameBundleStore) {
       "Content-Type" to mimeTypeOf(file.name),
       "Content-Length" to contentLength.toString(),
       "Accept-Ranges" to "bytes",
-      // `no-store`, deliberately. Caching is what you do when re-fetching is
-      // expensive, and here the "origin" is a file on local disk a few hundred
-      // microseconds away. Letting Chromium keep its own copy would duplicate
-      // the whole build into the WebView's HTTP cache — up to another 50 MB for
-      // a large game — and that copy competes with the store for free space.
-      // The persistent store is the single source of truth.
-      "Cache-Control" to "no-store",
+      // Immutable, deliberately. The path names a buildId, a buildId is a hash
+      // of the build, so these bytes cannot change without the URL changing.
+      // What this actually buys is not saved disk reads — those were always
+      // cheap — but V8's compiled-code cache, which is keyed by resource URL
+      // and is what makes the *second* open of a game with a megabyte-plus
+      // engine bundle skip a full parse and compile. The duplicate copy in
+      // Chromium's cache is a price worth paying for that, and Chromium evicts
+      // it under pressure while the store's copy stays put.
+      "Cache-Control" to "public, max-age=31536000, immutable",
       "Access-Control-Allow-Origin" to "*",
       "Cross-Origin-Resource-Policy" to "cross-origin",
       "X-Content-Type-Options" to "nosniff",

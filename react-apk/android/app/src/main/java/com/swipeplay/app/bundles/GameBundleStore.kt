@@ -10,7 +10,8 @@ import java.security.MessageDigest
  *
  * Layout under `filesDir/gamebundles/`:
  *
- *   index.json                       active build per game, last-played, server port
+ *   index.json                       active build per game, last-played, server port,
+ *                                    and the loopback path token
  *   <gameId>/<buildId>/...           an activated build, exactly as the server serves it
  *   <gameId>/.staging-<buildId>/...  a build still downloading (`.part` files live here)
  *
@@ -41,9 +42,34 @@ class GameBundleStore(context: Context) {
   var preferredPort: Int = 0
     private set
 
+  /**
+   * Remembered so the *path* a game is served from stays the same across
+   * launches too. That is what lets the WebView's HTTP cache — and with it
+   * V8's compiled-code cache for a multi-megabyte engine bundle — survive a
+   * relaunch; a token that rotated per process changed every URL, so both
+   * caches were thrown away on every cold start. It is still an unguessable
+   * secret that keeps other apps on the device out of the store, and it is not
+   * part of the origin, so per-game `localStorage` is unaffected either way.
+   */
+  var pathToken: String = ""
+    private set
+
+  /**
+   * `usedBytes()` walks the whole store, and the downloader asked for it twice
+   * per job (once through `evictTo`, once directly). With a few thousand files
+   * that is thousands of stat() calls on the thread a foreground bundle is
+   * waiting on, for a number that only changes when this class writes a file.
+   * So it is computed once and invalidated on every mutation.
+   */
+  @Volatile private var cachedUsedBytes: Long = -1L
+
   init {
     root.mkdirs()
     readIndex()
+    if (pathToken.length != TOKEN_LENGTH) {
+      pathToken = newToken()
+      synchronized(lock) { writeIndex() }
+    }
   }
 
   fun rootDir(): File = root
@@ -72,6 +98,7 @@ class GameBundleStore(context: Context) {
       if (staging != target && !staging.renameTo(target)) return false
       val previous = active[gameId]
       active[gameId] = buildId
+      cachedUsedBytes = -1L
       writeIndex()
       if (previous != null && previous != buildId) {
         File(root, "$gameId/$previous").deleteRecursively()
@@ -96,7 +123,64 @@ class GameBundleStore(context: Context) {
   }
 
   /** Total bytes held under the store, staging directories included. */
-  fun usedBytes(): Long = directorySize(root)
+  fun usedBytes(): Long {
+    val cached = cachedUsedBytes
+    if (cached >= 0) return cached
+    val measured = directorySize(root)
+    cachedUsedBytes = measured
+    return measured
+  }
+
+  /**
+   * Called as a bundle lands so the cached total tracks a download in progress
+   * without re-walking the store for every file.
+   */
+  fun addUsedBytes(delta: Long) {
+    val cached = cachedUsedBytes
+    if (cached >= 0) cachedUsedBytes = cached + delta
+  }
+
+  fun invalidateUsedBytes() {
+    cachedUsedBytes = -1L
+  }
+
+  /** Free space on the volume the store lives on. */
+  fun freeBytes(): Long = try {
+    root.usableSpace
+  } catch (_: Exception) {
+    Long.MAX_VALUE
+  }
+
+  /**
+   * Reads a build's files so the kernel holds them in its page cache. The
+   * WebView is about to parse exactly these bytes, and on the slow flash a
+   * budget phone ships with, pulling a 4 MB engine bundle off disk is a real
+   * part of the gap between "the file is on disk" and "the game is on screen".
+   * Runs on a background thread and costs nothing but IO the page load was
+   * going to pay for a moment later anyway.
+   */
+  fun warm(gameId: String, buildId: String): Boolean {
+    val dir = buildDir(gameId, buildId)
+    if (!dir.isDirectory) return false
+    val buffer = ByteArray(256 * 1024)
+    var warmed = false
+    for (file in dir.walkTopDown()) {
+      if (!file.isFile) continue
+      // Builds here are a handful of files (2-7 across this catalogue); the cap
+      // only stops a pathological upload from pinning the whole page cache.
+      if (file.length() > MAX_WARM_FILE_BYTES) continue
+      try {
+        file.inputStream().use { input ->
+          @Suppress("ControlFlowWithEmptyBody")
+          while (input.read(buffer) > 0) { /* into the page cache, not our heap */ }
+        }
+        warmed = true
+      } catch (_: Exception) {
+        // A file that cannot be read is the downloader's problem, not warming's.
+      }
+    }
+    return warmed
+  }
 
   /**
    * Drops games the catalogue no longer lists, plus stale staging directories
@@ -129,6 +213,7 @@ class GameBundleStore(context: Context) {
           if (name != keepActive) buildDir.deleteRecursively()
         }
       }
+      cachedUsedBytes = -1L
       if (indexChanged) writeIndex()
     }
   }
@@ -139,7 +224,7 @@ class GameBundleStore(context: Context) {
    */
   fun evictTo(budgetBytes: Long, pinned: Set<String>) {
     synchronized(lock) {
-      var used = directorySize(root)
+      var used = usedBytes()
       if (used <= budgetBytes) return
       val candidates = active.keys
         .filter { !pinned.contains(it) }
@@ -155,6 +240,7 @@ class GameBundleStore(context: Context) {
         lastPlayed.remove(gameId)
         indexChanged = true
       }
+      cachedUsedBytes = used
       if (indexChanged) writeIndex()
     }
   }
@@ -166,6 +252,7 @@ class GameBundleStore(context: Context) {
     if (file.isFile && file.length() > 0) return true
     synchronized(lock) {
       active.remove(gameId)
+      cachedUsedBytes = -1L
       writeIndex()
     }
     return false
@@ -176,6 +263,7 @@ class GameBundleStore(context: Context) {
     try {
       val json = JSONObject(indexFile.readText())
       preferredPort = json.optInt("port", 0)
+      pathToken = json.optString("token", "")
       val builds = json.optJSONObject("active")
       if (builds != null) {
         for (key in builds.keys()) {
@@ -194,6 +282,7 @@ class GameBundleStore(context: Context) {
       // A damaged index only costs re-downloads, never a crash: start clean.
       active.clear()
       lastPlayed.clear()
+      pathToken = ""
     }
   }
 
@@ -206,6 +295,7 @@ class GameBundleStore(context: Context) {
       val json = JSONObject()
       json.put("schema", 1)
       json.put("port", preferredPort)
+      json.put("token", pathToken)
       json.put("active", activeJson)
       json.put("lastPlayed", playedJson)
       val temporary = File(root, "index.json.tmp")
@@ -220,6 +310,15 @@ class GameBundleStore(context: Context) {
   }
 
   companion object {
+    private const val TOKEN_LENGTH = 24
+    private const val MAX_WARM_FILE_BYTES = 16L * 1024 * 1024
+
+    private fun newToken(): String = buildString {
+      val alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+      val random = java.security.SecureRandom()
+      repeat(TOKEN_LENGTH) { append(alphabet[random.nextInt(alphabet.length)]) }
+    }
+
     fun directorySize(dir: File): Long {
       if (!dir.exists()) return 0L
       if (dir.isFile) return dir.length()

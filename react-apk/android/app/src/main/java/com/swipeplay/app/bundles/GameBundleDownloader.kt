@@ -32,8 +32,15 @@ import java.util.concurrent.atomic.AtomicBoolean
  *  5. **Rate ceilings apply to speculation, never to the game in hand.** The
  *     bundle for the game on screen always runs at full link speed — storing it
  *     is the entire point, and a 30 MB build behind a 400 KB/s ceiling would
- *     need over a minute of play to become local. Games the player has not
- *     asked for yet are the ones that yield.
+ *     need over a minute of play to become local. The game one swipe away is
+ *     treated almost as urgently, because it is the one the player is about to
+ *     open; only genuinely distant games yield hard.
+ *  6. **The queue is re-scored, and the job in flight is re-scored with it.**
+ *     A wish-list arrives on every swipe. Letting whatever started first run to
+ *     completion meant a game seven pages away could hold up the one under the
+ *     player's thumb, so a job that has fallen behind a materially more urgent
+ *     one is preempted. Its `.part` file stays, so the work is paused, not
+ *     thrown away, and resumes with a Range request when it comes back round.
  */
 class GameBundleDownloader(
   private val store: GameBundleStore,
@@ -41,9 +48,10 @@ class GameBundleDownloader(
 ) {
 
   interface Listener {
-    fun onBundleReady(gameId: String, buildId: String, entry: String)
+    fun onBundleReady(gameId: String, buildId: String, entry: String, bytes: Long, elapsedMs: Long)
+    fun onBundleStarted(gameId: String, buildId: String, bytesTotal: Long, bytesDone: Long)
     fun onBundleProgress(gameId: String, buildId: String, bytesDone: Long, bytesTotal: Long)
-    fun onBundleFailed(gameId: String, buildId: String, reason: String)
+    fun onBundleFailed(gameId: String, buildId: String, reason: String, retryInMs: Long)
   }
 
   data class Job(
@@ -51,8 +59,14 @@ class GameBundleDownloader(
     val version: String,
     val buildId: String,
     val bundleUrl: String,
-    /** The game on screen. Exempt from every speculative rate ceiling. */
-    val foreground: Boolean = false,
+    /**
+     * How close this game is to the player, from the feed's point of view:
+     * [PRIORITY_CURRENT] the page on screen, [PRIORITY_NEXT] the one page a
+     * swipe away, [PRIORITY_NEAR] the short lookahead behind it, and
+     * [PRIORITY_REST] everything else in the catalogue. It decides both the
+     * order jobs run in and whether a rate ceiling applies to them.
+     */
+    val priority: Int = PRIORITY_REST,
   )
 
   private val queue = LinkedBlockingDeque<Job>()
@@ -65,7 +79,16 @@ class GameBundleDownloader(
    * corrupt file, a dead host) would be retried on every gesture forever.
    */
   private val failedUntil = HashMap<String, Long>()
-  private val backoffMs = 30_000L
+
+  /**
+   * "gameId|buildId" -> consecutive failures, which doubles the wait each time.
+   * A transient failure (the network dropped mid-swipe) still retries within
+   * half a minute; a build that is genuinely broken backs off towards
+   * [MAX_BACKOFF_MS] instead of being re-attempted every thirty seconds for as
+   * long as the app is open. Cleared the moment the build activates, so nothing
+   * is ever marked failed permanently.
+   */
+  private val failureCounts = HashMap<String, Int>()
   private val running = AtomicBoolean(false)
   private val playing = AtomicBoolean(false)
   private var paused = false
@@ -73,6 +96,8 @@ class GameBundleDownloader(
   private var worker: Thread? = null
   @Volatile private var currentJob: Job? = null
   @Volatile private var currentCancelled = false
+  /** 0..1 through the bundle in flight, so a near-finished job is not preempted. */
+  @Volatile private var currentFraction = 0.0
 
   /**
    * Ceilings for *speculative* bundles only — the game the player is actually
@@ -81,6 +106,19 @@ class GameBundleDownloader(
   @Volatile var playingRateBytesPerSecond: Long = 400 * 1024
   @Volatile var meteredRateBytesPerSecond: Long = 150 * 1024
 
+  /**
+   * The ceiling for the game one swipe away while another is being played, on
+   * an unmetered link. Deliberately several times [playingRateBytesPerSecond]:
+   * this is the bundle whose absence the player is about to *see*, and at
+   * 400 KB/s a 4.5 MB build needs eleven seconds of continuous play to land —
+   * longer than plenty of sessions on a single game. It is still a ceiling
+   * rather than nothing, so the running game keeps radio and CPU headroom.
+   */
+  @Volatile var nextRateBytesPerSecond: Long = 2 * 1024 * 1024
+
+  /** Cellular equivalent of the above: generous for +1, stingy for the rest. */
+  @Volatile var meteredNextRateBytesPerSecond: Long = 600 * 1024
+
   /** Cellular or otherwise expensive link, as reported by NetInfo through JS. */
   private val metered = AtomicBoolean(false)
 
@@ -88,8 +126,16 @@ class GameBundleDownloader(
     metered.set(value)
   }
 
-  /** Stop expanding the store past this. The whole catalogue is far smaller. */
-  @Volatile var storageBudgetBytes: Long = 250L * 1024 * 1024
+  /**
+   * Stop expanding the store past this.
+   *
+   * Raised from 250 MB: storage is the cheapest resource in this system and an
+   * evicted game is a game that has to be downloaded again, which is the one
+   * thing the store exists to prevent. The real guard is [MIN_FREE_BYTES]
+   * below — the store never takes the device's last few hundred megabytes,
+   * whatever this says.
+   */
+  @Volatile var storageBudgetBytes: Long = 1024L * 1024 * 1024
 
   /**
    * Plain HttpURLConnection rather than the app's OkHttp instance. Two reasons:
@@ -124,32 +170,63 @@ class GameBundleDownloader(
   }
 
   /**
-   * Replaces the wish-list, in priority order. A job already in flight keeps
-   * running when it is still wanted — a direction change re-scores the queue
-   * rather than throwing away partial work.
+   * Replaces the wish-list, in priority order — the caller passes the games it
+   * wants most first, each tagged with how close it is to the player.
+   *
+   * The job already in flight is re-scored along with everything else. It keeps
+   * running while it is still among the most urgent work; it is preempted when
+   * the swipe that produced this wish-list put something materially closer to
+   * the player at the head of the queue. Preemption only stops the transfer —
+   * the `.part` file stays exactly where it is, so coming back to that game
+   * resumes from the byte it reached rather than starting over.
    */
   fun submit(jobs: List<Job>) {
     synchronized(queueLock) {
       queued.clear()
       queue.clear()
       val now = System.currentTimeMillis()
-      for (job in jobs) {
+      // Stable sort by priority: within a tier the caller's order is the feed's
+      // own "nearest first" ordering and is preserved.
+      for (job in jobs.sortedBy { it.priority }) {
         if (store.isActive(job.gameId, job.buildId)) continue
-        val retryAt = failedUntil["${job.gameId}|${job.buildId}"]
+        val retryAt = failedUntil[key(job.gameId, job.buildId)]
         if (retryAt != null && retryAt > now) continue
-        val key = job.gameId
-        if (queued.containsKey(key)) continue
-        queued[key] = job
+        if (queued.containsKey(job.gameId)) continue
+        queued[job.gameId] = job
         queue.addLast(job)
       }
       val inFlight = currentJob
-      if (inFlight != null && queued[inFlight.gameId]?.buildId != inFlight.buildId) {
-        // The build being fetched is no longer wanted (a newer one landed, or
-        // the game left the catalogue). Its .part file stays for a later resume.
-        currentCancelled = true
+      if (inFlight != null) {
+        val wanted = queued[inFlight.gameId]
+        if (wanted?.buildId != inFlight.buildId) {
+          // The build being fetched is no longer wanted (a newer one landed, or
+          // the game left the catalogue). Its .part stays for a later resume.
+          currentCancelled = true
+        } else if (shouldPreempt(wanted.priority)) {
+          // Stop the transfer only. The job is already sitting in the rebuilt
+          // queue at its new rank, and its `.part` file is untouched, so this
+          // pauses the work rather than discarding it.
+          currentCancelled = true
+        }
       }
     }
     start()
+  }
+
+  /**
+   * Should the job in flight, now scored [inFlightPriority], give way?
+   *
+   * Two guards keep this from thrashing. The replacement has to be at least a
+   * whole tier more urgent, so a re-score that only shuffles distant games
+   * changes nothing; and a bundle that is nearly finished is left alone, since
+   * abandoning it within a second of completion costs a reconnect and gains the
+   * newcomer almost no time.
+   */
+  private fun shouldPreempt(inFlightPriority: Int): Boolean {
+    if (currentFraction >= NEARLY_DONE_FRACTION) return false
+    val head = queue.peekFirst() ?: return false
+    if (head.gameId == currentJob?.gameId) return false
+    return head.priority < inFlightPriority
   }
 
   fun start() {
@@ -182,6 +259,7 @@ class GameBundleDownloader(
           if (queued[job.gameId]?.buildId != job.buildId) return@synchronized
           currentJob = job
           currentCancelled = false
+          currentFraction = 0.0
         }
         if (currentJob !== job) continue
         try {
@@ -192,7 +270,10 @@ class GameBundleDownloader(
           }
         } finally {
           synchronized(queueLock) {
-            if (currentJob === job) currentJob = null
+            if (currentJob === job) {
+              currentJob = null
+              currentFraction = 0.0
+            }
           }
         }
       } catch (_: InterruptedException) {
@@ -203,13 +284,26 @@ class GameBundleDownloader(
     }
   }
 
-  /** Records a retry back-off for this exact build, then reports the failure. */
+  /**
+   * Records a retry back-off for this exact build, then reports the failure.
+   * The wait doubles per consecutive failure up to [MAX_BACKOFF_MS], so a build
+   * the server cannot serve stops being hammered without ever being written off
+   * — the next activation of that build clears the count entirely.
+   */
   private fun fail(gameId: String, buildId: String, reason: String) {
+    val retryInMs: Long
     synchronized(queueLock) {
-      failedUntil["$gameId|$buildId"] = System.currentTimeMillis() + backoffMs
+      val id = key(gameId, buildId)
+      val failures = (failureCounts[id] ?: 0) + 1
+      failureCounts[id] = failures
+      val backoff = minOf(BASE_BACKOFF_MS shl minOf(failures - 1, BACKOFF_SHIFT_CAP), MAX_BACKOFF_MS)
+      retryInMs = backoff
+      failedUntil[id] = System.currentTimeMillis() + backoff
     }
-    listener.onBundleFailed(gameId, buildId, reason)
+    listener.onBundleFailed(gameId, buildId, reason, retryInMs)
   }
+
+  private fun key(gameId: String, buildId: String) = "$gameId|$buildId"
 
   private fun awaitResume() {
     synchronized(pauseLock) {
@@ -232,9 +326,13 @@ class GameBundleDownloader(
     }
 
     // Budget check before writing anything: better to skip a game than to fill
-    // the device and take the rest of the library down with it.
+    // the device and take the rest of the library down with it. The budget is
+    // generous now, so the binding constraint is usually free space, not it.
     store.evictTo(storageBudgetBytes, setOf(job.gameId))
-    if (store.usedBytes() + manifest.totalBytes > storageBudgetBytes) {
+    val headroom = store.freeBytes() - MIN_FREE_BYTES
+    if (store.usedBytes() + manifest.totalBytes > storageBudgetBytes ||
+      manifest.totalBytes > headroom
+    ) {
       fail(job.gameId, job.buildId, "storage budget reached")
       return
     }
@@ -243,6 +341,17 @@ class GameBundleDownloader(
     staging.mkdirs()
     val base = job.bundleUrl.replace(Regex("[^/]*$"), "")
     var done = 0L
+    val startedAt = System.currentTimeMillis()
+
+    // Announce the size before the first byte, so the feed can show a real
+    // percentage from the start rather than an indeterminate spinner that only
+    // becomes meaningful once the first progress tick lands.
+    listener.onBundleStarted(
+      job.gameId,
+      manifest.buildId,
+      manifest.totalBytes,
+      alreadyOnDisk(staging, files),
+    )
 
     for (file in files) {
       if (!running.get() || currentCancelled) return
@@ -257,7 +366,7 @@ class GameBundleDownloader(
       ) {
         // Already fetched by an earlier, interrupted attempt at this build.
         done += file.bytes
-        listener.onBundleProgress(job.gameId, manifest.buildId, done, manifest.totalBytes)
+        report(job, manifest, done)
         continue
       }
       target.parentFile?.mkdirs()
@@ -272,7 +381,7 @@ class GameBundleDownloader(
         return
       }
       done += file.bytes
-      listener.onBundleProgress(job.gameId, manifest.buildId, done, manifest.totalBytes)
+      report(job, manifest, done)
     }
 
     if (!running.get() || currentCancelled) return
@@ -282,9 +391,43 @@ class GameBundleDownloader(
     }
     synchronized(queueLock) {
       if (queued[job.gameId]?.buildId == manifest.buildId) queued.remove(job.gameId)
-      failedUntil.remove("${job.gameId}|${manifest.buildId}")
+      val id = key(job.gameId, manifest.buildId)
+      failedUntil.remove(id)
+      failureCounts.remove(id)
     }
-    listener.onBundleReady(job.gameId, manifest.buildId, manifest.entry)
+    // The player is a swipe or two from this game and its bytes are already in
+    // hand; pulling them through the page cache now means the WebView's first
+    // read comes from memory. Only worth doing for the short lookahead —
+    // warming the whole catalogue would just evict itself.
+    if (job.priority <= PRIORITY_NEAR) store.warm(job.gameId, manifest.buildId)
+    listener.onBundleReady(
+      job.gameId,
+      manifest.buildId,
+      manifest.entry,
+      manifest.totalBytes,
+      System.currentTimeMillis() - startedAt,
+    )
+  }
+
+  /** Publishes progress and keeps the preemption guard's fraction current. */
+  private fun report(job: Job, manifest: Manifest, done: Long) {
+    currentFraction = if (manifest.totalBytes > 0) done.toDouble() / manifest.totalBytes else 0.0
+    listener.onBundleProgress(job.gameId, manifest.buildId, done, manifest.totalBytes)
+  }
+
+  /** Bytes an earlier, interrupted attempt already left in the staging area. */
+  private fun alreadyOnDisk(staging: File, files: List<ManifestFile>): Long {
+    var total = 0L
+    for (file in files) {
+      val target = File(staging, file.path)
+      if (target.isFile) {
+        total += minOf(target.length(), file.bytes)
+        continue
+      }
+      val part = File(target.parentFile, target.name + ".part")
+      if (part.isFile) total += minOf(part.length(), file.bytes)
+    }
+    return total
   }
 
   /**
@@ -342,7 +485,7 @@ class GameBundleDownloader(
 
       var written = existing
       var reportedAt = System.currentTimeMillis()
-      val limiter = RateLimiter(job.foreground)
+      val limiter = RateLimiter(job.priority)
 
       try {
         java.io.FileOutputStream(part, append).use { output ->
@@ -357,9 +500,11 @@ class GameBundleDownloader(
               written += read
               limiter.consume(read.toLong())
               val now = System.currentTimeMillis()
-              if (now - reportedAt >= 500) {
+              if (now - reportedAt >= PROGRESS_INTERVAL_MS) {
                 reportedAt = now
-                listener.onBundleProgress(job.gameId, buildId, baseDone + written, total)
+                val soFar = baseDone + written
+                currentFraction = if (total > 0) soFar.toDouble() / total else 0.0
+                listener.onBundleProgress(job.gameId, buildId, soFar, total)
               }
             }
             output.flush()
@@ -467,25 +612,33 @@ class GameBundleDownloader(
    * foreground bundle is exempt, and on an unmetered connection nothing is
    * limited at all.
    */
-  private inner class RateLimiter(private val foreground: Boolean) {
+  private inner class RateLimiter(private val priority: Int) {
     private var windowStart = System.currentTimeMillis()
     private var windowBytes = 0L
 
     fun consume(bytes: Long) {
       // The game the player is on is never limited, on any connection.
-      if (foreground) {
+      if (priority <= PRIORITY_CURRENT) {
         reset()
         return
       }
+      // Nothing is running, so there are no frames to protect: the only reason
+      // left to hold back is the player's data plan.
+      if (!playing.get() && !metered.get()) {
+        reset()
+        return
+      }
+      val isNext = priority <= PRIORITY_NEXT
       val limit = when {
-        // Cellular: stay modest whether or not a game is running, because the
-        // cost here is the player's data plan, not their frame rate.
-        metered.get() -> meteredRateBytesPerSecond
-        // Unmetered with a game running: leave headroom for the game's own
-        // requests and the radio.
-        playing.get() -> playingRateBytesPerSecond
-        // Unmetered and idle: nothing to protect, go as fast as the link allows.
-        else -> 0L
+        // Cellular: stay modest, because the cost here is the player's data
+        // plan rather than their frame rate — but the game they are about to
+        // swipe to still gets a far higher ceiling than a distant one.
+        metered.get() -> if (isNext) meteredNextRateBytesPerSecond else meteredRateBytesPerSecond
+        // Unmetered with a game running: the next game is the one whose absence
+        // the player is about to see, so it takes what it needs while the rest
+        // of the catalogue trickles.
+        isNext -> nextRateBytesPerSecond
+        else -> playingRateBytesPerSecond
       }
       if (limit <= 0) {
         reset()
@@ -521,9 +674,40 @@ class GameBundleDownloader(
 
   private data class ManifestFile(val path: String, val bytes: Long, val sha256: String)
 
-  private companion object {
+  companion object {
+    /** The page on screen. Never rate-limited, always first in the queue. */
+    const val PRIORITY_CURRENT = 0
+    /** One swipe away. Preloaded aggressively; this is the one about to be seen. */
+    const val PRIORITY_NEXT = 1
+    /** The short lookahead behind that (+2, +3). Preloaded when there is room. */
+    const val PRIORITY_NEAR = 2
+    /** The rest of the catalogue. Filled in whenever nothing better is waiting. */
+    const val PRIORITY_REST = 3
+
     /** A manifest is metadata; anything this large is a bug or an attack. */
     private const val MAX_MANIFEST_BYTES = 8L * 1024 * 1024
+
+    /** Never take the device below this, whatever the configured budget says. */
+    private const val MIN_FREE_BYTES = 512L * 1024 * 1024
+
+    private const val BASE_BACKOFF_MS = 30_000L
+    private const val MAX_BACKOFF_MS = 30L * 60_000L
+    /** 30 s << 6 is already past the half-hour cap; the shift just avoids overflow. */
+    private const val BACKOFF_SHIFT_CAP = 6
+
+    /**
+     * A bundle this far along is left to finish rather than preempted: the
+     * reconnect a restart costs is worth more than the seconds the newcomer
+     * would gain.
+     */
+    private const val NEARLY_DONE_FRACTION = 0.9
+
+    /**
+     * Progress crosses the bridge at 4 Hz. Fast enough that a percentage reads
+     * as live, slow enough that it can never flood the bridge the feed uses for
+     * touch — and only one bundle is ever in flight.
+     */
+    private const val PROGRESS_INTERVAL_MS = 250L
   }
 
   private data class Manifest(
