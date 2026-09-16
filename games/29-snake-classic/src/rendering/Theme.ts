@@ -51,15 +51,15 @@ export const THEME = {
   modeBadge: { x: 80, y: 35, w: 105, h: 44, r: 9 },
   allTimeBadge: { x: 200, y: 35, w: 105, h: 44, r: 9 },
 
-  // Rectangular Touch Control Area metrics
-  joyBoxW: 190,
-  joyBoxH: 154,
-  joyCornerRadius: 22,
-  joyRadius: 80,
-  joyKnobRadius: 22,
-  joyMaxDist: 48,
+  // Rectangular Touch Control Area metrics (enlarged for fluid gestures)
+  joyBoxW: 270,
+  joyBoxH: 200,
+  joyCornerRadius: 26,
+  joyRadius: 100,
+  joyKnobRadius: 24,
+  joyMaxDist: 54,
   joyX: 200,
-  joyY: 650
+  joyY: 640
 };
 
 export function updateLayout(width: number, height: number, isBottomBarVisible: boolean = true): void {
@@ -126,13 +126,13 @@ export function updateLayout(width: number, height: number, isBottomBarVisible: 
 
   // Rectangular Touch Control Area positioning safely above Android navigation bar and floating dock
   const bottomDockSafe = isBottomBarVisible ? Math.max(78, Math.round(height * 0.11)) : Math.max(48, Math.round(height * 0.065));
-  const boxW = Math.min(210, Math.max(170, Math.round(width * 0.48)));
-  const boxH = Math.min(160, Math.max(136, Math.round(boxW * 0.78)));
+  const boxW = Math.min(300, Math.max(240, Math.round(width * 0.68)));
+  const boxH = Math.min(220, Math.max(170, Math.round(boxW * 0.74)));
   THEME.joyBoxW = boxW;
   THEME.joyBoxH = boxH;
-  THEME.joyCornerRadius = 22;
+  THEME.joyCornerRadius = 26;
   THEME.joyRadius = Math.round(Math.min(boxW, boxH) / 2);
-  THEME.joyKnobRadius = 22;
+  THEME.joyKnobRadius = 24;
   THEME.joyX = Math.round(width / 2);
   THEME.joyY = Math.round(height - bottomDockSafe - boxH / 2 - 8);
 }

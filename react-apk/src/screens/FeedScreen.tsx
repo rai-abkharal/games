@@ -21,11 +21,15 @@ import type { RootScreenProps } from '../navigation/types';
 import { adManager, useAdsStore } from '../services/adManager';
 import { analytics } from '../services/analytics';
 import {
+  BundlePriority,
   markBundlePlayed,
+  setBundleObserver,
   setBundlePaused,
   setBundlePlaying,
   setBundlePolicy,
   syncBundles,
+  warmBundle,
+  type BundlePriorityValue,
 } from '../services/gameBundles';
 import { buildRewardScript, buildSoundScript } from '../services/gameBridge';
 import { markFirstGameReady } from '../services/startup';
@@ -252,8 +256,12 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     // Least-recently-played is what the on-device store evicts by, so it has to
     // hear about every selection, not just the ones that persist a profile.
     markBundlePlayed(game.id);
+    // Reach, counted once per game per session: a page is selected, left and
+    // come back to many times in a sitting, and an impression that counted
+    // every one of those would measure restlessness, not reach.
+    analytics.onGameImpression(game.id, game.title, game.category, positionRef.current.index);
     analytics.onGameSelect(game.id, game.title, game.category);
-    analytics.onGameStart(game.id, game.title, game.category);
+    void analytics.onGameStart(game.id, game.title, game.category);
     adManager.setCurrentGame(game);
   }, [currentId, showDock, setPlaying]);
 
@@ -261,6 +269,38 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   useEffect(() => {
     if (current) adManager.setCurrentGame(current);
   }, [current]);
+
+  /**
+   * Download outcomes reach analytics from here rather than from the store,
+   * because this is the layer that knows the catalogue — and a download event
+   * without the game's name in it is not much use in a report. Progress ticks
+   * are deliberately not forwarded: four events a second per download would be
+   * the loudest thing in the property and would say nothing the finished
+   * download's byte count and duration do not.
+   */
+  useEffect(() => {
+    setBundleObserver({
+      onReady: bundle => {
+        const game = listRef.current.find(item => item.id === bundle.gameId);
+        analytics.onGameDownload(bundle.gameId, {
+          fallbackTitle: game?.title,
+          outcome: 'complete',
+          bytes: bundle.bytes,
+          durationMs: bundle.elapsedMs,
+        });
+      },
+      onFailed: event => {
+        const game = listRef.current.find(item => item.id === event.gameId);
+        analytics.onGameDownload(event.gameId, {
+          fallbackTitle: game?.title,
+          outcome: 'failed',
+          error: event.reason,
+          retryInMs: event.retryInMs,
+        });
+      },
+    });
+    return () => setBundleObserver({});
+  }, []);
 
   /* ---------------- lifecycle: focus, background, ads, sound ------------------ */
   // Run state is driven declaratively through the `suspended` prop (see
@@ -306,11 +346,17 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   }, [playing, suspended]);
 
   /**
-   * The download wish-list, in priority order: the page on screen first (so a
-   * game the player is looking at becomes local for next time), then outwards
-   * in the direction they are swiping, then the rest of the feed. The native
-   * side drops anything already stored at the advertised build, so a relaunch
-   * against an unchanged catalogue issues no requests at all.
+   * The download wish-list, in priority order, rebuilt on every settled swipe.
+   *
+   * The page on screen comes first — storing it is what makes its *next* open
+   * instant — then the game one swipe away, then the short lookahead, then the
+   * rest of the catalogue. Each entry carries its tier, and the native queue
+   * runs strictly in that order *and* re-scores the download already in flight
+   * against it: a distant bundle that started three swipes ago is paused (its
+   * partial file kept) rather than allowed to hold up the game about to open.
+   *
+   * The native side drops anything already stored at the advertised build, so a
+   * relaunch against an unchanged catalogue issues no requests at all.
    */
   useEffect(() => {
     // Only while the pager is at rest: re-scoring the queue is cheap, but it
@@ -326,23 +372,45 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       seen.add(game.id);
       ordered.push(game);
     };
+    // The same planner the feed uses to choose which pages own a WebView, so
+    // downloads and WebViews agree on what "next" means.
+    const lookahead = prefetchOrder(at, heading, count, FEED.prefetchAhead, count > 1);
     push(list[at]);
-    // The immediate lookahead, using the same planner the feed uses for slots.
-    for (const i of prefetchOrder(at, heading, count, FEED.prefetchAhead, count > 1)) push(list[i]);
+    for (const i of lookahead) push(list[i]);
     // Then the rest of the ring, alternating directions, then anything left.
     for (let step = 1; step <= count; step++) {
       push(list[(((at + heading * step) % count) + count) % count]);
       push(list[(((at - heading * step) % count) + count) % count]);
     }
     for (const game of list) push(game);
-    // Only the page on screen is foreground: its bundle is the one that must
-    // not be rate-limited, because it is the one whose next open should be
-    // instant. Everything after it is speculation and yields accordingly.
-    syncBundles(ordered, list[at]?.id ?? null);
+
+    // Tiers as a lookup rather than a scan, so tagging the wish-list stays
+    // linear however long the catalogue gets.
+    const tiers = new Map<string, BundlePriorityValue>();
+    const currentGame = list[at];
+    if (currentGame) tiers.set(currentGame.id, BundlePriority.current);
+    lookahead.forEach((index, step) => {
+      const game = list[index];
+      if (!game || tiers.has(game.id)) return;
+      tiers.set(game.id, step === 0 ? BundlePriority.next : BundlePriority.near);
+    });
+
+    syncBundles(ordered, game => tiers.get(game.id) ?? BundlePriority.rest);
+
+    // The next game's bytes may already be on disk from an earlier session, in
+    // which case nothing above will touch it. Pulling them through the page
+    // cache now is the one preparation left that costs the running game
+    // nothing: no WebView, no renderer work, just a background read of files
+    // the next WebView is about to ask for.
+    const nextIndex = lookahead[0];
+    const nextGame = nextIndex === undefined ? undefined : list[nextIndex];
+    if (nextGame) warmBundle(nextGame.id);
   }, [list, position.index, position.direction, position.settling]);
 
-  // Speculative bundles stay modest on a metered link; the foreground bundle
-  // is exempt from both ceilings natively.
+  // Ceilings apply to speculation only, and the game one swipe away barely
+  // counts as speculation: it gets several times the distant catalogue's
+  // allowance on both link types. The page on screen is exempt from all of
+  // them natively.
   useEffect(() => {
     setBundlePolicy({ metered });
   }, [metered]);

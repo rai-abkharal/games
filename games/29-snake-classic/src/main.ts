@@ -447,8 +447,8 @@ export class Game {
         // Touches outside the rectangular box do NOT move the snake!
         const cx = THEME.joyX;
         const cy = this.currentJoyY;
-        const halfW = (THEME.joyBoxW || 190) / 2 + 10;
-        const halfH = (THEME.joyBoxH || 154) / 2 + 10;
+        const halfW = (THEME.joyBoxW || 270) / 2 + 10;
+        const halfH = (THEME.joyBoxH || 200) / 2 + 10;
         const inRectBox = Math.abs(px - cx) <= halfW && Math.abs(py - cy) <= halfH;
 
         if (inRectBox) {

@@ -130,7 +130,69 @@ describe('Firebase Analytics & Universal Game Identity', () => {
     expect(exitEvt?.params?.game_id).toBe('custom-game-123');
     expect(exitEvt?.params?.game_name).toBe('Quantum Portal Jumper');
     expect(exitEvt?.params?.exit_reason).toBe('swiped_away');
-    expect(exitEvt?.params?.abandoned).toBe(true);
+    // GA4 has no boolean type: a JS boolean reaches a report as an unusable
+    // string, so flags are normalised to 1/0 on the way out.
+    expect(exitEvt?.params?.abandoned).toBe(1);
+  });
+
+  test('every game event carries the identity a report groups by', async () => {
+    await analytics.onGameStart('snake-classic', undefined, 'Arcade');
+    const startEvt = loggedEvents.find(e => e.name === 'game_start');
+    expect(startEvt?.params?.game_id).toBe('snake-classic');
+    expect(startEvt?.params?.game_name).toBe('Snake Classic Deluxe');
+    expect(startEvt?.params?.game_version).toBe('1.0.0');
+    expect(startEvt?.params?.session_id).toEqual(expect.any(String));
+    expect(startEvt?.params?.event_ts).toEqual(expect.any(Number));
+  });
+
+  test('game_impression is counted once per game per session', () => {
+    analytics.onGameImpression('snake-classic', undefined, 'Arcade', 3);
+    analytics.onGameImpression('snake-classic', undefined, 'Arcade', 3);
+    expect(loggedEvents.filter(e => e.name === 'game_impression')).toHaveLength(1);
+    const evt = loggedEvents.find(e => e.name === 'game_impression');
+    expect(evt?.params?.game_name).toBe('Snake Classic Deluxe');
+    expect(evt?.params?.feed_position).toBe(3);
+  });
+
+  test('game_load carries per-stage timings and never reports one load twice', () => {
+    const detail = {
+      outcome: 'ready' as const,
+      source: 'local' as const,
+      loadKey: 'snake-classic:build-1:0',
+      webviewMs: 40,
+      htmlMs: 120,
+      engineMs: 900,
+      firstFrameMs: 950,
+      totalMs: 1100,
+    };
+    analytics.onGameLoad('snake-classic', detail);
+    analytics.onGameLoad('snake-classic', detail);
+
+    const loads = loggedEvents.filter(e => e.name === 'game_load');
+    expect(loads).toHaveLength(1);
+    expect(loads[0].params?.game_name).toBe('Snake Classic Deluxe');
+    expect(loads[0].params?.source).toBe('local');
+    expect(loads[0].params?.engine_ms).toBe(900);
+    expect(loads[0].params?.total_ms).toBe(1100);
+  });
+
+  test('game_download reports the finished transfer, not its progress', () => {
+    analytics.onGameDownload('snake-classic', {
+      outcome: 'complete',
+      bytes: 4_500_000,
+      durationMs: 9_000,
+    });
+    const evt = loggedEvents.find(e => e.name === 'game_download');
+    expect(evt?.params?.game_id).toBe('snake-classic');
+    expect(evt?.params?.outcome).toBe('complete');
+    expect(evt?.params?.bytes).toBe(4_500_000);
+    expect(evt?.params?.kbps).toBe(500);
+  });
+
+  test('a parameter GA4 would silently drop is normalised instead', () => {
+    analytics.onGameAction('snake-classic', undefined, 'note', 'x'.repeat(250));
+    const evt = loggedEvents.find(e => e.name === 'game_action' && e.params?.action_name === 'note');
+    expect(String(evt?.params?.action_value)).toHaveLength(100);
   });
 
   test('logs game_action and screen_view', () => {

@@ -12,7 +12,8 @@ import {
   buildSavedStateScript,
   parseGameMessage,
 } from '../../services/gameBridge';
-import { localUrlFor } from '../../services/gameBundles';
+import { analytics } from '../../services/analytics';
+import { localUrlFor, useDownloadStore, type BundleDownload } from '../../services/gameBundles';
 import { GAME_VIEWPORT_SCRIPT } from '../../services/gameViewport';
 import { usePlayerStore } from '../../store/playerStore';
 import { GAME_SURFACE, GLASS, HUD, THEMES } from '../../theme/themes';
@@ -22,6 +23,14 @@ import { displayCategory } from '../../utils/misc';
 import { buildGameEntryUrl } from '../../utils/url';
 import { MessageView } from '../StateViews';
 
+/**
+ * What the page's WebView is doing. Deliberately not where the *download* is:
+ * a bundle arriving and a document parsing are different questions with
+ * different owners, and the feed's gating decisions (may a standby exist, is
+ * the first game up) only ever ask about the WebView. What the player is told
+ * about a download lives in `statusLabel`, which reads the download store
+ * directly.
+ */
 export type PagePhase = 'idle' | 'loading' | 'ready' | 'error';
 
 export interface GamePageHandle {
@@ -93,6 +102,21 @@ export const GamePage = memo(
     const [errorText, setErrorText] = useState<string | null>(null);
     const [placeholderShown, setPlaceholderShown] = useState(true);
     const phaseRef = useRef<PagePhase>('idle');
+    /**
+     * Stage timings for the load in flight, in the order they happen:
+     * the WebView being created, the document being fetched and parsed, and
+     * (from the game's own side of the bridge) its engine booting and painting.
+     * Reported once, as a single `game_load` event, when the load settles.
+     */
+    const timingRef = useRef<{
+      startedAt: number;
+      loadStartAt: number;
+      source: 'local' | 'network';
+      loadKey: string;
+      domMs?: number;
+      loadMs?: number;
+      firstFrameMs?: number;
+    } | null>(null);
     /** True once the player has actually been on this page, not just warmed it. */
     const visitedRef = useRef(false);
     const isResumedRef = useRef(false);
@@ -160,6 +184,7 @@ export const GamePage = memo(
     // of the key: a genuinely new build *should* replace the document.
     const sourceKey = `${game.id}:${game.version}:${game.buildId ?? game.updatedAt ?? game.sha256 ?? ''}`;
     const entryUrl = useMemo(() => buildGameEntryUrl(game), [sourceKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    const localUrl = live ? localUrlFor(game) : null;
     const source = useMemo<WebSource | null>(() => {
       if (!live) return null;
       // Two possibilities, and only two: the build stored on this device
@@ -175,28 +200,76 @@ export const GamePage = memo(
       return { uri: localUrlFor(game) ?? entryUrl };
     }, [live, attempt, sourceKey, entryUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    /**
+     * Publishes one `game_load` event for the attempt that just settled.
+     *
+     * Keyed by game + build + attempt, so a WebView that remounts or a React
+     * re-render that replays an effect cannot turn a single load into several
+     * rows — which is the usual way a load-time metric ends up wrong in the
+     * direction that flatters it.
+     */
+    const reportLoad = useCallback(
+      (outcome: 'ready' | 'error' | 'timeout', error?: string) => {
+        const timing = timingRef.current;
+        if (!timing) return;
+        const finishedAt = Date.now();
+        analytics.onGameLoad(game.id, {
+          fallbackTitle: game.title,
+          category: game.category,
+          outcome,
+          source: timing.source,
+          loadKey: timing.loadKey,
+          // Creating the view and getting the first byte of the document.
+          webviewMs: timing.loadStartAt > 0 ? timing.loadStartAt - timing.startedAt : 0,
+          // Document fetched and parsed to DOMContentLoaded, measured inside
+          // the page so it excludes everything the host was doing around it.
+          htmlMs: timing.domMs ?? 0,
+          // DOMContentLoaded to window.load: scripts, the engine booting.
+          engineMs: timing.domMs !== undefined && timing.loadMs !== undefined
+            ? Math.max(0, timing.loadMs - timing.domMs)
+            : 0,
+          firstFrameMs: timing.firstFrameMs ?? 0,
+          totalMs: finishedAt - timing.startedAt,
+          error,
+        });
+        timingRef.current = null;
+      },
+      [game.id, game.title, game.category],
+    );
+
     // Load lifecycle: a WebView instance appears → loading with a hard timeout.
     useEffect(() => {
       isResumedRef.current = false;
       if (!source) {
         clearTimer();
+        timingRef.current = null;
         setErrorText(null);
         setPhase('idle');
         placeholderOpacity.setValue(1);
         setPlaceholderShown(true);
         return;
       }
+      timingRef.current = {
+        startedAt: Date.now(),
+        loadStartAt: 0,
+        // Decided here rather than at report time: the bundle may well finish
+        // downloading while this very load is running, and the load being
+        // measured is the one that started against the network.
+        source: source.uri.startsWith('http://127.0.0.1') ? 'local' : 'network',
+        loadKey: `${game.id}:${sourceKey}:${attempt}`,
+      };
       setErrorText(null);
       setPhase('loading');
       clearTimer();
       timeoutRef.current = setTimeout(() => {
         if (phaseRef.current === 'loading') {
+          reportLoad('timeout', 'The game is taking too long to load.');
           setErrorText('The game is taking too long to load.');
           setPhase('error');
         }
       }, NETWORK.gameLoadTimeoutMs);
       return clearTimer;
-    }, [source, clearTimer, setPhase, placeholderOpacity]);
+    }, [source, clearTimer, setPhase, placeholderOpacity]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => () => clearTimer(), [clearTimer]);
 
@@ -292,6 +365,13 @@ export const GamePage = memo(
       }
     }, [phase]);
 
+    // A new build is a new chance: a game that could not be loaded at one build
+    // must not stay un-retryable for the life of the process just because an
+    // earlier build failed once.
+    useEffect(() => {
+      autoRetried.current = false;
+    }, [sourceKey]);
+
     // A page that failed while it was being prepared gets one automatic retry
     // when the player actually reaches it (the network may be back).
     useEffect(() => {
@@ -307,6 +387,10 @@ export const GamePage = memo(
       clearTimer();
       justLoaded.current = true;
       setPhase('ready');
+      // The in-page probe usually beats this; when it does not (a game that
+      // never paints, a frozen standby) the event still goes out with the
+      // stages the host could see on its own.
+      reportLoad('ready');
       Animated.timing(placeholderOpacity, {
         toValue: 0,
         duration: 120,
@@ -315,42 +399,71 @@ export const GamePage = memo(
       }).start(() => {
         setPlaceholderShown(false);
       });
-    }, [clearTimer, setPhase, placeholderOpacity]);
+    }, [clearTimer, setPhase, placeholderOpacity, reportLoad]);
 
     // A game that navigates or reloads itself (some restart via location.reload)
     // goes back through the placeholder → ready cycle so it is re-primed with
     // saved state and the right pause/resume state, like onPageFinished does.
     const handleLoadStart = useCallback(() => {
+      // First load: the document has started arriving, which closes the
+      // "creating the WebView" stage.
+      if (phaseRef.current === 'loading' && timingRef.current && !timingRef.current.loadStartAt) {
+        timingRef.current.loadStartAt = Date.now();
+        return;
+      }
       if (phaseRef.current !== 'ready') return;
       isResumedRef.current = false; // the new document must be resumed again
+      // A game that reloads itself (several restart via location.reload) is a
+      // fresh load and gets its own timings and its own event.
+      timingRef.current = {
+        startedAt: Date.now(),
+        loadStartAt: Date.now(),
+        source: timingRef.current?.source ?? 'network',
+        loadKey: `${game.id}:${sourceKey}:${attempt}:${Date.now()}`,
+      };
       placeholderOpacity.setValue(1);
       setPlaceholderShown(true);
       setPhase('loading');
       clearTimer();
       timeoutRef.current = setTimeout(() => {
         if (phaseRef.current === 'loading') {
+          reportLoad('timeout', 'The game is taking too long to load.');
           setErrorText('The game is taking too long to load.');
           setPhase('error');
         }
       }, NETWORK.gameLoadTimeoutMs);
-    }, [clearTimer, setPhase, placeholderOpacity]);
+    }, [clearTimer, setPhase, placeholderOpacity, reportLoad, game.id, sourceKey, attempt]);
 
     const fail = useCallback(
       (message: string) => {
         if (phaseRef.current === 'error' || phaseRef.current === 'idle') return;
         clearTimer();
+        reportLoad('error', message);
         setErrorText(message);
         setPhase('error');
       },
-      [clearTimer, setPhase],
+      [clearTimer, setPhase, reportLoad],
     );
 
     const handleMessage = useCallback(
       (event: WebViewMessageEvent) => {
         const parsed = parseGameMessage(event.nativeEvent.data);
-        if (parsed) onMessage(game.id, parsed);
+        if (!parsed) return;
+        if (parsed.type === 'perf') {
+          // Boot timings measured inside the document. They belong to this
+          // page's load event, not to the feed, so they stop here.
+          const timing = timingRef.current;
+          if (timing) {
+            timing.domMs = parsed.domMs;
+            timing.loadMs = parsed.loadMs;
+            timing.firstFrameMs = parsed.firstFrameMs;
+            if (phaseRef.current === 'ready') reportLoad('ready');
+          }
+          return;
+        }
+        onMessage(game.id, parsed);
       },
-      [game.id, onMessage],
+      [game.id, onMessage, reportLoad],
     );
 
     const dark = THEMES.midnight_dark;
@@ -420,6 +533,14 @@ export const GamePage = memo(
             <Text pointerEvents="none" style={styles.placeholderMeta} allowFontScaling={false}>
               {displayCategory(game.category).toUpperCase()} • 120 FPS ENGINE
             </Text>
+            <LoadingStatus
+              gameId={game.id}
+              buildId={game.buildId}
+              cached={localUrl !== null}
+              live={live}
+              phase={phase}
+              show={slot === 'active'}
+            />
             <LoadingLine animate={animateLoadLine} />
           </Animated.View>
         ) : null}
@@ -440,6 +561,73 @@ export const GamePage = memo(
     );
   }),
 );
+
+/**
+ * The one line of text that tells the player what the wait is for.
+ *
+ * It subscribes to the download store on its own, by game id, and nothing else
+ * in the tree does. Progress lands four times a second while a bundle is in
+ * flight; if the page — let alone the feed — re-rendered on each tick, the
+ * frames that cost would come out of the game running next door. Here the
+ * re-render is one `<Text>`.
+ */
+function LoadingStatus({
+  gameId,
+  buildId,
+  cached,
+  live,
+  phase,
+  show,
+}: {
+  gameId: string;
+  buildId?: string;
+  cached: boolean;
+  live: boolean;
+  phase: PagePhase;
+  show: boolean;
+}) {
+  const download = useDownloadStore(
+    useCallback((state: { active: Record<string, BundleDownload> }) => state.active[gameId], [gameId]),
+  );
+  if (!show) return null;
+  const label = statusLabel({ download, cached, live, phase, buildId });
+  if (!label) return null;
+  return (
+    <Text pointerEvents="none" style={styles.placeholderStatus} allowFontScaling={false}>
+      {label}
+    </Text>
+  );
+}
+
+/**
+ * A game already on the device never shows a download line at all — there is
+ * nothing to download, and saying "preparing" about a file that is already
+ * there is the kind of honest-looking noise that makes an app feel slow.
+ */
+export function statusLabel({
+  download,
+  cached,
+  live,
+  phase,
+  buildId,
+}: {
+  download?: BundleDownload;
+  cached: boolean;
+  live: boolean;
+  phase: PagePhase;
+  buildId?: string;
+}): string | null {
+  if (phase === 'ready' || phase === 'error') return null;
+  if (cached) return live ? 'Starting…' : null;
+  if (download && download.buildId === buildId) {
+    if (download.failed) return 'Connection problem — retrying…';
+    if (download.fraction !== null) return `Downloading ${Math.round(download.fraction * 100)}%`;
+    return 'Downloading…';
+  }
+  // No local copy and nothing downloading: the document itself is coming over
+  // the network, which is the path this app falls back to and not a failure.
+  return live ? 'Starting…' : 'Preparing…';
+}
 
 /** The 4 dp indeterminate gradient line at the top of the placeholder. */
 function LoadingLine({ animate }: { animate: boolean }) {
@@ -504,6 +692,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     letterSpacing: 1.2,
+  },
+  placeholderStatus: {
+    marginTop: 14,
+    color: HUD.text,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    opacity: 0.85,
   },
   loadTrack: {
     position: 'absolute',

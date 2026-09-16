@@ -1060,9 +1060,9 @@ export class Renderer {
   ): void {
     const cx = THEME.joyX;
     const cy = padYOverride !== undefined ? padYOverride : THEME.joyY;
-    const boxW = THEME.joyBoxW || 190;
-    const boxH = THEME.joyBoxH || 154;
-    const cornerRadius = THEME.joyCornerRadius || 22;
+    const boxW = THEME.joyBoxW || 270;
+    const boxH = THEME.joyBoxH || 200;
+    const cornerRadius = THEME.joyCornerRadius || 26;
 
     const x0 = cx - boxW / 2;
     const y0 = cy - boxH / 2;
@@ -1101,10 +1101,10 @@ export class Renderer {
     ctx.stroke();
     ctx.restore();
 
-    // 2. Directional Metrics
-    const innerHub = 22;
-    const offsetY = Math.round(boxH * 0.32);
-    const offsetX = Math.round(boxW * 0.33);
+    // 2. Directional Metrics (scaled to enlarged box)
+    const innerHub = 26;
+    const offsetY = Math.round(boxH * 0.33);
+    const offsetX = Math.round(boxW * 0.34);
 
     // 3. Light Minimal Guide Lines (From Center Ring to Arrow Base — ZERO Line on Tip!)
     ctx.save();
@@ -1114,7 +1114,7 @@ export class Renderer {
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
       ctx.strokeStyle = isLit ? 'rgba(131, 204, 67, 0.75)' : 'rgba(255, 255, 255, 0.18)';
-      ctx.lineWidth = isLit ? 2 : 1.2;
+      ctx.lineWidth = isLit ? 2.2 : 1.2;
       if (isLit) {
         ctx.shadowColor = 'rgba(131, 204, 67, 0.7)';
         ctx.shadowBlur = 6;
@@ -1125,13 +1125,13 @@ export class Renderer {
     };
 
     // UP axis: stops cleanly before arrow base, NO line on tip
-    drawGuideLine(Direction.UP, cx, cy - innerHub, cx, cy - offsetY + 11);
+    drawGuideLine(Direction.UP, cx, cy - innerHub, cx, cy - offsetY + 13);
     // DOWN axis: stops cleanly before arrow base, NO line on tip
-    drawGuideLine(Direction.DOWN, cx, cy + innerHub, cx, cy + offsetY - 11);
+    drawGuideLine(Direction.DOWN, cx, cy + innerHub, cx, cy + offsetY - 13);
     // LEFT axis: stops cleanly before arrow base, NO line on tip
-    drawGuideLine(Direction.LEFT, cx - innerHub, cy, cx - offsetX + 11, cy);
+    drawGuideLine(Direction.LEFT, cx - innerHub, cy, cx - offsetX + 13, cy);
     // RIGHT axis: stops cleanly before arrow base, NO line on tip
-    drawGuideLine(Direction.RIGHT, cx + innerHub, cy, cx + offsetX - 11, cy);
+    drawGuideLine(Direction.RIGHT, cx + innerHub, cy, cx + offsetX - 13, cy);
 
     // Subtle center resting target circle
     ctx.beginPath();
@@ -1146,14 +1146,14 @@ export class Renderer {
     // 4. Directional Arrow Markers (Clean Sharp Triangles, Glowing when Snake Head Points That Way)
     const drawArrow = (dir: Direction, x: number, y: number) => {
       const isLit = touchDir === dir;
-      const halfW = isLit ? 6.5 : 5.5;
-      const len = isLit ? 7.5 : 6.5;
+      const halfW = isLit ? 8 : 6.5;
+      const len = isLit ? 9.5 : 8;
 
       ctx.save();
       if (isLit) {
         // Soft aura behind active heading arrow
         ctx.beginPath();
-        ctx.arc(x, y, 13, 0, Math.PI * 2);
+        ctx.arc(x, y, 16, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(131, 204, 67, 0.20)';
         ctx.fill();
       }

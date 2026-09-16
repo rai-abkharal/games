@@ -52,6 +52,7 @@ beforeEach(() => {
       setPaused: jest.fn(),
       setPolicy: jest.fn(),
       markPlayed,
+      warm: jest.fn(),
       getStatus: jest.fn(async () => ({ available: true, port: 42731, usedBytes: 0, ready: [] })),
       addListener: jest.fn(),
       removeListeners: jest.fn(),
@@ -98,26 +99,36 @@ describe('syncBundles', () => {
       expect(Object.keys(item).sort()).toEqual([
         'buildId',
         'bundleUrl',
-        'foreground',
         'gameId',
+        'priority',
         'version',
       ]);
     }
   });
 
-  it('marks only the game on screen as foreground, so it alone escapes the rate ceiling', () => {
-    bundles.syncBundles([game('alpha'), game('beta'), game('gamma')], 'beta');
+  it('tags each game with how close it is to the player', () => {
+    const { BundlePriority } = bundles;
+    const tiers: Record<string, number> = {
+      alpha: BundlePriority.current,
+      beta: BundlePriority.next,
+      gamma: BundlePriority.near,
+    };
+    bundles.syncBundles(
+      [game('alpha'), game('beta'), game('gamma'), game('delta')],
+      g => (tiers[g.id] ?? BundlePriority.rest) as any,
+    );
     const payload = sync.mock.calls[0][0];
-    expect(payload.map((item: any) => [item.gameId, item.foreground])).toEqual([
-      ['alpha', false],
-      ['beta', true],
-      ['gamma', false],
+    expect(payload.map((item: any) => [item.gameId, item.priority])).toEqual([
+      ['alpha', BundlePriority.current],
+      ['beta', BundlePriority.next],
+      ['gamma', BundlePriority.near],
+      ['delta', BundlePriority.rest],
     ]);
   });
 
-  it('marks nothing foreground when no game is named', () => {
+  it('treats an untagged wish-list as the distant catalogue', () => {
     bundles.syncBundles([game('alpha')]);
-    expect(sync.mock.calls[0][0][0].foreground).toBe(false);
+    expect(sync.mock.calls[0][0][0].priority).toBe(bundles.BundlePriority.rest);
   });
 
   it('does not call across the bridge when no game has a bundle', () => {

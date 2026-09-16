@@ -236,7 +236,7 @@ describe("Admin security boundaries", () => {
     ).toBe(200);
     expect(fs.existsSync(staged.filename)).toBe(false);
   });
-  it("rejects multipart extras and oversized archives before storing uploads", async () => {
+  it("rejects multipart extras and corrupt archives before storing uploads", async () => {
     const root = await login();
     expect(
       (
@@ -249,11 +249,11 @@ describe("Admin security boundaries", () => {
       (
         await call(root, "post", "/v1/admin/games/upload").attach(
           "file",
-          Buffer.alloc(50 * 1024 * 1024 + 1),
-          "large.zip",
+          Buffer.alloc(100),
+          "invalid.zip",
         )
       ).status,
-    ).toBe(413);
+    ).toBe(400);
     expect(store.all("SELECT * FROM uploads")).toHaveLength(0);
   });
   it("denies routes accidentally registered without an explicit permission policy", async () => {

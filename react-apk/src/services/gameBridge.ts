@@ -132,6 +132,38 @@ export const BRIDGE_BOOTSTRAP_SCRIPT = `
       }
     };
   }
+
+  // Where a game's own boot time actually goes. This script is injected at
+  // document start, so these are measured from the moment the document began
+  // parsing — which is the only vantage point from which "the engine took four
+  // seconds" can be told apart from "the HTML took four seconds". One message,
+  // once, after the first frame the game paints; the host attaches it to the
+  // load event it was already going to send.
+  if (!window.__SP_PERF__) {
+    var stamp = function () {
+      return (window.performance && window.performance.now) ? window.performance.now() : 0;
+    };
+    var perf = { dom: 0, load: 0, frame: 0, sent: false };
+    window.__SP_PERF__ = perf;
+    var flushPerf = function () {
+      if (perf.sent) return;
+      perf.sent = true;
+      send('perf', { dom: Math.round(perf.dom), load: Math.round(perf.load), frame: Math.round(perf.frame) });
+    };
+    var afterFirstFrame = function () {
+      perf.frame = stamp();
+      flushPerf();
+    };
+    document.addEventListener('DOMContentLoaded', function () { perf.dom = stamp(); });
+    window.addEventListener('load', function () {
+      perf.load = stamp();
+      // The gated requestAnimationFrame on purpose: a page frozen before it
+      // paints has no first frame to report, and reporting one anyway would
+      // make a warmed standby look slower than it is.
+      if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(afterFirstFrame);
+      else setTimeout(afterFirstFrame, 0);
+    });
+  }
 })();
 true;
 `;
@@ -224,6 +256,13 @@ export function parseGameMessage(raw: string): GameToHostMessage | null {
         type: 'metrics',
         fps: Number(payload.fps) || 0,
         frameTimeMs: Number(payload.frameTimeMs) || 0,
+      };
+    case 'perf':
+      return {
+        type: 'perf',
+        domMs: Number(payload.dom) || 0,
+        loadMs: Number(payload.load) || 0,
+        firstFrameMs: Number(payload.frame) || 0,
       };
     default:
       return null;

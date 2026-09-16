@@ -163,10 +163,10 @@ react-apk/
     ├── navigation/            Native stack (Feed → Settings), typed params
     ├── services/
     │   ├── gameBridge.ts      Injected bootstrap (bridge globals, AudioContext hook, frame gate) + host→game scripts
-    │   ├── gamePrefetcher.ts  In-memory prefetch of upcoming games' entry HTML (budgeted LRU)
+    │   ├── gameBundles.ts    JS half of the on-device store: wish-list, priorities, ready/progress state
     │   ├── adManager.ts       AdMob orchestration (remote config, interstitial, rewarded)
     │   ├── adTimingPolicy.ts  Port of native AdTimingPolicy
-    │   ├── analytics.ts       Port of GameAnalyticsManager with bounded offline queue
+    │   ├── analytics.ts       Firebase/GA4 taxonomy + backend pipeline with bounded offline queue
     │   └── storage.ts         AsyncStorage JSON helpers with coalesced writes
     ├── store/
     │   ├── catalogStore.ts    zustand: games, status, cache-first refresh
@@ -309,19 +309,61 @@ swipe to 3:        [ 1 destroyed ] [ 2 frozen, kept ] [ 3 active ] [ 4 warm ] [ 
 swipe back to 2:   [ 1 warm ] [ 2 active ] [ 3 frozen, kept ] [ 4 destroyed ]
 ```
 
-### Prefetching (`src/services/gamePrefetcher.ts`)
+### Downloading and the on-device store
 
-The backend serves every `index.html` with `Cache-Control: no-store`, so the
-WebView's HTTP cache can never help a page that has not been opened yet. The
-native app pre-downloads the next game to disk and serves it through
-`shouldInterceptRequest`; `react-native-webview` has no interception hook, so
-the feed does the next best thing: once the warm page is ready (or after
-2.5 s), the entry documents of the three games beyond it are fetched into
-memory — one at a time, nearest first, skipping games over 3 MB, within an
-8 MB LRU budget, only when online, with a 20 s back-off after a failure — and
-handed to the WebView via `source.html` + `baseUrl` when that game becomes
-warm/active. Entries far from the current page are evicted on every page
-change. A prefetch that fails simply means the WebView loads the URL itself.
+Games are stored on the device by a native module
+(`android/.../app/bundles/`) and served back to the WebView from a loopback
+HTTP origin. JavaScript never holds a game document: it hands down a
+wish-list of `{gameId, buildId, bundleUrl, priority}` and gets back status
+events plus a `http://127.0.0.1:<port>/<token>/<gameId>/<buildId>/<entry>`
+URL, so a 30 MB game costs the JS heap exactly what an 8 KB one does.
+
+**Priority is the player's position in the feed**, recomputed on every settled
+swipe (`FeedScreen` -> `syncBundles`):
+
+| Tier | Which game | Queue | Rate ceiling |
+|---|---|---|---|
+| `current` | the page on screen | first | none, on any connection |
+| `next` | one swipe away | second | 2 MB/s while playing, 600 KB/s metered |
+| `near` | the +2/+3 lookahead | after those | 400 KB/s while playing, 150 KB/s metered |
+| `rest` | the remaining catalogue | last | same as `near` |
+
+Nothing is limited at all when no game is running on an unmetered link, and
+the whole catalogue is never fetched up front — it is simply queued behind
+everything closer to the player.
+
+**The job in flight is re-scored with the queue.** A bundle that started three
+swipes ago and has since fallen a whole tier is *preempted*: the transfer
+stops, its `.part` file stays on disk, and it resumes from that byte when it
+comes back round. A bundle past 90 % is left alone, because the reconnect a
+restart costs is worth more than the seconds a newcomer would gain. This is
+what stops a distant download from holding up the game about to be opened.
+
+**Cache-first, always.** A build already stored at the `buildId` the catalogue
+advertises is never requested again — a relaunch against an unchanged
+catalogue issues no network requests at all. Downloads are resumable
+(`Range`), atomic (staged, hash-verified per file, published by one directory
+rename) and backed off exponentially per build on failure (30 s doubling to
+30 min, cleared the moment that build activates).
+
+**Storage is not rationed the way it used to be.** The budget is 1 GB rather
+than 250 MB, with a hard floor that never takes the device below 512 MB free.
+An evicted game is a game that has to be downloaded again, which is the one
+thing the store exists to prevent, and the whole catalogue is well under a
+tenth of the budget.
+
+**Two things happen after the bytes land**, both aimed at the gap between
+"the file is on disk" and "the game is on screen":
+
+* the build is read through the kernel page cache when it is within the
+  lookahead, so the WebView's first read comes from memory rather than flash;
+* the loopback server answers with
+  `Cache-Control: public, max-age=31536000, immutable` and a path token that
+  is stable across launches. A URL there names a `buildId`, and a `buildId`
+  is a content hash, so the bytes behind it cannot change. What this actually
+  buys is V8's compiled-code cache — keyed by resource URL — which is what
+  makes the *second* open of a game with a megabyte-plus engine bundle skip a
+  full parse and compile.
 
 ### Pausing background pages (`src/services/gameBridge.ts`)
 
@@ -343,6 +385,16 @@ title screen is already painted when the player swipes to it.
 * Placeholder identical to `item_game_page.xml` (dark surface, 88 dp circle
   with 🎮, title, "CATEGORY • 120 FPS ENGINE", 4 dp indeterminate line) fades
   out in 120 ms when the page finishes loading.
+* The placeholder says what the wait is *for*: `Downloading 47%` from the
+  real byte counts while a bundle is in flight, `Starting…` once the WebView
+  has the document, and nothing at all for a game already on the device —
+  there is no download to narrate. Progress lands four times a second and is
+  subscribed to by that one line of text, by game id, so neither the page nor
+  the feed re-renders on a tick.
+* Every load attempt reports its own stages (`game_load`: WebView creation,
+  HTML to DOMContentLoaded, engine to `window.load`, first painted frame,
+  total), so "the big games are slow" can be answered with which stage is
+  slow rather than an assumption about bundle size.
 * 20 s hard timeout, HTTP errors on the entry URL, network errors and renderer
   crashes (`onRenderProcessGone`) show an error view with Retry. A page that
   failed while it was being prepared retries once automatically when the
@@ -387,17 +439,106 @@ orchestration from `MainActivity`:
 
 ## Analytics
 
-`src/services/analytics.ts` ports `GameAnalyticsManager`. Same event names
-(`game_start`, `game_exit`, `game_over`, `game_completed`, `ad_impression`),
-same parameters (`game_id`, `game_title`, `duration_seconds`, `score`,
-`level`, `exit_reason`, `is_abandoned`, `ad_format`) and the same dual
-camelCase/snake_case body the backend ingest schema expects. Rules kept from
-native: duplicate `game_start` for the active game is ignored; switching
-games emits `game_exit` with `exit_reason=swiped_away`; backgrounding emits
-`app_paused` unless an ad is showing; sessions under 10 s are
-`is_abandoned`. Delivery is fire-and-forget through the same host fallback;
-failed events are kept in a bounded (50) persisted queue and retried on the
-next successful send. Nothing in analytics can throw into UI code.
+Two pipelines run side by side: **Firebase / GA4** (the product analytics) and
+the **backend ingest endpoint** (`POST /api/analytics/event`, which
+`src/services/analytics.ts` ports from `GameAnalyticsManager`). The lifecycle
+events go to both; everything else is Firebase-only. Rules kept from native:
+a duplicate `game_start` for the active game is ignored, switching games
+emits `game_exit` with `exit_reason=swiped_away`, backgrounding emits
+`app_paused` unless an ad is showing, and sessions under 10 s are
+`is_abandoned`.
+
+### Event taxonomy
+
+| Event | When | Beyond the shared identity |
+|---|---|---|
+| `game_impression` | a game is reached in the feed, once per game per session | `feed_position` |
+| `game_select` | the same moment, in GA4's recommended shape | `item_id`, `item_name`, `content_type` |
+| `game_start` | a game becomes the page on screen | `play_count`, `attempt_number` |
+| `game_load` | a load attempt settles | `outcome`, `source`, `webview_ms`, `html_ms`, `engine_ms`, `first_frame_ms`, `total_ms` |
+| `game_download` | a bundle finishes or gives up | `outcome`, `bytes`, `duration_ms`, `kbps` |
+| `level_start` / `level_end` | level boundaries | `level_number`, `success`, `result` |
+| `game_complete` / `game_fail` | win / loss | `score`, `level`, `duration_seconds`, `result` |
+| `game_exit` | swiped away, backgrounded, navigated | `exit_reason`, `abandoned`, `duration_seconds` |
+| `game_action` | hints, coins, favourites, diagnostics | `action_name`, `action_value` |
+| `ad_impression` | a full-screen ad is shown | `ad_format` |
+| `screen_view` | navigation | `screen_name`, `screen_class` |
+
+Every game event carries the same identity, attached centrally so no call site
+can forget it: **`game_id`, `game_name`, `game_version`, `category`,
+`session_id`, `event_ts`**. `game_name` is resolved from the live catalogue,
+so an Admin Panel rename shows up without a client release.
+
+`game_load` is deliberately one event rather than the five it could be
+(`load_start`/`load_complete`/`load_error`/`game_ready`/`first_frame`): GA4
+reports on events, and "where did the time go" should be one row, not a join
+across four. `game_download` likewise reports the finished transfer —
+per-percent progress events would be the loudest thing in the property and
+would say nothing the byte count and duration do not.
+
+### Reliability
+
+* **Nothing is silently swallowed.** Every Firebase promise is awaited and its
+  rejection reported (once per distinct failure, in development); a Firebase
+  that cannot initialise at all is surfaced through `analyticsHealth()`
+  instead of turning into "no events, and no reason given".
+* **GA4's limits are enforced before the SDK sees the event**, because the
+  SDK's own answer to breaking them is to drop the parameter without a word,
+  in release, where nobody is watching: 40-char event and parameter names, a
+  100-char value cap, 25 parameters. Booleans are normalised to `1`/`0` —
+  GA4 has no boolean type and a raw one arrives unusable.
+* **No duplicates by construction.** `game_start` is ignored while the same
+  game is already active; `game_impression` is once per game per session;
+  `game_load` is keyed by `gameId:buildId:attempt`, so a WebView remount or a
+  replayed effect cannot report one load twice. Firebase's own automatic
+  screen reporting is turned **off** in `firebase.json` — the app logs its own
+  semantic `screen_view`, and leaving both on produced two per navigation.
+* **No custom queue for Firebase.** The SDK already persists and retries
+  events across launches and offline periods; the bounded 50-event persisted
+  queue in this file is for the *backend* pipeline only. Nothing in analytics
+  can throw into UI code.
+
+### Release configuration
+
+* `android/app/google-services.json` must carry the same `package_name` as
+  `applicationId` in `android/app/build.gradle` (`com.sogeitest`). A mismatch
+  is the single most common cause of "analytics works in debug, not release";
+  the Google Services Gradle plugin fails the build on it, so a build that
+  succeeds has already proved this.
+* `firebase.json` at the project root makes collection explicit rather than
+  relying on defaults, and disables automatic screen reporting. The
+  `@react-native-firebase/app` Gradle plugin turns it into manifest metadata
+  at build time.
+* `proguard-rules.pro` keeps Firebase, the Measurement SDK, the
+  react-native-firebase modules and this app's own bridge modules. They are
+  inert while `enableProguardInReleaseBuilds` is false — which it is — and
+  exist so that turning shrinking on cannot quietly take analytics with it.
+  R8 breaks Firebase invisibly: the app runs, events are logged, nothing
+  arrives.
+* Nothing in the code gates events on `__DEV__`. Debug and release send the
+  same events; only the development-time warnings differ.
+
+### Registering custom dimensions
+
+`game_id`, `game_name`, `game_version`, `category`, `session_id`, `outcome`,
+`source`, `exit_reason`, `result` and `action_name` are **event-scoped custom
+dimensions**, and `total_ms`, `engine_ms`, `first_frame_ms`, `duration_ms`,
+`bytes`, `score` and `duration_seconds` are **custom metrics**. Until they are
+registered in *GA4 -> Admin -> Custom definitions* they arrive correctly but
+cannot be used in any standard report — they show as `(not set)`. Registration
+is not retroactive, so do it before the data you care about is collected.
+(BigQuery export and DebugView show them regardless.)
+
+### Verifying a release build
+
+Settings -> tap the **Profile** heading five times reveals a Diagnostics card.
+It is deliberately not behind `__DEV__`, because the questions it answers only
+matter in a release build, where DebugView and logcat are not part of the
+picture: whether Firebase initialised, the app's session id, whether the
+on-device store is serving and how much is stored. **Send analytics ping**
+logs a `game_action` with `action_name=analytics_ping` and a six-digit
+`action_value` shown on screen — search for that value in GA4 Realtime to
+confirm the production pipeline end to end.
 
 ## Building APKs
 

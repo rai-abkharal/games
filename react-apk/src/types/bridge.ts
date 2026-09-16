@@ -25,6 +25,8 @@ export type GameToHostMessage =
   | { type: 'saveLevelState'; level: number }
   | { type: 'showRewardedAd'; rewardType: string }
   | { type: 'metrics'; fps: number; frameTimeMs: number }
+  /** Document-start-relative boot timings, sent once after the first painted frame. */
+  | { type: 'perf'; domMs: number; loadMs: number; firstFrameMs: number }
   | { type: 'paused' }
   | { type: 'resumed' };
 

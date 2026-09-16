@@ -25,22 +25,47 @@ export interface ReadyBundle {
   entry: string;
   /** `http://127.0.0.1:<port>/<token>/<gameId>/<buildId>/<entry>` */
   url: string;
+  /** Size of the build, present on the event that announces a finished download. */
+  bytes?: number;
+  /** Wall-clock milliseconds the download took, timed natively. */
+  elapsedMs?: number;
 }
+
+/**
+ * How close a game is to the player. The native queue runs strictly in this
+ * order and applies rate ceilings by it, so it is the single knob that decides
+ * what gets bandwidth when.
+ */
+export const BundlePriority = {
+  /** The page on screen. Never rate-limited, always first. */
+  current: 0,
+  /** One swipe away — the game whose absence the player is about to see. */
+  next: 1,
+  /** The short lookahead behind that (+2, +3). */
+  near: 2,
+  /** The rest of the catalogue, filled in when nothing better is waiting. */
+  rest: 3,
+} as const;
+
+export type BundlePriorityValue = (typeof BundlePriority)[keyof typeof BundlePriority];
 
 interface BundleRequest {
   gameId: string;
   version: string;
   buildId: string;
   bundleUrl: string;
-  /** The game on screen — exempt from every speculative rate ceiling. */
-  foreground: boolean;
+  priority: BundlePriorityValue;
 }
 
 interface BundlePolicy {
-  /** Ceiling for speculative bundles while a game is running. 0 = no limit. */
+  /** Ceiling for the *distant* catalogue while a game is running. 0 = no limit. */
   playingRateBytesPerSecond?: number;
-  /** Ceiling for speculative bundles on a metered link. 0 = no limit. */
+  /** Ceiling for the distant catalogue on a metered link. 0 = no limit. */
   meteredRateBytesPerSecond?: number;
+  /** Ceiling for the next game while one is being played, unmetered. */
+  nextRateBytesPerSecond?: number;
+  /** Ceiling for the next game on a metered link. */
+  meteredNextRateBytesPerSecond?: number;
   storageBudgetBytes?: number;
   /** Cellular or otherwise expensive connection. */
   metered?: boolean;
@@ -53,6 +78,7 @@ interface NativeGameBundles {
   setPaused(paused: boolean): void;
   setPolicy(policy: BundlePolicy): void;
   markPlayed(gameId: string): void;
+  warm(gameId: string): void;
   getStatus(): Promise<{ available: boolean; port: number; usedBytes: number; ready: ReadyBundle[] }>;
   addListener(eventName: string): void;
   removeListeners(count: number): void;
@@ -75,6 +101,32 @@ interface BundleState {
 
 export const useBundleStore = create<BundleState>(() => ({ ready: {}, started: false }));
 
+/**
+ * Live download state, kept in a store of its own on purpose.
+ *
+ * Progress arrives four times a second. Putting it in `useBundleStore` would
+ * re-render every component that only wanted to know whether a build is
+ * playable — including the feed and its pager — four times a second, during a
+ * download, which is exactly when frames matter most. Only the placeholder of
+ * the page being downloaded subscribes here, and it subscribes to one game's
+ * slice rather than the map.
+ */
+export interface BundleDownload {
+  gameId: string;
+  buildId: string;
+  bytesDone: number;
+  bytesTotal: number;
+  /** 0..1, or null when the size is not known yet. */
+  fraction: number | null;
+  failed?: { reason: string; retryInMs: number };
+}
+
+interface DownloadState {
+  active: Record<string, BundleDownload>;
+}
+
+export const useDownloadStore = create<DownloadState>(() => ({ active: {} }));
+
 /** Synchronous read for render paths; never suspends and never hits the bridge. */
 export function localUrlFor(game: Pick<GameItem, 'id' | 'buildId'>): string | null {
   if (!game.buildId) return null;
@@ -82,6 +134,11 @@ export function localUrlFor(game: Pick<GameItem, 'id' | 'buildId'>): string | nu
   // The build must match exactly: a stored copy of an older build is stale the
   // moment the catalogue advertises a new one.
   return entry && entry.buildId === game.buildId ? entry.url : null;
+}
+
+/** The download in flight for a game, if any. Safe to call from a selector. */
+export function downloadFor(gameId: string): BundleDownload | undefined {
+  return useDownloadStore.getState().active[gameId];
 }
 
 function mergeReady(bundles: ReadyBundle[]): void {
@@ -93,6 +150,41 @@ function mergeReady(bundles: ReadyBundle[]): void {
     }
     return { ready };
   });
+}
+
+function setDownload(gameId: string, next: BundleDownload | null): void {
+  useDownloadStore.setState(state => {
+    const current = state.active[gameId];
+    if (!next) {
+      if (!current) return state;
+      const active = { ...state.active };
+      delete active[gameId];
+      return { active };
+    }
+    // Progress ticks land at 4 Hz; skipping the ones that would not move a
+    // percentage on screen keeps React out of the loop entirely.
+    if (
+      current &&
+      current.buildId === next.buildId &&
+      current.failed === next.failed &&
+      Math.round((current.fraction ?? -1) * 100) === Math.round((next.fraction ?? -1) * 100)
+    ) {
+      return state;
+    }
+    return { active: { ...state.active, [gameId]: next } };
+  });
+}
+
+/** Callbacks the feed registers so finished and failed downloads reach analytics. */
+interface BundleObserver {
+  onReady?: (bundle: ReadyBundle) => void;
+  onFailed?: (event: { gameId: string; buildId: string; reason: string; retryInMs: number }) => void;
+}
+
+let observer: BundleObserver = {};
+
+export function setBundleObserver(next: BundleObserver): void {
+  observer = next;
 }
 
 let subscriptions: EmitterSubscription[] = [];
@@ -109,12 +201,49 @@ export function startBundleStore(): Promise<void> {
     try {
       const emitter = new NativeEventEmitter(native as any);
       subscriptions = [
-        emitter.addListener('GameBundleReady', (bundle: unknown) =>
-          mergeReady([bundle as ReadyBundle]),
-        ),
-        emitter.addListener('GameBundleFailed', () => {
-          // Nothing to do: the game keeps loading from the network, and the
-          // build stays in the wish-list for the next sync to retry.
+        emitter.addListener('GameBundleReady', (raw: unknown) => {
+          const bundle = raw as ReadyBundle;
+          mergeReady([bundle]);
+          setDownload(bundle.gameId, null);
+          observer.onReady?.(bundle);
+        }),
+        emitter.addListener('GameBundleStarted', (raw: unknown) => {
+          const event = raw as { gameId: string; buildId: string; bytesDone: number; bytesTotal: number };
+          if (!event?.gameId) return;
+          setDownload(event.gameId, {
+            gameId: event.gameId,
+            buildId: event.buildId,
+            bytesDone: event.bytesDone ?? 0,
+            bytesTotal: event.bytesTotal ?? 0,
+            fraction: event.bytesTotal > 0 ? (event.bytesDone ?? 0) / event.bytesTotal : null,
+          });
+        }),
+        emitter.addListener('GameBundleProgress', (raw: unknown) => {
+          const event = raw as { gameId: string; buildId: string; bytesDone: number; bytesTotal: number };
+          if (!event?.gameId) return;
+          setDownload(event.gameId, {
+            gameId: event.gameId,
+            buildId: event.buildId,
+            bytesDone: event.bytesDone ?? 0,
+            bytesTotal: event.bytesTotal ?? 0,
+            fraction: event.bytesTotal > 0 ? (event.bytesDone ?? 0) / event.bytesTotal : null,
+          });
+        }),
+        emitter.addListener('GameBundleFailed', (raw: unknown) => {
+          const event = raw as { gameId: string; buildId: string; reason: string; retryInMs: number };
+          if (!event?.gameId) return;
+          // The page keeps loading from the network, and the build stays in the
+          // wish-list for the next sync to retry after the native back-off. The
+          // record is kept so the placeholder can say *why* it is waiting.
+          setDownload(event.gameId, {
+            gameId: event.gameId,
+            buildId: event.buildId,
+            bytesDone: 0,
+            bytesTotal: 0,
+            fraction: null,
+            failed: { reason: event.reason, retryInMs: event.retryInMs ?? 0 },
+          });
+          observer.onFailed?.(event);
         }),
       ];
     } catch {
@@ -138,19 +267,27 @@ export function stopBundleStore(): void {
 
 /**
  * Hands the native queue the games worth having on disk, most wanted first.
- * Builds already stored are filtered out natively, so a relaunch with an
- * unchanged catalogue issues no requests at all.
+ *
+ * `priorityFor` says how close each game is to the player. The native side
+ * runs the queue strictly in that order and re-scores the job already in
+ * flight against it, so a distant bundle that started before the last swipe is
+ * paused rather than allowed to hold up the game about to be opened. Builds
+ * already stored are filtered out natively, so a relaunch with an unchanged
+ * catalogue issues no requests at all.
  */
-export function syncBundles(games: GameItem[], foregroundGameId: string | null = null): void {
+export function syncBundles(
+  games: GameItem[],
+  priorityFor: (game: GameItem, index: number) => BundlePriorityValue = () => BundlePriority.rest,
+): void {
   if (!native) return;
   const requests: BundleRequest[] = games
     .filter(game => game.buildId && game.bundleUrl)
-    .map(game => ({
+    .map((game, index) => ({
       gameId: game.id,
       version: game.version,
       buildId: String(game.buildId),
       bundleUrl: String(game.bundleUrl),
-      foreground: game.id === foregroundGameId,
+      priority: priorityFor(game, index),
     }));
   if (!requests.length) return;
   try {
@@ -187,6 +324,19 @@ export function setBundlePaused(paused: boolean): void {
 export function markBundlePlayed(gameId: string): void {
   try {
     native?.markPlayed(gameId);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Asks the store to pull a stored build through the kernel page cache, so the
+ * WebView's first read of it comes from memory rather than flash. Cheap, and
+ * only worth doing for the game the player is one swipe from.
+ */
+export function warmBundle(gameId: string): void {
+  try {
+    native?.warm(gameId);
   } catch {
     /* ignore */
   }

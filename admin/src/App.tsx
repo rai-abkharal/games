@@ -3022,9 +3022,8 @@ export default function App() {
                       marginBottom: "20px",
                     }}
                   >
-                    Upload a .ZIP game package up to 50 MiB. Validated packages
-                    appear in Staged uploads for preview and authorized
-                    publication.
+                    Upload a .ZIP game package. Validated packages appear in
+                    Staged uploads for preview and authorized publication.
                   </p>
 
                   <div

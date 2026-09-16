@@ -1,9 +1,11 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { STORAGE_KEYS } from '../config/env';
 import type { RootScreenProps } from '../navigation/types';
 import { adManager } from '../services/adManager';
+import { analytics, analyticsHealth } from '../services/analytics';
+import { bundleStatus } from '../services/gameBundles';
 import { removeKeys } from '../services/storage';
 import { useCatalogStore } from '../store/catalogStore';
 import { usePlayerStore } from '../store/playerStore';
@@ -24,6 +26,16 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
   const setVibrationEnabled = usePlayerStore(state => state.setVibrationEnabled);
   const setTheme = usePlayerStore(state => state.setTheme);
   const [clearing, setClearing] = useState(false);
+  /**
+   * Hidden behind five taps on the Profile heading rather than behind
+   * `__DEV__`, because the questions it answers — is Firebase actually
+   * initialised, is the on-device store running, how much is stored — are
+   * exactly the ones that only matter in a release build, where DebugView and
+   * logcat are not part of the picture.
+   */
+  const [diagnostics, setDiagnostics] = useState(false);
+  // A ref, not state: counting taps is not something the screen should re-render for.
+  const taps = useRef(0);
 
   const clearCatalogCache = useCallback(async () => {
     setClearing(true);
@@ -32,6 +44,14 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
     void adManager.refreshConfig();
     setClearing(false);
     toast('✅ Catalogue cache refreshed');
+  }, []);
+
+  const revealDiagnostics = useCallback(() => {
+    taps.current += 1;
+    if (taps.current >= 5) {
+      taps.current = 0;
+      setDiagnostics(true);
+    }
   }, []);
 
   return (
@@ -92,10 +112,14 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
           </View>
         </Card>
 
-        <Card theme={theme} title="Profile">
-          <Text style={[styles.text, { color: theme.textPrimary }]}>Player ID: {playerId} (Guest)</Text>
-          <Text style={[styles.text, { color: theme.textPrimary }]}>🪙 Total wallet: {coins} coins</Text>
-        </Card>
+        <Pressable onPress={revealDiagnostics} accessibilityRole="button" accessibilityLabel="Profile">
+          <Card theme={theme} title="Profile">
+            <Text style={[styles.text, { color: theme.textPrimary }]}>Player ID: {playerId} (Guest)</Text>
+            <Text style={[styles.text, { color: theme.textPrimary }]}>🪙 Total wallet: {coins} coins</Text>
+          </Card>
+        </Pressable>
+
+        {diagnostics ? <Diagnostics theme={theme} /> : null}
 
         <Card theme={theme} title="Data">
           <Text style={[styles.hint, { color: theme.textSecondary }]}>Backend: {getActiveBaseUrl()}</Text>
@@ -121,6 +145,60 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
         </Pressable>
       </ScrollView>
     </View>
+  );
+}
+
+/**
+ * What the app can actually verify about itself in a build nobody can attach a
+ * debugger to: whether Firebase came up, whether the on-device store is
+ * serving, and how much of the catalogue is local. The ping is the part that
+ * matters most — an event fired on demand, from a release APK, with a value
+ * you can search for in GA4 an hour later, which is the only honest way to
+ * confirm the production pipeline end to end.
+ */
+function Diagnostics({ theme }: { theme: ReturnType<typeof useTheme> }) {
+  const [store, setStore] = useState<Awaited<ReturnType<typeof bundleStatus>>>(null);
+  const [pinged, setPinged] = useState<string | null>(null);
+  const health = analyticsHealth();
+
+  useEffect(() => {
+    let cancelled = false;
+    void bundleStatus().then(status => {
+      if (!cancelled) setStore(status);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const ping = useCallback(() => {
+    const tag = String(Date.now()).slice(-6);
+    analytics.onGameAction('diagnostics', 'Diagnostics', 'analytics_ping', tag);
+    setPinged(tag);
+    toast(`📡 Sent analytics_ping ${tag}`);
+  }, []);
+
+  return (
+    <Card theme={theme} title="Diagnostics">
+      <Text style={[styles.hint, { color: theme.textSecondary }]}>
+        Firebase: {health.available ? 'initialised' : `unavailable — ${health.error ?? 'unknown'}`}
+      </Text>
+      <Text style={[styles.hint, { color: theme.textSecondary }]}>Session: {health.sessionId}</Text>
+      <Text style={[styles.hint, { color: theme.textSecondary }]}>
+        Game store: {store ? (store.available ? `serving on :${store.port}` : 'not serving') : 'checking…'}
+      </Text>
+      <Text style={[styles.hint, { color: theme.textSecondary }]}>
+        Stored: {store ? `${store.ready.length} builds, ${(store.usedBytes / (1024 * 1024)).toFixed(1)} MB` : '—'}
+      </Text>
+      {pinged ? (
+        <Text style={[styles.hint, { color: theme.textSecondary }]}>
+          Look for game_action with action_value = {pinged}
+        </Text>
+      ) : null}
+      <Pressable onPress={ping} style={[styles.button, { backgroundColor: theme.accent }]}>
+        <Text style={styles.buttonText}>Send analytics ping</Text>
+      </Pressable>
+    </Card>
   );
 }
 

@@ -16,7 +16,7 @@ import { GameSchema } from "../types/game";
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024, files: 1, fields: 0, parts: 2 },
+  limits: { files: 1, fields: 0, parts: 2 },
 });
 
 export function createAdminRouter(
@@ -157,13 +157,10 @@ export function createAdminRouter(
   // 7-Point Comprehensive Game Package Validator
   function validateGameZip(zip: AdmZip, fileSizeBytes: number) {
     const entries = zip.getEntries();
-    if (
-      entries.length > 2000 ||
-      entries.reduce((total, e) => total + e.header.size, 0) > 200 * 1024 * 1024
-    )
+    if (entries.length > 5000)
       throw new SecurityError(
         400,
-        "Archive exceeds expanded size or file count limits",
+        "Archive exceeds file count limits",
       );
     const names = new Set<string>();
     for (const entry of entries) {
@@ -174,7 +171,6 @@ export function createAdminRouter(
         name.split("/").some((p) => p === ".." || p === ".") ||
         name.includes("\0") ||
         names.has(name.toLowerCase()) ||
-        entry.header.size > 50 * 1024 * 1024 ||
         (entry.header.size > 1024 * 1024 &&
           entry.header.size / Math.max(1, entry.header.compressedSize) > 200)
       )
