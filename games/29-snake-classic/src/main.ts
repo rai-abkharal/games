@@ -419,7 +419,7 @@ export class Game {
         return;
       }
 
-      // 4. Gameplay Input: Swipe ONLY inside diagonal box!
+      // 4. Gameplay Input: Swipe ONLY inside rectangular box!
       if (this.state === GameState.PLAYING) {
         // Mode Badge -> Click to open Difficulty Selection Dialog!
         const mb = THEME.modeBadge;
@@ -443,13 +443,15 @@ export class Game {
           return;
         }
 
-        // SWIPE ONLY INSIDE DIAGONAL BOX:
-        // Touches outside the diagonal box do NOT move the snake!
+        // SWIPE ONLY INSIDE RECTANGULAR BOX:
+        // Touches outside the rectangular box do NOT move the snake!
         const cx = THEME.joyX;
         const cy = this.currentJoyY;
-        const inDiagonalBox = (Math.abs(px - cx) + Math.abs(py - cy)) <= THEME.joyRadius * 1.18;
+        const halfW = (THEME.joyBoxW || 190) / 2 + 10;
+        const halfH = (THEME.joyBoxH || 154) / 2 + 10;
+        const inRectBox = Math.abs(px - cx) <= halfW && Math.abs(py - cy) <= halfH;
 
-        if (inDiagonalBox) {
+        if (inRectBox) {
           this.isSwiping = true;
           this.isJoyActive = true;
           this.swipeStartX = px;
@@ -474,7 +476,7 @@ export class Game {
         return;
       }
 
-      // Swipe handling (ONLY active if touch started inside the diagonal box):
+      // Swipe handling (ONLY active if touch started inside the rectangular box):
       if (this.state === GameState.PLAYING && this.isSwiping) {
         const dx = px - this.swipeStartX;
         const dy = py - this.swipeStartY;

@@ -1048,7 +1048,7 @@ export class Renderer {
 
   // --------------------------------------------------------------------------
   // --------------------------------------------------------------------------
-  // DIAGONAL TOUCH CONTROL BOX (SWIPE ZONE)
+  // RECTANGULAR TOUCH CONTROL BOX (SWIPE ZONE)
   // --------------------------------------------------------------------------
   public renderJoystick(
     ctx: CanvasRenderingContext2D,
@@ -1060,79 +1060,78 @@ export class Renderer {
   ): void {
     const cx = THEME.joyX;
     const cy = padYOverride !== undefined ? padYOverride : THEME.joyY;
-    const padR = THEME.joyRadius;
+    const boxW = THEME.joyBoxW || 190;
+    const boxH = THEME.joyBoxH || 154;
+    const cornerRadius = THEME.joyCornerRadius || 22;
 
-    // 1. Semi-transparent Diagonal Box (Square rotated 45°)
-    const side = padR * Math.SQRT2;
-    const cornerRadius = 24;
+    const x0 = cx - boxW / 2;
+    const y0 = cy - boxH / 2;
 
+    // 1. Upright Semi-transparent Rectangular Box (Rounded Corners)
     ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(Math.PI / 4);
-
-    // Soft ambient drop shadow
-    ctx.shadowColor = 'rgba(20, 49, 78, 0.18)';
+    ctx.shadowColor = 'rgba(20, 49, 78, 0.16)';
     ctx.shadowBlur = 14;
     ctx.shadowOffsetY = 4;
 
     ctx.beginPath();
     if (typeof (ctx as any).roundRect === 'function') {
-      (ctx as any).roundRect(-side / 2, -side / 2, side, side, cornerRadius);
+      (ctx as any).roundRect(x0, y0, boxW, boxH, cornerRadius);
     } else {
-      const hs = side / 2;
-      const r = Math.min(cornerRadius, hs);
-      ctx.moveTo(-hs + r, -hs);
-      ctx.lineTo(hs - r, -hs);
-      ctx.quadraticCurveTo(hs, -hs, hs, -hs + r);
-      ctx.lineTo(hs, hs - r);
-      ctx.quadraticCurveTo(hs, hs, hs - r, hs);
-      ctx.lineTo(-hs + r, hs);
-      ctx.quadraticCurveTo(-hs, hs, -hs, hs - r);
-      ctx.lineTo(-hs, -hs + r);
-      ctx.quadraticCurveTo(-hs, -hs, -hs + r, -hs);
+      const r = Math.min(cornerRadius, boxW / 2, boxH / 2);
+      ctx.moveTo(x0 + r, y0);
+      ctx.lineTo(x0 + boxW - r, y0);
+      ctx.quadraticCurveTo(x0 + boxW, y0, x0 + boxW, y0 + r);
+      ctx.lineTo(x0 + boxW, y0 + boxH - r);
+      ctx.quadraticCurveTo(x0 + boxW, y0 + boxH, x0 + boxW - r, y0 + boxH);
+      ctx.lineTo(x0 + r, y0 + boxH);
+      ctx.quadraticCurveTo(x0, y0 + boxH, x0, y0 + boxH - r);
+      ctx.lineTo(x0, y0 + r);
+      ctx.quadraticCurveTo(x0, y0, x0 + r, y0);
     }
 
-    const bgGrad = ctx.createRadialGradient(0, 0, 6, 0, 0, side * 0.72);
+    const bgGrad = ctx.createLinearGradient(x0, y0, x0, y0 + boxH);
     bgGrad.addColorStop(0, isTouchActive ? 'rgba(255, 255, 255, 0.28)' : 'rgba(255, 255, 255, 0.20)');
-    bgGrad.addColorStop(0.75, isTouchActive ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.10)');
-    bgGrad.addColorStop(1, 'rgba(240, 248, 255, 0.05)');
+    bgGrad.addColorStop(0.7, isTouchActive ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.10)');
+    bgGrad.addColorStop(1, 'rgba(240, 248, 255, 0.06)');
     ctx.fillStyle = bgGrad;
     ctx.fill();
 
-    ctx.strokeStyle = isTouchActive ? 'rgba(131, 204, 67, 0.50)' : 'rgba(255, 255, 255, 0.38)';
+    ctx.strokeStyle = isTouchActive ? 'rgba(131, 204, 67, 0.55)' : 'rgba(255, 255, 255, 0.38)';
     ctx.lineWidth = 1.8;
     ctx.stroke();
     ctx.restore();
 
-    // 2. Light Minimal Guide Lines for 4 Cardinal Directions (Up, Down, Left, Right)
-    ctx.save();
-    const innerHub = 18;
-    const lineSpan = padR - 16;
+    // 2. Directional Metrics
+    const innerHub = 22;
+    const offsetY = Math.round(boxH * 0.32);
+    const offsetX = Math.round(boxW * 0.33);
 
+    // 3. Light Minimal Guide Lines (From Center Ring to Arrow Base — ZERO Line on Tip!)
+    ctx.save();
     const drawGuideLine = (dir: Direction, x1: number, y1: number, x2: number, y2: number) => {
       const isLit = touchDir === dir;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
-      ctx.strokeStyle = isLit ? 'rgba(131, 204, 67, 0.85)' : 'rgba(255, 255, 255, 0.24)';
-      ctx.lineWidth = isLit ? 2.2 : 1.2;
+      ctx.strokeStyle = isLit ? 'rgba(131, 204, 67, 0.75)' : 'rgba(255, 255, 255, 0.18)';
+      ctx.lineWidth = isLit ? 2 : 1.2;
       if (isLit) {
-        ctx.shadowColor = 'rgba(131, 204, 67, 0.8)';
-        ctx.shadowBlur = 8;
+        ctx.shadowColor = 'rgba(131, 204, 67, 0.7)';
+        ctx.shadowBlur = 6;
       } else {
         ctx.shadowBlur = 0;
       }
       ctx.stroke();
     };
 
-    // UP axis
-    drawGuideLine(Direction.UP, cx, cy - innerHub, cx, cy - lineSpan);
-    // DOWN axis
-    drawGuideLine(Direction.DOWN, cx, cy + innerHub, cx, cy + lineSpan);
-    // LEFT axis
-    drawGuideLine(Direction.LEFT, cx - innerHub, cy, cx - lineSpan, cy);
-    // RIGHT axis
-    drawGuideLine(Direction.RIGHT, cx + innerHub, cy, cx + lineSpan, cy);
+    // UP axis: stops cleanly before arrow base, NO line on tip
+    drawGuideLine(Direction.UP, cx, cy - innerHub, cx, cy - offsetY + 11);
+    // DOWN axis: stops cleanly before arrow base, NO line on tip
+    drawGuideLine(Direction.DOWN, cx, cy + innerHub, cx, cy + offsetY - 11);
+    // LEFT axis: stops cleanly before arrow base, NO line on tip
+    drawGuideLine(Direction.LEFT, cx - innerHub, cy, cx - offsetX + 11, cy);
+    // RIGHT axis: stops cleanly before arrow base, NO line on tip
+    drawGuideLine(Direction.RIGHT, cx + innerHub, cy, cx + offsetX - 11, cy);
 
     // Subtle center resting target circle
     ctx.beginPath();
@@ -1144,34 +1143,59 @@ export class Renderer {
     ctx.setLineDash([]);
     ctx.restore();
 
-    // 3. Directional Markers (▲, ▼, ◀, ▶)
-    const dOffset = padR * 0.70;
-    const dirIndicators = [
-      { dir: Direction.UP, text: '▲', x: cx, y: cy - dOffset },
-      { dir: Direction.DOWN, text: '▼', x: cx, y: cy + dOffset },
-      { dir: Direction.LEFT, text: '◀', x: cx - dOffset, y: cy },
-      { dir: Direction.RIGHT, text: '▶', x: cx + dOffset, y: cy },
-    ];
+    // 4. Directional Arrow Markers (Clean Sharp Triangles, Glowing when Snake Head Points That Way)
+    const drawArrow = (dir: Direction, x: number, y: number) => {
+      const isLit = touchDir === dir;
+      const halfW = isLit ? 6.5 : 5.5;
+      const len = isLit ? 7.5 : 6.5;
 
-    ctx.save();
-    for (const ind of dirIndicators) {
-      const isLit = touchDir === ind.dir;
-      ctx.font = `${isLit ? '900' : '700'} ${isLit ? '13px' : '11px'} Fredoka, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.save();
+      if (isLit) {
+        // Soft aura behind active heading arrow
+        ctx.beginPath();
+        ctx.arc(x, y, 13, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(131, 204, 67, 0.20)';
+        ctx.fill();
+      }
+
+      ctx.beginPath();
+      if (dir === Direction.UP) {
+        ctx.moveTo(x, y - len);
+        ctx.lineTo(x + halfW, y + len * 0.7);
+        ctx.lineTo(x - halfW, y + len * 0.7);
+      } else if (dir === Direction.DOWN) {
+        ctx.moveTo(x, y + len);
+        ctx.lineTo(x + halfW, y - len * 0.7);
+        ctx.lineTo(x - halfW, y - len * 0.7);
+      } else if (dir === Direction.LEFT) {
+        ctx.moveTo(x - len, y);
+        ctx.lineTo(x + len * 0.7, y - halfW);
+        ctx.lineTo(x + len * 0.7, y + halfW);
+      } else if (dir === Direction.RIGHT) {
+        ctx.moveTo(x + len, y);
+        ctx.lineTo(x - len * 0.7, y - halfW);
+        ctx.lineTo(x - len * 0.7, y + halfW);
+      }
+      ctx.closePath();
+
       if (isLit) {
         ctx.fillStyle = '#83CC43';
-        ctx.shadowColor = 'rgba(131, 204, 67, 0.85)';
+        ctx.shadowColor = 'rgba(131, 204, 67, 0.95)';
         ctx.shadowBlur = 10;
       } else {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.50)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
         ctx.shadowBlur = 0;
       }
-      ctx.fillText(ind.text, ind.x, ind.y);
-    }
-    ctx.restore();
+      ctx.fill();
+      ctx.restore();
+    };
 
-    // 4. Center Tactile Bead / Disc (Visual Design Element)
+    drawArrow(Direction.UP, cx, cy - offsetY);
+    drawArrow(Direction.DOWN, cx, cy + offsetY);
+    drawArrow(Direction.LEFT, cx - offsetX, cy);
+    drawArrow(Direction.RIGHT, cx + offsetX, cy);
+
+    // 5. Center Tactile Bead / Disc (Visual Design Element)
     const kx = cx;
     const ky = cy;
     const knobR = THEME.joyKnobRadius;
