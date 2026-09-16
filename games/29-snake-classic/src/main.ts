@@ -59,19 +59,18 @@ export class Game {
   public impactStar: { x: number; y: number; scale: number; alpha: number } | null = null;
   public impactParticles: ImpactParticle[] = [];
 
-  // Diagonal / Square Touch Gesture State
+  // Visual Control Box & Unified Screen Swipe State
   public joyKnobX: number = THEME.joyX;
   public joyKnobY: number = THEME.joyY;
-  public joyTargetKnobX: number = THEME.joyX;
-  public joyTargetKnobY: number = THEME.joyY;
   public isJoyActive: boolean = false;
   public joyDir: Direction | null = null;
   public currentJoyY: number = THEME.joyY;
   public targetJoyY: number = THEME.joyY;
   public isBottomBarVisible: boolean = true;
   private isPointerDown: boolean = false;
-  private gestureStartX: number = 0;
-  private gestureStartY: number = 0;
+  private isSwiping: boolean = false;
+  private swipeStartX: number = 0;
+  private swipeStartY: number = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -283,24 +282,12 @@ export class Game {
       this.gameOverAnimTime += dt;
     }
 
-    // 5. Smoothly animate touch control area position when bottom bar moves/toggles
+    // 5. Smoothly animate rectangular visual box position when bottom bar moves/toggles
     this.targetJoyY = THEME.joyY;
     this.currentJoyY += (this.targetJoyY - this.currentJoyY) * Math.min(1, dt * 12);
-
-    const cx = THEME.joyX;
-    const cy = this.currentJoyY;
-
-    if (this.isJoyActive) {
-      // Follow finger smoothly and responsively across 360 degrees
-      const followFactor = 1 - Math.exp(-42 * dt);
-      this.joyKnobX += (this.joyTargetKnobX - this.joyKnobX) * followFactor;
-      this.joyKnobY += (this.joyTargetKnobY - this.joyKnobY) * followFactor;
-    } else {
-      // Smooth return to center when finger released
-      const returnFactor = 1 - Math.exp(-20 * dt);
-      this.joyKnobX += (cx - this.joyKnobX) * returnFactor;
-      this.joyKnobY += (cy - this.joyKnobY) * returnFactor;
-    }
+    this.joyKnobX = THEME.joyX;
+    this.joyKnobY = this.currentJoyY;
+    this.joyDir = this.snake.currentDirection;
   }
 
   public render(): void {
@@ -432,22 +419,8 @@ export class Game {
         return;
       }
 
-      // 4. Rectangular Touch Control Area & Top Bar HUD during Gameplay
+      // 4. Gameplay Input: Swipe ONLY inside diagonal box!
       if (this.state === GameState.PLAYING) {
-        const cx = THEME.joyX;
-        const cy = this.currentJoyY;
-        const halfW = THEME.joyBoxW / 2 + 16;
-        const halfH = THEME.joyBoxH / 2 + 16;
-        const inTouchZone = (px >= cx - halfW && px <= cx + halfW && py >= cy - halfH && py <= cy + halfH);
-        if (inTouchZone) {
-          this.isJoyActive = true;
-          Host.post('setSwipeEnabled', { enabled: false });
-          this.gestureStartX = px;
-          this.gestureStartY = py;
-          this.updateTouchGesture(px, py, true);
-          return;
-        }
-
         // Mode Badge -> Click to open Difficulty Selection Dialog!
         const mb = THEME.modeBadge;
         if (
@@ -469,6 +442,21 @@ export class Game {
           this.pauseGame();
           return;
         }
+
+        // SWIPE ONLY INSIDE DIAGONAL BOX:
+        // Touches outside the diagonal box do NOT move the snake!
+        const cx = THEME.joyX;
+        const cy = this.currentJoyY;
+        const inDiagonalBox = (Math.abs(px - cx) + Math.abs(py - cy)) <= THEME.joyRadius * 1.18;
+
+        if (inDiagonalBox) {
+          this.isSwiping = true;
+          this.isJoyActive = true;
+          this.swipeStartX = px;
+          this.swipeStartY = py;
+          Host.post('setSwipeEnabled', { enabled: false });
+        }
+        return;
       }
     };
 
@@ -479,26 +467,47 @@ export class Game {
       const px = pos.x;
       const py = pos.y;
 
-      // Free Touch Gesture Tracking inside Diagonal Control Area
-      if (this.isJoyActive) {
-        this.updateTouchGesture(px, py, false);
-        return;
-      }
-
-      // Handle slider drag
+      // Handle slider drag in difficulty selection
       if (this.state === GameState.DIFF_SELECT && this.isDraggingSlider) {
         const bounds = this.renderer.getDifficultyDialogBounds();
         this.updateSliderFromPointer(px, bounds);
         return;
       }
-      // Note: Swipe gestures are completely disabled as requested!
+
+      // Swipe handling (ONLY active if touch started inside the diagonal box):
+      if (this.state === GameState.PLAYING && this.isSwiping) {
+        const dx = px - this.swipeStartX;
+        const dy = py - this.swipeStartY;
+        const dist = Math.hypot(dx, dy);
+
+        // Responsive swipe threshold (12px)
+        if (dist >= 12) {
+          const absX = Math.abs(dx);
+          const absY = Math.abs(dy);
+          let newDir: Direction;
+
+          if (absX >= absY) {
+            newDir = dx > 0 ? Direction.RIGHT : Direction.LEFT;
+          } else {
+            newDir = dy > 0 ? Direction.DOWN : Direction.UP;
+          }
+
+          this.snake.requestDirection(newDir);
+          this.joyDir = newDir;
+
+          // Reset anchor for continuous fluid swipe chaining (S-curves, zigzags)
+          this.swipeStartX = px;
+          this.swipeStartY = py;
+        }
+      }
     };
 
     // Pointer Up
     const handlePointerUp = () => {
       this.isPointerDown = false;
-      if (this.isJoyActive) {
-        this.resetTouchGesture();
+      this.isJoyActive = false;
+      if (this.isSwiping) {
+        this.isSwiping = false;
         Host.post('setSwipeEnabled', { enabled: true });
       }
       if (this.isDraggingSlider) {
@@ -580,38 +589,10 @@ export class Game {
       if (dir !== null) {
         this.snake.requestDirection(dir);
         this.joyDir = dir;
-        this.isJoyActive = true;
-        const cx = THEME.joyX;
-        const cy = this.currentJoyY;
-        const offset = THEME.joyMaxDist * 0.88;
-        switch (dir) {
-          case Direction.RIGHT:
-            this.joyTargetKnobX = cx + offset;
-            this.joyTargetKnobY = cy;
-            break;
-          case Direction.LEFT:
-            this.joyTargetKnobX = cx - offset;
-            this.joyTargetKnobY = cy;
-            break;
-          case Direction.UP:
-            this.joyTargetKnobX = cx;
-            this.joyTargetKnobY = cy - offset;
-            break;
-          case Direction.DOWN:
-            this.joyTargetKnobX = cx;
-            this.joyTargetKnobY = cy + offset;
-            break;
-        }
       }
     });
 
-    window.addEventListener('keyup', (e: KeyboardEvent) => {
-      if (['ArrowUp', 'KeyW', 'ArrowDown', 'KeyS', 'ArrowLeft', 'KeyA', 'ArrowRight', 'KeyD'].includes(e.code)) {
-        if (this.isJoyActive && !this.isPointerDown) {
-          this.resetTouchGesture();
-        }
-      }
-    });
+    window.addEventListener('keyup', (_e: KeyboardEvent) => {});
   }
 
   private updateSliderFromPointer(
@@ -626,116 +607,6 @@ export class Game {
     if (this.difficulty !== DIFFICULTIES[snapped].id) {
       this.difficulty = DIFFICULTIES[snapped].id;
     }
-  }
-
-  private updateTouchGesture(px: number, py: number, isInitialDown: boolean = false): void {
-    const cx = THEME.joyX;
-    const cy = this.currentJoyY;
-    const maxDx = THEME.joyBoxW / 2 - THEME.joyKnobRadius - 4;
-    const maxDy = THEME.joyBoxH / 2 - THEME.joyKnobRadius - 4;
-
-    // 1. Clamp round button position strictly inside the rectangular box
-    this.joyTargetKnobX = Math.max(cx - maxDx, Math.min(cx + maxDx, px));
-    this.joyTargetKnobY = Math.max(cy - maxDy, Math.min(cy + maxDy, py));
-
-    if (isInitialDown) {
-      this.joyKnobX = this.joyTargetKnobX;
-      this.joyKnobY = this.joyTargetKnobY;
-    }
-
-    // 2. Compute displacement from center
-    const dxFromCenter = this.joyTargetKnobX - cx;
-    const dyFromCenter = this.joyTargetKnobY - cy;
-    const distCenter = Math.hypot(dxFromCenter, dyFromCenter);
-
-    // 3. Compute relative gesture vector from previous anchor
-    const vx = px - this.gestureStartX;
-    const vy = py - this.gestureStartY;
-    const distFromStart = Math.hypot(vx, vy);
-
-    if (isInitialDown) {
-      // Tap or touch-down directly on/around the button
-      if (distCenter >= 9) {
-        this.processDirectionGesture(dxFromCenter, dyFromCenter);
-      }
-      return;
-    }
-
-    // Directing snake through round button movement:
-    if (distCenter >= 9) {
-      this.processDirectionGesture(dxFromCenter, dyFromCenter);
-    }
-    if (distFromStart >= 12) {
-      this.gestureStartX = px;
-      this.gestureStartY = py;
-    }
-  }
-
-  private processDirectionGesture(vx: number, vy: number): void {
-    if (this.state !== GameState.PLAYING) return;
-
-    const absX = Math.abs(vx);
-    const absY = Math.abs(vy);
-
-    // Negligible movement
-    if (absX < 2 && absY < 2) return;
-
-    const dirH = vx > 0 ? Direction.RIGHT : Direction.LEFT;
-    const dirV = vy > 0 ? Direction.DOWN : Direction.UP;
-
-    // Last planned direction in buffer or current direction of snake
-    const lastPlanned = this.snake.directionQueue.length > 0
-      ? this.snake.directionQueue[this.snake.directionQueue.length - 1]
-      : this.snake.currentDirection;
-
-    const isCurrentHorizontal = lastPlanned === Direction.LEFT || lastPlanned === Direction.RIGHT;
-    const isCurrentVertical = lastPlanned === Direction.UP || lastPlanned === Direction.DOWN;
-
-    // Rectangular / Orthogonal Movement Mapping:
-    // If clearly horizontal or vertical:
-    if (absX > absY * 1.35) {
-      this.snake.requestDirection(dirH);
-      this.joyDir = dirH;
-      return;
-    }
-    if (absY > absX * 1.35) {
-      this.snake.requestDirection(dirV);
-      this.joyDir = dirV;
-      return;
-    }
-
-    // In corner/diagonal angle: snake moves on rectangular grid on screen.
-    // Turn along the perpendicular axis to keep motion natural and fluid:
-    if (isCurrentHorizontal) {
-      this.snake.requestDirection(dirV);
-      this.joyDir = dirV;
-      if (dirH !== lastPlanned) {
-        this.snake.requestDirection(dirH);
-      }
-    } else if (isCurrentVertical) {
-      this.snake.requestDirection(dirH);
-      this.joyDir = dirH;
-      if (dirV !== lastPlanned) {
-        this.snake.requestDirection(dirV);
-      }
-    } else {
-      if (absX >= absY) {
-        this.snake.requestDirection(dirH);
-        this.snake.requestDirection(dirV);
-        this.joyDir = dirH;
-      } else {
-        this.snake.requestDirection(dirV);
-        this.snake.requestDirection(dirH);
-        this.joyDir = dirV;
-      }
-    }
-  }
-
-  private resetTouchGesture(): void {
-    this.isJoyActive = false;
-    this.joyDir = null;
-    this.joyTargetKnobX = THEME.joyX;
-    this.joyTargetKnobY = this.currentJoyY;
   }
 }
 
