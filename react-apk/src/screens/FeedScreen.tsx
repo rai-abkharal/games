@@ -33,9 +33,7 @@ import {
 } from '../services/gameBundles';
 import { buildRewardScript, buildSoundScript } from '../services/gameBridge';
 import { markFirstGameReady, useStartupStore } from '../services/startup';
-import { findJoystickZone, JoystickTutorial } from '../components/tutorial/JoystickTutorial';
-import { SwipeTutorial } from '../components/tutorial/SwipeTutorial';
-import { PreGameTutorial } from '../components/tutorial/PreGameTutorial';
+import { PreGameTutorial, type TutorialFlowStep } from '../components/tutorial/PreGameTutorial';
 import { useCatalogStore } from '../store/catalogStore';
 import { usePlayerStore } from '../store/playerStore';
 import { useTutorialStore } from '../store/tutorialStore';
@@ -52,6 +50,42 @@ const HAPTIC_PATTERNS: Record<HapticType, number | number[]> = {
   success: [0, 15, 50, 25],
   warning: [0, 20, 40, 20],
   error: [0, 30, 40, 30],
+};
+
+const FALLBACK_ARROW_PUZZLE: GameItem = {
+  id: 'arrow-puzzle',
+  title: 'Arrow Puzzle',
+  version: '1.0.0',
+  entryUrl: 'http://localhost:8080/games/arrow-puzzle/1.0.0/index.html',
+  thumbnailUrl: 'http://localhost:8080/thumbnails/arrow-puzzle.svg',
+  manifestUrl: 'http://localhost:8080/games/arrow-puzzle/1.0.0/manifest.json',
+  sizeBytes: 39252,
+  orientation: 'portrait',
+  engine: 'canvas2d',
+  feedOrder: 1,
+  category: 'Arcade',
+  description: 'Arrow Puzzle - Directional logic brain puzzle.',
+  status: 'published',
+  touchZones: [],
+  features: { sound: true, vibration: true, hint: false },
+};
+
+const FALLBACK_WATER_SORT: GameItem = {
+  id: 'water-sort',
+  title: 'Water Sort 3D',
+  version: '1.0.0',
+  entryUrl: 'http://localhost:8080/games/water-sort/1.0.0/index.html',
+  thumbnailUrl: 'http://localhost:8080/thumbnails/water-sort.webp',
+  manifestUrl: 'http://localhost:8080/games/water-sort/1.0.0/manifest.json',
+  sizeBytes: 372684,
+  orientation: 'portrait',
+  engine: 'canvas2d',
+  feedOrder: 2,
+  category: 'Puzzle',
+  description: 'AAA luxury 3D Liquid Sorting Puzzle.',
+  status: 'published',
+  touchZones: [],
+  features: { sound: true, vibration: true },
 };
 
 interface FeedPosition {
@@ -115,17 +149,30 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const bannerEnabled = useAdsStore(state => state.bannerEnabled);
   const fullScreenAdShowing = useAdsStore(state => state.fullScreenAdShowing);
 
+  const tutorialsHydrated = useTutorialStore(state => state.hydrated);
+  const firstTimeTutorialCompleted = useTutorialStore(state => state.firstTimeTutorialCompleted);
+  const isTutorialActive = tutorialsHydrated && !firstTimeTutorialCompleted;
+  const [tutorialStep, setTutorialStep] = useState<TutorialFlowStep>('arrow_playing');
+
   const [tab, setTab] = useState<FeedTab>('all');
   const filtered = useMemo(() => {
     if (tab !== 'favorites') return games;
     const set = new Set(favorites);
     return games.filter(game => set.has(game.id));
   }, [games, tab, favorites]);
-  const list = useStableList(filtered);
+
+  const orderedForTutorial = useMemo(() => {
+    if (!isTutorialActive) return filtered;
+    const arrowGame = games.find(g => g.id === 'arrow-puzzle') || FALLBACK_ARROW_PUZZLE;
+    const waterGame = games.find(g => g.id === 'water-sort' || g.id === 'water-sort-3d') || FALLBACK_WATER_SORT;
+    const others = filtered.filter(g => g.id !== arrowGame.id && g.id !== waterGame.id);
+    return [arrowGame, waterGame, ...others];
+  }, [filtered, games, isTutorialActive]);
+  const list = useStableList(orderedForTutorial);
 
   /* ---------------- position ------------------------------------------------- */
   const [position, setPosition] = useState<FeedPosition>(() => ({
-    index: Math.max(0, list.findIndex(game => game.id === usePlayerStore.getState().lastPlayedGameId)),
+    index: isTutorialActive ? 0 : Math.max(0, list.findIndex(game => game.id === usePlayerStore.getState().lastPlayedGameId)),
     direction: 1, settling: false,
   }));
   const positionRef = useRef(position);
@@ -247,90 +294,45 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     [],
   );
 
-  /* ---------------- first-run pre-game onboarding & coach marks ------------- */
-  const tutorialsHydrated = useTutorialStore(state => state.hydrated);
-  const preGameSnakeSeen = useTutorialStore(state => state.preGameSnakeSeen);
-  const swipeTutSeen = useTutorialStore(state => state.swipeSeen);
-  const joyTutSeen = useTutorialStore(state => state.joystickSeen);
-  const firstGameReady = useStartupStore(state => state.gameReady);
-
-  const showPreGameTut = tutorialsHydrated && !preGameSnakeSeen && !suspended && list.length > 0;
-
-  const onCompletePreGameTut = useCallback((reason: 'completed' | 'skipped') => {
-    useTutorialStore.getState().markPreGameSnakeSeen();
-    analytics.onGameAction('global', 'Feed', 'pre_game_tutorial_done', reason);
-  }, []);
-
-  const [swipeTut, setSwipeTut] = useState(false);
-  const [joyTut, setJoyTut] = useState(false);
-  const swipeTutRef = useRef(false);
-  swipeTutRef.current = swipeTut;
-  const joyTutRef = useRef(false);
-  joyTutRef.current = joyTut;
-
-  const dismissSwipeTut = useCallback((reason: string) => {
-    if (!swipeTutRef.current) return;
-    setSwipeTut(false);
+  /* ---------------- first-run tutorial flow --------------------------------- */
+  const onTutorialSwipeUp = useCallback(() => {
+    setTutorialStep('water_sort_playing');
+    setSwipeEnabled(false);
     useTutorialStore.getState().markSwipeSeen();
-    analytics.onGameAction('global', 'Feed', 'tutorial_swipe_done', reason);
+    setPosition({ index: 1, direction: 1, settling: true });
+    analytics.onGameAction('global', 'Feed', 'tutorial_swipe_up_executed');
   }, []);
 
-  const dismissJoyTut = useCallback((reason: string) => {
-    if (!joyTutRef.current) return;
-    setJoyTut(false);
-    useTutorialStore.getState().markJoystickSeen();
-    analytics.onGameAction(currentIdRef.current ?? 'global', undefined, 'tutorial_joystick_done', reason);
-  }, []);
+  const onCompleteTutorial = useCallback(() => {
+    useTutorialStore.getState().markFirstTimeTutorialCompleted();
+    setTutorialStep('done');
+    setSwipeEnabled(true);
+    showDock();
+    analytics.onGameAction('global', 'Feed', 'first_time_tutorial_done', 'completed');
+  }, [showDock]);
 
-  // The overlays never intercept the feed, so dismissal listens at the stage:
-  // the first touch — a tap into the game or the very swipe being taught —
-  // retires whichever coach mark is up.
+  const onSkipTutorial = useCallback(() => {
+    useTutorialStore.getState().markFirstTimeTutorialCompleted();
+    setTutorialStep('done');
+    setSwipeEnabled(true);
+    showDock();
+    analytics.onGameAction('global', 'Feed', 'first_time_tutorial_done', 'skipped');
+  }, [showDock]);
+
+  // Lock swipe during Arrow Puzzle Level 1 and Water Sort Level 1
+  useEffect(() => {
+    if (isTutorialActive) {
+      if (tutorialStep === 'arrow_playing' || tutorialStep === 'water_sort_playing') {
+        setSwipeEnabled(false);
+      } else if (tutorialStep === 'arrow_completed') {
+        setSwipeEnabled(true);
+      }
+    }
+  }, [isTutorialActive, tutorialStep]);
+
   const onStageTouch = useCallback(() => {
-    if (swipeTutRef.current) dismissSwipeTut('gesture');
-    if (joyTutRef.current) dismissJoyTut('gesture');
-  }, [dismissSwipeTut, dismissJoyTut]);
-
-  // Swipe coach: only if pre-game tutorial is complete and swipe was not already seen
-  useEffect(() => {
-    if (!preGameSnakeSeen || swipeTutSeen || !tutorialsHydrated || !firstGameReady || suspended) return;
-    if (list.length < 2 || swipeTutRef.current) return;
-    const timer = setTimeout(() => {
-      setSwipeTut(true);
-      analytics.onGameAction('global', 'Feed', 'tutorial_swipe_shown');
-    }, 650);
-    return () => clearTimeout(timer);
-  }, [preGameSnakeSeen, swipeTutSeen, tutorialsHydrated, firstGameReady, suspended, list.length]);
-
-  // Joystick coach: only if pre-game tutorial is complete and joystick was not already seen
-  const joyZone = useMemo(() => (current ? findJoystickZone(current) : null), [current]);
-  useEffect(() => {
-    if (!preGameSnakeSeen || !joyZone || joyTutSeen || !tutorialsHydrated || suspended || joyTutRef.current) return;
-    if (!swipeTutSeen && list.length > 1) return; // swipe coach goes first
-    const gameId = currentId;
-    const tryShow = () => {
-      if (phasesRef.current.get(gameId ?? '') !== 'ready') return false;
-      setJoyTut(true);
-      analytics.onGameAction(gameId ?? 'global', current?.title, 'tutorial_joystick_shown');
-      return true;
-    };
-    if (tryShow()) return;
-    const poll = setInterval(() => {
-      if (tryShow()) clearInterval(poll);
-    }, 300);
-    const stop = setTimeout(() => clearInterval(poll), 12000);
-    return () => {
-      clearInterval(poll);
-      clearTimeout(stop);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preGameSnakeSeen, joyZone, joyTutSeen, tutorialsHydrated, suspended, swipeTutSeen, list.length, currentId]);
-
-  // The joystick hint sits over a live game, so it also retires on its own.
-  useEffect(() => {
-    if (!joyTut) return;
-    const timer = setTimeout(() => dismissJoyTut('timeout'), 9000);
-    return () => clearTimeout(timer);
-  }, [joyTut, dismissJoyTut]);
+    // Stage touch handler
+  }, []);
 
   /* ---------------- page selected (MainActivity.onPageSelected) -------------- */
   useEffect(() => {
@@ -563,6 +565,19 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           store.saveLevel(game.id, message.level + 1);
           const earned = 50 + (message.score > 0 ? Math.floor(message.score / 10) : 0);
           store.addCoins(earned);
+
+          if (isTutorialActive) {
+            if (game.id === 'arrow-puzzle') {
+              setTutorialStep('arrow_completed');
+              setSwipeEnabled(true);
+              return;
+            }
+            if (game.id === 'water-sort' || game.id === 'water-sort-3d') {
+              setTutorialStep('water_sort_completed');
+              return;
+            }
+          }
+
           toast(`🎉 Level Clear! +${earned} 🪙 Coins Earned!`);
           showDock();
           adManager.onLevelCompleted();
@@ -604,12 +619,19 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     setPosition(prev => ({ ...prev, settling: true }));
   }, [setPlaying]);
 
-  const onIndexChange = useCallback((index: number, direction: SwipeDirection) => {
-    // A performed swipe is the lesson itself: whoever changed the page on
-    // their own never needs the swipe coach mark, shown yet or not.
-    useTutorialStore.getState().markSwipeSeen();
-    setPosition({ index, direction, settling: true });
-  }, []);
+  const onIndexChange = useCallback(
+    (index: number, direction: SwipeDirection) => {
+      // A performed swipe is the lesson itself: whoever changed the page on
+      // their own never needs the swipe coach mark, shown yet or not.
+      useTutorialStore.getState().markSwipeSeen();
+      if (isTutorialActive && index === 1) {
+        setTutorialStep('water_sort_playing');
+        setSwipeEnabled(false);
+      }
+      setPosition({ index, direction, settling: true });
+    },
+    [isTutorialActive],
+  );
 
   const onSettled = useCallback((index: number) => {
     setPosition(prev => (prev.index === index && !prev.settling ? prev : { ...prev, index, settling: false }));
@@ -702,8 +724,8 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         index={index}
         pageHeight={stage.height}
         width={stage.width}
-        swipeEnabled={swipeEnabled && !fullScreenAdShowing && !showPreGameTut}
-        loop={loop}
+        swipeEnabled={swipeEnabled && !fullScreenAdShowing && (!isTutorialActive || tutorialStep === 'arrow_completed')}
+        loop={loop && !isTutorialActive}
         touchZonesFor={touchZonesFor}
         onSwipeStart={onSwipeStart}
         onIndexChange={onIndexChange}
@@ -759,7 +781,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           {body}
           <FeedDock
             theme={theme}
-            visible={dockVisible && !showPreGameTut}
+            visible={dockVisible && !isTutorialActive}
             tab={tab}
             isFavorite={isFavorite}
             // The stage already ends above the navigation bar, like the native dock.
@@ -770,23 +792,15 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
             onSettings={onSettings}
             onToggle={toggleDock}
           />
-          {showPreGameTut ? (
+          {isTutorialActive ? (
             <PreGameTutorial
-              visible={showPreGameTut}
-              onComplete={() => onCompletePreGameTut('completed')}
-              onSkip={() => onCompletePreGameTut('skipped')}
+              visible={isTutorialActive}
+              step={tutorialStep}
+              onSwipeUp={onTutorialSwipeUp}
+              onComplete={onCompleteTutorial}
+              onSkip={onSkipTutorial}
             />
           ) : null}
-          {joyZone && stage.width > 0 ? (
-            <JoystickTutorial
-              visible={joyTut}
-              zone={joyZone}
-              stageWidth={stage.width}
-              stageHeight={stage.height}
-              onGotIt={() => dismissJoyTut('button')}
-            />
-          ) : null}
-          <SwipeTutorial visible={swipeTut} onGotIt={() => dismissSwipeTut('button')} />
         </View>
       </SafeAreaView>
     </SafeAreaProvider>

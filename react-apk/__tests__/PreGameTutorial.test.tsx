@@ -1,16 +1,18 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { Pressable, Text } from 'react-native';
 import TestRenderer, { act } from 'react-test-renderer';
 import { PreGameTutorial } from '../src/components/tutorial/PreGameTutorial';
+import { SwipeUpPrompt } from '../src/components/tutorial/SwipeUpPrompt';
 import { useTutorialStore } from '../src/store/tutorialStore';
 
-describe('PreGameTutorial', () => {
+describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     useTutorialStore.setState({
       swipeSeen: false,
       joystickSeen: false,
       preGameSnakeSeen: false,
+      firstTimeTutorialCompleted: false,
       hydrated: true,
     });
   });
@@ -20,25 +22,71 @@ describe('PreGameTutorial', () => {
     jest.useRealTimers();
   });
 
-  test('renders initial Screen 1 with feed exploration titles and skip button', async () => {
+  test('step "arrow_completed" renders "Swipe up for more" hand prompt and triggers onSwipeUp', async () => {
+    const onSwipeUp = jest.fn();
     const onComplete = jest.fn();
-    const onSkip = jest.fn();
 
     let renderer!: TestRenderer.ReactTestRenderer;
     await act(async () => {
       renderer = TestRenderer.create(
-        <PreGameTutorial visible={true} onComplete={onComplete} onSkip={onSkip} />,
+        <PreGameTutorial
+          visible={true}
+          step="arrow_completed"
+          onSwipeUp={onSwipeUp}
+          onComplete={onComplete}
+        />,
       );
     });
 
     const root = renderer.root;
     const texts = root.findAllByType(Text).map(t => t.props.children);
+    expect(texts).toContain('Swipe up for more');
 
-    expect(texts).toContain('SWIPE TO EXPLORE');
-    expect(texts).toContain('Discover more games');
-    expect(texts).toContain('Skip');
-    expect(texts).toContain('CURRENT GAME');
-    expect(texts).toContain('NEXT GAME');
+    const pressable = root.findByProps({ accessibilityLabel: 'Swipe up for more' });
+    expect(pressable).toBeTruthy();
+
+    await act(async () => {
+      pressable.props.onPress();
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(250);
+    });
+
+    expect(onSwipeUp).toHaveBeenCalledTimes(1);
+  });
+
+  test('step "water_sort_completed" renders clean "Let\'s Play" button and completes on tap', async () => {
+    const onComplete = jest.fn();
+
+    let renderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      renderer = TestRenderer.create(
+        <PreGameTutorial
+          visible={true}
+          step="water_sort_completed"
+          onComplete={onComplete}
+        />,
+      );
+    });
+
+    const root = renderer.root;
+    const texts = root.findAllByType(Text).map(t => t.props.children);
+    expect(texts).toContain('Great Job!');
+    expect(texts).toContain("Let's Play");
+
+    const playButton = root.findByProps({ accessibilityLabel: "Let's Play" });
+    expect(playButton).toBeTruthy();
+
+    await act(async () => {
+      playButton.props.onPress();
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(250);
+    });
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
   test('tapping Skip calls onSkip callback', async () => {
@@ -48,7 +96,12 @@ describe('PreGameTutorial', () => {
     let renderer!: TestRenderer.ReactTestRenderer;
     await act(async () => {
       renderer = TestRenderer.create(
-        <PreGameTutorial visible={true} onComplete={onComplete} onSkip={onSkip} />,
+        <PreGameTutorial
+          visible={true}
+          step="arrow_completed"
+          onComplete={onComplete}
+          onSkip={onSkip}
+        />,
       );
     });
 
@@ -60,86 +113,54 @@ describe('PreGameTutorial', () => {
     });
 
     await act(async () => {
-      jest.advanceTimersByTime(300);
+      jest.advanceTimersByTime(250);
     });
 
     expect(onSkip).toHaveBeenCalledTimes(1);
     expect(onComplete).not.toHaveBeenCalled();
   });
 
-  test('advances to Screen 2 (SWIPE TO STEER) on timer fallback or manual advance', async () => {
-    const onComplete = jest.fn();
-    const onSkip = jest.fn();
-
-    let renderer!: TestRenderer.ReactTestRenderer;
-    await act(async () => {
-      renderer = TestRenderer.create(
-        <PreGameTutorial visible={true} onComplete={onComplete} onSkip={onSkip} />,
-      );
-    });
-
-    // Advance past Screen 1 auto timer (~5800ms)
-    await act(async () => {
-      jest.advanceTimersByTime(6000);
-    });
-
-    const root = renderer.root;
-    const texts = root.findAllByType(Text).map(t => t.props.children);
-
-    expect(texts).toContain('SWIPE TO STEER');
-    expect(texts).toContain('Swipe inside the pad to move');
-  });
-
-  test('progresses to Screen 3 (READY? / LETS PLAY) and completes on button press', async () => {
-    const onComplete = jest.fn();
-    const onSkip = jest.fn();
-
-    let renderer!: TestRenderer.ReactTestRenderer;
-    await act(async () => {
-      renderer = TestRenderer.create(
-        <PreGameTutorial visible={true} onComplete={onComplete} onSkip={onSkip} />,
-      );
-    });
-
-    // Advance to Screen 2
-    await act(async () => {
-      jest.advanceTimersByTime(6000);
-    });
-
-    // Advance to Screen 3 (~6600ms)
-    await act(async () => {
-      jest.advanceTimersByTime(7000);
-    });
-
-    const root = renderer.root;
-    const texts = root.findAllByType(Text).map(t => t.props.children);
-    expect(texts).toContain('READY?');
-
-    const playButton = root.findByProps({ accessibilityLabel: "Let's Play" });
-    expect(playButton).toBeTruthy();
-
-    await act(async () => {
-      playButton.props.onPress();
-    });
-
-    await act(async () => {
-      jest.advanceTimersByTime(300);
-    });
-
-    expect(onComplete).toHaveBeenCalledTimes(1);
-  });
-
-  test('useTutorialStore markPreGameSnakeSeen sets preGameSnakeSeen, swipeSeen, and joystickSeen', () => {
+  test('useTutorialStore markFirstTimeTutorialCompleted sets all completion flags and disables joystick tutorial', () => {
     const store = useTutorialStore.getState();
+    expect(store.firstTimeTutorialCompleted).toBe(false);
     expect(store.preGameSnakeSeen).toBe(false);
 
     act(() => {
-      store.markPreGameSnakeSeen();
+      store.markFirstTimeTutorialCompleted();
     });
 
     const updated = useTutorialStore.getState();
+    expect(updated.firstTimeTutorialCompleted).toBe(true);
     expect(updated.preGameSnakeSeen).toBe(true);
     expect(updated.swipeSeen).toBe(true);
     expect(updated.joystickSeen).toBe(true);
+  });
+
+  test('SwipeUpPrompt renders hand gesture and triggers onSwipeUp on tap', async () => {
+    const onSwipeUp = jest.fn();
+
+    let renderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      renderer = TestRenderer.create(
+        <SwipeUpPrompt visible={true} onSwipeUp={onSwipeUp} />,
+      );
+    });
+
+    const root = renderer.root;
+    const texts = root.findAllByType(Text).map(t => t.props.children);
+    expect(texts).toContain('Swipe up for more');
+
+    const pressable = root.findByProps({ accessibilityLabel: 'Swipe up for more' });
+    expect(pressable).toBeTruthy();
+
+    await act(async () => {
+      pressable.props.onPress();
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(250);
+    });
+
+    expect(onSwipeUp).toHaveBeenCalledTimes(1);
   });
 });

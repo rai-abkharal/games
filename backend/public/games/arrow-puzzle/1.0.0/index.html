@@ -484,7 +484,21 @@ class O{
     }
   }
 
-  handleWin(){E.win();const t=Math.max(1,Math.min(3,this.health));P.completed.add(this.level),P.setStars(this.level,t),this.level<1e3&&(P.maxUnlocked=Math.max(P.maxUnlocked,this.level+1)),P.registerWinToday(),P.save(),setTimeout(()=>{this.events.onWin(this.level,t)},350)}
+  handleWin(){
+    E.win();
+    const t=Math.max(1,Math.min(3,this.health));
+    P.completed.add(this.level),P.setStars(this.level,t),this.level<1e3&&(P.maxUnlocked=Math.max(P.maxUnlocked,this.level+1)),P.registerWinToday(),P.save();
+    try {
+      if (window.NativeBridge && window.NativeBridge.completed) {
+        window.NativeBridge.completed(t * 100, this.level);
+      } else if (window.FlutterGameBridge && window.FlutterGameBridge.completed) {
+        window.FlutterGameBridge.completed(t * 100, this.level);
+      } else if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'completed', payload: { score: t * 100, level: this.level } }));
+      }
+    } catch (e) {}
+    setTimeout(()=>{this.events.onWin(this.level,t)},350);
+  }
   handleFail(){this.finished=!0,setTimeout(()=>{this.events.onFail(this.level)},450)}
 }
 
@@ -537,7 +551,13 @@ class tt{
           ${t===1?'<div class="tutorial-badge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 11.24V7.5C9 6.12 10.12 5 11.5 5S14 6.12 14 7.5v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74zm9.84 4.63l-4.54-2.26c-.17-.07-.35-.11-.54-.11H13v-6c0-.83-.67-1.5-1.5-1.5S10 6.67 10 7.5v10.74l-3.43-.72c-.08-.01-.15-.02-.24-.02-.31 0-.59.13-.79.33l-.79.8 4.94 4.94c.27.27.65.43 1.06.43h6.79c.75 0 1.33-.55 1.44-1.28l.75-5.27c.01-.07.02-.14.02-.2 0-.62-.38-1.16-.95-1.39z"/></svg>Tap the unblocked arrows!</div>':""}
         </div>
       </div>
-    `,document.getElementById("btnRestart")?.addEventListener("click",()=>{E.click(),this.engine?.loadLevel(t),this.resetPanZoom(),this.updateGameUI()}),this.engine=new O(t,{onStateChange:()=>this.updateGameUI(),onWin:(s,i)=>this.showWinDialog(s,i),onFail:s=>this.showFailDialog(s)}),this.setupCanvas(),this.engine.start(),this.updateGameUI()}
+    `,document.getElementById("btnRestart")?.addEventListener("click",()=>{E.click(),this.engine?.loadLevel(t),this.resetPanZoom(),this.updateGameUI()}),this.engine=new O(t,{onStateChange:()=>this.updateGameUI(),onWin:(s,i)=>this.showWinDialog(s,i),onFail:s=>this.showFailDialog(s)}),this.setupCanvas(),this.engine.start(),this.updateGameUI();
+    try {
+      if (window.NativeBridge && window.NativeBridge.gameStarted) window.NativeBridge.gameStarted();
+      else if (window.FlutterGameBridge && window.FlutterGameBridge.gameStarted) window.FlutterGameBridge.gameStarted();
+      else if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'gameStarted', payload: { level: t } }));
+    } catch (e) {}
+  }
   setupCanvas(){
     const t=document.getElementById("gameCanvas"),n=document.getElementById("canvasViewport");
     if(!t||!n)return;
