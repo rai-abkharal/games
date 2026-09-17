@@ -360,7 +360,7 @@ export const GamePage = memo(
       if (phase === 'ready') {
         const timer = setTimeout(() => {
           setPlaceholderShown(false);
-        }, 150);
+        }, 50);
         return () => clearTimeout(timer);
       }
     }, [phase]);
@@ -381,6 +381,17 @@ export const GamePage = memo(
       }
     }, [slot, phase, retry]);
 
+    const dismissPlaceholder = useCallback(() => {
+      Animated.timing(placeholderOpacity, {
+        toValue: 0,
+        duration: 80,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start(() => {
+        setPlaceholderShown(false);
+      });
+    }, [placeholderOpacity]);
+
     /* ---------------- WebView callbacks --------------------------------------- */
     const handleLoadEnd = useCallback(() => {
       if (phaseRef.current !== 'loading') return;
@@ -391,15 +402,8 @@ export const GamePage = memo(
       // never paints, a frozen standby) the event still goes out with the
       // stages the host could see on its own.
       reportLoad('ready');
-      Animated.timing(placeholderOpacity, {
-        toValue: 0,
-        duration: 120,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }).start(() => {
-        setPlaceholderShown(false);
-      });
-    }, [clearTimer, setPhase, placeholderOpacity, reportLoad]);
+      dismissPlaceholder();
+    }, [clearTimer, setPhase, dismissPlaceholder, reportLoad]);
 
     // A game that navigates or reloads itself (some restart via location.reload)
     // goes back through the placeholder → ready cycle so it is re-primed with
@@ -459,11 +463,12 @@ export const GamePage = memo(
             timing.firstFrameMs = parsed.firstFrameMs;
             if (phaseRef.current === 'ready') reportLoad('ready');
           }
+          dismissPlaceholder();
           return;
         }
         onMessage(game.id, parsed);
       },
-      [game.id, onMessage, reportLoad],
+      [game.id, onMessage, reportLoad, dismissPlaceholder],
     );
 
     const dark = THEMES.midnight_dark;

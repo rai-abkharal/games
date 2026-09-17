@@ -8,11 +8,12 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 import { adManager } from './src/services/adManager';
 import { useCatalogStore } from './src/store/catalogStore';
 import { usePlayerStore } from './src/store/playerStore';
+import { useTutorialStore } from './src/store/tutorialStore';
 import { isBundleStoreAvailable, startBundleStore, stopBundleStore } from './src/services/gameBundles';
 import { useStartupStore } from './src/services/startup';
 
 /** SplashActivity shows its brand briefly before MainActivity appears. */
-const SPLASH_MS = 600;
+const SPLASH_MS = 200;
 
 /** Hard cap on waiting for the local game store before mounting the feed anyway. */
 const BUNDLE_STORE_BOOT_MS = 1200;
@@ -38,6 +39,7 @@ function App() {
   useEffect(() => {
     let mounted = true;
     void usePlayerStore.getState().hydrate();
+    void useTutorialStore.getState().hydrate();
     void useCatalogStore.getState().hydrate();
     void adManager.start();
     const settle = () => {

@@ -459,8 +459,61 @@ export const TRANSLATIONS = {
     id: 'Jelajahi semua game',
     zh: '浏览全部游戏',
   },
-} as const;
 
+  // First-run tutorials
+  gotIt: {
+    en: 'Got it',
+    es: 'Entendido',
+    hi: 'समझ गया',
+    ur: 'سمجھ گیا',
+    ar: 'فهمت',
+    fr: 'Compris',
+    de: 'Verstanden',
+    pt: 'Entendi',
+    ru: 'Понятно',
+    id: 'Mengerti',
+    zh: '知道了',
+  },
+  tutSwipeTitle: {
+    en: 'Swipe to explore',
+    es: 'Desliza para explorar',
+    hi: 'स्वाइप करके खोजें',
+    ur: 'سوائپ کر کے دریافت کریں',
+    ar: 'اسحب للاستكشاف',
+    fr: 'Balayez pour explorer',
+    de: 'Wischen und entdecken',
+    pt: 'Deslize para explorar',
+    ru: 'Листайте и играйте',
+    id: 'Geser untuk menjelajah',
+    zh: '滑动探索',
+  },
+  tutSwipeBody: {
+    en: 'Swipe up for the next game',
+    es: 'Desliza hacia arriba para el siguiente juego',
+    hi: 'अगले गेम के लिए ऊपर स्वाइप करें',
+    ur: 'اگلے گیم کے لیے اوپر سوائپ کریں',
+    ar: 'اسحب لأعلى للعبة التالية',
+    fr: 'Balayez vers le haut pour le jeu suivant',
+    de: 'Nach oben wischen fürs nächste Spiel',
+    pt: 'Deslize para cima para o próximo jogo',
+    ru: 'Свайп вверх — следующая игра',
+    id: 'Geser ke atas untuk game berikutnya',
+    zh: '上滑查看下一个游戏',
+  },
+  tutJoystickHint: {
+    en: 'Drag to move',
+    es: 'Arrastra para moverte',
+    hi: 'चलाने के लिए खींचें',
+    ur: 'حرکت کے لیے کھینچیں',
+    ar: 'اسحب للتحرك',
+    fr: 'Glissez pour bouger',
+    de: 'Zum Bewegen ziehen',
+    pt: 'Arraste para mover',
+    ru: 'Тяните, чтобы двигаться',
+    id: 'Seret untuk bergerak',
+    zh: '拖动以移动',
+  },
+} as const;
 export type TranslationKey = keyof typeof TRANSLATIONS;
 
 export function t(key: TranslationKey, lang: LanguageCode = 'en'): string {

@@ -32,9 +32,12 @@ import {
   type BundlePriorityValue,
 } from '../services/gameBundles';
 import { buildRewardScript, buildSoundScript } from '../services/gameBridge';
-import { markFirstGameReady } from '../services/startup';
+import { markFirstGameReady, useStartupStore } from '../services/startup';
+import { findJoystickZone, JoystickTutorial } from '../components/tutorial/JoystickTutorial';
+import { SwipeTutorial } from '../components/tutorial/SwipeTutorial';
 import { useCatalogStore } from '../store/catalogStore';
 import { usePlayerStore } from '../store/playerStore';
+import { useTutorialStore } from '../store/tutorialStore';
 import { toast } from '../store/toastStore';
 import { useTheme } from '../theme/useTheme';
 import { useTranslation } from '../i18n/translations';
@@ -243,6 +246,90 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     },
     [],
   );
+
+  /* ---------------- first-run coach marks ------------------------------------ */
+  // Two one-time overlays (see components/tutorial): the feed gesture over the
+  // first ready game, and the joystick hint over games that declare a joystick
+  // touch zone. Both are transparent to touches, so the pager and the game
+  // behave exactly as if they were not there; the first real touch dismisses
+  // them, and each is persisted as seen so it never shows twice.
+  const tutorialsHydrated = useTutorialStore(state => state.hydrated);
+  const swipeTutSeen = useTutorialStore(state => state.swipeSeen);
+  const joyTutSeen = useTutorialStore(state => state.joystickSeen);
+  const firstGameReady = useStartupStore(state => state.gameReady);
+  const [swipeTut, setSwipeTut] = useState(false);
+  const [joyTut, setJoyTut] = useState(false);
+  const swipeTutRef = useRef(false);
+  swipeTutRef.current = swipeTut;
+  const joyTutRef = useRef(false);
+  joyTutRef.current = joyTut;
+
+  const dismissSwipeTut = useCallback((reason: string) => {
+    if (!swipeTutRef.current) return;
+    setSwipeTut(false);
+    useTutorialStore.getState().markSwipeSeen();
+    analytics.onGameAction('global', 'Feed', 'tutorial_swipe_done', reason);
+  }, []);
+
+  const dismissJoyTut = useCallback((reason: string) => {
+    if (!joyTutRef.current) return;
+    setJoyTut(false);
+    useTutorialStore.getState().markJoystickSeen();
+    analytics.onGameAction(currentIdRef.current ?? 'global', undefined, 'tutorial_joystick_done', reason);
+  }, []);
+
+  // The overlays never intercept the feed, so dismissal listens at the stage:
+  // the first touch — a tap into the game or the very swipe being taught —
+  // retires whichever coach mark is up.
+  const onStageTouch = useCallback(() => {
+    if (swipeTutRef.current) dismissSwipeTut('gesture');
+    if (joyTutRef.current) dismissJoyTut('gesture');
+  }, [dismissSwipeTut, dismissJoyTut]);
+
+  // Swipe coach: once, over the first game that is actually ready and visible,
+  // and only when there is something to swipe to.
+  useEffect(() => {
+    if (swipeTutSeen || !tutorialsHydrated || !firstGameReady || suspended) return;
+    if (list.length < 2 || swipeTutRef.current) return;
+    const timer = setTimeout(() => {
+      setSwipeTut(true);
+      analytics.onGameAction('global', 'Feed', 'tutorial_swipe_shown');
+    }, 650);
+    return () => clearTimeout(timer);
+  }, [swipeTutSeen, tutorialsHydrated, firstGameReady, suspended, list.length]);
+
+  // Joystick coach: the first time a game that declares a joystick zone is on
+  // screen and ready. Waits its turn behind the swipe coach, and polls the
+  // page phase briefly because phases live in a ref, not in state.
+  const joyZone = useMemo(() => (current ? findJoystickZone(current) : null), [current]);
+  useEffect(() => {
+    if (!joyZone || joyTutSeen || !tutorialsHydrated || suspended || joyTutRef.current) return;
+    if (!swipeTutSeen && list.length > 1) return; // swipe coach goes first
+    const gameId = currentId;
+    const tryShow = () => {
+      if (phasesRef.current.get(gameId ?? '') !== 'ready') return false;
+      setJoyTut(true);
+      analytics.onGameAction(gameId ?? 'global', current?.title, 'tutorial_joystick_shown');
+      return true;
+    };
+    if (tryShow()) return;
+    const poll = setInterval(() => {
+      if (tryShow()) clearInterval(poll);
+    }, 300);
+    const stop = setTimeout(() => clearInterval(poll), 12000);
+    return () => {
+      clearInterval(poll);
+      clearTimeout(stop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joyZone, joyTutSeen, tutorialsHydrated, suspended, swipeTutSeen, list.length, currentId]);
+
+  // The joystick hint sits over a live game, so it also retires on its own.
+  useEffect(() => {
+    if (!joyTut) return;
+    const timer = setTimeout(() => dismissJoyTut('timeout'), 9000);
+    return () => clearTimeout(timer);
+  }, [joyTut, dismissJoyTut]);
 
   /* ---------------- page selected (MainActivity.onPageSelected) -------------- */
   useEffect(() => {
@@ -522,6 +609,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   }, []);
 
   const onIndexChange = useCallback((index: number, direction: SwipeDirection) => {
+    // A performed swipe is the lesson itself: whoever changed the page on
+    // their own never needs the swipe coach mark, shown yet or not.
+    useTutorialStore.getState().markSwipeSeen();
     setPosition({ index, direction, settling: true });
   }, []);
 
@@ -575,9 +665,14 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         if (!settling) return null;
         slot = 'leaving';
       }
-      const isStandby = allowStandby && slot === 'ahead' && game.id === aheadGameId;
       const isCommittedTarget = committedIndex !== null && actualIdx === committedIndex;
-      const mayLoad = !suspended && ((slot === 'active' && (rested || isCommittedTarget)) || isStandby);
+      if (isCommittedTarget) {
+        slot = 'active';
+      } else if (committedIndex !== null && actualIdx === index) {
+        slot = 'leaving';
+      }
+      const isStandby = allowStandby && slot === 'ahead' && game.id === aheadGameId;
+      const mayLoad = !suspended && (slot === 'active' || isStandby);
       return (
         <GamePage
           key={game.id}
@@ -695,7 +790,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           bannerEnabled={bannerEnabled}
           title={current?.title ?? 'Swipe Play'}
         />
-        <View style={styles.stage} onLayout={onStageLayout}>
+        <View style={styles.stage} onLayout={onStageLayout} onTouchStart={onStageTouch}>
           {body}
           <FeedDock
             theme={theme}
@@ -710,6 +805,16 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
             onSettings={onSettings}
             onToggle={toggleDock}
           />
+          {joyZone && stage.width > 0 ? (
+            <JoystickTutorial
+              visible={joyTut}
+              zone={joyZone}
+              stageWidth={stage.width}
+              stageHeight={stage.height}
+              onGotIt={() => dismissJoyTut('button')}
+            />
+          ) : null}
+          <SwipeTutorial visible={swipeTut} onGotIt={() => dismissSwipeTut('button')} />
         </View>
       </SafeAreaView>
     </SafeAreaProvider>

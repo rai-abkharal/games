@@ -84,6 +84,7 @@ export const STORAGE_KEYS = {
   adState: 'sp.adState.v1',
   analyticsClientId: 'sp.analytics.clientId',
   analyticsQueue: 'sp.analytics.queue.v1',
+  tutorials: 'sp.tutorials.v1',
 } as const;
 
 /**

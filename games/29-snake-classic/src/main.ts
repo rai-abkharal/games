@@ -13,6 +13,12 @@ import { Grid } from './game/Grid.js';
 import { SoundSynth } from './audio/SoundSynth.js';
 import { Renderer } from './rendering/Renderer.js';
 import { THEME } from './rendering/Theme.js';
+import { ControlCoach, type CoachDir } from './tutorial/ControlCoach.js';
+
+const COACH_DIRECTIONS: Record<Exclude<CoachDir, null>, Direction> = {
+  right: Direction.RIGHT,
+  up: Direction.UP
+};
 
 export const Host: HostBridge = {
   post(action: string, payload: any = {}) {
@@ -72,6 +78,14 @@ export class Game {
   private swipeStartX: number = 0;
   private swipeStartY: number = 0;
 
+  /**
+   * First-run control coach. While `controlHold` is true the snake does not
+   * step: the run waits for the player's first real swipe, which both steers
+   * the snake and completes the coach. Repeat plays are untouched.
+   */
+  private coach: ControlCoach;
+  private controlHold: boolean = false;
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.renderer = new Renderer(canvas);
@@ -94,6 +108,18 @@ export class Game {
         if (this.sliderPos < 0) this.sliderPos = 0;
       }
     } catch {}
+
+    this.coach = new ControlCoach({
+      storageKey: 'tutorials.v1.snake_control',
+      label: 'SWIPE HERE TO STEER',
+      getPad: () => ({
+        cx: THEME.joyX,
+        cy: this.currentJoyY,
+        w: THEME.joyBoxW,
+        h: THEME.joyBoxH,
+        r: THEME.joyCornerRadius
+      })
+    });
 
     this.initEvents();
     this.startNewMatch();
@@ -121,6 +147,15 @@ export class Game {
     this.gameOverAnimTime = 0;
 
     this.state = GameState.PLAYING;
+
+    // First run on this device: hold the snake and let the pad teach itself.
+    if (this.coach.shouldShow()) {
+      this.coach.start();
+      this.controlHold = true;
+    } else {
+      this.controlHold = false;
+    }
+
     Host.post('onGameStarted', { difficulty: this.difficulty });
   }
 
@@ -187,8 +222,15 @@ export class Game {
   }
 
   public update(dt: number): void {
-    // 1. Gameplay State Updates
+    // 0. First-run coach: while it holds the run, the snake waits for the
+    // player's first swipe instead of marching into the top wall.
     if (this.state === GameState.PLAYING) {
+      this.coach.update(dt);
+      if (this.controlHold && !this.coach.isActive()) this.controlHold = false;
+    }
+
+    // 1. Gameplay State Updates
+    if (this.state === GameState.PLAYING && !this.controlHold) {
       this.snake.stepTimer += dt;
 
       // Check if it is time for a logical grid tick
@@ -299,6 +341,13 @@ export class Game {
     const liveAllTime = this.statsManager.getLiveAllTime(this.difficulty, this.snake.score);
     const stats = this.statsManager.getStats(this.difficulty);
 
+    // The coach's ghost finger drives the REAL pad feedback: the same
+    // isJoyActive/joyDir inputs a live touch uses, so the actual arrows,
+    // guide lines and border react during the demonstration.
+    const demo = this.coach.getDemo();
+    const joyActive = this.isJoyActive || demo.active;
+    const joyDir = demo.dir !== null ? COACH_DIRECTIONS[demo.dir] : this.joyDir;
+
     this.renderer.render(
       this.state,
       this.difficulty,
@@ -315,10 +364,16 @@ export class Game {
       this.gameOverAnimTime,
       this.joyKnobX,
       this.joyKnobY,
-      this.isJoyActive,
-      this.joyDir,
+      joyActive,
+      joyDir,
       this.currentJoyY
     );
+
+    // Coach overlay (rim, hand, label) sits on top of the game frame; it
+    // never draws over the pause/game-over/difficulty screens.
+    if (this.state === GameState.PLAYING) {
+      this.coach.draw(this.renderer.ctx);
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -456,6 +511,8 @@ export class Game {
           this.isJoyActive = true;
           this.swipeStartX = px;
           this.swipeStartY = py;
+          // The real finger has arrived: the coach's ghost hand steps aside.
+          this.coach.onPadTouched();
           Host.post('setSwipeEnabled', { enabled: false });
         }
         return;
@@ -496,6 +553,13 @@ export class Game {
 
           this.snake.requestDirection(newDir);
           this.joyDir = newDir;
+
+          // First real swipe: the gesture itself completes the coach and
+          // releases the held run — no button, the input takes over.
+          if (this.controlHold) {
+            this.controlHold = false;
+            this.coach.complete();
+          }
 
           // Reset anchor for continuous fluid swipe chaining (S-curves, zigzags)
           this.swipeStartX = px;
@@ -591,6 +655,11 @@ export class Game {
       if (dir !== null) {
         this.snake.requestDirection(dir);
         this.joyDir = dir;
+        // Keyboard steering counts as the first real input too.
+        if (this.controlHold) {
+          this.controlHold = false;
+          this.coach.complete();
+        }
       }
     });
 
