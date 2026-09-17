@@ -465,6 +465,54 @@ export function createAdminRouter(
     }
   });
 
+  // 2.2 Download a Game's Deployed Code as a Zip Archive
+  router.get("/games/:id/download", (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const catalog = catalogService.getCatalog();
+      const game = catalog.games.find((g) => g.id === id);
+      if (!game) {
+        res.status(404).json({ error: "Game not found in catalog" });
+        return;
+      }
+
+      // The deployed bundle lives at public/games/<id>/<version>; fall back to
+      // the game folder itself if the catalog version folder is missing.
+      const gameRoot = path.join(gamesDir, game.id);
+      const versionDir = path.join(gameRoot, game.version);
+      const sourceDir = fs.existsSync(path.join(versionDir, "index.html"))
+        ? versionDir
+        : gameRoot;
+      if (
+        !path.resolve(sourceDir).startsWith(path.resolve(gamesDir) + path.sep) ||
+        !fs.existsSync(sourceDir)
+      ) {
+        res.status(404).json({ error: "Game files not found on disk" });
+        return;
+      }
+
+      const zip = new AdmZip();
+      zip.addLocalFolder(sourceDir);
+      const buffer = zip.toBuffer();
+
+      const safeVersion = String(game.version || "1.0.0").replace(
+        /[^0-9A-Za-z.-]/g,
+        "_",
+      );
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${game.id}-${safeVersion}.zip"`,
+      );
+      res.setHeader("Content-Length", String(buffer.length));
+      res.send(buffer);
+    } catch (err) {
+      res
+        .status(500)
+        .json({ error: "Failed to package game code", details: String(err) });
+    }
+  });
+
   // 3. Upload & Deploy Game Zip
   // Unified Game Package Ingestion & Update Processor
   function handleGameZipUpload(

@@ -33,6 +33,7 @@ import {
   Search,
   Check,
   X,
+  Download,
 } from "lucide-react";
 
 interface TouchZone {
@@ -590,6 +591,41 @@ export default function App() {
       }
     } catch (err: any) {
       alert(`Error deleting game: ${err.message}`);
+    }
+  };
+
+  // Download a game's deployed code (the uploaded bundle) as a zip
+  const [downloadingGameId, setDownloadingGameId] = useState<string | null>(
+    null,
+  );
+  const downloadGame = async (gameId: string, gameTitle: string) => {
+    setDownloadingGameId(gameId);
+    try {
+      const res = await fetch(`${API_BASE}/v1/admin/games/${gameId}/download`);
+      if (!res.ok) {
+        let message = "Failed to download game code.";
+        try {
+          message = (await res.json()).error || message;
+        } catch {}
+        alert(`"${gameTitle}": ${message}`);
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const filename =
+        disposition.match(/filename="([^"]+)"/)?.[1] || `${gameId}.zip`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(`Error downloading game: ${err.message}`);
+    } finally {
+      setDownloadingGameId(null);
     }
   };
 
@@ -2936,6 +2972,23 @@ export default function App() {
                                   onClick={() => viewValidation(game.id)}
                                 >
                                   <ShieldCheck size={13} /> Check
+                                </button>
+                                <button
+                                  className="btn-secondary"
+                                  style={{
+                                    padding: "6px 10px",
+                                    fontSize: "12px",
+                                  }}
+                                  disabled={downloadingGameId === game.id}
+                                  onClick={() =>
+                                    downloadGame(game.id, game.title)
+                                  }
+                                  title="Download this game's code as a zip"
+                                >
+                                  <Download size={13} />{" "}
+                                  {downloadingGameId === game.id
+                                    ? "..."
+                                    : "ZIP"}
                                 </button>
                                 <button
                                   className={

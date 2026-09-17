@@ -56,15 +56,6 @@ interface Props {
    * which also covers a load that finishes while the app is backgrounded.
    */
   suspended: boolean;
-  /** Allow warming up a standby WebView for the immediate ahead game while paused at frame 2. */
-  warmStandby?: boolean;
-  /**
-   * Gameplay has resumed, so a page that was warmed on speculation and never
-   * actually visited must give its WebView back: a frozen document still holds
-   * a slot in the renderer the running game shares. Only ever set while the
-   * pager is at rest, so this cannot fire on a page a swipe is sliding in.
-   */
-  releaseStandby?: boolean;
   /** Callbacks are keyed by game id, which stays valid across catalogue reorders. */
   onPhase: (gameId: string, phase: PagePhase) => void;
   onMessage: (gameId: string, message: GameToHostMessage) => void;
@@ -79,8 +70,7 @@ const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
  *
  *  - `active`  → creates the WebView as soon as `mayLoad` (after the pager has
  *                settled) and runs the game at full speed;
- *  - `ahead`   retains a previously visited view or warms up a standby view if
- *                `warmStandby` is enabled; otherwise stays a placeholder;
+ *  - `ahead`   retains a previously visited view; cold pages stay placeholders;
  *  - `behind`  → keeps whatever it has (frozen) so swiping back is instant;
  *  - `leaving` → same as behind, for a page the pager is sliding out of the
  *                window; it is unmounted once the pager rests;
@@ -92,11 +82,11 @@ const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
  * feed down.
  */
 export const GamePage = memo(
-  forwardRef<GamePageHandle, Props>(function GamePageInner({ game, slot, mayLoad, near, suspended, warmStandby = false, releaseStandby = false, onPhase, onMessage }, ref) {
+  forwardRef<GamePageHandle, Props>(function GamePageInner({ game, slot, mayLoad, near, suspended, onPhase, onMessage }, ref) {
     const webviewRef = useRef<WebView<object>>(null);
-    // The selected page (or an authorized warm standby neighbor) can create its view.
-    const isTarget = slot === 'active' || (slot === 'ahead' && warmStandby);
-    const [live, setLive] = useState(() => isTarget && mayLoad && !suspended);
+    // The selected page can create its view in the first commit. Neighbors
+    // still cannot initialize an engine, even when their load gate is open.
+    const [live, setLive] = useState(() => slot === 'active' && mayLoad && !suspended);
     const [attempt, setAttempt] = useState(0);
     const [phase, setPhaseState] = useState<PagePhase>('idle');
     const [errorText, setErrorText] = useState<string | null>(null);
@@ -153,8 +143,9 @@ export const GamePage = memo(
         }
         return;
       }
-      // Offscreen pages retain an existing view only, unless designated as a warm standby.
-      if (slot !== 'active' && !(slot === 'ahead' && warmStandby)) {
+      // Offscreen pages retain an existing view only. A cold engine cannot
+      // be preempted by setting mayLoad=false after it has begun parsing.
+      if (slot !== 'active') {
         // A fast swipe can leave the selected game before its load finishes.
         // Retain completed games only; otherwise that abandoned load competes
         // with the new foreground game. Slot changes occur after the snap.
@@ -163,21 +154,10 @@ export const GamePage = memo(
           setLive(false);
           return;
         }
-        // A page the player actually visited keeps its session so swiping back
-        // is instant. One that was only warmed on speculation has no session
-        // worth keeping, so it is released the moment gameplay resumes.
-        if (live && releaseStandby && !visitedRef.current) {
-          try {
-            webviewRef.current?.injectJavaScript(DESTROY_SCRIPT);
-          } catch {
-            /* ignore */
-          }
-          setLive(false);
-        }
         return;
       }
       if (mayLoad && !live) setLive(true);
-    }, [slot, mayLoad, live, phase, warmStandby, releaseStandby]);
+    }, [slot, mayLoad, live, phase]);
 
     // Source is decided once per WebView instance so a catalogue refresh (new
     // game object, same build) never reloads a running game. `buildId` is part

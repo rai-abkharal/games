@@ -35,6 +35,7 @@ import { buildRewardScript, buildSoundScript } from '../services/gameBridge';
 import { markFirstGameReady, useStartupStore } from '../services/startup';
 import { findJoystickZone, JoystickTutorial } from '../components/tutorial/JoystickTutorial';
 import { SwipeTutorial } from '../components/tutorial/SwipeTutorial';
+import { PreGameTutorial } from '../components/tutorial/PreGameTutorial';
 import { useCatalogStore } from '../store/catalogStore';
 import { usePlayerStore } from '../store/playerStore';
 import { useTutorialStore } from '../store/tutorialStore';
@@ -127,7 +128,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     index: Math.max(0, list.findIndex(game => game.id === usePlayerStore.getState().lastPlayedGameId)),
     direction: 1, settling: false,
   }));
-  const [committedIndex, setCommittedIndex] = useState<number | null>(null);
   const positionRef = useRef(position);
   positionRef.current = position;
   const listRef = useRef(list);
@@ -247,16 +247,20 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     [],
   );
 
-  /* ---------------- first-run coach marks ------------------------------------ */
-  // Two one-time overlays (see components/tutorial): the feed gesture over the
-  // first ready game, and the joystick hint over games that declare a joystick
-  // touch zone. Both are transparent to touches, so the pager and the game
-  // behave exactly as if they were not there; the first real touch dismisses
-  // them, and each is persisted as seen so it never shows twice.
+  /* ---------------- first-run pre-game onboarding & coach marks ------------- */
   const tutorialsHydrated = useTutorialStore(state => state.hydrated);
+  const preGameSnakeSeen = useTutorialStore(state => state.preGameSnakeSeen);
   const swipeTutSeen = useTutorialStore(state => state.swipeSeen);
   const joyTutSeen = useTutorialStore(state => state.joystickSeen);
   const firstGameReady = useStartupStore(state => state.gameReady);
+
+  const showPreGameTut = tutorialsHydrated && !preGameSnakeSeen && !suspended && list.length > 0;
+
+  const onCompletePreGameTut = useCallback((reason: 'completed' | 'skipped') => {
+    useTutorialStore.getState().markPreGameSnakeSeen();
+    analytics.onGameAction('global', 'Feed', 'pre_game_tutorial_done', reason);
+  }, []);
+
   const [swipeTut, setSwipeTut] = useState(false);
   const [joyTut, setJoyTut] = useState(false);
   const swipeTutRef = useRef(false);
@@ -286,24 +290,21 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     if (joyTutRef.current) dismissJoyTut('gesture');
   }, [dismissSwipeTut, dismissJoyTut]);
 
-  // Swipe coach: once, over the first game that is actually ready and visible,
-  // and only when there is something to swipe to.
+  // Swipe coach: only if pre-game tutorial is complete and swipe was not already seen
   useEffect(() => {
-    if (swipeTutSeen || !tutorialsHydrated || !firstGameReady || suspended) return;
+    if (!preGameSnakeSeen || swipeTutSeen || !tutorialsHydrated || !firstGameReady || suspended) return;
     if (list.length < 2 || swipeTutRef.current) return;
     const timer = setTimeout(() => {
       setSwipeTut(true);
       analytics.onGameAction('global', 'Feed', 'tutorial_swipe_shown');
     }, 650);
     return () => clearTimeout(timer);
-  }, [swipeTutSeen, tutorialsHydrated, firstGameReady, suspended, list.length]);
+  }, [preGameSnakeSeen, swipeTutSeen, tutorialsHydrated, firstGameReady, suspended, list.length]);
 
-  // Joystick coach: the first time a game that declares a joystick zone is on
-  // screen and ready. Waits its turn behind the swipe coach, and polls the
-  // page phase briefly because phases live in a ref, not in state.
+  // Joystick coach: only if pre-game tutorial is complete and joystick was not already seen
   const joyZone = useMemo(() => (current ? findJoystickZone(current) : null), [current]);
   useEffect(() => {
-    if (!joyZone || joyTutSeen || !tutorialsHydrated || suspended || joyTutRef.current) return;
+    if (!preGameSnakeSeen || !joyZone || joyTutSeen || !tutorialsHydrated || suspended || joyTutRef.current) return;
     if (!swipeTutSeen && list.length > 1) return; // swipe coach goes first
     const gameId = currentId;
     const tryShow = () => {
@@ -322,7 +323,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       clearTimeout(stop);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [joyZone, joyTutSeen, tutorialsHydrated, suspended, swipeTutSeen, list.length, currentId]);
+  }, [preGameSnakeSeen, joyZone, joyTutSeen, tutorialsHydrated, suspended, swipeTutSeen, list.length, currentId]);
 
   // The joystick hint sits over a live game, so it also retires on its own.
   useEffect(() => {
@@ -603,11 +604,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     setPosition(prev => ({ ...prev, settling: true }));
   }, [setPlaying]);
 
-  const onSwipeCommit = useCallback((targetIndex: number, commitDirection: SwipeDirection) => {
-    setCommittedIndex(targetIndex);
-    setPosition(prev => ({ ...prev, direction: commitDirection }));
-  }, []);
-
   const onIndexChange = useCallback((index: number, direction: SwipeDirection) => {
     // A performed swipe is the lesson itself: whoever changed the page on
     // their own never needs the swipe coach mark, shown yet or not.
@@ -616,40 +612,17 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   }, []);
 
   const onSettled = useCallback((index: number) => {
-    setCommittedIndex(null);
     setPosition(prev => (prev.index === index && !prev.settling ? prev : { ...prev, index, settling: false }));
   }, []);
 
   const touchZonesFor = useCallback((index: number) => listRef.current[index]?.touchZones, []);
 
-  // WebViews are created and destroyed only while the pager is at rest or in standby.
-  // Derived rather than kept in state, which cost two extra feed renders per swipe.
+  // WebViews are created and destroyed only while the pager is at rest: never
+  // during the snap animation (UI-thread inflation/teardown would drop its
+  // frames), and never for pages a rapid flick flies past. Derived rather
+  // than kept in state, which cost two extra feed renders per swipe.
   const { index, direction, settling } = position;
   const rested = !settling;
-
-  // Identify the immediate ahead game for warm standby pre-rendering
-  const aheadIdx = loop && list.length > 2
-    ? ((index + direction) % list.length + list.length) % list.length
-    : (index + direction >= 0 && index + direction < list.length ? index + direction : null);
-  const aheadGameId = aheadIdx !== null ? list[aheadIdx]?.id : null;
-  const activeReady = phasesRef.current.get(currentIdRef.current ?? '') === 'ready';
-  /**
-   * A standby page is a second document inside the one renderer process the
-   * app gets, so booting one costs the running game frames. It is allowed only
-   * in the idle window between an explicit game end and the next run — never
-   * while `playing`, and never mid-swipe.
-   */
-  const allowStandby = rested && !suspended && !playing && activeReady && aheadGameId !== null;
-  /**
-   * The mirror of `allowStandby`: once play resumes, a speculative page that
-   * was never actually visited gives its WebView back. Deliberately biased
-   * towards *not* releasing — it requires the pager to be at rest with no
-   * finger down, because a touch is just as likely to become a swipe onto that
-   * very page as it is to be a tap inside the running game. Skipping a release
-   * only leaves a frozen page alive (exactly what a visited `behind` page does
-   * today); releasing one too eagerly would blank the page sliding in.
-   */
-  const releaseStandby = rested && !suspended && playing && !pagerBusyRef.current;
 
   const renderPage = useCallback(
     (i: number) => {
@@ -665,14 +638,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         if (!settling) return null;
         slot = 'leaving';
       }
-      const isCommittedTarget = committedIndex !== null && actualIdx === committedIndex;
-      if (isCommittedTarget) {
-        slot = 'active';
-      } else if (committedIndex !== null && actualIdx === index) {
-        slot = 'leaving';
-      }
-      const isStandby = allowStandby && slot === 'ahead' && game.id === aheadGameId;
-      const mayLoad = !suspended && (slot === 'active' || isStandby);
+      // An offscreen WebView cannot be safely preempted once its engine starts.
+      // Keep loaded neighbors, but initialize cold games only when selected.
+      const mayLoad = !suspended && slot === 'active' && rested;
       return (
         <GamePage
           key={game.id}
@@ -681,15 +649,13 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           slot={slot}
           mayLoad={mayLoad}
           near={true}
-          warmStandby={isStandby}
-          releaseStandby={releaseStandby}
-          suspended={suspended}
+          suspended={suspended || settling}
           onPhase={onPhase}
           onMessage={onMessage}
         />
       );
     },
-    [list, index, direction, loop, settling, rested, suspended, allowStandby, releaseStandby, aheadGameId, committedIndex, refFor, onPhase, onMessage],
+    [list, index, direction, loop, settling, rested, suspended, refFor, onPhase, onMessage],
   );
 
   /* ---------------- dock actions --------------------------------------------- */
@@ -736,13 +702,12 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         index={index}
         pageHeight={stage.height}
         width={stage.width}
-        swipeEnabled={swipeEnabled && !fullScreenAdShowing}
+        swipeEnabled={swipeEnabled && !fullScreenAdShowing && !showPreGameTut}
         loop={loop}
         touchZonesFor={touchZonesFor}
         onSwipeStart={onSwipeStart}
         onIndexChange={onIndexChange}
         onSettled={onSettled}
-        onSwipeCommit={onSwipeCommit}
         onBusyChange={onPagerBusy}
         renderPage={renderPage}
       />
@@ -794,7 +759,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           {body}
           <FeedDock
             theme={theme}
-            visible={dockVisible}
+            visible={dockVisible && !showPreGameTut}
             tab={tab}
             isFavorite={isFavorite}
             // The stage already ends above the navigation bar, like the native dock.
@@ -805,6 +770,13 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
             onSettings={onSettings}
             onToggle={toggleDock}
           />
+          {showPreGameTut ? (
+            <PreGameTutorial
+              visible={showPreGameTut}
+              onComplete={() => onCompletePreGameTut('completed')}
+              onSkip={() => onCompletePreGameTut('skipped')}
+            />
+          ) : null}
           {joyZone && stage.width > 0 ? (
             <JoystickTutorial
               visible={joyTut}

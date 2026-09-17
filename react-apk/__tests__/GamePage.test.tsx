@@ -138,21 +138,7 @@ test('a bundle that lands mid-run does not swap the source under a running game'
   expect(webviews()[0].props.source).toBe(original);
 });
 
-test('a standby warmed while idle gives its WebView back when gameplay resumes', async () => {
-  await act(async () => {
-    tree = TestRenderer.create(<GamePage {...props} slot="ahead" warmStandby />);
-  });
-  expect(webviews()).toHaveLength(1);
-  await act(async () => {
-    webviews()[0].props.onLoad();
-  });
-  await act(async () => {
-    tree.update(<GamePage {...props} slot="ahead" mayLoad={false} warmStandby={false} releaseStandby />);
-  });
-  expect(webviews()).toHaveLength(0);
-});
-
-test('a page the player actually visited keeps its WebView when gameplay resumes', async () => {
+test('a page the player actually visited keeps its WebView when moved behind', async () => {
   await act(async () => {
     tree = TestRenderer.create(<GamePage {...props} slot="active" />);
   });
@@ -160,7 +146,7 @@ test('a page the player actually visited keeps its WebView when gameplay resumes
     webviews()[0].props.onLoad();
   });
   await act(async () => {
-    tree.update(<GamePage {...props} slot="behind" mayLoad={false} releaseStandby />);
+    tree.update(<GamePage {...props} slot="behind" mayLoad={false} />);
   });
   expect(webviews()).toHaveLength(1);
   expect(mockStopLoading).not.toHaveBeenCalled();

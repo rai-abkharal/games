@@ -11,6 +11,7 @@ export const gameRules: [string, RegExp, string][] = [
   ["POST", /^\/uploads\/([A-Za-z0-9_-]{43})\/publish\/?$/, "games.publish"],
   ["POST", /^\/games\/validate\/?$/, "games.upload"],
   ["GET", /^\/games\/([a-z0-9-]+)\/validation\/?$/, "games.read"],
+  ["GET", /^\/games\/([a-z0-9-]+)\/download\/?$/, "games.read"],
   ["POST", /^\/games\/upload\/?$/, "games.upload"],
   ["POST", /^\/games\/([a-z0-9-]+)\/upload\/?$/, "games.update"],
   ["PUT", /^\/games\/([a-z0-9-]+)\/upload\/?$/, "games.update"],

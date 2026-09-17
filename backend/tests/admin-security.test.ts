@@ -332,6 +332,7 @@ describe("Admin security boundaries", () => {
     ["get", "/games"],
     ["post", "/games/validate"],
     ["get", "/games/owned-game/validation"],
+    ["get", "/games/owned-game/download"],
     ["post", "/games/upload"],
     ["post", "/games/owned-game/upload"],
     ["put", "/games/owned-game/upload"],
@@ -365,6 +366,50 @@ describe("Admin security boundaries", () => {
       }
     },
   );
+  it("packages a game's deployed code as a zip download within the admin's scope", async () => {
+    const gameDir = path.join(
+      directory,
+      "public",
+      "games",
+      "owned-game",
+      "1.0.0",
+    );
+    fs.mkdirSync(gameDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(gameDir, "index.html"),
+      "<!doctype html><html><body>Owned</body></html>",
+    );
+    fs.writeFileSync(
+      path.join(gameDir, "manifest.json"),
+      JSON.stringify({ id: "owned-game", title: "Owned", version: "1.0.0" }),
+    );
+
+    const dev = await login("developer");
+    const res = await call(
+      dev,
+      "get",
+      "/v1/admin/games/owned-game/download",
+    ).responseType("arraybuffer");
+    expect(res.status, res.text).toBe(200);
+    expect(res.headers["content-type"]).toContain("application/zip");
+    expect(res.headers["content-disposition"]).toContain(
+      'filename="owned-game-1.0.0.zip"',
+    );
+    const entries = new AdmZip(Buffer.from(res.body))
+      .getEntries()
+      .map((entry) => entry.entryName);
+    expect(entries).toContain("index.html");
+    expect(entries).toContain("manifest.json");
+
+    // Out-of-scope games and unknown ids stay inaccessible.
+    expect(
+      (await call(dev, "get", "/v1/admin/games/other-game/download")).status,
+    ).toBe(403);
+    expect(
+      (await call(dev, "get", "/v1/admin/games/owned-game/../escape/download"))
+        .status,
+    ).not.toBe(200);
+  });
   it("issues secure opaque cookies and stores only digests; both aliases share sessions", async () => {
     const c = await login();
     const token = c.cookie.split("=")[1];
