@@ -11,55 +11,77 @@
         android:id="@+id/settingsToolbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingHorizontal="16dp"
-        android:paddingTop="44dp"
-        android:paddingBottom="16dp"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="36dp"
+        android:paddingBottom="14dp"
         app:layout_constraintTop_toTopOf="parent">
 
         <ImageButton
             android:id="@+id/btnBack"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
             android:background="@drawable/bg_round_button"
             android:contentDescription="Back to Games"
+            android:elevation="2dp"
+            android:padding="10dp"
             android:src="@drawable/ic_arrow_back"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <TextView
-            android:id="@+id/tvToolbarTitle"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:text="Settings &amp; Preferences"
-            android:textColor="#0F172A"
-            android:textSize="20sp"
-            android:textStyle="bold"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="vertical"
             app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnDoneTop"
             app:layout_constraintStart_toEndOf="@id/btnBack"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent">
+
+            <TextView
+                android:id="@+id/tvToolbarTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Settings"
+                android:textColor="#0F172A"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvToolbarSubtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:text="Audio, Appearance &amp; Profile"
+                android:textColor="#64748B"
+                android:textSize="12sp" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/btnDoneTop"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_status_pill"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
             android:text="Done"
-            android:textColor="#3B82F6"
-            android:textSize="16sp"
+            android:textColor="#6366F1"
+            android:textSize="14sp"
             android:textStyle="bold"
-            android:paddingHorizontal="12dp"
-            android:paddingVertical="8dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <ScrollView
+        android:id="@+id/scrollView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
+        android:clipToPadding="false"
         android:fillViewport="true"
+        android:overScrollMode="never"
         android:paddingHorizontal="20dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toBottomOf="@id/settingsToolbar">
@@ -68,25 +90,27 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingBottom="40dp">
+            android:paddingBottom="36dp">
 
-            <!-- Section 1: Audio & Haptics -->
+            <!-- Section 1: Hero Gamer Profile & Wallet Card -->
             <TextView
-                android:id="@+id/tvAudioHeader"
+                android:id="@+id/tvProfileHeader"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="AUDIO &amp; FEEDBACK"
+                android:layout_marginTop="10dp"
+                android:letterSpacing="0.05"
+                android:text="PLAYER PROFILE"
                 android:textColor="#64748B"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <LinearLayout
-                android:id="@+id/cardAudio"
+                android:id="@+id/cardProfile"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/bg_theme_card"
+                android:background="@drawable/bg_settings_card"
+                android:elevation="1dp"
                 android:orientation="vertical"
                 android:padding="16dp">
 
@@ -96,15 +120,159 @@
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
-                    <TextView
-                        android:id="@+id/tvSoundLabel"
+                    <!-- Avatar Badge -->
+                    <FrameLayout
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="@drawable/bg_avatar_circle">
+
+                        <ImageView
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Avatar"
+                            android:src="@drawable/ic_gamepad"
+                            app:tint="#FFFFFF" />
+                    </FrameLayout>
+
+                    <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
                         android:layout_weight="1"
-                        android:text="🔊 Sound Effects (SFX)"
-                        android:textColor="#0F172A"
-                        android:textSize="15sp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvPlayerIdDisplay"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Player: Guest"
+                            android:textColor="#0F172A"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvStatusBadge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:background="@drawable/bg_status_pill"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="2dp"
+                            android:text="⚡ Guest Session"
+                            android:textColor="#64748B"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Divider -->
+                <View
+                    android:id="@+id/divProfile"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="14dp"
+                    android:background="#E2E8F0" />
+
+                <!-- Wallet / Balance Row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvCoinsDisplay"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_pill_gold"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
+                        android:text="🪙 Wallet: 0 Coins"
+                        android:textColor="#B45309"
+                        android:textSize="13sp"
                         android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvCoinsHint"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:gravity="end"
+                        android:text="Play games to earn"
+                        android:textColor="#94A3B8"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Section 2: Audio & Haptics -->
+            <TextView
+                android:id="@+id/tvAudioHeader"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:letterSpacing="0.05"
+                android:text="AUDIO &amp; FEEDBACK"
+                android:textColor="#64748B"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/cardAudio"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_settings_card"
+                android:elevation="1dp"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <!-- Sound Effects Row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <FrameLayout
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:background="@drawable/bg_icon_badge_blue">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="🔊"
+                            android:textSize="16sp" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvSoundLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Sound Effects (SFX)"
+                            android:textColor="#0F172A"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvSoundSub"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Game sounds, audio cues &amp; music"
+                            android:textColor="#64748B"
+                            android:textSize="12sp" />
+                    </LinearLayout>
 
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switchSound"
@@ -114,26 +282,57 @@
                 </LinearLayout>
 
                 <View
+                    android:id="@+id/divAudio"
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:layout_marginVertical="12dp"
+                    android:layout_marginVertical="14dp"
                     android:background="#E2E8F0" />
 
+                <!-- Vibration Row -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
-                    <TextView
-                        android:id="@+id/tvVibLabel"
+                    <FrameLayout
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:background="@drawable/bg_icon_badge_amber">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="📳"
+                            android:textSize="16sp" />
+                    </FrameLayout>
+
+                    <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
                         android:layout_weight="1"
-                        android:text="📳 Haptic Vibration"
-                        android:textColor="#0F172A"
-                        android:textSize="15sp"
-                        android:textStyle="bold" />
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvVibLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Haptic Vibration"
+                            android:textColor="#0F172A"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvVibSub"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Tactile response on taps &amp; scores"
+                            android:textColor="#64748B"
+                            android:textSize="12sp" />
+                    </LinearLayout>
 
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switchVibration"
@@ -143,15 +342,16 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Section 2: 3-Tone Visual Theme Engine -->
+            <!-- Section 3: Visual Theme Engine -->
             <TextView
                 android:id="@+id/tvThemeHeader"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:text="APPEARANCE &amp; THEMES"
+                android:layout_marginTop="22dp"
+                android:letterSpacing="0.05"
+                android:text="APPEARANCE &amp; THEME"
                 android:textColor="#64748B"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <LinearLayout
@@ -166,18 +366,41 @@
                     android:id="@+id/cardThemeWhite"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="6dp"
+                    android:layout_marginEnd="5dp"
                     android:layout_weight="1"
-                    android:background="@drawable/bg_theme_card"
+                    android:background="@drawable/bg_theme_option_card"
+                    android:clickable="true"
+                    android:elevation="1dp"
+                    android:focusable="true"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="14dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="☀️"
-                        android:textSize="24sp" />
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="☀️"
+                            android:textSize="22sp" />
+
+                        <TextView
+                            android:id="@+id/ivCheckWhite"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="end|top"
+                            android:background="@drawable/dot_pure_accent"
+                            android:gravity="center"
+                            android:text="✓"
+                            android:textColor="#FFFFFF"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+                    </FrameLayout>
 
                     <TextView
                         android:id="@+id/tvThemeWhite"
@@ -188,6 +411,25 @@
                         android:textColor="#0F172A"
                         android:textSize="12sp"
                         android:textStyle="bold" />
+
+                    <!-- Palette Swatch Dots -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal">
+
+                        <View
+                            android:layout_width="10dp"
+                            android:layout_height="10dp"
+                            android:background="@drawable/dot_pure_white" />
+
+                        <View
+                            android:layout_width="10dp"
+                            android:layout_height="10dp"
+                            android:layout_marginStart="4dp"
+                            android:background="@drawable/dot_pure_accent" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- 2. Soft Warm Off-White Theme -->
@@ -197,16 +439,39 @@
                     android:layout_height="wrap_content"
                     android:layout_marginHorizontal="3dp"
                     android:layout_weight="1"
-                    android:background="@drawable/bg_theme_card"
+                    android:background="@drawable/bg_theme_option_card"
+                    android:clickable="true"
+                    android:elevation="1dp"
+                    android:focusable="true"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="14dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🍦"
-                        android:textSize="24sp" />
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="🍦"
+                            android:textSize="22sp" />
+
+                        <TextView
+                            android:id="@+id/ivCheckOffWhite"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="end|top"
+                            android:background="@drawable/dot_warm_accent"
+                            android:gravity="center"
+                            android:text="✓"
+                            android:textColor="#FFFFFF"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+                    </FrameLayout>
 
                     <TextView
                         android:id="@+id/tvThemeWarm"
@@ -217,6 +482,25 @@
                         android:textColor="#0F172A"
                         android:textSize="12sp"
                         android:textStyle="bold" />
+
+                    <!-- Palette Swatch Dots -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal">
+
+                        <View
+                            android:layout_width="10dp"
+                            android:layout_height="10dp"
+                            android:background="@drawable/dot_warm_bg" />
+
+                        <View
+                            android:layout_width="10dp"
+                            android:layout_height="10dp"
+                            android:layout_marginStart="4dp"
+                            android:background="@drawable/dot_warm_accent" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- 3. Midnight Dark Theme -->
@@ -224,18 +508,41 @@
                     android:id="@+id/cardThemeDark"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
+                    android:layout_marginStart="5dp"
                     android:layout_weight="1"
-                    android:background="@drawable/bg_theme_card"
+                    android:background="@drawable/bg_theme_option_card"
+                    android:clickable="true"
+                    android:elevation="1dp"
+                    android:focusable="true"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="14dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🌙"
-                        android:textSize="24sp" />
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="🌙"
+                            android:textSize="22sp" />
+
+                        <TextView
+                            android:id="@+id/ivCheckDark"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="end|top"
+                            android:background="@drawable/dot_dark_accent"
+                            android:gravity="center"
+                            android:text="✓"
+                            android:textColor="#FFFFFF"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+                    </FrameLayout>
 
                     <TextView
                         android:id="@+id/tvThemeDark"
@@ -246,80 +553,93 @@
                         android:textColor="#0F172A"
                         android:textSize="12sp"
                         android:textStyle="bold" />
+
+                    <!-- Palette Swatch Dots -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal">
+
+                        <View
+                            android:layout_width="10dp"
+                            android:layout_height="10dp"
+                            android:background="@drawable/dot_dark_bg" />
+
+                        <View
+                            android:layout_width="10dp"
+                            android:layout_height="10dp"
+                            android:layout_marginStart="4dp"
+                            android:background="@drawable/dot_dark_accent" />
+                    </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Section 3: Profile & Coins -->
-            <TextView
-                android:id="@+id/tvProfileHeader"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:text="PLAYER PROFILE &amp; WALLET"
-                android:textColor="#64748B"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-            <LinearLayout
-                android:id="@+id/cardProfile"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/bg_theme_card"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:id="@+id/tvPlayerIdDisplay"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Player: Guest_XXXX"
-                    android:textColor="#0F172A"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvCoinsDisplay"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="🪙 Wallet: 150 Coins"
-                    android:textColor="#B45309"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <!-- Section 4: Offline Storage -->
+            <!-- Section 4: Offline Storage & Cache -->
             <TextView
                 android:id="@+id/tvStorageHeader"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="22dp"
+                android:letterSpacing="0.05"
                 android:text="STORAGE &amp; PERFORMANCE"
                 android:textColor="#64748B"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
-            <Button
-                android:id="@+id/btnClearCache"
+            <LinearLayout
+                android:id="@+id/cardStorage"
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:backgroundTint="#EF4444"
-                android:text="🗑️ Clear Offline Game Cache"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+                android:background="@drawable/bg_settings_card"
+                android:elevation="1dp"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-            <Button
+                <TextView
+                    android:id="@+id/tvStorageTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Offline Game Cache"
+                    android:textColor="#0F172A"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvStorageSub"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:text="Clean cached game packages to free storage or resolve loading issues."
+                    android:textColor="#64748B"
+                    android:textSize="12sp" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnClearCache"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_btn_danger_soft"
+                    android:stateListAnimator="@null"
+                    android:text="🗑️ Clear Offline Game Cache"
+                    android:textColor="#DC2626"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Section 5: Return / Save Action Button -->
+            <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnConfirmDone"
                 android:layout_width="match_parent"
-                android:layout_height="54dp"
+                android:layout_height="52dp"
                 android:layout_marginTop="24dp"
-                android:backgroundTint="#3B82F6"
-                android:text="✓ Confirm &amp; Return to Game"
+                android:background="@drawable/bg_btn_primary"
+                android:elevation="4dp"
+                android:stateListAnimator="@null"
+                android:text="✓ Return to Games"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 android:textStyle="bold" />
 
         </LinearLayout>

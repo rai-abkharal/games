@@ -8,6 +8,9 @@ const mockAnalyticsInstance = {
   logEvent: jest.fn(async (name: string, params?: Record<string, any>) => {
     loggedEvents.push({ name, params });
   }),
+  logScreenView: jest.fn(async (params?: { screen_name?: string; screen_class?: string }) => {
+    loggedEvents.push({ name: 'screen_view', params });
+  }),
   setUserId: jest.fn(async (id: string | null) => {
     currentUserId = id;
   }),

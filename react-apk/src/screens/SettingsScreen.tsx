@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Modal,
@@ -14,7 +14,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getActiveBaseUrl } from '../api/http';
 import { STORAGE_KEYS } from '../config/env';
 import {
-  LANGUAGES,
   LANGUAGE_LIST,
   useTranslation,
   type LanguageCode,
@@ -30,6 +29,195 @@ import { usePlayerStore } from '../store/playerStore';
 import { toast } from '../store/toastStore';
 import { THEMES, THEME_ORDER } from '../theme/themes';
 import { useTheme } from '../theme/useTheme';
+import { GamepadIcon } from '../components/feed/NavIcons';
+
+// Vector Icon Components (Independent of device font glyphs)
+function BackChevron({ size = 11, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderLeftWidth: 2.4,
+        borderBottomWidth: 2.4,
+        borderColor: color,
+        transform: [{ rotate: '45deg' }],
+        marginLeft: 3,
+      }}
+    />
+  );
+}
+
+function ChevronRight({ size = 8, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderTopWidth: 2,
+        borderRightWidth: 2,
+        borderColor: color,
+        transform: [{ rotate: '45deg' }],
+        marginLeft: 5,
+      }}
+    />
+  );
+}
+
+function CloseIcon({ size = 13, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  const barH = 2;
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          width: size,
+          height: barH,
+          backgroundColor: color,
+          borderRadius: 1,
+          position: 'absolute',
+          transform: [{ rotate: '45deg' }],
+        }}
+      />
+      <View
+        style={{
+          width: size,
+          height: barH,
+          backgroundColor: color,
+          borderRadius: 1,
+          position: 'absolute',
+          transform: [{ rotate: '-45deg' }],
+        }}
+      />
+    </View>
+  );
+}
+
+function CheckIcon({ size = 10, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <View
+      style={{
+        width: size * 0.55,
+        height: size,
+        borderRightWidth: 2.2,
+        borderBottomWidth: 2.2,
+        borderColor: color,
+        transform: [{ rotate: '45deg' }],
+        marginBottom: size * 0.2,
+      }}
+    />
+  );
+}
+
+function SoundIcon({ size = 18, color = '#4F46E5' }: { size?: number; color?: string }) {
+  return (
+    <View style={{ width: size, height: size, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: size * 0.28, height: size * 0.38, backgroundColor: color, borderRadius: 1.5 }} />
+      <View
+        style={{
+          width: 0,
+          height: 0,
+          borderTopWidth: size * 0.32,
+          borderBottomWidth: size * 0.32,
+          borderRightWidth: size * 0.32,
+          borderTopColor: 'transparent',
+          borderBottomColor: 'transparent',
+          borderRightColor: color,
+          marginLeft: -1,
+        }}
+      />
+      <View
+        style={{
+          width: size * 0.22,
+          height: size * 0.44,
+          borderRightWidth: 1.8,
+          borderColor: color,
+          borderRadius: size * 0.22,
+          marginLeft: 2.5,
+        }}
+      />
+      <View
+        style={{
+          width: size * 0.16,
+          height: size * 0.68,
+          borderRightWidth: 1.8,
+          borderColor: color,
+          borderRadius: size * 0.2,
+          marginLeft: 2,
+        }}
+      />
+    </View>
+  );
+}
+
+function VibrateIcon({ size = 18, color = '#D97706' }: { size?: number; color?: string }) {
+  return (
+    <View style={{ width: size, height: size, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          width: size * 0.12,
+          height: size * 0.48,
+          borderLeftWidth: 1.8,
+          borderColor: color,
+          borderRadius: size * 0.1,
+          marginRight: 2.5,
+        }}
+      />
+      <View
+        style={{
+          width: size * 0.42,
+          height: size * 0.76,
+          borderWidth: 1.8,
+          borderColor: color,
+          borderRadius: 3,
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingVertical: 2,
+        }}
+      >
+        <View style={{ width: size * 0.16, height: 1.5, backgroundColor: color, borderRadius: 1 }} />
+        <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: color }} />
+      </View>
+      <View
+        style={{
+          width: size * 0.12,
+          height: size * 0.48,
+          borderRightWidth: 1.8,
+          borderColor: color,
+          borderRadius: size * 0.1,
+          marginLeft: 2.5,
+        }}
+      />
+    </View>
+  );
+}
+
+function CoinIcon({ size = 16 }: { size?: number }) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: '#F59E0B',
+        borderWidth: 1.5,
+        borderColor: '#B45309',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          width: size * 0.54,
+          height: size * 0.54,
+          borderRadius: (size * 0.54) / 2,
+          borderWidth: 1,
+          borderColor: '#FEF3C7',
+          backgroundColor: '#FBBF24',
+        }}
+      />
+    </View>
+  );
+}
 
 export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
   const theme = useTheme();
@@ -83,17 +271,34 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
           onPress={() => navigation.goBack()}
           hitSlop={12}
           accessibilityLabel="Back"
-          style={styles.toolbarBtn}
+          style={[
+            styles.backCircleBtn,
+            {
+              backgroundColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+              borderColor: theme.border,
+            },
+          ]}
         >
-          <Text style={[styles.back, { color: theme.textPrimary }]}>←</Text>
+          <BackChevron size={11} color={theme.textPrimary} />
         </Pressable>
-        <Text style={[styles.title, { color: theme.textPrimary }]}>{t('settingsTitle')}</Text>
+        <View style={styles.titleCol}>
+          <Text style={[styles.title, { color: theme.textPrimary }]}>{t('settingsTitle')}</Text>
+          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+            Audio, Appearance & Profile
+          </Text>
+        </View>
         <Pressable
           onPress={() => navigation.goBack()}
           hitSlop={12}
-          style={styles.toolbarBtn}
+          style={[
+            styles.doneBtnPill,
+            {
+              backgroundColor: theme.isDark ? 'rgba(255,255,255,0.08)' : '#EEF2FF',
+              borderColor: theme.isDark ? 'rgba(255,255,255,0.15)' : '#C7D2FE',
+            },
+          ]}
         >
-          <Text style={[styles.done, { color: theme.accent }]}>{t('done')}</Text>
+          <Text style={[styles.doneText, { color: theme.accent }]}>{t('done')}</Text>
         </Pressable>
       </View>
 
@@ -101,7 +306,161 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* 1. Language Section */}
+        {/* 1. Hero Gamer Profile & Wallet Card */}
+        <Pressable onPress={revealDiagnostics} accessibilityRole="button" accessibilityLabel="Profile">
+          <Card theme={theme} title={t('profileSection')}>
+            <View style={styles.profileHero}>
+              <View
+                style={[
+                  styles.avatarBadge,
+                  { backgroundColor: theme.accent, borderColor: theme.accent },
+                ]}
+              >
+                <GamepadIcon size={22} color="#FFFFFF" />
+              </View>
+              <View style={styles.profileInfo}>
+                <Text style={[styles.profileIdText, { color: theme.textPrimary }]}>
+                  {playerId ? `Player: ${playerId}` : t('guest')}
+                </Text>
+                <View
+                  style={[
+                    styles.statusPill,
+                    {
+                      backgroundColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: playerId ? '#10B981' : '#F59E0B' },
+                    ]}
+                  />
+                  <Text style={[styles.statusPillText, { color: theme.textSecondary }]}>
+                    {playerId ? 'Account Synced' : 'Guest Session'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={[styles.walletRow, { borderTopColor: theme.border }]}>
+              <View style={styles.coinsPill}>
+                <CoinIcon size={14} />
+                <Text style={styles.coinsPillText}>{coins} {t('coins')}</Text>
+              </View>
+              <Text style={[styles.walletHint, { color: theme.textSecondary }]}>
+                Play games to earn
+              </Text>
+            </View>
+          </Card>
+        </Pressable>
+
+        {/* 2. Audio & Haptics Card */}
+        <Card theme={theme} title={t('audioHapticsSection')}>
+          <View style={styles.featureRow}>
+            <View style={[styles.iconBadge, { backgroundColor: '#E0E7FF' }]}>
+              <SoundIcon size={19} color="#4F46E5" />
+            </View>
+            <View style={styles.featureInfo}>
+              <Text style={[styles.featureTitle, { color: theme.textPrimary }]}>{t('sound')}</Text>
+              <Text style={[styles.featureSub, { color: theme.textSecondary }]}>
+                Game sounds, audio cues & music
+              </Text>
+            </View>
+            <Switch
+              value={!soundMuted}
+              onValueChange={value => setSoundMuted(!value)}
+              trackColor={{ true: theme.accent, false: theme.border }}
+              thumbColor={!soundMuted ? '#FFFFFF' : theme.textSecondary}
+            />
+          </View>
+          <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+          <View style={styles.featureRow}>
+            <View style={[styles.iconBadge, { backgroundColor: '#FEF3C7' }]}>
+              <VibrateIcon size={19} color="#D97706" />
+            </View>
+            <View style={styles.featureInfo}>
+              <Text style={[styles.featureTitle, { color: theme.textPrimary }]}>{t('vibration')}</Text>
+              <Text style={[styles.featureSub, { color: theme.textSecondary }]}>
+                Tactile response on taps & scores
+              </Text>
+            </View>
+            <Switch
+              value={vibrationEnabled}
+              onValueChange={setVibrationEnabled}
+              trackColor={{ true: theme.accent, false: theme.border }}
+              thumbColor={vibrationEnabled ? '#FFFFFF' : theme.textSecondary}
+            />
+          </View>
+        </Card>
+
+        {/* 3. Appearance & Visual Themes */}
+        <Card theme={theme} title={t('themeSection')}>
+          <View style={styles.themeRow}>
+            {THEME_ORDER.map(id => {
+              const option = THEMES[id];
+              const active = id === themeId;
+              const swatches =
+                id === 'pure_white'
+                  ? ['#FFFFFF', '#6366F1']
+                  : id === 'off_white'
+                  ? ['#F8F6F0', '#D97706']
+                  : ['#0F172A', '#38BDF8'];
+
+              return (
+                <Pressable
+                  key={id}
+                  onPress={() => {
+                    setTheme(id);
+                    toast(`${option.emoji} ${option.name} theme activated`);
+                  }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: active }}
+                  style={[
+                    styles.themeCard,
+                    {
+                      backgroundColor: option.bg,
+                      borderColor: active ? theme.accent : theme.border,
+                      borderWidth: active ? 2.5 : 1,
+                      shadowColor: active ? theme.accent : '#000',
+                      shadowOpacity: active ? 0.25 : 0.05,
+                    },
+                  ]}
+                >
+                  <View style={styles.themeTopRow}>
+                    <Text style={styles.themeEmoji}>{option.emoji}</Text>
+                    {active ? (
+                      <View style={[styles.activeCheckBadge, { backgroundColor: theme.accent }]}>
+                        <CheckIcon size={8} color="#FFFFFF" />
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={[styles.themeName, { color: option.textPrimary }]}>
+                    {option.name}
+                  </Text>
+                  {/* Swatches */}
+                  <View style={styles.swatchRow}>
+                    <View
+                      style={[
+                        styles.swatchDot,
+                        { backgroundColor: swatches[0], borderColor: theme.border },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.swatchDot,
+                        { backgroundColor: swatches[1], borderColor: 'transparent' },
+                      ]}
+                    />
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Card>
+
+        {/* 4. Language Section */}
         <Card theme={theme} title={t('languageSection')}>
           <Pressable
             onPress={() => setLanguageModalVisible(true)}
@@ -129,80 +488,12 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
             </View>
             <View style={[styles.changeBadge, { backgroundColor: theme.accent + '22' }]}>
               <Text style={[styles.changeBadgeText, { color: theme.accent }]}>
-                {t('selectLanguage')} ›
+                {t('selectLanguage')}
               </Text>
+              <ChevronRight size={8} color={theme.accent} />
             </View>
           </Pressable>
         </Card>
-
-        {/* 2. Audio & Haptics */}
-        <Card theme={theme} title={t('audioHapticsSection')}>
-          <Row theme={theme} label={t('sound')}>
-            <Switch
-              value={!soundMuted}
-              onValueChange={value => setSoundMuted(!value)}
-              trackColor={{ true: theme.accent, false: theme.border }}
-            />
-          </Row>
-          <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-          <Row theme={theme} label={t('vibration')}>
-            <Switch
-              value={vibrationEnabled}
-              onValueChange={setVibrationEnabled}
-              trackColor={{ true: theme.accent, false: theme.border }}
-            />
-          </Row>
-        </Card>
-
-        {/* 3. Theme */}
-        <Card theme={theme} title={t('themeSection')}>
-          <View style={styles.themeRow}>
-            {THEME_ORDER.map(id => {
-              const option = THEMES[id];
-              const active = id === themeId;
-              return (
-                <Pressable
-                  key={id}
-                  onPress={() => {
-                    setTheme(id);
-                    toast(`${option.emoji} ${option.name} theme activated`);
-                  }}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: active }}
-                  style={[
-                    styles.themeCard,
-                    {
-                      backgroundColor: option.bg,
-                      borderColor: active ? theme.accent : theme.border,
-                      borderWidth: active ? 2.5 : StyleSheet.hairlineWidth,
-                    },
-                  ]}
-                >
-                  <Text style={styles.themeEmoji}>{option.emoji}</Text>
-                  <Text style={[styles.themeName, { color: option.textPrimary }]}>
-                    {option.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Card>
-
-        {/* 4. Profile */}
-        <Pressable onPress={revealDiagnostics} accessibilityRole="button" accessibilityLabel="Profile">
-          <Card theme={theme} title={t('profileSection')}>
-            <View style={styles.profileRow}>
-              <Text style={[styles.text, { color: theme.textPrimary }]}>
-                {t('playerId')}: {playerId || t('guest')}
-              </Text>
-            </View>
-            <View style={styles.profileRow}>
-              <Text style={[styles.text, { color: theme.textPrimary }]}>
-                🪙 {t('totalWallet')}: {coins} {t('coins')}
-              </Text>
-            </View>
-          </Card>
-        </Pressable>
 
         {/* 5. Diagnostics (revealed on 5 taps) */}
         {diagnostics ? <Diagnostics theme={theme} /> : null}
@@ -216,14 +507,20 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
             onPress={clearCatalogCache}
             disabled={clearing}
             style={({ pressed }) => [
-              styles.button,
+              styles.clearCacheBtn,
               {
-                backgroundColor: theme.accent,
+                backgroundColor: theme.isDark ? '#3B1717' : '#FEF2F2',
+                borderColor: theme.isDark ? '#7F1D1D' : '#FECACA',
                 opacity: clearing ? 0.6 : pressed ? 0.85 : 1,
               },
             ]}
           >
-            <Text style={styles.buttonText}>
+            <Text
+              style={[
+                styles.clearCacheBtnText,
+                { color: theme.isDark ? '#FCA5A5' : '#DC2626' },
+              ]}
+            >
               {clearing ? t('refreshing') : t('refreshCache')}
             </Text>
           </Pressable>
@@ -239,6 +536,7 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
             { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
           ]}
         >
+          <CheckIcon size={12} color="#FFFFFF" />
           <Text style={styles.confirmButtonText}>{t('confirmReturn')}</Text>
         </Pressable>
       </ScrollView>
@@ -269,8 +567,9 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
                 onPress={() => setLanguageModalVisible(false)}
                 hitSlop={12}
                 style={styles.modalCloseBtn}
+                accessibilityLabel="Close"
               >
-                <Text style={[styles.modalCloseText, { color: theme.textSecondary }]}>✕</Text>
+                <CloseIcon size={12} color={theme.textSecondary} />
               </Pressable>
             </View>
 
@@ -316,7 +615,7 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
                     </View>
                     {isSelected ? (
                       <View style={[styles.checkCircle, { backgroundColor: theme.accent }]}>
-                        <Text style={styles.checkText}>✓</Text>
+                        <CheckIcon size={11} color="#FFFFFF" />
                       </View>
                     ) : null}
                   </Pressable>
@@ -331,17 +630,22 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
 }
 
 function Diagnostics({ theme }: { theme: ReturnType<typeof useTheme> }) {
-  const [store, setStore] = useState<Awaited<ReturnType<typeof bundleStatus>>>(null);
+  const [health, setHealth] = useState(analyticsHealth());
+  const [store, setStore] = useState<Awaited<ReturnType<typeof bundleStatus>> | null>(null);
   const [pinged, setPinged] = useState<string | null>(null);
-  const health = analyticsHealth();
 
   useEffect(() => {
     let cancelled = false;
-    void bundleStatus().then(status => {
-      if (!cancelled) setStore(status);
-    });
+    const poll = async () => {
+      setHealth(analyticsHealth());
+      const s = await bundleStatus();
+      if (!cancelled) setStore(s);
+    };
+    void poll();
+    const id = setInterval(() => void poll(), 1500);
     return () => {
       cancelled = true;
+      clearInterval(id);
     };
   }, []);
 
@@ -349,28 +653,28 @@ function Diagnostics({ theme }: { theme: ReturnType<typeof useTheme> }) {
     const tag = String(Date.now()).slice(-6);
     analytics.onGameAction('diagnostics', 'Diagnostics', 'analytics_ping', tag);
     setPinged(tag);
-    toast(`📡 Sent analytics_ping ${tag}`);
+    toast(`Sent analytics_ping ${tag}`);
   }, []);
 
   return (
     <Card theme={theme} title="Diagnostics">
       <Text style={[styles.hint, { color: theme.textSecondary }]}>
-        Firebase: {health.available ? 'initialised' : `unavailable — ${health.error ?? 'unknown'}`}
+        Firebase: {health.available ? 'initialised' : `unavailable - ${health.error ?? 'unknown'}`}
       </Text>
       <Text style={[styles.hint, { color: theme.textSecondary }]}>Session: {health.sessionId}</Text>
       <Text style={[styles.hint, { color: theme.textSecondary }]}>
-        Game store: {store ? (store.available ? `serving on :${store.port}` : 'not serving') : 'checking…'}
+        Game store: {store ? (store.available ? `serving on :${store.port}` : 'not serving') : 'checking...'}
       </Text>
       <Text style={[styles.hint, { color: theme.textSecondary }]}>
-        Stored: {store ? `${store.ready.length} builds, ${(store.usedBytes / (1024 * 1024)).toFixed(1)} MB` : '—'}
+        Stored: {store ? `${store.ready.length} builds, ${(store.usedBytes / (1024 * 1024)).toFixed(1)} MB` : '-'}
       </Text>
       {pinged ? (
         <Text style={[styles.hint, { color: theme.textSecondary }]}>
           Look for game_action with action_value = {pinged}
         </Text>
       ) : null}
-      <Pressable onPress={ping} style={[styles.button, { backgroundColor: theme.accent }]}>
-        <Text style={styles.buttonText}>Send analytics ping</Text>
+      <Pressable onPress={ping} style={[styles.clearCacheBtn, { backgroundColor: theme.accent, borderColor: theme.accent }]}>
+        <Text style={[styles.clearCacheBtnText, { color: '#FFFFFF' }]}>Send analytics ping</Text>
       </Pressable>
     </Card>
   );
@@ -406,23 +710,6 @@ function Card({
   );
 }
 
-function Row({
-  theme,
-  label,
-  children,
-}: {
-  theme: ReturnType<typeof useTheme>;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <View style={styles.row}>
-      <Text style={[styles.text, { color: theme.textPrimary }]}>{label}</Text>
-      {children}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
   toolbar: {
@@ -433,50 +720,207 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  toolbarBtn: {
-    minWidth: 44,
-    height: 40,
+  backCircleBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  back: { fontSize: 22, fontWeight: '800' },
-  title: { fontSize: 18, fontWeight: '900', letterSpacing: 0.2 },
-  done: { fontSize: 15, fontWeight: '800' },
+  titleCol: {
+    flex: 1,
+    marginHorizontal: 12,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  subtitle: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  doneBtnPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  doneText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
   content: { paddingHorizontal: 16, paddingTop: 14, gap: 14 },
   card: {
     borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     padding: 16,
     gap: 12,
   },
   cardTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 34 },
+
+  // Profile Hero
+  profileHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  avatarBadge: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  profileIdText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  statusPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  walletRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  coinsPill: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  coinsPillText: {
+    color: '#B45309',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  walletHint: {
+    fontSize: 12,
+  },
+
+  // Audio / Haptics Features
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  iconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureInfo: {
+    flex: 1,
+  },
+  featureTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  featureSub: {
+    fontSize: 11.5,
+    marginTop: 2,
+  },
   rowDivider: { height: StyleSheet.hairlineWidth, width: '100%' },
-  profileRow: { paddingVertical: 2 },
-  text: { fontSize: 15, fontWeight: '600' },
-  hint: { fontSize: 12, lineHeight: 17 },
+
+  // Themes
   themeRow: { flexDirection: 'row', gap: 10 },
   themeCard: {
     flex: 1,
     borderRadius: 14,
-    paddingVertical: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
+    elevation: 2,
+  },
+  themeTopRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
   },
   themeEmoji: { fontSize: 22 },
-  themeName: { fontSize: 11, fontWeight: '800', textAlign: 'center' },
-  button: {
-    height: 44,
-    borderRadius: 12,
+  activeCheckBadge: {
+    position: 'absolute',
+    right: 0,
+    top: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 14 },
+  themeName: { fontSize: 11, fontWeight: '800', textAlign: 'center' },
+  swatchRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 2,
+  },
+  swatchDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+  },
+
+  hint: { fontSize: 12, lineHeight: 17 },
+
+  // Storage / Cache
+  clearCacheBtn: {
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 6,
+  },
+  clearCacheBtnText: {
+    fontWeight: '800',
+    fontSize: 13,
+  },
+
+  // Confirm Return Button
   confirmButton: {
     height: 52,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
     marginTop: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -520,6 +964,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   changeBadgeText: {
     fontSize: 12,
@@ -564,10 +1010,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(150, 150, 150, 0.15)',
   },
-  modalCloseText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
   languageListContent: {
     paddingHorizontal: 16,
     paddingTop: 10,
@@ -603,10 +1045,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  checkText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '900',
   },
 });

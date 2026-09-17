@@ -175,18 +175,8 @@ class MainActivity : AppCompatActivity(), GameBridgeListener {
         binding.tvGameTitle.setTextColor(Color.parseColor("#F8FAFC"))
         binding.tvGameMeta.setTextColor(Color.parseColor("#BFDBFE"))
 
-        // Seamless Banner Ad Container matching theme
-        val bannerDrawable = GradientDrawable().apply {
-            cornerRadius = 16f
-            setColor(Color.argb(
-                if (colors.isDark) 82 else 64,
-                Color.red(colors.bannerBg),
-                Color.green(colors.bannerBg),
-                Color.blue(colors.bannerBg)
-            ))
-            setStroke(1, Color.argb(110, 191, 227, 255))
-        }
-        binding.bannerAdContainer.background = bannerDrawable
+        // Seamless Banner Ad Container matching top header background seamlessly
+        binding.bannerAdContainer.background = null
 
         binding.topBar.setBackgroundResource(
             if (colors.isDark) R.drawable.bg_top_bar_glass_dark else R.drawable.bg_top_bar_glass

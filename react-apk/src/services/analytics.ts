@@ -90,16 +90,47 @@ export interface GameIdentity {
   game_name: string;
   game_version: string;
   category: string;
+  item_id: string;
+  item_name: string;
+  page_title: string;
+  page_location?: string;
 }
 
 export function gameIdentity(gameId: string, fallbackTitle?: string, fallbackCategory?: string): GameIdentity {
   const game = useCatalogStore.getState().getGame(gameId);
+  const title = game?.title || fallbackTitle || gameId;
+  const entryUrl = game?.entryUrl || '';
   return {
     game_id: gameId,
-    game_name: game?.title || fallbackTitle || gameId,
+    game_name: title,
     game_version: game?.version || '',
     category: game?.category || fallbackCategory || '',
+    item_id: gameId,
+    item_name: title,
+    page_title: title,
+    ...(entryUrl ? { page_location: entryUrl } : {}),
   };
+}
+
+/**
+ * Converts a game title or ID into a clean, compliant GA4 event name.
+ * Rules:
+ *  - Must start with an alphabetic character ('game_')
+ *  - Alphanumeric and underscores only ([a-zA-Z0-9_])
+ *  - Maximum 40 characters
+ * Examples:
+ *  - 'Snake' -> 'game_snake'
+ *  - 'Car Racing' -> 'game_car_racing'
+ *  - 'Puzzle Classic' -> 'game_puzzle_classic'
+ */
+export function toGameEventName(titleOrId: string): string {
+  const clean = titleOrId
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 34);
+  return `game_${clean || 'unknown'}`;
 }
 
 /**
@@ -251,13 +282,26 @@ class AnalyticsService {
     const attempts = (this.attemptCounters.get(gameId) || 0) + 1;
     this.attemptCounters.set(gameId, attempts);
 
-    // 1. Firebase Analytics: game_start
+    // 1. Firebase Analytics: game_start for app-wide rollups
     this.logFirebaseEvent('game_start', {
       ...identity,
       category: category || identity.category || 'arcade',
       play_count: currentPlays,
       attempt_number: attempts,
     });
+
+    // 2. Primary Game-Named Event so each game appears directly in Firebase Console -> Events
+    const gameEventName = toGameEventName(identity.game_name || gameId);
+    this.logFirebaseEvent(gameEventName, {
+      ...identity,
+      category: category || identity.category || 'arcade',
+      play_count: currentPlays,
+      attempt_number: attempts,
+    });
+
+    // User properties for audience segmentation & reporting
+    this.setUserProperty('last_played_game', identity.game_name);
+    this.setUserProperty('last_played_game_id', identity.game_id);
 
     // 2. Dual send to backend analytics API
     this.send('game_start', gameId, identity.game_name);
@@ -348,9 +392,9 @@ class AnalyticsService {
   /**
    * Tracks game over / match failure.
    */
-  onGameOver(gameId: string, fallbackTitle?: string, score = 0, stats = '', level?: number): void {
+  onGameOver(gameId: string, fallbackTitle?: string, score = 0, stats = '', level?: number, overrideDurationSec?: number): void {
     const identity = gameIdentity(gameId, fallbackTitle || this.activeGameTitle);
-    const duration = this.durationSeconds();
+    const duration = overrideDurationSec !== undefined ? overrideDurationSec : this.durationSeconds();
     const attempts = this.attemptCounters.get(gameId) || 1;
     const resolvedLevel = level ?? this.activeLevels.get(gameId);
 
@@ -391,9 +435,9 @@ class AnalyticsService {
   /**
    * Tracks game / level completion (win/pass).
    */
-  onGameCompleted(gameId: string, fallbackTitle?: string, score = 0, level = 1): void {
+  onGameCompleted(gameId: string, fallbackTitle?: string, score = 0, level = 1, overrideDurationSec?: number): void {
     const identity = gameIdentity(gameId, fallbackTitle || this.activeGameTitle);
-    const duration = this.durationSeconds();
+    const duration = overrideDurationSec !== undefined ? overrideDurationSec : this.durationSeconds();
     const attempts = this.attemptCounters.get(gameId) || 1;
 
     // 1. Firebase Analytics: game_complete
@@ -442,10 +486,17 @@ class AnalyticsService {
   /**
    * Tracks user exiting, navigating away, or backgrounding while playing.
    */
-  onGameExit(gameId: string, fallbackTitle?: string, exitReason = 'navigated', score = 0, completed = false): void {
+  onGameExit(
+    gameId: string,
+    fallbackTitle?: string,
+    exitReason = 'navigated',
+    score = 0,
+    completed = false,
+    overrideDurationSec?: number,
+  ): void {
     if (this.activeGameId !== gameId) return;
     const identity = gameIdentity(gameId, fallbackTitle || this.activeGameTitle);
-    const duration = this.durationSeconds();
+    const duration = overrideDurationSec !== undefined ? overrideDurationSec : this.durationSeconds();
 
     // 1. Firebase Analytics: game_exit
     this.logFirebaseEvent('game_exit', {
@@ -482,11 +533,46 @@ class AnalyticsService {
     });
   }
 
-  /** Screen view tracking. */
+  /** Screen view tracking using both native logScreenView and event fallback. */
   onScreenView(screenName: string, screenClass = 'ReactNavigation'): void {
+    const fb = getFirebase();
+    if (fb && typeof fb.logScreenView === 'function') {
+      void this.settle('logScreenView', fb.logScreenView({ screen_name: screenName, screen_class: screenClass }));
+    }
     this.logFirebaseEvent('screen_view', {
       screen_name: screenName,
       screen_class: screenClass,
+      page_title: screenName,
+    });
+  }
+
+  /**
+   * Tracks when a player navigates to / views a specific game screen & web page.
+   * - Updates native Firebase current screen via logScreenView (shows in "Pages and screens")
+   * - Logs GA4 page_view with web page title & URL so web page analytics show up properly!
+   */
+  onGameScreenView(gameId: string, fallbackTitle?: string, entryUrl?: string): void {
+    const identity = gameIdentity(gameId, fallbackTitle);
+    const fb = getFirebase();
+    if (fb && typeof fb.logScreenView === 'function') {
+      void this.settle(
+        'logScreenView:game',
+        fb.logScreenView({
+          screen_name: identity.game_name,
+          screen_class: 'GameWebView',
+        }),
+      );
+    }
+    this.logFirebaseEvent('screen_view', {
+      ...identity,
+      screen_name: identity.game_name,
+      screen_class: 'GameWebView',
+      page_title: identity.game_name,
+    });
+    this.logFirebaseEvent('page_view', {
+      ...identity,
+      page_title: identity.game_name,
+      ...(entryUrl ? { page_location: entryUrl } : {}),
     });
   }
 
@@ -577,9 +663,12 @@ class AnalyticsService {
         // GA4 stores numbers and strings; a boolean arrives as the string
         // "true"/"false", which is unusable in a numeric report.
         value = value ? 1 : 0;
-      } else if (typeof value === 'string' && value.length > GA4.paramValueChars) {
-        warnOnce(`param-value:${eventName}:${key}`, `${eventName}.${key} is longer than ${GA4.paramValueChars} characters and was truncated.`);
-        value = value.slice(0, GA4.paramValueChars);
+      } else if (typeof value === 'string') {
+        const maxLen = key === 'page_location' ? 1000 : GA4.paramValueChars;
+        if (value.length > maxLen) {
+          warnOnce(`param-value:${eventName}:${key}`, `${eventName}.${key} is longer than ${maxLen} characters and was truncated.`);
+          value = value.slice(0, maxLen);
+        }
       }
       out[key] = value;
       count++;

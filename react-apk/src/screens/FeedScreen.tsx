@@ -260,6 +260,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     // Reach, counted once per game per session: a page is selected, left and
     // come back to many times in a sitting, and an impression that counted
     // every one of those would measure restlessness, not reach.
+    analytics.onGameScreenView(game.id, game.title, game.entryUrl);
     analytics.onGameImpression(game.id, game.title, game.category, positionRef.current.index);
     analytics.onGameSelect(game.id, game.title, game.category);
     void analytics.onGameStart(game.id, game.title, game.category);

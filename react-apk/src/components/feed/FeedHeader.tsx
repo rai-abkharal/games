@@ -46,8 +46,6 @@ export const FeedHeader = memo(function FeedHeaderInner({
           { backgroundColor: glass.fill, borderColor: glass.border },
         ]}
       >
-        <View pointerEvents="none" style={[styles.sheen, { backgroundColor: glass.sheen }]} />
-        
         {/* Ad Banner: Borderless, blending seamlessly into header background */}
         <View pointerEvents="box-none" style={styles.bannerSlot}>
           {bannerEnabled ? <AdBanner /> : null}
@@ -76,19 +74,9 @@ const styles = StyleSheet.create({
     paddingTop: 2,
     paddingBottom: 5,
     paddingHorizontal: 16,
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
     borderWidth: 1,
     borderTopWidth: 0,
     overflow: 'hidden',
-  },
-  sheen: {
-    position: 'absolute',
-    left: 8,
-    right: 8,
-    top: 0,
-    bottom: 24,
-    borderRadius: 14,
   },
   bannerSlot: {
     height: 50,
