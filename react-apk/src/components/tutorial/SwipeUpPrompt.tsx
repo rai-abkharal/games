@@ -31,16 +31,9 @@ export const SwipeUpPrompt = memo(function SwipeUpPrompt({
   const handleTrigger = useCallback(() => {
     if (hasTriggeredRef.current) return;
     hasTriggeredRef.current = true;
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 180,
-      easing: Easing.in(Easing.quad),
-      useNativeDriver: true,
-    }).start(() => {
-      setMounted(false);
-      onSwipeUp();
-    });
-  }, [fadeAnim, onSwipeUp]);
+    setMounted(false);
+    onSwipeUp();
+  }, [onSwipeUp]);
 
   useEffect(() => {
     if (visible) {

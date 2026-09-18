@@ -115,14 +115,42 @@ export function GamePager({
       index === selected.current && count === previousCount.current
         ? center
         : index;
+    const isExternalPageChange =
+      mounted.current &&
+      previousCount.current === count &&
+      target !== center &&
+      pageHeight > 0;
+
     previousCount.current = count;
     selected.current = index;
-    if (target !== center) setCenter(target);
-    offset.value = -target * pageHeight;
-    moving.value = false;
-    awaitingCommit.value = false;
-    latest.current.onSettled(index);
-    latest.current.onBusyChange?.(false);
+
+    if (isExternalPageChange) {
+      const destination = -target * pageHeight;
+      const prevCenter = center;
+      const token = generation.value;
+      moving.value = false;
+      awaitingCommit.value = true;
+      latest.current.onBusyChange?.(true);
+      offset.value = withTiming(
+        destination,
+        {
+          duration: 320,
+          easing: Easing.out(Easing.cubic),
+        },
+        completed => {
+          if (!completed || token !== generation.value) return;
+          awaitingCommit.value = false;
+          scheduleOnRN(finish, target, prevCenter);
+        },
+      );
+    } else {
+      if (target !== center) setCenter(target);
+      offset.value = -target * pageHeight;
+      moving.value = false;
+      awaitingCommit.value = false;
+      latest.current.onSettled(index);
+      latest.current.onBusyChange?.(false);
+    }
   }, [
     index,
     center,
@@ -133,6 +161,7 @@ export function GamePager({
     moving,
     awaitingCommit,
     generation,
+    finish,
   ]);
 
   useEffect(() => {

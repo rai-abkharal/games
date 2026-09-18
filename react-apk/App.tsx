@@ -25,7 +25,8 @@ const BUNDLE_STORE_BOOT_MS = 1200;
  * loading while the brand animation plays.
  */
 function App() {
-  const hydrated = usePlayerStore(state => state.hydrated);
+  const playerHydrated = usePlayerStore(state => state.hydrated);
+  const tutorialsHydrated = useTutorialStore(state => state.hydrated);
   const gameReady = useStartupStore(state => state.gameReady);
   const [splashDone, setSplashDone] = useState(false);
   // The local game store answers "which builds can I play from disk?", and the
@@ -59,7 +60,7 @@ function App() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <View style={styles.root}>
-          {hydrated && bundlesSettled ? <RootNavigator /> : null}
+          {playerHydrated && tutorialsHydrated && bundlesSettled ? <RootNavigator /> : null}
           {splashDone ? null : <Splash minimumMs={SPLASH_MS} ready={gameReady} onDone={hideSplash} />}
         </View>
         <Toast />

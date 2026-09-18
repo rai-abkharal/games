@@ -21,6 +21,7 @@ interface TutorialState extends PersistedTutorials {
   markJoystickSeen: () => void;
   markPreGameSnakeSeen: () => void;
   markFirstTimeTutorialCompleted: () => void;
+  resetTutorial: () => Promise<void>;
 }
 
 function persist(state: TutorialState) {
@@ -46,18 +47,14 @@ export const useTutorialStore = create<TutorialState>((set, get) => ({
 
   hydrate: async () => {
     if (get().hydrated) return;
-    const [saved, preGameRaw, firstTimeRaw] = await Promise.all([
+    const [saved, firstTimeRaw] = await Promise.all([
       readJson<PersistedTutorials>(STORAGE_KEYS.tutorials),
-      readString(PRE_GAME_SNAKE_STORAGE_KEY),
       readString(FIRST_TIME_TUTORIAL_STORAGE_KEY),
     ]);
     const firstTimeTutorialCompleted = Boolean(
-      saved?.firstTimeTutorialCompleted ||
-        saved?.preGameSnakeSeen ||
-        preGameRaw === '1' ||
-        firstTimeRaw === '1',
+      saved?.firstTimeTutorialCompleted || firstTimeRaw === '1',
     );
-    const preGameSnakeSeen = Boolean(saved?.preGameSnakeSeen || preGameRaw === '1' || firstTimeTutorialCompleted);
+    const preGameSnakeSeen = Boolean(saved?.preGameSnakeSeen || firstTimeTutorialCompleted);
     set({
       swipeSeen: Boolean(saved?.swipeSeen || firstTimeTutorialCompleted),
       joystickSeen: true, // Never show joystick tutorial
@@ -94,5 +91,24 @@ export const useTutorialStore = create<TutorialState>((set, get) => ({
     writeString(PRE_GAME_SNAKE_STORAGE_KEY, '1');
     writeString(FIRST_TIME_TUTORIAL_STORAGE_KEY, '1');
     persist(get());
+  },
+
+  resetTutorial: async () => {
+    set({
+      swipeSeen: false,
+      joystickSeen: true,
+      preGameSnakeSeen: false,
+      firstTimeTutorialCompleted: false,
+    });
+    await Promise.all([
+      writeString(PRE_GAME_SNAKE_STORAGE_KEY, '0'),
+      writeString(FIRST_TIME_TUTORIAL_STORAGE_KEY, '0'),
+      writeJson(STORAGE_KEYS.tutorials, {
+        swipeSeen: false,
+        joystickSeen: true,
+        preGameSnakeSeen: false,
+        firstTimeTutorialCompleted: false,
+      }),
+    ]);
   },
 }));

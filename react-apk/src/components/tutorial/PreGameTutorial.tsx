@@ -40,14 +40,8 @@ export const PreGameTutorial = memo(function PreGameTutorialInner({
   onComplete,
   onSkip,
 }: PreGameTutorialProps) {
-  const [internalStep, setInternalStep] = useState<TutorialFlowStep>(step);
   const [mounted, setMounted] = useState(visible);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  // Sync internal step when controlled step changes
-  useEffect(() => {
-    setInternalStep(step);
-  }, [step]);
 
   useEffect(() => {
     if (visible) {
@@ -80,11 +74,7 @@ export const PreGameTutorial = memo(function PreGameTutorialInner({
   }, [fadeAnim, onSkip, onComplete]);
 
   const handleSwipeUp = useCallback(() => {
-    if (onSwipeUp) {
-      onSwipeUp();
-    } else {
-      setInternalStep('water_sort_playing');
-    }
+    onSwipeUp?.();
   }, [onSwipeUp]);
 
   const handleFinish = useCallback(() => {
@@ -101,7 +91,7 @@ export const PreGameTutorial = memo(function PreGameTutorialInner({
   if (!mounted || !visible) return null;
 
   // State 1: Arrow Puzzle Completed -> Show Swipe Up Hand Gesture
-  if (internalStep === 'arrow_completed') {
+  if (step === 'arrow_completed') {
     return (
       <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
         <SwipeUpPrompt visible={true} onSwipeUp={handleSwipeUp} />
@@ -120,7 +110,7 @@ export const PreGameTutorial = memo(function PreGameTutorialInner({
   }
 
   // State 2: Water Sort Completed -> Show minimal "Let's Play" button
-  if (internalStep === 'water_sort_completed') {
+  if (step === 'water_sort_completed') {
     return (
       <Animated.View style={[styles.modalOverlay, { opacity: fadeAnim }]}>
         <View style={styles.completionContainer}>

@@ -553,6 +553,7 @@ class tt{
       </div>
     `,document.getElementById("btnRestart")?.addEventListener("click",()=>{E.click(),this.engine?.loadLevel(t),this.resetPanZoom(),this.updateGameUI()}),this.engine=new O(t,{onStateChange:()=>this.updateGameUI(),onWin:(s,i)=>this.showWinDialog(s,i),onFail:s=>this.showFailDialog(s)}),this.setupCanvas(),this.engine.start(),this.updateGameUI();
     try {
+      if (window.NativeBridge && window.NativeBridge.ready) window.NativeBridge.ready();
       if (window.NativeBridge && window.NativeBridge.gameStarted) window.NativeBridge.gameStarted();
       else if (window.FlutterGameBridge && window.FlutterGameBridge.gameStarted) window.FlutterGameBridge.gameStarted();
       else if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'gameStarted', payload: { level: t } }));
@@ -649,7 +650,18 @@ class tt{
             ${s<this.engine.health?'<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>':'<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35zM12 5.5l-1.5 3.5L14 12l-3 4 1 5.35c4.78-4.34 8-7.25 8-12.85 0-2.54-1.96-4.5-4.5-4.5-1.44 0-2.83.67-3.5 1.5z"/>'}
           </svg>
         `).join(""))}
-  showWinDialog(t,n){const s=t>=1e3,i=document.createElement("div");i.className="modal-overlay",i.innerHTML=`
+  showWinDialog(t,n){
+    try {
+      const score = Math.max(100, (n || 3) * 100);
+      if (window.NativeBridge && window.NativeBridge.completed) {
+        window.NativeBridge.completed(score, t);
+      } else if (window.FlutterGameBridge && window.FlutterGameBridge.completed) {
+        window.FlutterGameBridge.completed(score, t);
+      } else if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'completed', payload: { score: score, level: t } }));
+      }
+    } catch (e) {}
+    const s=t>=1e3,i=document.createElement("div");i.className="modal-overlay",i.innerHTML=`
       <div class="modal-card win-modal">
         <div class="celebration-canvas-wrap">
           <canvas id="celebrationCanvas" width="280" height="130"></canvas>

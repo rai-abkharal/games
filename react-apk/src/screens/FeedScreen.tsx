@@ -193,9 +193,14 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   if (positionList !== list) {
     setPositionList(list);
     if (list.length) {
-      const wanted = list.findIndex(game => game.id === currentIdRef.current);
-      const next = wanted >= 0 ? wanted : clampIndex(position.index, list.length);
-      currentIdRef.current = list[next].id;
+      let next: number;
+      if (isTutorialActive) {
+        next = (tutorialStep === 'water_sort_playing' || tutorialStep === 'water_sort_completed') ? 1 : 0;
+      } else {
+        const wanted = list.findIndex(game => game.id === currentIdRef.current);
+        next = wanted >= 0 ? wanted : clampIndex(position.index, list.length);
+      }
+      currentIdRef.current = list[next]?.id ?? null;
       setPosition({ index: next, direction: position.direction, settling: false });
     }
   }
@@ -299,7 +304,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     setTutorialStep('water_sort_playing');
     setSwipeEnabled(false);
     useTutorialStore.getState().markSwipeSeen();
-    setPosition({ index: 1, direction: 1, settling: true });
+    const nextGame = listRef.current[1] ?? FALLBACK_WATER_SORT;
+    currentIdRef.current = nextGame.id;
+    setPosition({ index: 1, direction: 1, settling: false });
     analytics.onGameAction('global', 'Feed', 'tutorial_swipe_up_executed');
   }, []);
 
@@ -628,12 +635,16 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         setTutorialStep('water_sort_playing');
         setSwipeEnabled(false);
       }
+      const currentGame = listRef.current[index];
+      if (currentGame) currentIdRef.current = currentGame.id;
       setPosition({ index, direction, settling: true });
     },
     [isTutorialActive],
   );
 
   const onSettled = useCallback((index: number) => {
+    const currentGame = listRef.current[index];
+    if (currentGame) currentIdRef.current = currentGame.id;
     setPosition(prev => (prev.index === index && !prev.settling ? prev : { ...prev, index, settling: false }));
   }, []);
 
