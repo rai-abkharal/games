@@ -111,7 +111,7 @@ export class Game {
 
     this.coach = new ControlCoach({
       storageKey: 'tutorials.v1.snake_control',
-      label: 'SWIPE HERE TO STEER',
+      label: 'SWIPE TO START',
       getPad: () => ({
         cx: THEME.joyX,
         cy: this.currentJoyY,
