@@ -784,7 +784,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           theme={theme}
           insetTop={0}
           bannerEnabled={bannerEnabled}
-          title={current?.title ?? 'Swipe Play'}
+          title={current?.title ?? 'EiBi Games: Swipe & Play'}
         />
         <View style={styles.stage} onLayout={onStageLayout} onTouchStart={onStageTouch}>
           {body}

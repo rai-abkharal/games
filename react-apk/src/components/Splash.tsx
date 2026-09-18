@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { ActivityIndicator, Animated, Easing, StyleSheet, Text, View } from 'react-native';
-import { GamepadIcon } from './feed/NavIcons';
+import { ActivityIndicator, Animated, Easing, Image, StyleSheet, Text, View } from 'react-native';
+
+const APP_LOGO_IMAGE = require('../assets/images/app_logo.png');
 
 interface Props {
   /** How long the splash stays before fading (SplashActivity: 1200 ms). */
@@ -50,12 +51,12 @@ export function Splash({ minimumMs, ready = false, onDone }: Props) {
   return (
     <Animated.View style={[styles.root, { opacity: fade }]} pointerEvents="none">
       <Animated.View style={[styles.brand, { opacity: enter, transform: [{ translateY }] }]}>
-        <GamepadIcon size={96} color="#6366F1" />
+        <Image source={APP_LOGO_IMAGE} style={styles.logoImage} resizeMode="contain" />
         <Text style={styles.title} allowFontScaling={false}>
-          SWIPE PLAY
+          EiBi Games
         </Text>
         <Text style={styles.subtitle} allowFontScaling={false}>
-          120 FPS INSTANT ACTION ARCADE
+          SWIPE & PLAY
         </Text>
       </Animated.View>
       <View style={styles.status}>
@@ -83,19 +84,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  logoImage: {
+    width: 104,
+    height: 104,
+    borderRadius: 22,
+    shadowColor: '#A855F7',
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+  },
   title: {
     marginTop: 20,
     color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '700',
-    letterSpacing: -0.64,
+    fontSize: 34,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   subtitle: {
-    marginTop: 8,
-    color: '#818CF8',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.6,
+    marginTop: 6,
+    color: '#C084FC',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1.5,
   },
   status: {
     alignItems: 'center',
