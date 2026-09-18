@@ -1,6 +1,6 @@
 {
-  "version": 30,
-  "updatedAt": "2026-09-17T10:54:47.459Z",
+  "version": 31,
+  "updatedAt": "2026-09-18T13:13:22.162Z",
   "games": [
     {
       "id": "game-mtmsq289",
@@ -1396,6 +1396,40 @@
         "useCustomInterval": false,
         "intervalMinutes": 5
       }
+    },
+    {
+      "id": "farmer-pedro",
+      "title": "Farmer Pedro",
+      "sourceTitle": "Farmer Pedro",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/farmer-pedro/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/farmer-pedro.svg",
+      "sizeBytes": 23708761,
+      "orientation": "landscape",
+      "engine": "babylon",
+      "manifestUrl": "http://localhost:8080/games/farmer-pedro/1.0.0/manifest.json",
+      "feedOrder": 52,
+      "category": "SIMULATION",
+      "description": "Grow crops, manage your farm, and become the ultimate farmer in this fun 3D farming game!",
+      "sha256": "b70e14b85742b8e369bd1e2b62870e6408d2db47be32f93e99feb8cfffab788d",
+      "controls": [
+        "TAP",
+        "SWIPE"
+      ],
+      "tags": [
+        "simulation",
+        "farming",
+        "3d"
+      ],
+      "ageRating": "everyone",
+      "status": "published",
+      "features": {
+        "sound": true,
+        "vibration": false,
+        "hint": false
+      },
+      "createdAt": "2026-09-18T13:13:22.162Z",
+      "updatedAt": "2026-09-18T13:13:22.162Z"
     }
   ]
 }

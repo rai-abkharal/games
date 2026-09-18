@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,height=device-height,initial-scale=1,maximum-scale=1,user-scalable=0,shrink-to-fit=no,minimal-ui">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Farmer Pedro</title>
+  <link rel="icon" type="image/png" href="media/graphics/fav.png">
+  <link rel="stylesheet" type="text/css" href="game.css">
+  <style>
+    #offline-error{display:none;position:fixed;inset:0;z-index:20000;box-sizing:border-box;padding:8vh 8vw;background:#172038;color:#fff;font:18px/1.5 Arial,sans-serif;overflow:auto}
+    #offline-error h1{font-size:28px;margin:0 0 12px}#offline-error pre{white-space:pre-wrap;word-break:break-word;background:#0d1323;padding:14px;border-radius:8px}
+  </style>
+  <script src="embedded-resources.js"></script>
+  <script src="offline-adapter.js"></script>
+  <script src="vendor/babylon/draco_wasm_wrapper_gltf.js"></script>
+  <script>
+    (function(){
+      function showOfflineError(message){
+        var panel=document.getElementById('offline-error');
+        if(!panel)return;
+        panel.style.display='block';
+        panel.querySelector('pre').textContent=String(message||'Unknown startup error');
+      }
+      window.addEventListener('error',function(event){
+        var msg=(event.error&&(event.error.stack||event.error.message))||event.message;
+        if(msg&&msg!=='Script error.'){
+          showOfflineError(msg);
+        }
+      });
+      window.addEventListener('unhandledrejection',function(event){
+        showOfflineError((event.reason&&(event.reason.stack||event.reason.message))||event.reason);
+      });
+      window.__showFarmerPedroError=showOfflineError;
+    }());
+  </script>
+</head>
+<body>
+  <div id="ajaxbar">
+    <div id="game"><canvas id="canvas"></canvas></div>
+    <div id="webgl"><canvas id="webglcanvas"></canvas></div>
+
+    <div id="orientate"><img src="media/graphics/orientate/landscape.jpg" alt="Rotate device"></div>
+    <div id="play" class="play" onclick=""></div>
+
+  </div>
+  <div id="offline-error" role="alert">
+    <h1>Farmer Pedro could not start</h1>
+    <p>The package is offline; this message reports the local startup error instead of leaving a black screen.</p>
+    <pre></pre>
+  </div>
+  <script src="game.js"></script>
+  <script src="trackpad-controller.js"></script>
+</body>
+</html>

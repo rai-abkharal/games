@@ -1,0 +1,17 @@
+{
+  "id": "farmer-pedro",
+  "title": "Farmer Pedro",
+  "version": "1.0.0",
+  "description": "Grow crops, manage your farm, and become the ultimate farmer in this fun 3D farming game!",
+  "orientation": "landscape",
+  "controls": [
+    "TAP",
+    "SWIPE"
+  ],
+  "tags": [
+    "simulation",
+    "farming",
+    "3d"
+  ],
+  "ageRating": "everyone"
+}
