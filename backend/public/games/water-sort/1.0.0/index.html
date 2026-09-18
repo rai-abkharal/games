@@ -151,6 +151,7 @@
       try {
         if (window.NativeBridge && window.NativeBridge.completed) window.NativeBridge.completed(score || 0, level || 1);
         else if (window.FlutterGameBridge && window.FlutterGameBridge.completed) window.FlutterGameBridge.completed(score || 0, level || 1);
+        else if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'completed', payload: { score: score || 0, level: level || 1 } }));
       } catch (e) {}
       this.post('onGameCompleted', { score: score || 0, level: level || 1 });
     },
@@ -2785,28 +2786,29 @@ class GameEngine {
     }
     resize();
 
-    // Dual Touch & Pointer Listeners with Debounce
+    // Robust Touch & Pointer Listeners with 60ms Debounce
     let lastTouchTime = 0;
     function handleTouchOrPointer(clientX, clientY) {
+      if (clientX === undefined || clientY === undefined) return;
       const now = performance.now();
-      if (now - lastTouchTime < 80) return;
+      if (now - lastTouchTime < 60) return;
       lastTouchTime = now;
       engine.handlePointerDown(clientX, clientY);
     }
 
+    canvas.addEventListener('pointerdown', function(e) {
+      handleTouchOrPointer(e.clientX, e.clientY);
+    });
+
     canvas.addEventListener('touchstart', function(e) {
       if (e.touches && e.touches.length > 0) {
-        e.preventDefault();
         const t = e.touches[0];
         handleTouchOrPointer(t.clientX, t.clientY);
       }
-    }, { passive: false });
+    }, { passive: true });
 
-    canvas.addEventListener('pointerdown', function(e) {
-      if (e.pointerType !== 'touch') {
-        e.preventDefault();
-        handleTouchOrPointer(e.clientX, e.clientY);
-      }
+    canvas.addEventListener('click', function(e) {
+      handleTouchOrPointer(e.clientX, e.clientY);
     });
 
     window.addEventListener('pointerup', function() { engine.handlePointerUp(); });

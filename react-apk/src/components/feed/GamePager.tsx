@@ -94,13 +94,14 @@ export function GamePager({
   );
   const swipeStart = useCallback(() => latest.current.onSwipeStart(), []);
   const finish = useCallback(
-    (target: number, previous: number) => {
+    (target: number, previous: number, isExternal = false) => {
       if (!mounted.current) return;
       const actual = wrap ? ((target % count) + count) % count : target;
       selected.current = actual;
       setCenter(target);
-      if (target !== previous)
+      if (!isExternal && target !== previous) {
         latest.current.onIndexChange(actual, target > previous ? 1 : -1);
+      }
       latest.current.onSettled(actual);
       latest.current.onBusyChange?.(false);
     },
@@ -140,7 +141,7 @@ export function GamePager({
         completed => {
           if (!completed || token !== generation.value) return;
           awaitingCommit.value = false;
-          scheduleOnRN(finish, target, prevCenter);
+          scheduleOnRN(finish, target, prevCenter, true);
         },
       );
     } else {
@@ -289,7 +290,7 @@ export function GamePager({
             top={slot.virtual * pageHeight}
             height={pageHeight}
             width={width}
-            interactive={slot.virtual === center}
+            interactive={slot.actual === index || slot.virtual === center}
             offset={offset}
           >
             {renderPage(slot.actual)}

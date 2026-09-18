@@ -21,24 +21,20 @@ export interface PreGameTutorialProps {
   step?: TutorialFlowStep;
   onSwipeUp?: () => void;
   onComplete: () => void;
-  onSkip?: () => void;
 }
 
 /**
  * Minimal, clean first-time tutorial flow:
  *  1. Arrow Puzzle (Level 1) - user plays normally.
- *  2. "Swipe up for more" hand gesture prompt matching reference image.
- *  3. Water Sort (Level 1) - user plays normally.
- *  4. Clean "Let's Play" button to enter the main Games page.
- *
- * No extra colors, decorations, or joystick tutorials.
+ *  2. "Swipe up for more" hand gesture prompt.
+ *  3. Water Sort (Level 1) - user plays and finishes normally.
+ *  4. Prominent "Let's Start" button to enter the main Games feed from game #1.
  */
 export const PreGameTutorial = memo(function PreGameTutorialInner({
   visible,
   step = 'arrow_playing',
   onSwipeUp,
   onComplete,
-  onSkip,
 }: PreGameTutorialProps) {
   const [mounted, setMounted] = useState(visible);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -62,17 +58,6 @@ export const PreGameTutorial = memo(function PreGameTutorialInner({
     }
   }, [visible, fadeAnim]);
 
-  const handleSkip = useCallback(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 180,
-      useNativeDriver: true,
-    }).start(() => {
-      setMounted(false);
-      onSkip ? onSkip() : onComplete();
-    });
-  }, [fadeAnim, onSkip, onComplete]);
-
   const handleSwipeUp = useCallback(() => {
     onSwipeUp?.();
   }, [onSwipeUp]);
@@ -95,21 +80,11 @@ export const PreGameTutorial = memo(function PreGameTutorialInner({
     return (
       <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
         <SwipeUpPrompt visible={true} onSwipeUp={handleSwipeUp} />
-        {onSkip ? (
-          <Pressable
-            style={styles.skipButton}
-            onPress={handleSkip}
-            accessibilityRole="button"
-            accessibilityLabel="Skip tutorial"
-          >
-            <Text style={styles.skipText}>Skip</Text>
-          </Pressable>
-        ) : null}
       </View>
     );
   }
 
-  // State 2: Water Sort Completed -> Show minimal "Let's Play" button
+  // State 2: Water Sort Completed -> Show prominent "Let's Start" button with dimmed background
   if (step === 'water_sort_completed') {
     return (
       <Animated.View style={[styles.modalOverlay, { opacity: fadeAnim }]}>
@@ -118,69 +93,29 @@ export const PreGameTutorial = memo(function PreGameTutorialInner({
           <Text style={styles.completionSubtitle}>Ready to explore all games?</Text>
           <Pressable
             style={({ pressed }) => [
-              styles.letsPlayButton,
-              pressed && styles.letsPlayButtonPressed,
+              styles.letsStartButton,
+              pressed && styles.letsStartButtonPressed,
             ]}
             onPress={handleFinish}
             accessibilityRole="button"
-            accessibilityLabel="Let's Play"
+            accessibilityLabel="Let's Start"
           >
-            <Text style={styles.letsPlayText}>Let's Play</Text>
+            <Text style={styles.letsStartText}>Let's Start</Text>
           </Pressable>
         </View>
-        {onSkip ? (
-          <Pressable
-            style={styles.skipButton}
-            onPress={handleSkip}
-            accessibilityRole="button"
-            accessibilityLabel="Skip tutorial"
-          >
-            <Text style={styles.skipText}>Skip</Text>
-          </Pressable>
-        ) : null}
       </Animated.View>
     );
   }
 
-  // When playing (arrow_playing or water_sort_playing): minimal top skip pill if needed
-  return onSkip ? (
-    <View style={styles.minimalOverlay} pointerEvents="box-none">
-      <Pressable
-        style={styles.skipButton}
-        onPress={handleSkip}
-        accessibilityRole="button"
-        accessibilityLabel="Skip tutorial"
-      >
-        <Text style={styles.skipText}>Skip</Text>
-      </Pressable>
-    </View>
-  ) : null;
+  // When playing (arrow_playing or water_sort_playing): absolutely no overlay, fully interactive
+  return null;
 });
 
 const styles = StyleSheet.create({
-  minimalOverlay: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 50,
-  },
-  skipButton: {
-    position: 'absolute',
-    top: 16,
-    right: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    zIndex: 1000,
-  },
-  skipText: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-  },
   modalOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    // Heavily dimmed background so the button/dialog is the clear focus
+    backgroundColor: 'rgba(3, 7, 18, 0.88)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
@@ -188,45 +123,46 @@ const styles = StyleSheet.create({
   completionContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
   },
   completionTitle: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
     letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.6)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
   },
   completionSubtitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.85)',
+    color: 'rgba(255, 255, 255, 0.88)',
     textAlign: 'center',
     marginTop: 8,
-    marginBottom: 28,
+    marginBottom: 32,
   },
-  letsPlayButton: {
+  // Prominent, premium "Let's Start" button
+  letsStartButton: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 14,
-    paddingHorizontal: 42,
-    borderRadius: 28,
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    borderRadius: 32,
+    shadowColor: '#FFFFFF',
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    elevation: 10,
   },
-  letsPlayButtonPressed: {
+  letsStartButtonPressed: {
     transform: [{ scale: 0.96 }],
     opacity: 0.92,
   },
-  letsPlayText: {
+  letsStartText: {
     color: '#0F172A',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 0.4,
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
 });

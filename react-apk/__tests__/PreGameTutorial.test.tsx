@@ -56,7 +56,7 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     expect(onSwipeUp).toHaveBeenCalledTimes(1);
   });
 
-  test('step "water_sort_completed" renders clean "Let\'s Play" button and completes on tap', async () => {
+  test('step "water_sort_completed" renders prominent "Let\'s Start" button and completes on tap', async () => {
     const onComplete = jest.fn();
 
     let renderer!: TestRenderer.ReactTestRenderer;
@@ -73,13 +73,13 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     const root = renderer.root;
     const texts = root.findAllByType(Text).map(t => t.props.children);
     expect(texts).toContain('Great Job!');
-    expect(texts).toContain("Let's Play");
+    expect(texts).toContain("Let's Start");
 
-    const playButton = root.findByProps({ accessibilityLabel: "Let's Play" });
-    expect(playButton).toBeTruthy();
+    const startButton = root.findByProps({ accessibilityLabel: "Let's Start" });
+    expect(startButton).toBeTruthy();
 
     await act(async () => {
-      playButton.props.onPress();
+      startButton.props.onPress();
     });
 
     await act(async () => {
@@ -89,35 +89,33 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
-  test('tapping Skip calls onSkip callback', async () => {
+  test('steps "arrow_playing" and "water_sort_playing" render nothing to ensure zero touch blocking', async () => {
     const onComplete = jest.fn();
-    const onSkip = jest.fn();
 
     let renderer!: TestRenderer.ReactTestRenderer;
     await act(async () => {
       renderer = TestRenderer.create(
         <PreGameTutorial
           visible={true}
-          step="arrow_completed"
+          step="water_sort_playing"
           onComplete={onComplete}
-          onSkip={onSkip}
         />,
       );
     });
 
-    const root = renderer.root;
-    const skipButton = root.findByProps({ accessibilityLabel: 'Skip tutorial' });
+    expect(renderer.toJSON()).toBeNull();
 
     await act(async () => {
-      skipButton.props.onPress();
+      renderer.update(
+        <PreGameTutorial
+          visible={true}
+          step="arrow_playing"
+          onComplete={onComplete}
+        />,
+      );
     });
 
-    await act(async () => {
-      jest.advanceTimersByTime(250);
-    });
-
-    expect(onSkip).toHaveBeenCalledTimes(1);
-    expect(onComplete).not.toHaveBeenCalled();
+    expect(renderer.toJSON()).toBeNull();
   });
 
   test('useTutorialStore markFirstTimeTutorialCompleted sets all completion flags and disables joystick tutorial', () => {

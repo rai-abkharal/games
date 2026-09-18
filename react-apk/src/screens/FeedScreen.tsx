@@ -313,18 +313,16 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const onCompleteTutorial = useCallback(() => {
     useTutorialStore.getState().markFirstTimeTutorialCompleted();
     setTutorialStep('done');
+    const firstGame = filtered[0] ?? listRef.current[0];
+    if (firstGame) {
+      currentIdRef.current = firstGame.id;
+      usePlayerStore.getState().setLastPlayed(firstGame.id);
+    }
+    setPosition({ index: 0, direction: 1, settling: false });
     setSwipeEnabled(true);
     showDock();
     analytics.onGameAction('global', 'Feed', 'first_time_tutorial_done', 'completed');
-  }, [showDock]);
-
-  const onSkipTutorial = useCallback(() => {
-    useTutorialStore.getState().markFirstTimeTutorialCompleted();
-    setTutorialStep('done');
-    setSwipeEnabled(true);
-    showDock();
-    analytics.onGameAction('global', 'Feed', 'first_time_tutorial_done', 'skipped');
-  }, [showDock]);
+  }, [filtered, showDock]);
 
   // Lock swipe during Arrow Puzzle Level 1 and Water Sort Level 1
   useEffect(() => {
@@ -809,7 +807,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
               step={tutorialStep}
               onSwipeUp={onTutorialSwipeUp}
               onComplete={onCompleteTutorial}
-              onSkip={onSkipTutorial}
             />
           ) : null}
         </View>
