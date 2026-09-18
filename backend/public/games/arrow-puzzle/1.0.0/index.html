@@ -654,6 +654,9 @@ class tt{
           s.lineWidth = 2;
           s.stroke();
           s.scale(0.72 + pulse * 0.04, 0.72 + pulse * 0.04);
+          // Turn the left-pointing PNG upward around its fingertip, keeping
+          // the contact point aligned with the current arrow as the hint advances.
+          s.rotate(Math.PI / 2);
           s.shadowColor = 'rgba(0,0,0,0.7)';
           s.shadowBlur = 5;
           s.drawImage(tapHand, -6, -61, 120, 105);
