@@ -10,14 +10,12 @@
  * can lift this file, hand it a different anchor and label, and bind
  * `getDemo()` to its own control feedback.
  *
- * It draws three things, no scrim:
+ * It draws two things, no scrim or hand inside the controls:
  *   1. a soft breathing lime rim around the real pad ("look here"),
- *   2. a cartoon fingertip that presses, swipes right, then swipes up,
- *      with a touch ripple and a fading lime trail,
- *   3. one navy badge-style pill label above the pad.
+ *   2. one navy badge-style pill label above the pad.
  *
- * Honors `prefers-reduced-motion`: static rim, static label, static hand
- * frozen mid-swipe with the demo direction held lit.
+ * Honors `prefers-reduced-motion`: static rim and label, with the demo
+ * direction held lit.
  */
 
 export type CoachDir = 'right' | 'up' | null;
@@ -36,35 +34,12 @@ export interface ControlCoachOptions {
   getPad: () => PadAnchor;
 }
 
-interface HandPose {
-  x: number;
-  y: number;
-  press: number;
-  alpha: number;
-}
-
-/** [time, x, y, press, alpha] keyframes for one demo cycle (local seconds). */
-const HAND_KEYFRAMES: Array<[number, number, number, number, number]> = [
-  [0.0, 26, -34, 0, 0], // enter from upper-right
-  [0.18, 0, 0, 0, 1], // hover over the press point
-  [0.24, 0, 0, 1, 1], // press (ripple)
-  [0.62, 54, 0, 1, 1], // drag RIGHT
-  [0.76, 54, 0, 1, 1], // hold
-  [0.98, 0, 0, 0.35, 1], // glide back, half lifted (release)
-  [1.08, 0, 0, 1, 1], // press again (ripple)
-  [1.48, 0, -34, 1, 1], // drag UP (short: the lit UP arrow stays visible above the fingertip)
-  [1.62, 0, -34, 1, 1], // hold
-  [1.82, 12, -46, 0, 1], // lift away
-  [1.95, 28, -56, 0, 0] // gone
-];
-
 const ENTER_S = 0.35; // rim + label bloom before the hand appears
 const CYCLE_S = 1.95;
 const CYCLE_GAP_S = 0.35;
 const CYCLES = 2;
 const FADE_S = 0.28;
-const RIPPLE_S = 0.5;
-const RIPPLE_TIMES = [0.24, 1.08];
+
 
 const LIME = '131, 204, 67'; // THEME.snakeLight — the game's "active" color
 const NAVY = '#14314E'; // the game's chrome color (badges, arena border)
@@ -87,7 +62,6 @@ export class ControlCoach {
   private fading = false;
   /** Real finger arrived: the ghost hand yields immediately. */
   private handYielded = false;
-  private trail: Array<{ x: number; y: number; age: number }> = [];
 
   constructor(options: ControlCoachOptions) {
     this.storageKey = options.storageKey;
@@ -119,7 +93,6 @@ export class ControlCoach {
     this.fade = 1;
     this.fading = false;
     this.handYielded = false;
-    this.trail = [];
   }
 
   /** The player's real finger touched the pad: the demo hand steps aside. */
@@ -144,8 +117,6 @@ export class ControlCoach {
       this.fade = Math.max(0, this.fade - dt / FADE_S);
       if (this.fade <= 0) this.active = false;
     }
-    for (const p of this.trail) p.age += dt;
-    this.trail = this.trail.filter(p => p.age < 0.45);
   }
 
   /** What the host should feed into its real control feedback this frame. */
@@ -169,26 +140,6 @@ export class ControlCoach {
     return c <= CYCLE_S ? c : null;
   }
 
-  private handPose(c: number): HandPose {
-    const kfs = HAND_KEYFRAMES;
-    if (c <= kfs[0][0]) return { x: kfs[0][1], y: kfs[0][2], press: kfs[0][3], alpha: kfs[0][4] };
-    for (let i = 1; i < kfs.length; i++) {
-      if (c <= kfs[i][0]) {
-        const [t0, x0, y0, p0, a0] = kfs[i - 1];
-        const [t1, x1, y1, p1, a1] = kfs[i];
-        const k = smoothstep((c - t0) / (t1 - t0));
-        return {
-          x: x0 + (x1 - x0) * k,
-          y: y0 + (y1 - y0) * k,
-          press: p0 + (p1 - p0) * k,
-          alpha: a0 + (a1 - a0) * k
-        };
-      }
-    }
-    const last = kfs[kfs.length - 1];
-    return { x: last[1], y: last[2], press: last[3], alpha: last[4] };
-  }
-
   // --------------------------------------------------------------------------
   // DRAWING (call after the game has drawn its own frame)
   // --------------------------------------------------------------------------
@@ -200,61 +151,6 @@ export class ControlCoach {
     this.drawRim(ctx, pad, a);
     this.drawLabel(ctx, pad, a);
 
-    if (this.handYielded) return;
-
-    if (this.reducedMotion) {
-      // Static composition: hand frozen mid right-swipe with a short trail.
-      const px = pad.cx - 8 + 34;
-      const py = pad.cy + 6;
-      for (let i = 0; i < 4; i++) {
-        this.drawTrailDot(ctx, px - 12 - i * 10, py, (0.3 - i * 0.06) * a, 7 - i);
-      }
-      this.drawHand(ctx, px, py, 1, a);
-      return;
-    }
-
-    const c = this.cycleTime();
-    if (c === null) return;
-
-    const pose = this.handPose(c);
-    const baseX = pad.cx - 8;
-    const baseY = pad.cy + 6;
-    const hx = baseX + pose.x;
-    const hy = baseY + pose.y;
-
-    // Lime trail while the finger is down and moving.
-    if (pose.press > 0.7) {
-      const lastPoint = this.trail[this.trail.length - 1];
-      if (!lastPoint || Math.hypot(lastPoint.x - hx, lastPoint.y - hy) > 4) {
-        this.trail.push({ x: hx, y: hy, age: 0 });
-        if (this.trail.length > 16) this.trail.shift();
-      }
-    }
-    for (const p of this.trail) {
-      const life = 1 - p.age / 0.45;
-      this.drawTrailDot(ctx, p.x, p.y, life * 0.3 * a, 4 + life * 4);
-    }
-
-    // Touch ripples on each press.
-    for (const rippleAt of RIPPLE_TIMES) {
-      const rp = (c - rippleAt) / RIPPLE_S;
-      if (rp > 0 && rp < 1) {
-        const eased = smoothstep(rp);
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(hx, hy, 12 + eased * 26, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(255, 255, 255, ${(0.65 * (1 - eased) * a).toFixed(3)})`;
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(hx, hy, 10 + eased * 18, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${LIME}, ${(0.16 * (1 - eased) * a).toFixed(3)})`;
-        ctx.fill();
-        ctx.restore();
-      }
-    }
-
-    if (pose.alpha > 0) this.drawHand(ctx, hx, hy, pose.press, pose.alpha * a);
   }
 
   /** Soft breathing lime rim just outside the real pad's border. */
@@ -321,82 +217,4 @@ export class ControlCoach {
     ctx.restore();
   }
 
-  private drawTrailDot(ctx: CanvasRenderingContext2D, x: number, y: number, alpha: number, radius: number): void {
-    if (alpha <= 0) return;
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${LIME}, ${alpha.toFixed(3)})`;
-    ctx.fill();
-    // White core keeps the trail readable when it crosses the snake's body.
-    ctx.beginPath();
-    ctx.arc(x, y, radius * 0.45, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255, 255, 255, ${(alpha * 0.9).toFixed(3)})`;
-    ctx.fill();
-    ctx.restore();
-  }
-
-  /**
-   * Cartoon fingertip in the game's outline style: white fill, navy outline,
-   * soft navy shadow. The finger TIP is at (tipX, tipY) — the contact point.
-   */
-  private drawHand(ctx: CanvasRenderingContext2D, tipX: number, tipY: number, press: number, alpha: number): void {
-    const s = 1 - press * 0.07; // pressing squashes the hand slightly
-    ctx.save();
-    ctx.translate(tipX, tipY);
-    ctx.rotate(-0.14);
-    ctx.scale(s, s);
-    ctx.globalAlpha = alpha;
-
-    ctx.shadowColor = 'rgba(20, 49, 78, 0.30)';
-    ctx.shadowBlur = press > 0.5 ? 5 : 9;
-    ctx.shadowOffsetY = press > 0.5 ? 2 : 5;
-
-    const fill = '#FFFFFF';
-    const outline = NAVY;
-    const lw = 2.4;
-
-    // Index finger — tip at origin, extending down.
-    ctx.beginPath();
-    (ctx as any).roundRect(-7, -1, 14, 33, 7);
-    ctx.fillStyle = fill;
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = lw;
-    ctx.stroke();
-
-    // Fist below the finger.
-    ctx.beginPath();
-    (ctx as any).roundRect(-12, 26, 33, 27, [10, 16, 15, 14]);
-    ctx.fillStyle = fill;
-    ctx.fill();
-    ctx.stroke();
-
-    // Knuckle creases.
-    ctx.beginPath();
-    ctx.moveTo(2, 29);
-    ctx.lineTo(2, 37);
-    ctx.moveTo(10, 30);
-    ctx.lineTo(10, 38);
-    ctx.strokeStyle = 'rgba(20, 49, 78, 0.28)';
-    ctx.lineWidth = 1.6;
-    ctx.stroke();
-
-    // Thumb hugging the side.
-    ctx.save();
-    ctx.translate(17, 30);
-    ctx.rotate(-0.6);
-    ctx.beginPath();
-    (ctx as any).roundRect(-5, -9, 10, 19, 5);
-    ctx.fillStyle = fill;
-    ctx.fill();
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = lw;
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.restore();
-  }
 }

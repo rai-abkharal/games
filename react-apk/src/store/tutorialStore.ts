@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { STORAGE_KEYS } from '../config/env';
-import { readJson, readString, writeJson, writeString } from '../services/storage';
+import {
+  readJson,
+  readString,
+  writeJson,
+  writeString,
+} from '../services/storage';
 
 export const PRE_GAME_SNAKE_STORAGE_KEY = 'tutorials.v2.preGameSnake';
 export const FIRST_TIME_TUTORIAL_STORAGE_KEY = 'tutorials.v2.firstTimeTutorial';
@@ -10,27 +15,37 @@ interface PersistedTutorials {
   joystickSeen: boolean;
   preGameSnakeSeen?: boolean;
   firstTimeTutorialCompleted?: boolean;
+  homeSwipeSeen?: boolean;
 }
 
 interface TutorialState extends PersistedTutorials {
   preGameSnakeSeen: boolean;
   firstTimeTutorialCompleted: boolean;
+  homeSwipeSeen: boolean;
   hydrated: boolean;
   hydrate: () => Promise<void>;
   markSwipeSeen: () => void;
   markJoystickSeen: () => void;
   markPreGameSnakeSeen: () => void;
   markFirstTimeTutorialCompleted: () => void;
+  markHomeSwipeSeen: () => void;
   resetTutorial: () => Promise<void>;
 }
 
 function persist(state: TutorialState) {
-  const { swipeSeen, joystickSeen, preGameSnakeSeen, firstTimeTutorialCompleted } = state;
+  const {
+    swipeSeen,
+    joystickSeen,
+    preGameSnakeSeen,
+    firstTimeTutorialCompleted,
+    homeSwipeSeen,
+  } = state;
   writeJson(STORAGE_KEYS.tutorials, {
     swipeSeen,
     joystickSeen,
     preGameSnakeSeen,
     firstTimeTutorialCompleted,
+    homeSwipeSeen,
   } satisfies PersistedTutorials);
 }
 
@@ -43,6 +58,7 @@ export const useTutorialStore = create<TutorialState>((set, get) => ({
   joystickSeen: false,
   preGameSnakeSeen: false,
   firstTimeTutorialCompleted: false,
+  homeSwipeSeen: false,
   hydrated: false,
 
   hydrate: async () => {
@@ -54,12 +70,15 @@ export const useTutorialStore = create<TutorialState>((set, get) => ({
     const firstTimeTutorialCompleted = Boolean(
       saved?.firstTimeTutorialCompleted || firstTimeRaw === '1',
     );
-    const preGameSnakeSeen = Boolean(saved?.preGameSnakeSeen || firstTimeTutorialCompleted);
+    const preGameSnakeSeen = Boolean(
+      saved?.preGameSnakeSeen || firstTimeTutorialCompleted,
+    );
     set({
       swipeSeen: Boolean(saved?.swipeSeen || firstTimeTutorialCompleted),
       joystickSeen: true, // Never show joystick tutorial
       preGameSnakeSeen,
       firstTimeTutorialCompleted,
+      homeSwipeSeen: Boolean(saved?.homeSwipeSeen),
       hydrated: true,
     });
   },
@@ -93,12 +112,19 @@ export const useTutorialStore = create<TutorialState>((set, get) => ({
     persist(get());
   },
 
+  markHomeSwipeSeen: () => {
+    if (get().homeSwipeSeen) return;
+    set({ homeSwipeSeen: true });
+    persist(get());
+  },
+
   resetTutorial: async () => {
     set({
       swipeSeen: false,
       joystickSeen: true,
       preGameSnakeSeen: false,
       firstTimeTutorialCompleted: false,
+      homeSwipeSeen: false,
     });
     await Promise.all([
       writeString(PRE_GAME_SNAKE_STORAGE_KEY, '0'),
@@ -108,6 +134,7 @@ export const useTutorialStore = create<TutorialState>((set, get) => ({
         joystickSeen: true,
         preGameSnakeSeen: false,
         firstTimeTutorialCompleted: false,
+        homeSwipeSeen: false,
       }),
     ]);
   },

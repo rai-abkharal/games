@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, Text } from 'react-native';
+import { Animated, Text } from 'react-native';
 import TestRenderer, { act } from 'react-test-renderer';
 import { PreGameTutorial } from '../src/components/tutorial/PreGameTutorial';
 import { SwipeUpPrompt } from '../src/components/tutorial/SwipeUpPrompt';
+import { HomeSwipeTutorial } from '../src/components/tutorial/HomeSwipeTutorial';
 import { useTutorialStore } from '../src/store/tutorialStore';
 
 describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
@@ -13,6 +14,7 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
       joystickSeen: false,
       preGameSnakeSeen: false,
       firstTimeTutorialCompleted: false,
+      homeSwipeSeen: false,
       hydrated: true,
     });
   });
@@ -42,7 +44,9 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     const texts = root.findAllByType(Text).map(t => t.props.children);
     expect(texts).toContain('Swipe up for more');
 
-    const pressable = root.findByProps({ accessibilityLabel: 'Swipe up for more' });
+    const pressable = root.findByProps({
+      accessibilityLabel: 'Swipe up for more',
+    });
     expect(pressable).toBeTruthy();
 
     await act(async () => {
@@ -148,7 +152,9 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     const texts = root.findAllByType(Text).map(t => t.props.children);
     expect(texts).toContain('Swipe up for more');
 
-    const pressable = root.findByProps({ accessibilityLabel: 'Swipe up for more' });
+    const pressable = root.findByProps({
+      accessibilityLabel: 'Swipe up for more',
+    });
     expect(pressable).toBeTruthy();
 
     await act(async () => {
@@ -160,5 +166,45 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     });
 
     expect(onSwipeUp).toHaveBeenCalledTimes(1);
+  });
+
+  test('home tutorial is a non-blocking bottom reveal and dismisses after three gesture cycles', async () => {
+    const onDismiss = jest.fn();
+    const progress = new Animated.Value(0);
+    const revealProgress = new Animated.Value(0);
+
+    let renderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      renderer = TestRenderer.create(
+        <HomeSwipeTutorial
+          visible={true}
+          gestureProgress={progress}
+          revealProgress={revealProgress}
+          onDismiss={onDismiss}
+        />,
+      );
+    });
+
+    const root = renderer.root;
+    expect(
+      root.findByProps({ accessibilityLabel: 'Home swipe tutorial' }).props
+        .pointerEvents,
+    ).toBe('none');
+    expect(root.findAllByType(Text).map(t => t.props.children)).toContain(
+      'Swipe up for the next game',
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(5_700);
+    });
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+
+    await act(async () => renderer.unmount());
+  });
+
+  test('home tutorial completion is persisted independently from pre-game onboarding', () => {
+    act(() => useTutorialStore.getState().markHomeSwipeSeen());
+    expect(useTutorialStore.getState().homeSwipeSeen).toBe(true);
+    expect(useTutorialStore.getState().firstTimeTutorialCompleted).toBe(false);
   });
 });

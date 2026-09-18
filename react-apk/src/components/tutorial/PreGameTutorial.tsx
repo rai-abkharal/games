@@ -21,6 +21,7 @@ export interface PreGameTutorialProps {
   step?: TutorialFlowStep;
   onSwipeUp?: () => void;
   onComplete: () => void;
+  gestureProgress?: Animated.Value;
 }
 
 /**
@@ -35,6 +36,7 @@ export const PreGameTutorial = memo(function PreGameTutorialInner({
   step = 'arrow_playing',
   onSwipeUp,
   onComplete,
+  gestureProgress,
 }: PreGameTutorialProps) {
   const [mounted, setMounted] = useState(visible);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -79,7 +81,11 @@ export const PreGameTutorial = memo(function PreGameTutorialInner({
   if (step === 'arrow_completed') {
     return (
       <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-        <SwipeUpPrompt visible={true} onSwipeUp={handleSwipeUp} />
+        <SwipeUpPrompt
+          visible={true}
+          onSwipeUp={handleSwipeUp}
+          gestureProgress={gestureProgress}
+        />
       </View>
     );
   }
@@ -90,7 +96,9 @@ export const PreGameTutorial = memo(function PreGameTutorialInner({
       <Animated.View style={[styles.modalOverlay, { opacity: fadeAnim }]}>
         <View style={styles.completionContainer}>
           <Text style={styles.completionTitle}>Great Job!</Text>
-          <Text style={styles.completionSubtitle}>Ready to explore all games?</Text>
+          <Text style={styles.completionSubtitle}>
+            Ready to explore all games?
+          </Text>
           <Pressable
             style={({ pressed }) => [
               styles.letsStartButton,

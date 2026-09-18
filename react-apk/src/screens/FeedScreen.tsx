@@ -1,10 +1,28 @@
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, Vibration, View, type LayoutChangeEvent } from 'react-native';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  Animated,
+  ActivityIndicator,
+  StatusBar,
+  StyleSheet,
+  Vibration,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { FeedDock, type FeedTab } from '../components/feed/FeedDock';
 import { FeedHeader } from '../components/feed/FeedHeader';
-import { GamePage, type GamePageHandle, type PagePhase } from '../components/feed/GamePage';
+import {
+  GamePage,
+  type GamePageHandle,
+  type PagePhase,
+} from '../components/feed/GamePage';
 import { GamePager } from '../components/feed/GamePager';
 import { MessageView } from '../components/StateViews';
 import { FEED, GAMEPLAY } from '../config/env';
@@ -32,8 +50,12 @@ import {
   type BundlePriorityValue,
 } from '../services/gameBundles';
 import { buildRewardScript, buildSoundScript } from '../services/gameBridge';
-import { markFirstGameReady, useStartupStore } from '../services/startup';
-import { PreGameTutorial, type TutorialFlowStep } from '../components/tutorial/PreGameTutorial';
+import { markFirstGameReady } from '../services/startup';
+import {
+  PreGameTutorial,
+  type TutorialFlowStep,
+} from '../components/tutorial/PreGameTutorial';
+import { HomeSwipeTutorial } from '../components/tutorial/HomeSwipeTutorial';
 import { useCatalogStore } from '../store/catalogStore';
 import { usePlayerStore } from '../store/playerStore';
 import { useTutorialStore } from '../store/tutorialStore';
@@ -100,16 +122,26 @@ function listSignature(games: GameItem[]): string {
   return games
     .map(
       game =>
-        `${game.id}|${game.version}|${game.updatedAt ?? ''}|${game.buildId ?? ''}|${game.title}|${game.category}|${game.ads?.enabled ? '1' : '0'}|${game.ads?.intervalMinutes ?? ''}|${JSON.stringify(game.touchZones ?? [])}|${game.entryUrl}|${game.sha256 ?? ''}|${game.sizeBytes}`,
+        `${game.id}|${game.version}|${game.updatedAt ?? ''}|${
+          game.buildId ?? ''
+        }|${game.title}|${game.category}|${game.ads?.enabled ? '1' : '0'}|${
+          game.ads?.intervalMinutes ?? ''
+        }|${JSON.stringify(game.touchZones ?? [])}|${game.entryUrl}|${
+          game.sha256 ?? ''
+        }|${game.sizeBytes}`,
     )
     .join('\n');
 }
 
 /** Keeps the previous array when the catalogue refresh produced an equivalent list. */
 function useStableList(games: GameItem[]): GameItem[] {
-  const ref = useRef<{ signature: string; list: GameItem[] }>({ signature: '', list: [] });
+  const ref = useRef<{ signature: string; list: GameItem[] }>({
+    signature: '',
+    list: [],
+  });
   const signature = useMemo(() => listSignature(games), [games]);
-  if (ref.current.signature !== signature) ref.current = { signature, list: games };
+  if (ref.current.signature !== signature)
+    ref.current = { signature, list: games };
   return ref.current.list;
 }
 
@@ -141,7 +173,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const error = useCatalogStore(state => state.error);
   // Only the empty-feed retry view shows this; selecting it unconditionally
   // re-rendered the whole feed twice on every background catalogue refresh.
-  const refreshing = useCatalogStore(state => state.refreshing && state.games.length === 0);
+  const refreshing = useCatalogStore(
+    state => state.refreshing && state.games.length === 0,
+  );
   const favorites = usePlayerStore(state => state.favorites);
   // Player name, coins and best score are read by FeedHeader itself, so coins
   // changing during a game re-render the header, not the feed and its pager.
@@ -150,9 +184,30 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const fullScreenAdShowing = useAdsStore(state => state.fullScreenAdShowing);
 
   const tutorialsHydrated = useTutorialStore(state => state.hydrated);
-  const firstTimeTutorialCompleted = useTutorialStore(state => state.firstTimeTutorialCompleted);
+  const firstTimeTutorialCompleted = useTutorialStore(
+    state => state.firstTimeTutorialCompleted,
+  );
+  const homeSwipeSeen = useTutorialStore(state => state.homeSwipeSeen);
   const isTutorialActive = tutorialsHydrated && !firstTimeTutorialCompleted;
-  const [tutorialStep, setTutorialStep] = useState<TutorialFlowStep>('arrow_playing');
+  const [stage, setStage] = useState({ width: 0, height: 0 });
+  const [tutorialStep, setTutorialStep] =
+    useState<TutorialFlowStep>('arrow_playing');
+  const [homeSwipeVisible, setHomeSwipeVisible] = useState(false);
+  const tutorialGestureProgress = useRef(new Animated.Value(0)).current;
+  const homeTutorialRevealProgress = useRef(new Animated.Value(0)).current;
+  const gestureFollowDistance = homeSwipeVisible ? stage.height * 0.03 : 18;
+  const tutorialPageFollowY = tutorialGestureProgress.interpolate({
+    inputRange: [0, 0.12, 0.52, 0.78, 0.9, 1],
+    outputRange: [0, 0, -gestureFollowDistance, -gestureFollowDistance, 0, 0],
+  });
+  const homeTutorialRevealY = homeTutorialRevealProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -stage.height * 0.1],
+  });
+  const tutorialPageTranslateY = Animated.add(
+    homeTutorialRevealY,
+    tutorialPageFollowY,
+  );
 
   const [tab, setTab] = useState<FeedTab>('all');
   const filtered = useMemo(() => {
@@ -163,25 +218,39 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   const orderedForTutorial = useMemo(() => {
     if (!isTutorialActive) return filtered;
-    const arrowGame = games.find(g => g.id === 'arrow-puzzle') || FALLBACK_ARROW_PUZZLE;
-    const waterGame = games.find(g => g.id === 'water-sort' || g.id === 'water-sort-3d') || FALLBACK_WATER_SORT;
-    const others = filtered.filter(g => g.id !== arrowGame.id && g.id !== waterGame.id);
+    const arrowGame =
+      games.find(g => g.id === 'arrow-puzzle') || FALLBACK_ARROW_PUZZLE;
+    const waterGame =
+      games.find(g => g.id === 'water-sort' || g.id === 'water-sort-3d') ||
+      FALLBACK_WATER_SORT;
+    const others = filtered.filter(
+      g => g.id !== arrowGame.id && g.id !== waterGame.id,
+    );
     return [arrowGame, waterGame, ...others];
   }, [filtered, games, isTutorialActive]);
   const list = useStableList(orderedForTutorial);
 
   /* ---------------- position ------------------------------------------------- */
   const [position, setPosition] = useState<FeedPosition>(() => ({
-    index: isTutorialActive ? 0 : Math.max(0, list.findIndex(game => game.id === usePlayerStore.getState().lastPlayedGameId)),
-    direction: 1, settling: false,
+    index: isTutorialActive
+      ? 0
+      : Math.max(
+          0,
+          list.findIndex(
+            game => game.id === usePlayerStore.getState().lastPlayedGameId,
+          ),
+        ),
+    direction: 1,
+    settling: false,
   }));
   const positionRef = useRef(position);
   positionRef.current = position;
   const listRef = useRef(list);
   listRef.current = list;
-  const currentIdRef = useRef<string | null>(usePlayerStore.getState().lastPlayedGameId);
+  const currentIdRef = useRef<string | null>(
+    usePlayerStore.getState().lastPlayedGameId,
+  );
   const [swipeEnabled, setSwipeEnabled] = useState(true);
-  const [stage, setStage] = useState({ width: 0, height: 0 });
   const [appActive, setAppActive] = useState(true);
   const [focused, setFocused] = useState(true);
   const suspended = !appActive || !focused || fullScreenAdShowing;
@@ -195,13 +264,21 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     if (list.length) {
       let next: number;
       if (isTutorialActive) {
-        next = (tutorialStep === 'water_sort_playing' || tutorialStep === 'water_sort_completed') ? 1 : 0;
+        next =
+          tutorialStep === 'water_sort_playing' ||
+          tutorialStep === 'water_sort_completed'
+            ? 1
+            : 0;
       } else {
         const wanted = list.findIndex(game => game.id === currentIdRef.current);
         next = wanted >= 0 ? wanted : clampIndex(position.index, list.length);
       }
       currentIdRef.current = list[next]?.id ?? null;
-      setPosition({ index: next, direction: position.direction, settling: false });
+      setPosition({
+        index: next,
+        direction: position.direction,
+        settling: false,
+      });
     }
   }
 
@@ -210,7 +287,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   /* ---------------- page registry & phases ----------------------------------- */
   const pagesRef = useRef(new Map<string, GamePageHandle>());
-  const refCallbacks = useRef(new Map<string, (handle: GamePageHandle | null) => void>());
+  const refCallbacks = useRef(
+    new Map<string, (handle: GamePageHandle | null) => void>(),
+  );
   const refFor = useCallback((id: string) => {
     let callback = refCallbacks.current.get(id);
     if (!callback) {
@@ -225,7 +304,13 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     }
     return callback;
   }, []);
-  const activePage = useCallback(() => (currentIdRef.current ? pagesRef.current.get(currentIdRef.current) : undefined), []);
+  const activePage = useCallback(
+    () =>
+      currentIdRef.current
+        ? pagesRef.current.get(currentIdRef.current)
+        : undefined,
+    [],
+  );
 
   const phasesRef = useRef(new Map<string, PagePhase>());
   /** A finger is on the feed or the pages are moving (GamePager.onBusyChange). */
@@ -256,14 +341,23 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
    * schedules a fetch off it any more — there is no JS-side speculative fetch
    * left to schedule.
    */
-  const onPagerBusy = useCallback((busy: boolean) => {
-    pagerBusyRef.current = busy;
-    if (busy) setPlaying(true);
-  }, [setPlaying]);
+  const onPagerBusy = useCallback(
+    (busy: boolean) => {
+      pagerBusyRef.current = busy;
+      if (busy) setPlaying(true);
+    },
+    [setPlaying],
+  );
 
   const onPhase = useCallback((gameId: string, phase: PagePhase) => {
     phasesRef.current.set(gameId, phase);
-    if (phase === 'ready' && gameId === currentIdRef.current) markFirstGameReady();
+    if (phase === 'ready' && gameId === currentIdRef.current) {
+      markFirstGameReady();
+      const tutorials = useTutorialStore.getState();
+      if (tutorials.firstTimeTutorialCompleted && !tutorials.homeSwipeSeen) {
+        setHomeSwipeVisible(true);
+      }
+    }
   }, []);
 
   /* ---------------- dock auto-hide (5 s) -------------------------------------- */
@@ -271,7 +365,10 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const dockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleDockHide = useCallback(() => {
     if (dockTimer.current) clearTimeout(dockTimer.current);
-    dockTimer.current = setTimeout(() => setDockVisible(false), FEED.dockAutoHideMs);
+    dockTimer.current = setTimeout(
+      () => setDockVisible(false),
+      FEED.dockAutoHideMs,
+    );
   }, []);
   const showDock = useCallback(() => {
     setDockVisible(true);
@@ -321,13 +418,30 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     setPosition({ index: 0, direction: 1, settling: false });
     setSwipeEnabled(true);
     showDock();
-    analytics.onGameAction('global', 'Feed', 'first_time_tutorial_done', 'completed');
+    if (firstGame && phasesRef.current.get(firstGame.id) === 'ready') {
+      setHomeSwipeVisible(true);
+    }
+    analytics.onGameAction(
+      'global',
+      'Feed',
+      'first_time_tutorial_done',
+      'completed',
+    );
   }, [filtered, showDock]);
+
+  const dismissHomeSwipeTutorial = useCallback(() => {
+    setHomeSwipeVisible(false);
+    tutorialGestureProgress.setValue(0);
+    useTutorialStore.getState().markHomeSwipeSeen();
+  }, [tutorialGestureProgress]);
 
   // Lock swipe during Arrow Puzzle Level 1 and Water Sort Level 1
   useEffect(() => {
     if (isTutorialActive) {
-      if (tutorialStep === 'arrow_playing' || tutorialStep === 'water_sort_playing') {
+      if (
+        tutorialStep === 'arrow_playing' ||
+        tutorialStep === 'water_sort_playing'
+      ) {
         setSwipeEnabled(false);
       } else if (tutorialStep === 'arrow_completed') {
         setSwipeEnabled(true);
@@ -356,7 +470,12 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     // come back to many times in a sitting, and an impression that counted
     // every one of those would measure restlessness, not reach.
     analytics.onGameScreenView(game.id, game.title, game.entryUrl);
-    analytics.onGameImpression(game.id, game.title, game.category, positionRef.current.index);
+    analytics.onGameImpression(
+      game.id,
+      game.title,
+      game.category,
+      positionRef.current.index,
+    );
     analytics.onGameSelect(game.id, game.title, game.category);
     void analytics.onGameStart(game.id, game.title, game.category);
     adManager.setCurrentGame(game);
@@ -471,7 +590,13 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     };
     // The same planner the feed uses to choose which pages own a WebView, so
     // downloads and WebViews agree on what "next" means.
-    const lookahead = prefetchOrder(at, heading, count, FEED.prefetchAhead, count > 1);
+    const lookahead = prefetchOrder(
+      at,
+      heading,
+      count,
+      FEED.prefetchAhead,
+      count > 1,
+    );
     push(list[at]);
     for (const i of lookahead) push(list[i]);
     // Then the rest of the ring, alternating directions, then anything left.
@@ -489,7 +614,10 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     lookahead.forEach((index, step) => {
       const game = list[index];
       if (!game || tiers.has(game.id)) return;
-      tiers.set(game.id, step === 0 ? BundlePriority.next : BundlePriority.near);
+      tiers.set(
+        game.id,
+        step === 0 ? BundlePriority.next : BundlePriority.near,
+      );
     });
 
     syncBundles(ordered, game => tiers.get(game.id) ?? BundlePriority.rest);
@@ -554,9 +682,15 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           break;
         case 'gameOver': {
           setPlaying(false);
-          analytics.onGameOver(game.id, game.title, message.score, message.stats);
+          analytics.onGameOver(
+            game.id,
+            game.title,
+            message.score,
+            message.stats,
+          );
           store.saveHighScore(game.id, message.score);
-          const earned = message.score > 0 ? Math.max(Math.floor(message.score / 10), 5) : 2;
+          const earned =
+            message.score > 0 ? Math.max(Math.floor(message.score / 10), 5) : 2;
           store.addCoins(earned);
           toast(`+${earned} 🪙 Coins Earned for ${message.score} PTS!`);
           showDock();
@@ -565,10 +699,16 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         }
         case 'completed': {
           setPlaying(false);
-          analytics.onGameCompleted(game.id, game.title, message.score, message.level);
+          analytics.onGameCompleted(
+            game.id,
+            game.title,
+            message.score,
+            message.level,
+          );
           store.saveHighScore(game.id, message.score);
           store.saveLevel(game.id, message.level + 1);
-          const earned = 50 + (message.score > 0 ? Math.floor(message.score / 10) : 0);
+          const earned =
+            50 + (message.score > 0 ? Math.floor(message.score / 10) : 0);
           store.addCoins(earned);
 
           if (isTutorialActive) {
@@ -590,15 +730,35 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         }
         case 'earnCoins':
           store.addCoins(message.amount);
-          analytics.onGameAction(game.id, game.title, 'earn_coins', message.amount);
-          toast(`+${message.amount} 🪙 Coins Earned!`);
+          analytics.onGameAction(
+            game.id,
+            game.title,
+            'earn_coins',
+            message.amount,
+          );
+          if (
+            !isTutorialActive ||
+            (game.id !== 'water-sort' && game.id !== 'water-sort-3d')
+          ) {
+            toast(`+${message.amount} 🪙 Coins Earned!`);
+          }
           break;
         case 'requestHint':
-          analytics.onGameAction(game.id, game.title, 'request_hint', message.action);
+          analytics.onGameAction(
+            game.id,
+            game.title,
+            'request_hint',
+            message.action,
+          );
           void grantHint(message.action);
           break;
         case 'showRewardedAd':
-          analytics.onGameAction(game.id, game.title, 'rewarded_ad_request', message.rewardType);
+          analytics.onGameAction(
+            game.id,
+            game.title,
+            'rewarded_ad_request',
+            message.rewardType,
+          );
           void grantHint(message.rewardType);
           break;
         case 'saveLevelState':
@@ -609,20 +769,22 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           setSwipeEnabled(message.enabled);
           break;
         case 'haptic':
-          if (usePlayerStore.getState().vibrationEnabled) Vibration.vibrate(HAPTIC_PATTERNS[message.haptic]);
+          if (usePlayerStore.getState().vibrationEnabled)
+            Vibration.vibrate(HAPTIC_PATTERNS[message.haptic]);
           break;
         default:
           break;
       }
     },
-    [grantHint, resetDockTimer, showDock, setPlaying],
+    [grantHint, isTutorialActive, resetDockTimer, showDock, setPlaying],
   );
 
   /* ---------------- pager callbacks ------------------------------------------ */
   const onSwipeStart = useCallback(() => {
+    if (homeSwipeVisible) dismissHomeSwipeTutorial();
     setPlaying(true);
     setPosition(prev => ({ ...prev, settling: true }));
-  }, [setPlaying]);
+  }, [dismissHomeSwipeTutorial, homeSwipeVisible, setPlaying]);
 
   const onIndexChange = useCallback(
     (index: number, direction: SwipeDirection) => {
@@ -643,10 +805,17 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const onSettled = useCallback((index: number) => {
     const currentGame = listRef.current[index];
     if (currentGame) currentIdRef.current = currentGame.id;
-    setPosition(prev => (prev.index === index && !prev.settling ? prev : { ...prev, index, settling: false }));
+    setPosition(prev =>
+      prev.index === index && !prev.settling
+        ? prev
+        : { ...prev, index, settling: false },
+    );
   }, []);
 
-  const touchZonesFor = useCallback((index: number) => listRef.current[index]?.touchZones, []);
+  const touchZonesFor = useCallback(
+    (index: number) => listRef.current[index]?.touchZones,
+    [],
+  );
 
   // WebViews are created and destroyed only while the pager is at rest: never
   // during the snap animation (UI-thread inflation/teardown would drop its
@@ -662,7 +831,12 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       const actualIdx = ((i % count) + count) % count;
       const game = list[actualIdx];
       if (!game) return null;
-      let slot: PageSlot = slotFor(actualIdx, index, direction, loop ? count : undefined);
+      let slot: PageSlot = slotFor(
+        actualIdx,
+        index,
+        direction,
+        loop ? count : undefined,
+      );
       if (slot === 'far') {
         // Leaving → cleanup: pages the pager is sliding away from stay
         // mounted and frozen until it rests, then unmount (WebView freed).
@@ -686,7 +860,18 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         />
       );
     },
-    [list, index, direction, loop, settling, rested, suspended, refFor, onPhase, onMessage],
+    [
+      list,
+      index,
+      direction,
+      loop,
+      settling,
+      rested,
+      suspended,
+      refFor,
+      onPhase,
+      onMessage,
+    ],
   );
 
   /* ---------------- dock actions --------------------------------------------- */
@@ -707,8 +892,16 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     const game = listRef.current[positionRef.current.index];
     if (!game) return;
     const isFav = usePlayerStore.getState().toggleFavorite(game.id);
-    analytics.onGameAction(game.id, game.title, isFav ? 'favorite_add' : 'favorite_remove');
-    toast(isFav ? `❤️ Added "${game.title}" to Favorites!` : t('removedFromFavorites'));
+    analytics.onGameAction(
+      game.id,
+      game.title,
+      isFav ? 'favorite_add' : 'favorite_remove',
+    );
+    toast(
+      isFav
+        ? `❤️ Added "${game.title}" to Favorites!`
+        : t('removedFromFavorites'),
+    );
   }, [resetDockTimer, t]);
   const onSettings = useCallback(() => {
     resetDockTimer();
@@ -719,7 +912,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   const onStageLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
-    setStage(prev => (prev.width === width && prev.height === height ? prev : { width, height }));
+    setStage(prev =>
+      prev.width === width && prev.height === height ? prev : { width, height },
+    );
   }, []);
 
   /* ---------------- render --------------------------------------------------- */
@@ -733,7 +928,11 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         index={index}
         pageHeight={stage.height}
         width={stage.width}
-        swipeEnabled={swipeEnabled && !fullScreenAdShowing && (!isTutorialActive || tutorialStep === 'arrow_completed')}
+        swipeEnabled={
+          swipeEnabled &&
+          !fullScreenAdShowing &&
+          (!isTutorialActive || tutorialStep === 'arrow_completed')
+        }
         loop={loop && !isTutorialActive}
         touchZonesFor={touchZonesFor}
         onSwipeStart={onSwipeStart}
@@ -743,7 +942,10 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         renderPage={renderPage}
       />
     );
-  } else if (games.length === 0 && (status === 'booting' || status === 'loading')) {
+  } else if (
+    games.length === 0 &&
+    (status === 'booting' || status === 'loading')
+  ) {
     body = (
       <View style={styles.center}>
         <ActivityIndicator size={48} color="#6366F1" />
@@ -786,11 +988,26 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           bannerEnabled={bannerEnabled}
           title={current?.title ?? 'EiBi Games: Swipe & Play'}
         />
-        <View style={styles.stage} onLayout={onStageLayout} onTouchStart={onStageTouch}>
-          {body}
+        <View
+          style={styles.stage}
+          onLayout={onStageLayout}
+          onTouchStart={onStageTouch}
+        >
+          <View
+            style={styles.homeTutorialRevealBackdrop}
+            pointerEvents="none"
+          />
+          <Animated.View
+            style={[
+              styles.gameStageContent,
+              { transform: [{ translateY: tutorialPageTranslateY }] },
+            ]}
+          >
+            {body}
+          </Animated.View>
           <FeedDock
             theme={theme}
-            visible={dockVisible && !isTutorialActive}
+            visible={dockVisible && !isTutorialActive && !homeSwipeVisible}
             tab={tab}
             isFavorite={isFavorite}
             // The stage already ends above the navigation bar, like the native dock.
@@ -807,8 +1024,20 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
               step={tutorialStep}
               onSwipeUp={onTutorialSwipeUp}
               onComplete={onCompleteTutorial}
+              gestureProgress={tutorialGestureProgress}
             />
           ) : null}
+          <HomeSwipeTutorial
+            visible={
+              tutorialsHydrated &&
+              !isTutorialActive &&
+              !homeSwipeSeen &&
+              homeSwipeVisible
+            }
+            gestureProgress={tutorialGestureProgress}
+            revealProgress={homeTutorialRevealProgress}
+            onDismiss={dismissHomeSwipeTutorial}
+          />
         </View>
       </SafeAreaView>
     </SafeAreaProvider>
@@ -820,5 +1049,14 @@ const styles = StyleSheet.create({
   // Clips the hidden dock at the stage edge the way the native window edge
   // does, instead of letting it show through a translucent navigation bar.
   stage: { flex: 1, overflow: 'hidden' },
+  homeTutorialRevealBackdrop: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '13%',
+    backgroundColor: '#05070B',
+  },
+  gameStageContent: { flex: 1, zIndex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });
