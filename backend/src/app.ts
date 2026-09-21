@@ -406,6 +406,7 @@ export function createApp(
         const config = JSON.parse(fs.readFileSync(adsConfigPath, "utf8"));
         res.json({
           defaultIntervalMinutes: 5,
+          initialPreloadGameCount: 5,
           gaMeasurementId: process.env.GA4_MEASUREMENT_ID || "G-SWIPEPLAY1",
           ...config,
         });
@@ -418,6 +419,7 @@ export function createApp(
       interstitialEnabled: true,
       swipeInterval: 10,
       defaultIntervalMinutes: 5,
+      initialPreloadGameCount: 5,
       levelCompleteAd: true,
       levelWinInterval: 2,
       gameOverAdEnabled: true,

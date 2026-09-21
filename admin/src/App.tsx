@@ -172,6 +172,7 @@ export default function App() {
     interstitialEnabled: true,
     swipeInterval: 10,
     defaultIntervalMinutes: 5,
+    initialPreloadGameCount: 5,
     levelCompleteAd: true,
     levelWinInterval: 2,
     gameOverAdEnabled: true,
@@ -5495,6 +5496,53 @@ export default function App() {
                         }}
                       >
                         Interval between displayed interstitials. Requires the global interstitial switch and the current game's ads setting. The app checks time during play; a loaded ad and a foreground app are required.
+                      </p>
+                    </div>
+
+                    {/* Initial App Launch Preload */}
+                    <div style={{ marginTop: "24px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        <span style={{ fontSize: "14px", fontWeight: 700 }}>
+                          ⚡ Initial Preloaded Games on Launch
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "14px",
+                            color: "#38bdf8",
+                            fontWeight: 800,
+                            fontFamily: "var(--font-mono)",
+                          }}
+                        >
+                          {adsConfig.initialPreloadGameCount ?? 5} Games
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        value={adsConfig.initialPreloadGameCount ?? 5}
+                        onChange={(e) =>
+                          setAdsConfig({
+                            ...adsConfig,
+                            initialPreloadGameCount: parseInt(e.target.value) || 5,
+                          })
+                        }
+                        style={{ width: "100%", accentColor: "#38bdf8" }}
+                      />
+                      <p
+                        style={{
+                          fontSize: "11px",
+                          color: "var(--text-muted)",
+                          marginTop: "6px",
+                        }}
+                      >
+                        Number of games secretly downloaded into local device storage during the startup loading screen before the tutorial or feed starts. Higher values ensure instant zero-lag gameplay.
                       </p>
                     </div>
                   </div>

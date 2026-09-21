@@ -76,6 +76,7 @@ export interface AdsRemoteConfig {
   interstitialEnabled: boolean;
   swipeInterval: number;
   defaultIntervalMinutes: number;
+  initialPreloadGameCount?: number;
   levelCompleteAd: boolean;
   levelWinInterval: number;
   gameOverAdEnabled: boolean;

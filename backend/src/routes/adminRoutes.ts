@@ -1283,6 +1283,7 @@ export function createAdminRouter(
         interstitialEnabled: true,
         swipeInterval: 10,
         defaultIntervalMinutes: 5,
+        initialPreloadGameCount: 5,
         levelCompleteAd: true,
         levelWinInterval: 2,
         gameOverAdEnabled: true,

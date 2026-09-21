@@ -7,6 +7,7 @@ describe('ads remote config normalisation', () => {
   test('live server shape is accepted verbatim', () => {
     const live = {
       defaultIntervalMinutes: 5,
+      initialPreloadGameCount: 5,
       gaMeasurementId: 'G-SWIPEPLAY1',
       bannerEnabled: false,
       interstitialEnabled: true,
