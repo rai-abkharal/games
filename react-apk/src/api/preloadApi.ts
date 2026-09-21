@@ -29,13 +29,16 @@ export function normalizePreloadConfig(
 export async function fetchPreloadConfig(
   signal?: AbortSignal | null,
 ): Promise<PreloadRemoteConfig> {
-  const { data } = await requestJsonWithFallback<Partial<PreloadRemoteConfig>>(
-    API_PATHS.preloadConfig,
-    {
-      signal,
-      fallback: DEFAULT_PRELOAD_CONFIG,
-      timeoutMs: NETWORK.preloadConfigTimeoutMs,
-    },
-  );
-  return normalizePreloadConfig(data);
+  try {
+    const { data } = await requestJsonWithFallback<Partial<PreloadRemoteConfig>>(
+      API_PATHS.preloadConfig,
+      {
+        signal,
+        timeoutMs: NETWORK.preloadConfigTimeoutMs,
+      },
+    );
+    return normalizePreloadConfig(data);
+  } catch {
+    return DEFAULT_PRELOAD_CONFIG;
+  }
 }

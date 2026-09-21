@@ -7,10 +7,12 @@ import React, {
   useState,
 } from 'react';
 import {
-  Animated,
   ActivityIndicator,
+  Animated,
+  Pressable,
   StatusBar,
   StyleSheet,
+  Text,
   Vibration,
   View,
   type LayoutChangeEvent,
@@ -254,7 +256,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const [appActive, setAppActive] = useState(true);
   const [focused, setFocused] = useState(true);
   const suspended = !appActive || !focused || fullScreenAdShowing;
-  const loop = list.length > 2;
+  const loop = list.length > 2 && tab !== 'favorites';
 
   // Reconcile before committing children: starting page zero then correcting
   // in an effect used to create and abandon the wrong WebView at launch.
@@ -1005,6 +1007,33 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           >
             {body}
           </Animated.View>
+          {tab === 'favorites' && list.length > 0 && position.index === list.length - 1 ? (
+            <View pointerEvents="box-none" style={styles.favoritesEndBannerWrap}>
+              <View style={[styles.favoritesEndBanner, { backgroundColor: theme.card, borderColor: theme.accent }]}>
+                <View style={styles.favoritesEndLeft}>
+                  <Text style={[styles.favoritesEndTitle, { color: theme.textPrimary }]} allowFontScaling={false}>
+                    {t('endOfFavoritesTitle') || "End of Favorites"}
+                  </Text>
+                  <Text style={[styles.favoritesEndSub, { color: theme.textSecondary }]} numberOfLines={1} allowFontScaling={false}>
+                    {t('endOfFavoritesSub') || 'Explore the full arcade catalogue'}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={onAllGames}
+                  style={({ pressed }) => [
+                    styles.browseAllBtn,
+                    { backgroundColor: theme.accent, opacity: pressed ? 0.8 : 1 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Browse All Games"
+                >
+                  <Text style={styles.browseAllBtnText} allowFontScaling={false}>
+                    {t('browseAllGames') || 'Browse All'} →
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
           <FeedDock
             theme={theme}
             visible={dockVisible && !isTutorialActive && !homeSwipeVisible}
@@ -1059,4 +1088,60 @@ const styles = StyleSheet.create({
   },
   gameStageContent: { flex: 1, zIndex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  favoritesEndBannerWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 68,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    zIndex: 8,
+  },
+  favoritesEndBanner: {
+    width: '100%',
+    maxWidth: 480,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  favoritesEndLeft: {
+    flex: 1,
+    marginRight: 12,
+  },
+  favoritesEndTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  favoritesEndSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  browseAllBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#B266FF',
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  browseAllBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
 });

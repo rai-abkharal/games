@@ -17,40 +17,31 @@ import {
   stopBundleStore,
   syncBundles,
   useBundleStore,
-  useDownloadStore,
 } from './src/services/gameBundles';
-import { useStartupStore } from './src/services/startup';
 
-/** Hard cap on waiting for initial preload before entering the app anyway (10s max). */
-const MAX_PRELOAD_WAIT_MS = 10_000;
-
-/** Minimum display time so the loading bar animation is visible and smooth. */
-const MINIMUM_SPLASH_MS = 1000;
+/** Preload duration: runs for exactly 30 seconds. */
+const PRELOAD_DURATION_MS = 30_000;
 
 /** Hard cap on waiting for the local game store before mounting the feed anyway. */
 const BUNDLE_STORE_BOOT_MS = 1200;
 
 /**
  * Enhanced startup sequence:
- * Quietly downloads the first N games configured by Admin directly into local
- * device storage while displaying an attractive gaming loading screen.
- * When the player reaches the tutorial or feed, those games are already 100%
- * cached on disk for instant, zero-lag gameplay.
+ * Continuously preloads as many arcade games as possible into local device
+ * storage for exactly 30 seconds while displaying a modern, premium loading screen.
+ * There is no fixed game-count limit: during these 30 seconds, downloads run
+ * continuously in priority order so games are ready for instant zero-lag play.
  */
 function App() {
   const playerHydrated = usePlayerStore(state => state.hydrated);
   const tutorialsHydrated = useTutorialStore(state => state.hydrated);
   const games = useCatalogStore(state => state.games);
-  const catalogStatus = useCatalogStore(state => state.status);
-  const initialPreloadCount = usePreloadStore(state => state.initialPreloadGameCount);
   const readyBundles = useBundleStore(state => state.ready);
-  const activeDownloads = useDownloadStore(state => state.active);
-  const gameReady = useStartupStore(state => state.gameReady);
 
   const [splashDone, setSplashDone] = useState(false);
   const [bundlesSettled, setBundlesSettled] = useState(!isBundleStoreAvailable());
   const [preloadDone, setPreloadDone] = useState(false);
-  const [preloadProgress, setPreloadProgress] = useState(0.08);
+  const [preloadProgress, setPreloadProgress] = useState(0.02);
 
   const hideSplash = useCallback(() => setSplashDone(true), []);
 
@@ -76,69 +67,41 @@ function App() {
     };
   }, []);
 
-  // Calculate target games to preload based on Admin configuration
-  const targetCount = useMemo(() => {
-    const desired = initialPreloadCount || 5;
-    if (!games.length) return desired;
-    return Math.max(1, Math.min(games.length, desired));
-  }, [games.length, initialPreloadCount]);
-
-  const targetGames = useMemo(() => games.slice(0, targetCount), [games, targetCount]);
-
-  // Trigger priority pre-download of the target first N games
+  // Continuously download as many games as possible without a fixed count limit
   useEffect(() => {
     if (!bundlesSettled || !games.length || !isBundleStoreAvailable()) return;
-    syncBundles(games, (_game, index) =>
-      index < targetCount ? BundlePriority.current : BundlePriority.rest,
-    );
-  }, [bundlesSettled, games, targetCount]);
+    syncBundles(games, (_game, index) => {
+      if (index === 0) return BundlePriority.current;
+      if (index < 3) return BundlePriority.next;
+      if (index < 10) return BundlePriority.near;
+      return BundlePriority.rest;
+    });
+  }, [bundlesSettled, games]);
 
-  // Track progress and completion of target games
+  // Preloading timer: runs for exactly 30 seconds
   useEffect(() => {
-    if (!isBundleStoreAvailable()) {
-      // Non-native / test environment: smoothly progress to 100%
-      const timer = setTimeout(() => {
-        setPreloadProgress(1);
-        setPreloadDone(true);
-      }, 400);
-      return () => clearTimeout(timer);
-    }
-
-    if (!targetGames.length) {
-      if (catalogStatus === 'error') {
-        setPreloadProgress(1);
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const fraction = Math.min(1.0, elapsed / PRELOAD_DURATION_MS);
+      setPreloadProgress(fraction);
+      if (elapsed >= PRELOAD_DURATION_MS) {
+        clearInterval(interval);
         setPreloadDone(true);
       }
-      return;
-    }
-
-    const readyCount = targetGames.filter(g => Boolean(readyBundles[g.id])).length;
-    const partialFractions = targetGames.reduce(
-      (sum, g) => sum + (activeDownloads[g.id]?.fraction ?? 0),
-      0,
-    );
-
-    const calculated = (readyCount + partialFractions) / targetCount;
-    // Map to 15%..100% (with initial 15% reserved for catalog hydration)
-    const normalized = Math.min(1, Math.max(0.15, 0.15 + 0.85 * calculated));
-    setPreloadProgress(normalized);
-
-    if (readyCount >= targetCount) {
-      setPreloadProgress(1);
-      setPreloadDone(true);
-    }
-  }, [activeDownloads, catalogStatus, readyBundles, targetCount, targetGames]);
-
-  // Safety timeout: never let the loading screen hold the user longer than MAX_PRELOAD_WAIT_MS
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPreloadProgress(1);
-      setPreloadDone(true);
-    }, MAX_PRELOAD_WAIT_MS);
-    return () => clearTimeout(timer);
+    }, 100);
+    return () => clearInterval(interval);
   }, []);
 
-  const isReadyToEnter = preloadDone || gameReady;
+  const readyCount = Object.keys(readyBundles).length;
+  const statusText = useMemo(() => {
+    if (readyCount > 0) {
+      return `Cached ${readyCount} game${readyCount > 1 ? 's' : ''} • Preloading arcade feed...`;
+    }
+    return undefined;
+  }, [readyCount]);
+
+  const isReadyToEnter = preloadDone;
 
   return (
     <GestureHandlerRootView style={styles.root}>
@@ -147,9 +110,11 @@ function App() {
           {playerHydrated && tutorialsHydrated && bundlesSettled ? <RootNavigator /> : null}
           {splashDone ? null : (
             <Splash
-              minimumMs={MINIMUM_SPLASH_MS}
+              minimumMs={PRELOAD_DURATION_MS}
               ready={isReadyToEnter}
               progress={preloadProgress}
+              statusText={statusText}
+              totalSeconds={30}
               onDone={hideSplash}
             />
           )}

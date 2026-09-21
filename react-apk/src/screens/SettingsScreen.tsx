@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Modal,
@@ -233,19 +233,9 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
   const setVibrationEnabled = usePlayerStore(state => state.setVibrationEnabled);
   const setTheme = usePlayerStore(state => state.setTheme);
 
-  const [clearing, setClearing] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [diagnostics, setDiagnostics] = useState(false);
   const taps = useRef(0);
-
-  const clearCatalogCache = useCallback(async () => {
-    setClearing(true);
-    await removeKeys([STORAGE_KEYS.catalog, STORAGE_KEYS.adsConfig]);
-    await useCatalogStore.getState().refresh({ force: true });
-    void adManager.refreshConfig();
-    setClearing(false);
-    toast(t('cacheRefreshedToast'));
-  }, [t]);
 
   const revealDiagnostics = useCallback(() => {
     taps.current += 1;
@@ -281,82 +271,20 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
         >
           <BackChevron size={11} color={theme.textPrimary} />
         </Pressable>
-        <View style={styles.titleCol}>
+        <Pressable onPress={revealDiagnostics} style={styles.titleCol}>
           <Text style={[styles.title, { color: theme.textPrimary }]}>{t('settingsTitle')}</Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-            Audio, Appearance & Profile
+            Audio, Themes & Language
           </Text>
-        </View>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          hitSlop={12}
-          style={[
-            styles.doneBtnPill,
-            {
-              backgroundColor: theme.isDark ? 'rgba(255,255,255,0.08)' : '#EEF2FF',
-              borderColor: theme.isDark ? 'rgba(255,255,255,0.15)' : '#C7D2FE',
-            },
-          ]}
-        >
-          <Text style={[styles.doneText, { color: theme.accent }]}>{t('done')}</Text>
         </Pressable>
+        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* 1. Hero Gamer Profile & Wallet Card */}
-        <Pressable onPress={revealDiagnostics} accessibilityRole="button" accessibilityLabel="Profile">
-          <Card theme={theme} title={t('profileSection')}>
-            <View style={styles.profileHero}>
-              <View
-                style={[
-                  styles.avatarBadge,
-                  { backgroundColor: theme.accent, borderColor: theme.accent },
-                ]}
-              >
-                <GamepadIcon size={22} color="#FFFFFF" />
-              </View>
-              <View style={styles.profileInfo}>
-                <Text style={[styles.profileIdText, { color: theme.textPrimary }]}>
-                  {playerId ? `Player: ${playerId}` : t('guest')}
-                </Text>
-                <View
-                  style={[
-                    styles.statusPill,
-                    {
-                      backgroundColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
-                      borderColor: theme.border,
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.statusDot,
-                      { backgroundColor: playerId ? '#10B981' : '#F59E0B' },
-                    ]}
-                  />
-                  <Text style={[styles.statusPillText, { color: theme.textSecondary }]}>
-                    {playerId ? 'Account Synced' : 'Guest Session'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={[styles.walletRow, { borderTopColor: theme.border }]}>
-              <View style={styles.coinsPill}>
-                <CoinIcon size={14} />
-                <Text style={styles.coinsPillText}>{coins} {t('coins')}</Text>
-              </View>
-              <Text style={[styles.walletHint, { color: theme.textSecondary }]}>
-                Play games to earn
-              </Text>
-            </View>
-          </Card>
-        </Pressable>
-
-        {/* 2. Audio & Haptics Card */}
+        {/* 1. Audio & Haptics Card */}
         <Card theme={theme} title={t('audioHapticsSection')}>
           <View style={styles.featureRow}>
             <View style={[styles.iconBadge, { backgroundColor: '#E0E7FF' }]}>
@@ -395,14 +323,16 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
           </View>
         </Card>
 
-        {/* 3. Appearance & Visual Themes */}
+        {/* 2. Appearance & Visual Themes */}
         <Card theme={theme} title={t('themeSection')}>
           <View style={styles.themeRow}>
             {THEME_ORDER.map(id => {
               const option = THEMES[id];
               const active = id === themeId;
               const swatches =
-                id === 'pure_white'
+                id === 'eibi_purple'
+                  ? ['#B266FF', '#F2C200']
+                  : id === 'pure_white'
                   ? ['#FFFFFF', '#6366F1']
                   : id === 'off_white'
                   ? ['#F8F6F0', '#D97706']
@@ -460,7 +390,7 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
           </View>
         </Card>
 
-        {/* 4. Language Section */}
+        {/* 3. Language Section */}
         <Card theme={theme} title={t('languageSection')}>
           <Pressable
             onPress={() => setLanguageModalVisible(true)}
@@ -495,50 +425,8 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
           </Pressable>
         </Card>
 
-        {/* 5. Diagnostics (revealed on 5 taps) */}
+        {/* 4. Diagnostics (revealed on 5 taps on header title) */}
         {diagnostics ? <Diagnostics theme={theme} /> : null}
-
-        {/* 6. Data & Storage */}
-        <Card theme={theme} title={t('dataSection')}>
-          <Text style={[styles.hint, { color: theme.textSecondary }]}>
-            {t('backendServer')}: {getActiveBaseUrl()}
-          </Text>
-          <Pressable
-            onPress={clearCatalogCache}
-            disabled={clearing}
-            style={({ pressed }) => [
-              styles.clearCacheBtn,
-              {
-                backgroundColor: theme.isDark ? '#3B1717' : '#FEF2F2',
-                borderColor: theme.isDark ? '#7F1D1D' : '#FECACA',
-                opacity: clearing ? 0.6 : pressed ? 0.85 : 1,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.clearCacheBtnText,
-                { color: theme.isDark ? '#FCA5A5' : '#DC2626' },
-              ]}
-            >
-              {clearing ? t('refreshing') : t('refreshCache')}
-            </Text>
-          </Pressable>
-        </Card>
-
-        {/* 7. Confirm & Return */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('confirmReturn')}
-          onPress={() => navigation.goBack()}
-          style={({ pressed }) => [
-            styles.confirmButton,
-            { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
-          ]}
-        >
-          <CheckIcon size={12} color="#FFFFFF" />
-          <Text style={styles.confirmButtonText}>{t('confirmReturn')}</Text>
-        </Pressable>
       </ScrollView>
 
       {/* Language Selection Modal */}

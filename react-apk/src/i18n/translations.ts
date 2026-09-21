@@ -513,6 +513,32 @@ export const TRANSLATIONS = {
     id: 'Seret untuk bergerak',
     zh: '拖动以移动',
   },
+  endOfFavoritesTitle: {
+    en: 'End of Favorites',
+    es: 'Fin de Favoritos',
+    hi: 'पसंदीदा समाप्त',
+    ur: 'پسندیدہ ختم',
+    ar: 'نهاية المفضلة',
+    fr: 'Fin des favoris',
+    de: 'Ende der Favoriten',
+    pt: 'Fim dos Favoritos',
+    ru: 'Конец избранного',
+    id: 'Akhir Favorit',
+    zh: '收藏夹到底了',
+  },
+  endOfFavoritesSub: {
+    en: 'Explore the full arcade catalogue',
+    es: 'Explora el catálogo completo del arcade',
+    hi: 'आर्केड की पूरी सूची देखें',
+    ur: 'مکمل آرکیڈ کیٹلاگ دیکھیں',
+    ar: 'استكشف قائمة ألعاب الآركيد الكاملة',
+    fr: 'Découvrez tout le catalogue arcade',
+    de: 'Entdecke den gesamten Arcade-Katalog',
+    pt: 'Explore o catálogo completo de arcade',
+    ru: 'Смотреть все игры аркады',
+    id: 'Jelajahi seluruh katalog arkade',
+    zh: '探索全部街机游戏',
+  },
 } as const;
 export type TranslationKey = keyof typeof TRANSLATIONS;
 

@@ -1,5 +1,6 @@
 import React, { memo, useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FEED } from '../../config/env';
 import { useTranslation } from '../../i18n/translations';
 import { GLASS, HUD, type ThemeColors } from '../../theme/themes';
@@ -26,9 +27,10 @@ const HIDE_EXTRA = 40;
 
 /**
  * The bottom dock:
- * - Straight edges matching mobile screen from left to right (flush, no floating gaps)
- * - Hide/show toggle arrow located on the RIGHT side (not in the center)
- * - Localized navigation items
+ * - Fully responsive: never clips Like/Favorite buttons on small or wide screens
+ * - Clean safe-area inset protection for Android gesture bars & iOS indicators
+ * - Centered max-width container for tablet / wide displays
+ * - Hide/show toggle arrow located on the RIGHT side
  */
 export const FeedDock = memo(function FeedDockInner({
   theme,
@@ -43,13 +45,17 @@ export const FeedDock = memo(function FeedDockInner({
   onToggle,
 }: Props) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const effectiveBottom = Math.max(insets?.bottom ?? 0, insetBottom);
+  const totalBarHeight = BAR_HEIGHT + effectiveBottom;
+
   const barY = useRef(new Animated.Value(0)).current;
-  const handleY = useRef(new Animated.Value(-(BAR_HEIGHT + HANDLE_GAP))).current;
+  const handleY = useRef(new Animated.Value(-(totalBarHeight + HANDLE_GAP))).current;
   const first = useRef(true);
 
   useEffect(() => {
-    const targetBar = visible ? 0 : BAR_HEIGHT + HIDE_EXTRA + insetBottom;
-    const targetHandle = visible ? -(BAR_HEIGHT + HANDLE_GAP) : 0;
+    const targetBar = visible ? 0 : totalBarHeight + HIDE_EXTRA;
+    const targetHandle = visible ? -(totalBarHeight + HANDLE_GAP) : 0;
     if (first.current) {
       first.current = false;
       barY.setValue(targetBar);
@@ -63,7 +69,7 @@ export const FeedDock = memo(function FeedDockInner({
     ]);
     animation.start();
     return () => animation.stop();
-  }, [visible, insetBottom, barY, handleY]);
+  }, [visible, totalBarHeight, barY, handleY]);
 
   const glass = theme.isDark ? GLASS.dock.dark : GLASS.dock.light;
   const inactive = theme.isDark ? GLASS.navInactive.dark : GLASS.navInactive.light;
@@ -73,12 +79,13 @@ export const FeedDock = memo(function FeedDockInner({
 
   return (
     <View pointerEvents="box-none" style={styles.layer}>
-      {/* Edge-to-edge dock bar with straight edges matching screen */}
+      {/* Edge-to-edge dock bar with safe-area padding and centered inner container */}
       <Animated.View
         style={[
           styles.bar,
           {
-            bottom: insetBottom,
+            height: totalBarHeight,
+            paddingBottom: effectiveBottom,
             backgroundColor: glass.fill,
             borderColor: glass.border,
             transform: [{ translateY: barY }],
@@ -86,18 +93,20 @@ export const FeedDock = memo(function FeedDockInner({
         ]}
       >
         <View pointerEvents="none" style={[styles.sheen, { backgroundColor: glass.sheen }]} />
-        <DockItem label={t('allGames')} color={allColor} onPress={onAllGames} accessibilityLabel="All games">
-          <GamepadIcon size={22} color={allColor} />
-        </DockItem>
-        <DockItem label="Like" color={likeColor} onPress={onLike} accessibilityLabel="Like current game">
-          <HeartIcon size={24} color={likeColor} filled={isFavorite} />
-        </DockItem>
-        <DockItem label={t('favorites')} color={favColor} onPress={onFavorites} accessibilityLabel="Favorites">
-          <StarIcon size={22} color={favColor} />
-        </DockItem>
-        <DockItem label={t('settingsTitle')} color={inactive} onPress={onSettings} accessibilityLabel="Settings">
-          <GearIcon size={22} color={inactive} />
-        </DockItem>
+        <View style={styles.barInner}>
+          <DockItem label={t('allGames')} color={allColor} onPress={onAllGames} accessibilityLabel="All games">
+            <GamepadIcon size={22} color={allColor} />
+          </DockItem>
+          <DockItem label="Like" color={likeColor} onPress={onLike} accessibilityLabel="Like current game">
+            <HeartIcon size={22} color={likeColor} filled={isFavorite} />
+          </DockItem>
+          <DockItem label={t('favorites')} color={favColor} onPress={onFavorites} accessibilityLabel="Favorites">
+            <StarIcon size={22} color={favColor} />
+          </DockItem>
+          <DockItem label={t('settingsTitle')} color={inactive} onPress={onSettings} accessibilityLabel="Settings">
+            <GearIcon size={22} color={inactive} />
+          </DockItem>
+        </View>
       </Animated.View>
 
       {/* Hide/Show Toggle Button positioned on the RIGHT side */}
@@ -105,7 +114,7 @@ export const FeedDock = memo(function FeedDockInner({
         style={[
           styles.handleWrap,
           {
-            bottom: insetBottom + HANDLE_GAP,
+            bottom: HANDLE_GAP,
             transform: [{ translateY: handleY }],
           },
         ]}
@@ -157,28 +166,34 @@ function DockItem({
 const styles = StyleSheet.create({
   layer: {
     position: 'absolute',
-    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 3,
+    zIndex: 10,
   },
   // Straight dock bar matching the phone edges from left to right (no rounded corners)
   bar: {
     position: 'absolute',
     left: 0,
     right: 0,
-    height: BAR_HEIGHT,
+    bottom: 0,
     borderRadius: 0,
     borderTopWidth: 1,
     borderLeftWidth: 0,
     borderRightWidth: 0,
     borderBottomWidth: 0,
-    paddingHorizontal: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
     elevation: 16,
     overflow: 'hidden',
+  },
+  barInner: {
+    width: '100%',
+    maxWidth: 520,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    height: BAR_HEIGHT,
+    alignSelf: 'center',
+    paddingHorizontal: 6,
   },
   sheen: {
     position: 'absolute',
@@ -190,14 +205,15 @@ const styles = StyleSheet.create({
   },
   item: {
     flex: 1,
+    minWidth: 54,
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
   },
   itemPressed: { opacity: 0.7 },
   itemLabel: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '700',
     marginTop: 2,
     textAlign: 'center',

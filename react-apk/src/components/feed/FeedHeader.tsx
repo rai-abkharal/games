@@ -1,6 +1,5 @@
 import React, { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { usePlayerStore } from '../../store/playerStore';
 import { GLASS, HUD, type ThemeColors } from '../../theme/themes';
 import { AdBanner } from '../AdBanner';
 
@@ -25,7 +24,6 @@ export const FeedHeader = memo(function FeedHeaderInner({
   bannerEnabled,
   title,
 }: Props) {
-  const playerId = usePlayerStore(state => state.playerId);
   const glass = theme.isDark ? GLASS.topBar.dark : GLASS.topBar.light;
 
   return (
@@ -51,11 +49,8 @@ export const FeedHeader = memo(function FeedHeaderInner({
           {bannerEnabled ? <AdBanner /> : null}
         </View>
 
-        {/* Minimal info row: Left = Guest name (no coins), Right = Game name (no count/category) */}
+        {/* Minimal info row: Show only the game name centered */}
         <View style={styles.row} pointerEvents="box-none">
-          <Text numberOfLines={1} style={styles.player}>
-            {playerId || 'Guest'}
-          </Text>
           <Text numberOfLines={1} style={styles.title}>
             {title}
           </Text>
@@ -93,26 +88,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 20,
-    paddingVertical: 2,
+    paddingVertical: 3,
     minHeight: 22,
-  },
-  player: {
-    color: HUD.text,
-    fontSize: 12,
-    fontWeight: '700',
-    flexShrink: 1,
-    maxWidth: '45%',
-    textAlign: 'center',
-    letterSpacing: 0.2,
+    width: '100%',
   },
   title: {
     color: HUD.text,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     textAlign: 'center',
-    flexShrink: 1,
-    maxWidth: '45%',
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
+    maxWidth: '90%',
   },
 });

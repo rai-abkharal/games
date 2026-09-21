@@ -1,6 +1,6 @@
 /** The three palettes from the native ThemeManager, plus shared HUD colours. */
 
-export type ThemeId = 'pure_white' | 'off_white' | 'midnight_dark';
+export type ThemeId = 'eibi_purple' | 'pure_white' | 'off_white' | 'midnight_dark';
 
 export interface ThemeColors {
   id: ThemeId;
@@ -11,6 +11,7 @@ export interface ThemeColors {
   textPrimary: string;
   textSecondary: string;
   accent: string;
+  secondaryAccent?: string;
   nav: string;
   banner: string;
   border: string;
@@ -18,6 +19,21 @@ export interface ThemeColors {
 }
 
 export const THEMES: Record<ThemeId, ThemeColors> = {
+  eibi_purple: {
+    id: 'eibi_purple',
+    name: 'EiBi Violet',
+    emoji: '🔮',
+    bg: '#120524',
+    card: '#230B40',
+    textPrimary: '#FFFFFF',
+    textSecondary: '#C084FC',
+    accent: '#B266FF',
+    secondaryAccent: '#F2C200',
+    nav: '#16062B',
+    banner: '#230B40',
+    border: 'rgba(178, 102, 255, 0.28)',
+    isDark: true,
+  },
   pure_white: {
     id: 'pure_white',
     name: 'Pure White',
@@ -62,7 +78,7 @@ export const THEMES: Record<ThemeId, ThemeColors> = {
   },
 };
 
-export const THEME_ORDER: ThemeId[] = ['pure_white', 'off_white', 'midnight_dark'];
+export const THEME_ORDER: ThemeId[] = ['eibi_purple', 'pure_white', 'off_white', 'midnight_dark'];
 
 /** The game surface is always this colour, matching item_game_page.xml. */
 export const GAME_SURFACE = '#070D1E';
@@ -87,17 +103,17 @@ export const HUD = {
 export const GLASS = {
   topBar: {
     light: { fill: 'rgba(18, 58, 112, 0.27)', border: 'rgba(191, 227, 255, 0.55)', sheen: 'rgba(255, 255, 255, 0.10)' },
-    dark: { fill: 'rgba(2, 6, 24, 0.32)', border: 'rgba(125, 211, 252, 0.46)', sheen: 'rgba(255, 255, 255, 0.09)' },
+    dark: { fill: 'rgba(35, 11, 64, 0.72)', border: 'rgba(178, 102, 255, 0.36)', sheen: 'rgba(255, 255, 255, 0.12)' },
   },
   dock: {
     light: { fill: 'rgba(18, 58, 112, 0.24)', border: 'rgba(191, 227, 255, 0.65)', sheen: 'rgba(255, 255, 255, 0.11)' },
-    dark: { fill: 'rgba(6, 20, 45, 0.29)', border: 'rgba(125, 211, 252, 0.48)', sheen: 'rgba(255, 255, 255, 0.10)' },
+    dark: { fill: 'rgba(22, 6, 43, 0.85)', border: 'rgba(178, 102, 255, 0.32)', sheen: 'rgba(255, 255, 255, 0.12)' },
   },
-  handle: { fill: 'rgba(15, 23, 42, 0.60)', border: 'rgba(255, 255, 255, 0.30)' },
-  coinsPill: { fill: 'rgba(146, 64, 14, 0.28)', border: 'rgba(253, 230, 138, 0.74)', text: '#B45309' },
-  bestPill: { fill: 'rgba(146, 64, 14, 0.28)', border: 'rgba(252, 211, 77, 0.74)', text: '#B45309' },
-  /** Inactive dock tint: #D6E9FF on light themes, #BFDBFE on Midnight Dark. */
-  navInactive: { light: '#D6E9FF', dark: '#BFDBFE' },
-  placeholderAccent: '#818CF8',
-  placeholderCircle: '#1E293B',
+  handle: { fill: 'rgba(35, 11, 64, 0.85)', border: 'rgba(178, 102, 255, 0.45)' },
+  coinsPill: { fill: 'rgba(242, 194, 0, 0.22)', border: 'rgba(242, 194, 0, 0.70)', text: '#F2C200' },
+  bestPill: { fill: 'rgba(242, 194, 0, 0.22)', border: 'rgba(242, 194, 0, 0.70)', text: '#F2C200' },
+  /** Inactive dock tint: #D6E9FF on light themes, #D9D3EE on Dark/Violet. */
+  navInactive: { light: '#D6E9FF', dark: '#D9D3EE' },
+  placeholderAccent: '#B266FF',
+  placeholderCircle: '#230B40',
 } as const;

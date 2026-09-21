@@ -72,7 +72,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   lastPlayedGameId: null,
   soundMuted: false,
   vibrationEnabled: true,
-  themeId: 'pure_white',
+  themeId: 'eibi_purple',
   language: 'en',
   hydrated: false,
 
@@ -91,7 +91,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       lastPlayedGameId: player?.lastPlayedGameId ?? null,
       soundMuted: settings?.soundMuted ?? false,
       vibrationEnabled: settings?.vibrationEnabled ?? true,
-      themeId: settings?.themeId ?? 'pure_white',
+      themeId: settings?.themeId ?? 'eibi_purple',
       language: settings?.language ?? 'en',
       hydrated: true,
     });
