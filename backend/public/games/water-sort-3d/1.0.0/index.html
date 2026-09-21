@@ -2717,8 +2717,10 @@ class GameEngine {
         }
         for (let i = 0; i < this.tubes.length; i++) {
             const t = this.tubes[i];
-            const pad = 10;
-            if (x >= t.x - pad && x <= t.x + t.width + pad && y >= t.y - pad && y <= t.y + t.height + pad) {
+            const padX = 14;
+            const padTop = t.isSelected ? 36 : 14;
+            const padBottom = 14;
+            if (x >= t.x - padX && x <= t.x + t.width + padX && y >= t.y - padTop && y <= t.y + t.height + padBottom) {
                 this.onTubeTap(i);
                 break;
             }
@@ -2780,29 +2782,36 @@ class GameEngine {
     }
     resize();
 
-    // Robust Touch & Pointer Listeners with 60ms Debounce
+    // Robust Touch & Pointer Listeners with Event Deduplication
     let lastTouchTime = 0;
     function handleTouchOrPointer(clientX, clientY) {
       if (clientX === undefined || clientY === undefined) return;
       const now = performance.now();
-      if (now - lastTouchTime < 60) return;
+      if (now - lastTouchTime < 120) return;
       lastTouchTime = now;
       engine.handlePointerDown(clientX, clientY);
     }
 
-    canvas.addEventListener('pointerdown', function(e) {
-      handleTouchOrPointer(e.clientX, e.clientY);
-    });
+    if (window.PointerEvent) {
+      canvas.addEventListener('pointerdown', function(e) {
+        handleTouchOrPointer(e.clientX, e.clientY);
+      });
+    } else {
+      canvas.addEventListener('touchstart', function(e) {
+        if (e.touches && e.touches.length > 0) {
+          const t = e.touches[0];
+          handleTouchOrPointer(t.clientX, t.clientY);
+        }
+      }, { passive: true });
+      canvas.addEventListener('mousedown', function(e) {
+        handleTouchOrPointer(e.clientX, e.clientY);
+      });
+    }
 
-    canvas.addEventListener('touchstart', function(e) {
-      if (e.touches && e.touches.length > 0) {
-        const t = e.touches[0];
-        handleTouchOrPointer(t.clientX, t.clientY);
-      }
-    }, { passive: true });
-
+    // Suppress synthetic delayed click from mobile browsers to prevent accidental deselect
     canvas.addEventListener('click', function(e) {
-      handleTouchOrPointer(e.clientX, e.clientY);
+      e.preventDefault();
+      e.stopPropagation();
     });
 
     window.addEventListener('pointerup', function() { engine.handlePointerUp(); });
