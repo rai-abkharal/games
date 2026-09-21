@@ -1283,7 +1283,6 @@ export function createAdminRouter(
         interstitialEnabled: true,
         swipeInterval: 10,
         defaultIntervalMinutes: 5,
-        initialPreloadGameCount: 5,
         levelCompleteAd: true,
         levelWinInterval: 2,
         gameOverAdEnabled: true,
@@ -1301,6 +1300,7 @@ export function createAdminRouter(
             ...config,
             ...JSON.parse(fs.readFileSync(adsConfigPath, "utf8")),
           };
+          delete (config as any).initialPreloadGameCount;
         } catch (_) {}
       }
 
@@ -1321,9 +1321,10 @@ export function createAdminRouter(
         "ads_config.json",
       );
       const newConfig = { ...req.body };
-      // Never allow API secrets to be written to client-facing ads config file
+      // Never allow API secrets or preload count to be written to client-facing ads config file
       delete (newConfig as any).apiSecret;
       delete (newConfig as any).ga4ApiSecret;
+      delete (newConfig as any).initialPreloadGameCount;
 
       fs.writeFileSync(
         adsConfigPath,
@@ -1344,7 +1345,64 @@ export function createAdminRouter(
     }
   });
 
-  // 12. Update Game Features (e.g. Hint Support)
+  // 12. Get Startup Preload Remote Configuration
+  router.get("/preload-config", (_req: Request, res: Response) => {
+    try {
+      const preloadConfigPath = path.join(
+        path.dirname(catalogPath),
+        "preload_config.json",
+      );
+      let config = {
+        initialPreloadGameCount: 5,
+      };
+
+      if (fs.existsSync(preloadConfigPath)) {
+        try {
+          config = {
+            ...config,
+            ...JSON.parse(fs.readFileSync(preloadConfigPath, "utf8")),
+          };
+        } catch (_) {}
+      }
+
+      res.json({ success: true, config });
+    } catch (err: any) {
+      res.status(500).json({
+        error: "Failed to fetch preload configuration",
+        details: err.message,
+      });
+    }
+  });
+
+  // 13. Update Startup Preload Remote Configuration
+  router.put("/preload-config", (req: Request, res: Response) => {
+    try {
+      const preloadConfigPath = path.join(
+        path.dirname(catalogPath),
+        "preload_config.json",
+      );
+      const newConfig = { ...req.body };
+
+      fs.writeFileSync(
+        preloadConfigPath,
+        JSON.stringify(newConfig, null, 2),
+        "utf8",
+      );
+
+      res.json({
+        success: true,
+        message: "Startup Preload Configuration updated successfully!",
+        config: newConfig,
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        error: "Failed to update preload configuration",
+        details: err.message,
+      });
+    }
+  });
+
+  // 14. Update Game Features (e.g. Hint Support)
   router.put("/games/:id/features", (req: Request, res: Response) => {
     try {
       const { id } = req.params;

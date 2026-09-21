@@ -343,6 +343,8 @@ describe("Admin security boundaries", () => {
     ["put", "/feed/order"],
     ["get", "/ads-config"],
     ["put", "/ads-config"],
+    ["get", "/preload-config"],
+    ["put", "/preload-config"],
     ["put", "/games/owned-game/title"],
     ["put", "/games/owned-game/features"],
     ["get", "/uploads"],
@@ -463,6 +465,7 @@ describe("Admin security boundaries", () => {
         ["post", "/games/owned-game/publish"],
         ["delete", "/games/owned-game"],
         ["put", "/ads-config"],
+        ["put", "/preload-config"],
         ["get", "/admins"],
         ["get", "/roles"],
         ["get", "/permissions"],
@@ -988,5 +991,61 @@ describe("Admin security boundaries", () => {
         })
       ).status,
     ).toBe(403);
+  });
+
+  it("configures startup preload independently from ads and exposes both endpoints", async () => {
+    const root = await login("root");
+    // Initial fetch returns default 5
+    const initRes = await call(root, "get", "/v1/admin/preload-config");
+    expect(initRes.status).toBe(200);
+    expect(initRes.body.config.initialPreloadGameCount).toBe(5);
+
+    // Save preload count from 5 to 10
+    const updateRes = await call(root, "put", "/v1/admin/preload-config", {
+      initialPreloadGameCount: 10,
+    });
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.body.config.initialPreloadGameCount).toBe(10);
+
+    // Verify public mobile endpoint reflects the updated count
+    const mobilePreload = await request(app).get("/api/preload/config");
+    expect(mobilePreload.status).toBe(200);
+    expect(mobilePreload.body.initialPreloadGameCount).toBe(10);
+
+    // Ads config update succeeds without unrecognized keys errors
+    const adsRes = await call(root, "put", "/v1/admin/ads-config", {
+      bannerEnabled: true,
+      interstitialEnabled: false,
+      swipeInterval: 5,
+      defaultIntervalMinutes: 3,
+      levelCompleteAd: true,
+      levelWinInterval: 1,
+      gameOverAdEnabled: true,
+      cooldownSeconds: 45,
+      adMobAppId: "test-app-id",
+      bannerUnitId: "test-banner",
+      interstitialUnitId: "test-interstitial",
+      rewardedUnitId: "test-rewarded",
+      gaMeasurementId: "G-TEST12345",
+    });
+    expect(adsRes.status).toBe(200);
+
+    // Reject invalid preload count (> 15) or extra keys
+    expect(
+      (
+        await call(root, "put", "/v1/admin/preload-config", {
+          initialPreloadGameCount: 50,
+        })
+      ).status,
+    ).toBe(400);
+
+    expect(
+      (
+        await call(root, "put", "/v1/admin/preload-config", {
+          initialPreloadGameCount: 5,
+          extraField: true,
+        })
+      ).status,
+    ).toBe(400);
   });
 });

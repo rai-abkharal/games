@@ -38,6 +38,7 @@ export const PLACEHOLDER_HOSTS: ReadonlySet<string> = new Set([
 export const API_PATHS = {
   catalog: '/api/games',
   adsConfig: '/api/ads/config',
+  preloadConfig: '/api/preload/config',
   analyticsEvent: '/api/analytics/event',
 } as const;
 
@@ -45,6 +46,7 @@ export const NETWORK = {
   /** Native client: connect 4 s / read 8 s. One overall budget per attempt here. */
   catalogTimeoutMs: 8000,
   adsConfigTimeoutMs: 6000,
+  preloadConfigTimeoutMs: 6000,
   analyticsTimeoutMs: 6000,
   /** Minimum gap between background catalogue refreshes (MainActivity: 30 s). */
   catalogRefreshIntervalMs: 30_000,

@@ -40,6 +40,12 @@ export const AdsConfigSchema = z.object({
 
 export type AdsConfig = z.infer<typeof AdsConfigSchema>;
 
+export const PreloadConfigSchema = z.object({
+  initialPreloadGameCount: z.number().int().min(1).max(15).default(5),
+});
+
+export type PreloadConfig = z.infer<typeof PreloadConfigSchema>;
+
 export const GameOrientationSchema = z.string().nullish().transform((val) => {
   const lower = String(val || 'portrait').toLowerCase();
   if (lower === 'landscape') return 'landscape';

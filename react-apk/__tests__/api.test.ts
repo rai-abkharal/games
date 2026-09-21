@@ -1,4 +1,8 @@
 import { DEFAULT_ADS_CONFIG, normalizeAdsConfig } from '../src/api/adsApi';
+import {
+  DEFAULT_PRELOAD_CONFIG,
+  normalizePreloadConfig,
+} from '../src/api/preloadApi';
 import { buildAnalyticsBody } from '../src/api/analyticsApi';
 import { sanitizeCatalog } from '../src/api/catalogApi';
 import type { GameCatalog } from '../src/types/game';
@@ -7,7 +11,6 @@ describe('ads remote config normalisation', () => {
   test('live server shape is accepted verbatim', () => {
     const live = {
       defaultIntervalMinutes: 5,
-      initialPreloadGameCount: 5,
       gaMeasurementId: 'G-SWIPEPLAY1',
       bannerEnabled: false,
       interstitialEnabled: true,
@@ -38,6 +41,24 @@ describe('ads remote config normalisation', () => {
     expect(out.bannerUnitId).toBe(DEFAULT_ADS_CONFIG.bannerUnitId);
     expect(out.interstitialEnabled).toBe(true);
     expect(normalizeAdsConfig(null)).toEqual(DEFAULT_ADS_CONFIG);
+  });
+});
+
+describe('startup preload remote config normalisation', () => {
+  test('live server shape is accepted verbatim', () => {
+    const live = { initialPreloadGameCount: 10 };
+    expect(normalizePreloadConfig(live)).toEqual(live);
+  });
+
+  test('clamps out-of-range values and falls back for null or invalid inputs', () => {
+    expect(normalizePreloadConfig({ initialPreloadGameCount: 99 })).toEqual({
+      initialPreloadGameCount: 15,
+    });
+    expect(normalizePreloadConfig({ initialPreloadGameCount: -5 })).toEqual({
+      initialPreloadGameCount: 1,
+    });
+    expect(normalizePreloadConfig(null)).toEqual(DEFAULT_PRELOAD_CONFIG);
+    expect(normalizePreloadConfig({})).toEqual(DEFAULT_PRELOAD_CONFIG);
   });
 });
 

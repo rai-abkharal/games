@@ -5,7 +5,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Splash } from './src/components/Splash';
 import { Toast } from './src/components/Toast';
 import { RootNavigator } from './src/navigation/RootNavigator';
-import { adManager, useAdsStore } from './src/services/adManager';
+import { adManager } from './src/services/adManager';
+import { usePreloadStore } from './src/store/preloadStore';
 import { useCatalogStore } from './src/store/catalogStore';
 import { usePlayerStore } from './src/store/playerStore';
 import { useTutorialStore } from './src/store/tutorialStore';
@@ -30,8 +31,8 @@ const MINIMUM_SPLASH_MS = 1000;
 const BUNDLE_STORE_BOOT_MS = 1200;
 
 /**
- * Boot: hydrate player profile, catalogue, and remote config.
- * Stealthily pre-downloads the top N games (controlled by Admin) into local
+ * Enhanced startup sequence:
+ * Quietly downloads the first N games configured by Admin directly into local
  * device storage while displaying an attractive gaming loading screen.
  * When the player reaches the tutorial or feed, those games are already 100%
  * cached on disk for instant, zero-lag gameplay.
@@ -41,7 +42,7 @@ function App() {
   const tutorialsHydrated = useTutorialStore(state => state.hydrated);
   const games = useCatalogStore(state => state.games);
   const catalogStatus = useCatalogStore(state => state.status);
-  const initialPreloadCount = useAdsStore(state => state.initialPreloadGameCount);
+  const initialPreloadCount = usePreloadStore(state => state.initialPreloadGameCount);
   const readyBundles = useBundleStore(state => state.ready);
   const activeDownloads = useDownloadStore(state => state.active);
   const gameReady = useStartupStore(state => state.gameReady);
@@ -58,6 +59,7 @@ function App() {
     void usePlayerStore.getState().hydrate();
     void useTutorialStore.getState().hydrate();
     void useCatalogStore.getState().hydrate();
+    void usePreloadStore.getState().hydrate();
     void adManager.start();
 
     const settle = () => {

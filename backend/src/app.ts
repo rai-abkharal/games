@@ -404,9 +404,9 @@ export function createApp(
     if (fs.existsSync(adsConfigPath)) {
       try {
         const config = JSON.parse(fs.readFileSync(adsConfigPath, "utf8"));
+        delete (config as any).initialPreloadGameCount;
         res.json({
           defaultIntervalMinutes: 5,
-          initialPreloadGameCount: 5,
           gaMeasurementId: process.env.GA4_MEASUREMENT_ID || "G-SWIPEPLAY1",
           ...config,
         });
@@ -419,7 +419,6 @@ export function createApp(
       interstitialEnabled: true,
       swipeInterval: 10,
       defaultIntervalMinutes: 5,
-      initialPreloadGameCount: 5,
       levelCompleteAd: true,
       levelWinInterval: 2,
       gameOverAdEnabled: true,
@@ -429,6 +428,28 @@ export function createApp(
       interstitialUnitId: "ca-app-pub-3940256099942544/1033173712",
       rewardedUnitId: "ca-app-pub-3940256099942544/5224354917",
       gaMeasurementId: process.env.GA4_MEASUREMENT_ID || "G-SWIPEPLAY1",
+    });
+  });
+
+  // Startup Preload Remote Configuration Endpoint for Mobile App
+  app.get("/api/preload/config", (_req: Request, res: Response) => {
+    res.setHeader("Cache-Control", "no-store");
+    const preloadConfigPath = path.join(
+      path.dirname(catalogFile),
+      "preload_config.json",
+    );
+    if (fs.existsSync(preloadConfigPath)) {
+      try {
+        const config = JSON.parse(fs.readFileSync(preloadConfigPath, "utf8"));
+        res.json({
+          initialPreloadGameCount: 5,
+          ...config,
+        });
+        return;
+      } catch (_) {}
+    }
+    res.json({
+      initialPreloadGameCount: 5,
     });
   });
 

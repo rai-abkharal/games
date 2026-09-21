@@ -76,7 +76,6 @@ export interface AdsRemoteConfig {
   interstitialEnabled: boolean;
   swipeInterval: number;
   defaultIntervalMinutes: number;
-  initialPreloadGameCount?: number;
   levelCompleteAd: boolean;
   levelWinInterval: number;
   gameOverAdEnabled: boolean;
@@ -86,6 +85,11 @@ export interface AdsRemoteConfig {
   interstitialUnitId: string;
   rewardedUnitId: string;
   gaMeasurementId: string;
+}
+
+/** Remote startup preload configuration served by /api/preload/config. */
+export interface PreloadRemoteConfig {
+  initialPreloadGameCount: number;
 }
 
 export type AnalyticsEventName =

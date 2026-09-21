@@ -18,14 +18,12 @@ interface AdsUiState {
   bannerEnabled: boolean;
   bannerUnitId: string;
   fullScreenAdShowing: boolean;
-  initialPreloadGameCount: number;
 }
 
 export const useAdsStore = create<AdsUiState>(() => ({
   bannerEnabled: DEFAULT_ADS_CONFIG.bannerEnabled,
   bannerUnitId: ADMOB_DEFAULTS.bannerUnitId,
   fullScreenAdShowing: false,
-  initialPreloadGameCount: DEFAULT_ADS_CONFIG.initialPreloadGameCount ?? 5,
 }));
 
 interface PersistedAdState {
@@ -191,7 +189,6 @@ class AdManager {
     useAdsStore.setState({
       bannerEnabled: config.bannerEnabled,
       bannerUnitId,
-      initialPreloadGameCount: config.initialPreloadGameCount ?? 5,
     });
     this.persistState();
   }

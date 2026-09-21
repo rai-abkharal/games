@@ -1,6 +1,10 @@
 import { RequestHandler } from "express";
 import { z } from "zod";
-import { AdsConfigSchema, TouchZoneSchema } from "../types/game";
+import {
+  AdsConfigSchema,
+  PreloadConfigSchema,
+  TouchZoneSchema,
+} from "../types/game";
 import { principal } from "./http";
 import { SecurityError, SecurityStore } from "./store";
 const id = z.string().regex(/^[a-z0-9-]{1,80}$/);
@@ -22,6 +26,8 @@ export const gameRules: [string, RegExp, string][] = [
   ["PUT", /^\/feed\/order\/?$/, "feed.manage"],
   ["GET", /^\/ads-config\/?$/, "ads.configure"],
   ["PUT", /^\/ads-config\/?$/, "ads.configure"],
+  ["GET", /^\/preload-config\/?$/, "games.read"],
+  ["PUT", /^\/preload-config\/?$/, "games.configure"],
   ["PUT", /^\/games\/([a-z0-9-]+)\/title\/?$/, "games.configure"],
   ["PUT", /^\/games\/([a-z0-9-]+)\/features\/?$/, "games.configure"],
   ["PUT", /^\/games\/([a-z0-9-]+)\/ads\/?$/, "games.configure"],
@@ -113,6 +119,8 @@ export function gamePolicy(store: SecurityStore): RequestHandler {
           .parse(req.body);
       if (req.method === "PUT" && req.path === "/ads-config")
         req.body = AdsConfigSchema.strict().parse(req.body);
+      if (req.method === "PUT" && req.path === "/preload-config")
+        req.body = PreloadConfigSchema.strict().parse(req.body);
       if (req.method === "PUT" && req.path.endsWith("/ads"))
         req.body = z
           .object({
