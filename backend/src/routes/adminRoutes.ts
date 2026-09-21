@@ -841,6 +841,25 @@ export function createAdminRouter(
         manifest.title ||
         (existingGame ? existingGame.sourceTitle || existingGame.title : gameId);
       const titleOverride = existingGame?.titleOverride || undefined;
+      let effectiveBaseUrl = "";
+      const isHttp = (url?: string | null): url is string =>
+        Boolean(url && /^https?:\/\//i.test(url));
+
+      if (isHttp(process.env.PUBLIC_BASE_URL)) {
+        effectiveBaseUrl = process.env.PUBLIC_BASE_URL;
+      } else if (isHttp(process.env.BASE_URL)) {
+        effectiveBaseUrl = process.env.BASE_URL;
+      } else if (isHttp(catalogService.getBaseUrl())) {
+        effectiveBaseUrl = catalogService.getBaseUrl();
+      } else if (req.get("host")) {
+        const protocol = req.protocol || "http";
+        effectiveBaseUrl = `${protocol}://${req.get("host")}`;
+      } else if (isHttp(config?.origin)) {
+        effectiveBaseUrl = config.origin;
+      } else {
+        effectiveBaseUrl = "http://localhost:3000";
+      }
+      effectiveBaseUrl = effectiveBaseUrl.replace(/\/+$/, "");
       const newGameEntry = {
         id: gameId,
         title: titleOverride || sourceTitle,
@@ -876,9 +895,9 @@ export function createAdminRouter(
           manifest.touchZones || (existingGame ? existingGame.touchZones : []),
         features: normalizeGameFeatures(manifest.features),
         feedOrder: existingGame ? existingGame.feedOrder || 1 : 1,
-        entryUrl: `http://localhost:8080/games/${gameId}/${version}/index.html`,
-        thumbnailUrl: `http://localhost:8080/thumbnails/${thumbFileName}`,
-        manifestUrl: `http://localhost:8080/games/${gameId}/${version}/manifest.json`,
+        entryUrl: `${effectiveBaseUrl}/games/${gameId}/${version}/index.html`,
+        thumbnailUrl: `${effectiveBaseUrl}/thumbnails/${thumbFileName}`,
+        manifestUrl: `${effectiveBaseUrl}/games/${gameId}/${version}/manifest.json`,
         createdAt: existingGame?.createdAt || nowIso,
         updatedAt: nowIso,
       };

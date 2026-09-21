@@ -138,6 +138,9 @@ export function createPublicAnalyticsRouter(store: SecurityStore, catalogPath: s
   // 1. Ingest event from mobile app
   router.post("/event", (req: Request, res: Response) => {
     try {
+      // Throttle incoming analytics events to 120 per minute per IP to prevent DoS/database lockouts
+      store.throttle(`analytics-ip:${req.ip}`, 120, 60_000);
+
       const parsed = IngestEventSchema.parse(req.body);
 
       // Save to SQLite store
@@ -166,6 +169,10 @@ export function createPublicAnalyticsRouter(store: SecurityStore, catalogPath: s
 
       res.status(200).json({ success: true });
     } catch (err: any) {
+      if (err && typeof err.status === "number") {
+        res.status(err.status).json({ error: err.message });
+        return;
+      }
       if (err instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid analytics event payload", details: err.errors });
         return;

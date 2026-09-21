@@ -7,6 +7,8 @@ import { HomeSwipeTutorial } from '../src/components/tutorial/HomeSwipeTutorial'
 import { useTutorialStore } from '../src/store/tutorialStore';
 
 describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
+  let activeRenderer: TestRenderer.ReactTestRenderer | null = null;
+
   beforeEach(() => {
     jest.useFakeTimers();
     useTutorialStore.setState({
@@ -19,7 +21,13 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    if (activeRenderer) {
+      await act(async () => {
+        activeRenderer?.unmount();
+      });
+      activeRenderer = null;
+    }
     jest.clearAllTimers();
     jest.useRealTimers();
   });
@@ -30,7 +38,7 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
 
     let renderer!: TestRenderer.ReactTestRenderer;
     await act(async () => {
-      renderer = TestRenderer.create(
+      activeRenderer = renderer = TestRenderer.create(
         <PreGameTutorial
           visible={true}
           step="arrow_completed"
@@ -65,7 +73,7 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
 
     let renderer!: TestRenderer.ReactTestRenderer;
     await act(async () => {
-      renderer = TestRenderer.create(
+      activeRenderer = renderer = TestRenderer.create(
         <PreGameTutorial
           visible={true}
           step="water_sort_completed"
@@ -98,7 +106,7 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
 
     let renderer!: TestRenderer.ReactTestRenderer;
     await act(async () => {
-      renderer = TestRenderer.create(
+      activeRenderer = renderer = TestRenderer.create(
         <PreGameTutorial
           visible={true}
           step="water_sort_playing"
@@ -143,7 +151,7 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
 
     let renderer!: TestRenderer.ReactTestRenderer;
     await act(async () => {
-      renderer = TestRenderer.create(
+      activeRenderer = renderer = TestRenderer.create(
         <SwipeUpPrompt visible={true} onSwipeUp={onSwipeUp} />,
       );
     });
@@ -175,7 +183,7 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
 
     let renderer!: TestRenderer.ReactTestRenderer;
     await act(async () => {
-      renderer = TestRenderer.create(
+      activeRenderer = renderer = TestRenderer.create(
         <HomeSwipeTutorial
           visible={true}
           gestureProgress={progress}
@@ -200,6 +208,7 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     expect(onDismiss).toHaveBeenCalledTimes(1);
 
     await act(async () => renderer.unmount());
+    activeRenderer = null;
   });
 
   test('home tutorial completion is persisted independently from pre-game onboarding', () => {

@@ -76,7 +76,11 @@ beforeEach(() => {
   mockLoadEvents.length = 0;
 });
 afterEach(async () => {
-  if (tree) await act(async () => tree.unmount());
+  if (tree) {
+    await act(async () => tree.unmount());
+    tree = null as any;
+  }
+  jest.clearAllTimers();
   jest.useRealTimers();
 });
 

@@ -31,7 +31,10 @@ export class CatalogService {
       this.catalogPath = runtimeCatalogPath;
     }
 
-    this.baseUrl = (baseUrl || process.env.BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
+    const envBase = process.env.BASE_URL;
+    const validEnvBase =
+      envBase && /^https?:\/\//i.test(envBase) ? envBase : undefined;
+    this.baseUrl = (baseUrl || validEnvBase || 'http://localhost:8080').replace(/\/+$/, '');
   }
 
   private initializeRuntimeCatalog(seedPath: string, runtimePath: string): void {
@@ -78,6 +81,10 @@ export class CatalogService {
 
   public getCatalogPath(): string {
     return this.catalogPath;
+  }
+
+  public getBaseUrl(): string {
+    return this.baseUrl;
   }
 
   public setBaseUrl(url: string) {

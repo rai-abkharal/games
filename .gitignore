@@ -43,3 +43,7 @@ backend/security-data/
 *.sqlite-wal
 *.sqlite-shm
 .certs/
+
+# Local developer environment
+local.properties
+*.tmp-*
