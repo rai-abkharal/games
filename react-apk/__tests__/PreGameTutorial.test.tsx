@@ -68,6 +68,42 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     expect(onSwipeUp).toHaveBeenCalledTimes(1);
   });
 
+  test('step "knife_hit_completed" renders "Swipe up for more" hand prompt and triggers onSwipeUp', async () => {
+    const onSwipeUp = jest.fn();
+    const onComplete = jest.fn();
+
+    let renderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      activeRenderer = renderer = TestRenderer.create(
+        <PreGameTutorial
+          visible={true}
+          step="knife_hit_completed"
+          onSwipeUp={onSwipeUp}
+          onComplete={onComplete}
+        />,
+      );
+    });
+
+    const root = renderer.root;
+    const texts = root.findAllByType(Text).map(t => t.props.children);
+    expect(texts).toContain('Swipe up for more');
+
+    const pressable = root.findByProps({
+      accessibilityLabel: 'Swipe up for more',
+    });
+    expect(pressable).toBeTruthy();
+
+    await act(async () => {
+      pressable.props.onPress();
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(250);
+    });
+
+    expect(onSwipeUp).toHaveBeenCalledTimes(1);
+  });
+
   test('step "water_sort_completed" renders prominent "Let\'s Start" button and completes on tap', async () => {
     const onComplete = jest.fn();
 
@@ -101,7 +137,7 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
-  test('steps "arrow_playing" and "water_sort_playing" render nothing to ensure zero touch blocking', async () => {
+  test('steps "arrow_playing", "knife_hit_playing", and "water_sort_playing" render nothing to ensure zero touch blocking', async () => {
     const onComplete = jest.fn();
 
     let renderer!: TestRenderer.ReactTestRenderer;
@@ -122,6 +158,18 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
         <PreGameTutorial
           visible={true}
           step="arrow_playing"
+          onComplete={onComplete}
+        />,
+      );
+    });
+
+    expect(renderer.toJSON()).toBeNull();
+
+    await act(async () => {
+      renderer.update(
+        <PreGameTutorial
+          visible={true}
+          step="knife_hit_playing"
           onComplete={onComplete}
         />,
       );

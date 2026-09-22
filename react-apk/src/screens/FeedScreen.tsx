@@ -239,6 +239,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         next =
           tutorialStep === 'water_sort_playing' ||
           tutorialStep === 'water_sort_completed'
+            ? 2
+            : tutorialStep === 'knife_hit_playing' ||
+              tutorialStep === 'knife_hit_completed'
             ? 1
             : 0;
       } else {
@@ -370,14 +373,23 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   /* ---------------- first-run tutorial flow --------------------------------- */
   const onTutorialSwipeUp = useCallback(() => {
-    setTutorialStep('water_sort_playing');
-    setSwipeEnabled(false);
     useTutorialStore.getState().markSwipeSeen();
-    const nextGame = listRef.current[1] ?? listRef.current[0];
-    if (nextGame) currentIdRef.current = nextGame.id;
-    setPosition({ index: 1, direction: 1, settling: false });
-    analytics.onGameAction('global', 'Feed', 'tutorial_swipe_up_executed');
-  }, []);
+    if (tutorialStep === 'arrow_completed') {
+      setTutorialStep('knife_hit_playing');
+      setSwipeEnabled(false);
+      const nextGame = listRef.current[1] ?? listRef.current[0];
+      if (nextGame) currentIdRef.current = nextGame.id;
+      setPosition({ index: 1, direction: 1, settling: false });
+      analytics.onGameAction('global', 'Feed', 'tutorial_swipe_to_knife_hit');
+    } else if (tutorialStep === 'knife_hit_completed') {
+      setTutorialStep('water_sort_playing');
+      setSwipeEnabled(false);
+      const nextGame = listRef.current[2] ?? listRef.current[1] ?? listRef.current[0];
+      if (nextGame) currentIdRef.current = nextGame.id;
+      setPosition({ index: 2, direction: 1, settling: false });
+      analytics.onGameAction('global', 'Feed', 'tutorial_swipe_to_water_sort');
+    }
+  }, [tutorialStep]);
 
   const onCompleteTutorial = useCallback(() => {
     useTutorialStore.getState().markFirstTimeTutorialCompleted();
@@ -407,15 +419,19 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     useTutorialStore.getState().markHomeSwipeSeen();
   }, [tutorialGestureProgress]);
 
-  // Lock swipe during Arrow Puzzle Level 1 and Water Sort Level 1
+  // Lock swipe during gameplay in tutorial (Arrow Puzzle Level 1, Knife Hit Level 1, Water Sort Level 1)
   useEffect(() => {
     if (isTutorialActive) {
       if (
         tutorialStep === 'arrow_playing' ||
+        tutorialStep === 'knife_hit_playing' ||
         tutorialStep === 'water_sort_playing'
       ) {
         setSwipeEnabled(false);
-      } else if (tutorialStep === 'arrow_completed') {
+      } else if (
+        tutorialStep === 'arrow_completed' ||
+        tutorialStep === 'knife_hit_completed'
+      ) {
         setSwipeEnabled(true);
       }
     }
@@ -674,6 +690,21 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           const earned =
             message.score > 0 ? Math.max(Math.floor(message.score / 10), 5) : 2;
           store.addCoins(earned);
+
+          if (isTutorialActive) {
+            if (
+              (game.id === 'knife-hit' ||
+                game.id === 'knife_hit' ||
+                game.id.includes('knife') ||
+                positionRef.current.index === 1) &&
+              tutorialStep === 'knife_hit_playing'
+            ) {
+              setTutorialStep('knife_hit_completed');
+              setSwipeEnabled(true);
+              return;
+            }
+          }
+
           toast(`+${earned} 🪙 Coins Earned for ${message.score} PTS!`);
           showDock();
           adManager.onGameOver();
@@ -694,12 +725,26 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           store.addCoins(earned);
 
           if (isTutorialActive) {
-            if (game.id === 'arrow-puzzle') {
+            if (game.id === 'arrow-puzzle' || positionRef.current.index === 0) {
               setTutorialStep('arrow_completed');
               setSwipeEnabled(true);
               return;
             }
-            if (game.id === 'water-sort' || game.id === 'water-sort-3d') {
+            if (
+              game.id === 'knife-hit' ||
+              game.id === 'knife_hit' ||
+              game.id.includes('knife') ||
+              positionRef.current.index === 1
+            ) {
+              setTutorialStep('knife_hit_completed');
+              setSwipeEnabled(true);
+              return;
+            }
+            if (
+              game.id === 'water-sort' ||
+              game.id === 'water-sort-3d' ||
+              positionRef.current.index === 2
+            ) {
               setTutorialStep('water_sort_completed');
               return;
             }
@@ -773,9 +818,14 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       // A performed swipe is the lesson itself: whoever changed the page on
       // their own never needs the swipe coach mark, shown yet or not.
       useTutorialStore.getState().markSwipeSeen();
-      if (isTutorialActive && index === 1) {
-        setTutorialStep('water_sort_playing');
-        setSwipeEnabled(false);
+      if (isTutorialActive) {
+        if (index === 1) {
+          setTutorialStep('knife_hit_playing');
+          setSwipeEnabled(false);
+        } else if (index === 2) {
+          setTutorialStep('water_sort_playing');
+          setSwipeEnabled(false);
+        }
       }
       const currentGame = listRef.current[index];
       if (currentGame) currentIdRef.current = currentGame.id;
@@ -933,7 +983,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         swipeEnabled={
           swipeEnabled &&
           !fullScreenAdShowing &&
-          (!isTutorialActive || tutorialStep === 'arrow_completed')
+          (!isTutorialActive ||
+            tutorialStep === 'arrow_completed' ||
+            tutorialStep === 'knife_hit_completed')
         }
         loop={loop}
         touchZonesFor={touchZonesFor}

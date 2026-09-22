@@ -12,6 +12,8 @@ import { SwipeUpPrompt } from './SwipeUpPrompt';
 export type TutorialFlowStep =
   | 'arrow_playing'
   | 'arrow_completed'
+  | 'knife_hit_playing'
+  | 'knife_hit_completed'
   | 'water_sort_playing'
   | 'water_sort_completed'
   | 'done';
@@ -77,8 +79,8 @@ export const PreGameTutorial = memo(function PreGameTutorialInner({
 
   if (!mounted || !visible) return null;
 
-  // State 1: Arrow Puzzle Completed -> Show Swipe Up Hand Gesture
-  if (step === 'arrow_completed') {
+  // State 1 & 2: Level Completed -> Show Swipe Up Hand Gesture
+  if (step === 'arrow_completed' || step === 'knife_hit_completed') {
     return (
       <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
         <SwipeUpPrompt
