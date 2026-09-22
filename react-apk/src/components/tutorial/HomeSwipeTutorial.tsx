@@ -80,13 +80,18 @@ export const HomeSwipeTutorial = memo(function HomeSwipeTutorialInner({
 
   if (!mounted) return null;
 
+  const promptOpacity = gestureProgress.interpolate({
+    inputRange: [0, 0.12, 0.35, 0.72, 0.94, 1],
+    outputRange: [0, 0, 1, 1, 0, 0],
+  });
+
   return (
     <View
       style={styles.root}
       pointerEvents="none"
       accessibilityLabel="Home swipe tutorial"
     >
-      <Animated.View style={[styles.content, { opacity: contentOpacity }]}>
+      <Animated.View style={[styles.content, { opacity: promptOpacity }]}>
         <View style={styles.copy}>
           <Text style={styles.title}>Swipe up for the next game</Text>
         </View>
@@ -102,7 +107,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '13%',
+    height: '14%',
     zIndex: 998,
   },
   content: {

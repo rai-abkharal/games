@@ -34,16 +34,18 @@ jest.mock('../src/services/analytics', () => ({
   },
 }));
 jest.mock('../src/components/StateViews', () => ({ MessageView: () => null }));
-jest.mock('../src/store/playerStore', () => ({
-  usePlayerStore: {
-    getState: () => ({
-      coins: 0,
-      soundMuted: true,
-      getSavedLevel: () => 1,
-      getHighScore: () => 0,
-    }),
-  },
-}));
+jest.mock('../src/store/playerStore', () => {
+  const state = {
+    coins: 0,
+    soundMuted: true,
+    vibrationEnabled: true,
+    getSavedLevel: () => 1,
+    getHighScore: () => 0,
+  };
+  const store: any = (selector: any) => (typeof selector === 'function' ? selector(state) : state);
+  store.getState = () => state;
+  return { usePlayerStore: store };
+});
 
 const game: GameItem = {
   id: 'test',
@@ -185,7 +187,7 @@ test('a load that times out is reported as a timeout, not silently dropped', asy
     tree = TestRenderer.create(<GamePage {...props} slot="active" />);
   });
   await act(async () => {
-    jest.advanceTimersByTime(30_000);
+    jest.advanceTimersByTime(65_000);
   });
   expect(mockLoadEvents).toHaveLength(1);
   expect(mockLoadEvents[0]).toMatchObject({ outcome: 'timeout', source: 'network' });
@@ -225,16 +227,16 @@ describe('statusLabel', () => {
     ).toBe('Starting…');
   });
 
-  test('a download in flight shows its real percentage, not a spinner', () => {
+  test('a download in flight shows Loading, not raw download percentage', () => {
     expect(
       statusLabel({
         ...base,
         download: { gameId: 'test', buildId: 'build-1', bytesDone: 470, bytesTotal: 1000, fraction: 0.47 },
       }),
-    ).toBe('Downloading 47%');
+    ).toBe('Loading…');
   });
 
-  test('a failed download reads as a retry, not as a dead end', () => {
+  test('a download in flight or retrying presents as Loading', () => {
     expect(
       statusLabel({
         ...base,
@@ -247,7 +249,7 @@ describe('statusLabel', () => {
           failed: { reason: 'HTTP 503', retryInMs: 30000 },
         },
       }),
-    ).toBe('Connection problem — retrying…');
+    ).toBe('Loading…');
   });
 
   test('nothing is said once the game is up or has given up', () => {

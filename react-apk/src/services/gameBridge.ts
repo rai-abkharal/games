@@ -57,6 +57,9 @@ export const BRIDGE_BOOTSTRAP_SCRIPT = `
   window.FlutterGameBridge = native;
   window.NativeBridge = native;
 
+  window.__SOUND_MUTED__ = window.__SOUND_MUTED__ || false;
+  window.__VIBRATION_DISABLED__ = window.__VIBRATION_DISABLED__ || false;
+
   if (!window.__ALL_AUDIO_CONTEXTS__) {
     window.__ALL_AUDIO_CONTEXTS__ = [];
     var OrigCtx = window.AudioContext || window.webkitAudioContext;
@@ -70,12 +73,41 @@ export const BRIDGE_BOOTSTRAP_SCRIPT = `
           ctx = new OrigCtx();
         }
         window.__ALL_AUDIO_CONTEXTS__.push(ctx);
+        if (window.__SOUND_MUTED__) {
+          try { if (typeof ctx.suspend === 'function') ctx.suspend(); } catch (e) {}
+        }
+        var origResume = ctx.resume;
+        ctx.resume = function () {
+          if (window.__SOUND_MUTED__) {
+            return Promise.resolve();
+          }
+          return origResume.apply(ctx, arguments);
+        };
         return ctx;
       };
       HookedCtx.prototype = OrigCtx.prototype;
       window.AudioContext = HookedCtx;
       window.webkitAudioContext = HookedCtx;
     }
+  }
+
+  if (typeof HTMLMediaElement !== 'undefined' && HTMLMediaElement.prototype) {
+    var origMediaPlay = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () {
+      if (window.__SOUND_MUTED__) {
+        this.muted = true;
+        this.volume = 0;
+      }
+      return origMediaPlay.apply(this, arguments);
+    };
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    var origVibrate = navigator.vibrate.bind(navigator);
+    navigator.vibrate = function () {
+      if (window.__VIBRATION_DISABLED__) return false;
+      return origVibrate.apply(navigator, arguments);
+    };
   }
 
   if (!window.__SP_RAF__ && typeof window.requestAnimationFrame === 'function') {
@@ -317,12 +349,43 @@ export function buildPauseScript(graceFrames = 0): string {
   } catch (e) {}
   try { if (window.PIXI && window.PIXI.Ticker && window.PIXI.Ticker.shared) window.PIXI.Ticker.shared.stop(); } catch (e) {}
   try {
-    if (window.__ALL_AUDIO_CONTEXTS__) window.__ALL_AUDIO_CONTEXTS__.forEach(function (ctx) { if (ctx && typeof ctx.suspend === 'function' && ctx.state === 'running') ctx.suspend(); });
-    var media = document.querySelectorAll('audio, video');
-    for (var i = 0; i < media.length; i++) { media[i].pause(); media[i].muted = true; }
-    if (window.Howler && typeof window.Howler.mute === 'function') window.Howler.mute(true);
-    ['audioCtx', 'soundCtx', 'audioContext'].forEach(function (k) { var c = window[k]; if (c && typeof c.suspend === 'function') c.suspend(); });
-    if (window.SoundFx && window.SoundFx.ctx && typeof window.SoundFx.ctx.suspend === 'function') window.SoundFx.ctx.suspend();
+    function muteWin(w) {
+      if (!w) return;
+      try {
+        if (w.__ALL_AUDIO_CONTEXTS__) w.__ALL_AUDIO_CONTEXTS__.forEach(function (ctx) { if (ctx && typeof ctx.suspend === 'function' && ctx.state === 'running') ctx.suspend(); });
+        ['audioCtx', 'soundCtx', 'audioContext', 'SoundContext'].forEach(function (k) { var c = w[k]; if (c && typeof c.suspend === 'function') c.suspend(); });
+        if (w.SoundFx && w.SoundFx.ctx && typeof w.SoundFx.ctx.suspend === 'function') w.SoundFx.ctx.suspend();
+        if (w.Howler && typeof w.Howler.mute === 'function') w.Howler.mute(true);
+        if (w.createjs && w.createjs.Sound) { try { w.createjs.Sound.muted = true; } catch (e) {} }
+        if (w.cr_getC2Runtime) {
+          try {
+            var r = w.cr_getC2Runtime();
+            if (r) {
+              r.isSuspended = true;
+              if (r.audio) { r.audio.muted = true; if (r.audio.context && r.audio.context.suspend) r.audio.context.suspend(); }
+            }
+          } catch (e) {}
+        }
+        if (w.c2_callFunction) { try { w.c2_callFunction('pause'); } catch (e) {} }
+        if (w.c3_runtime) {
+          try {
+            w.c3_runtime.isSuspended = true;
+            if (w.c3_runtime.audio) { w.c3_runtime.audio.muted = true; }
+          } catch (e) {}
+        }
+        if (w.document) {
+          var media = w.document.querySelectorAll('audio, video');
+          for (var i = 0; i < media.length; i++) { media[i].pause(); media[i].muted = true; }
+        }
+      } catch (e) {}
+    }
+    muteWin(window);
+    var iframes = document.querySelectorAll('iframe');
+    for (var j = 0; j < iframes.length; j++) {
+      try {
+        muteWin(iframes[j].contentWindow);
+      } catch (e) {}
+    }
   } catch (e) {}
   try {
     if (window.GameBridge) {
@@ -344,6 +407,7 @@ export function buildResumeScript(soundEnabled: boolean): string {
   const sound = soundEnabled ? 'true' : 'false';
   return js(`
     window.__GAME_ACTIVE__ = true;
+    window.__SOUND_MUTED__ = !${sound};
     try { if (window.__SP_RAF__) window.__SP_RAF__.resume(); } catch (e) {}
     try {
       Object.defineProperty(document, 'hidden', { value: false, writable: true, configurable: true });
@@ -388,10 +452,17 @@ export function buildResumeScript(soundEnabled: boolean): string {
       if (${sound}) {
         if (window.__ALL_AUDIO_CONTEXTS__) window.__ALL_AUDIO_CONTEXTS__.forEach(function (ctx) { if (ctx && typeof ctx.resume === 'function' && ctx.state === 'suspended') ctx.resume(); });
         var media = document.querySelectorAll('audio, video');
-        for (var i = 0; i < media.length; i++) media[i].muted = false;
+        for (var i = 0; i < media.length; i++) { media[i].muted = false; media[i].volume = 1; }
         if (window.Howler && typeof window.Howler.mute === 'function') window.Howler.mute(false);
         ['audioCtx', 'soundCtx', 'audioContext'].forEach(function (k) { var c = window[k]; if (c && c.state === 'suspended') c.resume(); });
         if (window.SoundFx && window.SoundFx.ctx && window.SoundFx.ctx.state === 'suspended') window.SoundFx.ctx.resume();
+      } else {
+        if (window.__ALL_AUDIO_CONTEXTS__) window.__ALL_AUDIO_CONTEXTS__.forEach(function (ctx) { if (ctx && typeof ctx.suspend === 'function') ctx.suspend(); });
+        var media = document.querySelectorAll('audio, video');
+        for (var i = 0; i < media.length; i++) { media[i].muted = true; media[i].volume = 0; }
+        if (window.Howler && typeof window.Howler.mute === 'function') window.Howler.mute(true);
+        ['audioCtx', 'soundCtx', 'audioContext'].forEach(function (k) { var c = window[k]; if (c && typeof c.suspend === 'function') c.suspend(); });
+        if (window.SoundFx && window.SoundFx.ctx && typeof window.SoundFx.ctx.suspend === 'function') window.SoundFx.ctx.suspend();
       }
     } catch (e) {}
     try {
@@ -415,13 +486,40 @@ export function buildResumeScript(soundEnabled: boolean): string {
   `);
 }
 
-/** Sound toggle for the game on screen — GameFeedAdapter.setSoundMuted. */
+/** Sound toggle for games — sets window.__SOUND_MUTED__ and silences/resumes all engines and media tags. */
 export function buildSoundScript(enabled: boolean): string {
   const flag = enabled ? 'true' : 'false';
   return js(`
+    window.__SOUND_MUTED__ = !${flag};
+    try {
+      if (${flag}) {
+        if (window.__GAME_ACTIVE__ !== false) {
+          if (window.__ALL_AUDIO_CONTEXTS__) window.__ALL_AUDIO_CONTEXTS__.forEach(function (ctx) { if (ctx && typeof ctx.resume === 'function' && ctx.state === 'suspended') ctx.resume(); });
+          var media = document.querySelectorAll('audio, video');
+          for (var i = 0; i < media.length; i++) { media[i].muted = false; media[i].volume = 1; }
+          if (window.Howler && typeof window.Howler.mute === 'function') window.Howler.mute(false);
+          ['audioCtx', 'soundCtx', 'audioContext'].forEach(function (k) { var c = window[k]; if (c && c.state === 'suspended') c.resume(); });
+          if (window.SoundFx && window.SoundFx.ctx && window.SoundFx.ctx.state === 'suspended') window.SoundFx.ctx.resume();
+        }
+      } else {
+        if (window.__ALL_AUDIO_CONTEXTS__) window.__ALL_AUDIO_CONTEXTS__.forEach(function (ctx) { if (ctx && typeof ctx.suspend === 'function') ctx.suspend(); });
+        var media = document.querySelectorAll('audio, video');
+        for (var i = 0; i < media.length; i++) { media[i].muted = true; media[i].volume = 0; }
+        if (window.Howler && typeof window.Howler.mute === 'function') window.Howler.mute(true);
+        ['audioCtx', 'soundCtx', 'audioContext'].forEach(function (k) { var c = window[k]; if (c && typeof c.suspend === 'function') c.suspend(); });
+        if (window.SoundFx && window.SoundFx.ctx && typeof window.SoundFx.ctx.suspend === 'function') window.SoundFx.ctx.suspend();
+      }
+    } catch (e) {}
     if (window.GameBridge && typeof window.GameBridge.setSoundEnabled === 'function') window.GameBridge.setSoundEnabled(${flag});
     if (window.__PHASER_GAME__ && window.__PHASER_GAME__.sound) window.__PHASER_GAME__.sound.mute = !${flag};
     try { window.dispatchEvent(new CustomEvent('flutter:sound', { detail: { enabled: ${flag} } })); } catch (e) {}
+  `);
+}
+
+export function buildVibrationScript(enabled: boolean): string {
+  const flag = enabled ? 'true' : 'false';
+  return js(`
+    window.__VIBRATION_DISABLED__ = !${flag};
   `);
 }
 

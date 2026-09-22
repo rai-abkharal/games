@@ -52,8 +52,8 @@ export const NETWORK = {
   catalogRefreshIntervalMs: 30_000,
   /** Ads remote config is re-read every 30 s while the app is in the foreground. */
   adsConfigRefreshIntervalMs: 30_000,
-  /** How long the game WebView may take before we show the retry state. */
-  gameLoadTimeoutMs: 20_000,
+  /** How long the game WebView may take before we show the retry state (60s to accommodate 50-100MB games). */
+  gameLoadTimeoutMs: 60_000,
 } as const;
 
 /**

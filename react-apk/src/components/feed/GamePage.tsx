@@ -10,6 +10,8 @@ import {
   buildPauseScript,
   buildResumeScript,
   buildSavedStateScript,
+  buildSoundScript,
+  buildVibrationScript,
   parseGameMessage,
 } from '../../services/gameBridge';
 import { analytics } from '../../services/analytics';
@@ -93,6 +95,17 @@ export const GamePage = memo(
     const [errorText, setErrorText] = useState<string | null>(null);
     const [placeholderShown, setPlaceholderShown] = useState(true);
     const phaseRef = useRef<PagePhase>('idle');
+
+    const playerStoreState = typeof (usePlayerStore as any)?.getState === 'function'
+      ? (usePlayerStore as any).getState()
+      : { soundMuted: false, vibrationEnabled: true };
+    const soundMuted = Boolean(playerStoreState?.soundMuted);
+    const vibrationEnabled = playerStoreState?.vibrationEnabled !== false;
+    const pageBootstrapScript = useMemo(() => {
+      return `window.__SOUND_MUTED__ = ${soundMuted ? 'true' : 'false'};\n` +
+             `window.__VIBRATION_DISABLED__ = ${!vibrationEnabled ? 'true' : 'false'};\n` +
+             BOOTSTRAP_SCRIPT;
+    }, [soundMuted, vibrationEnabled]);
     /**
      * Stage timings for the load in flight, in the order they happen:
      * the WebView being created, the document being fetched and parsed, and
@@ -254,6 +267,24 @@ export const GamePage = memo(
 
     useEffect(() => () => clearTimer(), [clearTimer]);
 
+    const activeDownload = useDownloadStore(
+      useCallback((s: { active: Record<string, BundleDownload> }) => s.active[game.id], [game.id]),
+    );
+
+    // Keepalive: while bytes are actively streaming in, refresh the timeout so large games (50-100MB) never abort prematurely
+    useEffect(() => {
+      if (phaseRef.current === 'loading' && activeDownload && activeDownload.bytesDone > 0) {
+        clearTimer();
+        timeoutRef.current = setTimeout(() => {
+          if (phaseRef.current === 'loading') {
+            reportLoad('timeout', 'The game is taking too long to load.');
+            setErrorText('The game is taking too long to load.');
+            setPhase('error');
+          }
+        }, NETWORK.gameLoadTimeoutMs);
+      }
+    }, [activeDownload?.bytesDone, clearTimer, reportLoad, setPhase]);
+
     /* ---------------- host → game --------------------------------------------- */
     const inject = useCallback((script: string) => {
       try {
@@ -402,12 +433,15 @@ export const GamePage = memo(
       clearTimer();
       justLoaded.current = true;
       setPhase('ready');
+      const store = usePlayerStore.getState();
+      inject(buildSoundScript(!store.soundMuted));
+      inject(buildVibrationScript(store.vibrationEnabled));
       // The in-page probe usually beats this; when it does not (a game that
       // never paints, a frozen standby) the event still goes out with the
       // stages the host could see on its own.
       reportLoad('ready');
       dismissPlaceholder();
-    }, [clearTimer, setPhase, dismissPlaceholder, reportLoad]);
+    }, [clearTimer, setPhase, dismissPlaceholder, reportLoad, inject]);
 
     // A game that navigates or reloads itself (some restart via location.reload)
     // goes back through the placeholder → ready cycle so it is re-primed with
@@ -470,9 +504,14 @@ export const GamePage = memo(
           dismissPlaceholder();
           return;
         }
+        if (parsed.type === 'ready') {
+          const store = usePlayerStore.getState();
+          inject(buildSoundScript(!store.soundMuted));
+          inject(buildVibrationScript(store.vibrationEnabled));
+        }
         onMessage(game.id, parsed);
       },
-      [game.id, onMessage, reportLoad, dismissPlaceholder],
+      [game.id, onMessage, reportLoad, dismissPlaceholder, inject],
     );
 
     const dark = THEMES.midnight_dark;
@@ -514,8 +553,8 @@ export const GamePage = memo(
             // Let the pager intercept vertical drags exactly like ViewPager2 does
             // with a plain WebView child; touch zones are honoured by the pager.
             nestedScrollEnabled={false}
-            injectedJavaScriptBeforeContentLoaded={BOOTSTRAP_SCRIPT}
-            injectedJavaScriptBeforeContentLoadedForMainFrameOnly
+            injectedJavaScriptBeforeContentLoaded={pageBootstrapScript}
+            injectedJavaScriptBeforeContentLoadedForMainFrameOnly={false}
             onMessage={handleMessage}
             onLoadStart={handleLoadStart}
             onLoad={handleLoadEnd}
@@ -623,14 +662,10 @@ export function statusLabel({
 }): string | null {
   if (phase === 'ready' || phase === 'error') return null;
   if (cached) return live ? 'Starting…' : null;
-  if (download && download.buildId === buildId) {
-    if (download.failed) return 'Connection problem — retrying…';
-    if (download.fraction !== null) return `Downloading ${Math.round(download.fraction * 100)}%`;
-    return 'Downloading…';
+  if (download && download.buildId === buildId && !cached) {
+    return 'Loading…';
   }
-  // No local copy and nothing downloading: the document itself is coming over
-  // the network, which is the path this app falls back to and not a failure.
-  return live ? 'Starting…' : 'Preparing…';
+  return live ? 'Starting…' : 'Loading…';
 }
 
 /** The 4 dp indeterminate gradient line at the top of the placeholder. */

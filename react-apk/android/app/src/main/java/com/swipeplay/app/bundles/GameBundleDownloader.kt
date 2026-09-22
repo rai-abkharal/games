@@ -103,21 +103,19 @@ class GameBundleDownloader(
    * Ceilings for *speculative* bundles only — the game the player is actually
    * on is never limited (see RateLimiter). Zero means no limit.
    */
-  @Volatile var playingRateBytesPerSecond: Long = 400 * 1024
-  @Volatile var meteredRateBytesPerSecond: Long = 150 * 1024
+  @Volatile var playingRateBytesPerSecond: Long = 2500 * 1024
+  @Volatile var meteredRateBytesPerSecond: Long = 400 * 1024
 
   /**
    * The ceiling for the game one swipe away while another is being played, on
    * an unmetered link. Deliberately several times [playingRateBytesPerSecond]:
    * this is the bundle whose absence the player is about to *see*, and at
-   * 400 KB/s a 4.5 MB build needs eleven seconds of continuous play to land —
-   * longer than plenty of sessions on a single game. It is still a ceiling
-   * rather than nothing, so the running game keeps radio and CPU headroom.
+   * 5 MB/s a 4.5 MB build finishes in under a second of play.
    */
-  @Volatile var nextRateBytesPerSecond: Long = 2 * 1024 * 1024
+  @Volatile var nextRateBytesPerSecond: Long = 5 * 1024 * 1024
 
-  /** Cellular equivalent of the above: generous for +1, stingy for the rest. */
-  @Volatile var meteredNextRateBytesPerSecond: Long = 600 * 1024
+  /** Cellular equivalent of the above: generous for +1, reasonable for the rest. */
+  @Volatile var meteredNextRateBytesPerSecond: Long = 1200 * 1024
 
   /** Cellular or otherwise expensive link, as reported by NetInfo through JS. */
   private val metered = AtomicBoolean(false)

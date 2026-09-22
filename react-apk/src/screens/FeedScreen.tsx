@@ -52,7 +52,11 @@ import {
   warmBundle,
   type BundlePriorityValue,
 } from '../services/gameBundles';
-import { buildRewardScript, buildSoundScript } from '../services/gameBridge';
+import {
+  buildRewardScript,
+  buildSoundScript,
+  buildVibrationScript,
+} from '../services/gameBridge';
 import { markFirstGameReady } from '../services/startup';
 import {
   PreGameTutorial,
@@ -147,6 +151,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   // Player name, coins and best score are read by FeedHeader itself, so coins
   // changing during a game re-render the header, not the feed and its pager.
   const soundMuted = usePlayerStore(state => state.soundMuted);
+  const vibrationEnabled = usePlayerStore(state => state.vibrationEnabled);
   const bannerEnabled = useAdsStore(state => state.bannerEnabled);
   const fullScreenAdShowing = useAdsStore(state => state.fullScreenAdShowing);
 
@@ -162,19 +167,13 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const [homeSwipeVisible, setHomeSwipeVisible] = useState(false);
   const tutorialGestureProgress = useRef(new Animated.Value(0)).current;
   const homeTutorialRevealProgress = useRef(new Animated.Value(0)).current;
-  const gestureFollowDistance = homeSwipeVisible ? stage.height * 0.03 : 18;
-  const tutorialPageFollowY = tutorialGestureProgress.interpolate({
-    inputRange: [0, 0.12, 0.52, 0.78, 0.9, 1],
-    outputRange: [0, 0, -gestureFollowDistance, -gestureFollowDistance, 0, 0],
+  const swipeDistance = homeSwipeVisible
+    ? (stage.height > 0 ? stage.height * 0.14 : 90)
+    : (stage.height > 0 ? stage.height * 0.40 : 260);
+  const tutorialPageTranslateY = tutorialGestureProgress.interpolate({
+    inputRange: [0, 0.12, 0.43, 0.72, 0.94, 1],
+    outputRange: [0, 0, -swipeDistance, -swipeDistance, 0, 0],
   });
-  const homeTutorialRevealY = homeTutorialRevealProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -stage.height * 0.1],
-  });
-  const tutorialPageTranslateY = Animated.add(
-    homeTutorialRevealY,
-    tutorialPageFollowY,
-  );
 
   const [tab, setTab] = useState<FeedTab>('all');
   const filtered = useMemo(() => {
@@ -188,15 +187,18 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     if (games.length === 0) return [];
     const arrowGame =
       games.find(g => g.id === 'arrow-puzzle') || filtered[0];
+    const knifeGame =
+      games.find(g => g.id === 'knife-hit' || g.id === 'knife_hit' || g.id.includes('knife'));
     const waterGame =
       games.find(g => g.id === 'water-sort' || g.id === 'water-sort-3d') ||
-      filtered.find(g => g.id !== arrowGame?.id) ||
+      filtered.find(g => g.id !== arrowGame?.id && g.id !== knifeGame?.id) ||
       filtered[1];
-    if (!arrowGame || !waterGame) return filtered;
-    const others = filtered.filter(
-      g => g.id !== arrowGame.id && g.id !== waterGame.id,
+    const priorityList = [arrowGame, knifeGame, waterGame].filter(
+      (g): g is GameItem => Boolean(g),
     );
-    return [arrowGame, waterGame, ...others];
+    const priorityIds = new Set(priorityList.map(g => g.id));
+    const others = filtered.filter(g => !priorityIds.has(g.id));
+    return [...priorityList, ...others];
   }, [filtered, games, isTutorialActive]);
   const list = useStableList(orderedForTutorial);
 
@@ -509,15 +511,22 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       analytics.resumeAfterBackground();
       if (game) analytics.onGameStart(game.id, game.title, game.category);
       void useCatalogStore.getState().refresh();
-    } else if (game && !useAdsStore.getState().fullScreenAdShowing) {
-      analytics.pauseForBackground();
-      analytics.onGameExit(game.id, game.title, 'app_paused');
+    } else {
+      pagesRef.current.forEach(page => page.pause());
+      if (game && !useAdsStore.getState().fullScreenAdShowing) {
+        analytics.pauseForBackground();
+        analytics.onGameExit(game.id, game.title, 'app_paused');
+      }
     }
   });
 
   useEffect(() => {
-    activePage()?.inject(buildSoundScript(!soundMuted));
-  }, [soundMuted, activePage]);
+    pagesRef.current.forEach(page => page.inject(buildSoundScript(!soundMuted)));
+  }, [soundMuted]);
+
+  useEffect(() => {
+    pagesRef.current.forEach(page => page.inject(buildVibrationScript(vibrationEnabled)));
+  }, [vibrationEnabled]);
 
   // An interstitial load spins up its own WebView in the renderer the game is
   // drawing from, so the ad SDK is told when that renderer is busy. Suspended
@@ -575,6 +584,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       push(list[(((at - heading * step) % count) + count) % count]);
     }
     for (const game of list) push(game);
+    // Ensure the entire catalogue is always included so switching tabs (e.g. to Favorites)
+    // or viewing a filtered subset never halts downloads for the rest of the games.
+    for (const game of games) push(game);
 
     // Tiers as a lookup rather than a scan, so tagging the wish-list stays
     // linear however long the catalogue gets.
@@ -970,7 +982,10 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]}>
+      <SafeAreaView
+        edges={['top', 'left', 'right']}
+        style={[styles.root, { backgroundColor: theme.bg }]}
+      >
         <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} />
         <FeedHeader
           theme={theme}
@@ -1049,7 +1064,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '13%',
+    height: '14%',
     backgroundColor: '#05070B',
   },
   gameStageContent: { flex: 1, zIndex: 1 },

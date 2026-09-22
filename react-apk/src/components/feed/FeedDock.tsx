@@ -48,14 +48,17 @@ export const FeedDock = memo(function FeedDockInner({
   const insets = useSafeAreaInsets();
   const effectiveBottom = Math.max(insets?.bottom ?? 0, insetBottom);
   const totalBarHeight = BAR_HEIGHT + effectiveBottom;
+  // When collapsed, place the toggle handle at the height where the dock icons normally sit from the bottom
+  const collapsedBottom = effectiveBottom + 12;
+  const handleTravel = totalBarHeight + HANDLE_GAP - collapsedBottom;
 
   const barY = useRef(new Animated.Value(0)).current;
-  const handleY = useRef(new Animated.Value(-(totalBarHeight + HANDLE_GAP))).current;
+  const handleY = useRef(new Animated.Value(-handleTravel)).current;
   const first = useRef(true);
 
   useEffect(() => {
     const targetBar = visible ? 0 : totalBarHeight + HIDE_EXTRA;
-    const targetHandle = visible ? -(totalBarHeight + HANDLE_GAP) : 0;
+    const targetHandle = visible ? -handleTravel : 0;
     if (first.current) {
       first.current = false;
       barY.setValue(targetBar);
@@ -69,7 +72,7 @@ export const FeedDock = memo(function FeedDockInner({
     ]);
     animation.start();
     return () => animation.stop();
-  }, [visible, totalBarHeight, barY, handleY]);
+  }, [visible, totalBarHeight, handleTravel, barY, handleY]);
 
   const glass = theme.isDark ? GLASS.dock.dark : GLASS.dock.light;
   const inactive = theme.isDark ? GLASS.navInactive.dark : GLASS.navInactive.light;
@@ -81,18 +84,20 @@ export const FeedDock = memo(function FeedDockInner({
     <View pointerEvents="box-none" style={styles.layer}>
       {/* Edge-to-edge dock bar with safe-area padding and centered inner container */}
       <Animated.View
+        collapsable={false}
+        pointerEvents="auto"
         style={[
           styles.bar,
           {
             height: totalBarHeight,
             paddingBottom: effectiveBottom,
             backgroundColor: glass.fill,
-            borderColor: glass.border,
+            borderColor: 'transparent',
+            borderTopWidth: 0,
             transform: [{ translateY: barY }],
           },
         ]}
       >
-        <View pointerEvents="none" style={[styles.sheen, { backgroundColor: glass.sheen }]} />
         <View style={styles.barInner}>
           <DockItem label={t('allGames')} color={allColor} onPress={onAllGames} accessibilityLabel="All games">
             <GamepadIcon size={22} color={allColor} />
@@ -111,16 +116,26 @@ export const FeedDock = memo(function FeedDockInner({
 
       {/* Hide/Show Toggle Button positioned on the RIGHT side */}
       <Animated.View
+        collapsable={false}
+        pointerEvents="auto"
         style={[
           styles.handleWrap,
           {
-            bottom: HANDLE_GAP,
+            bottom: collapsedBottom,
             transform: [{ translateY: handleY }],
           },
         ]}
       >
         <Pressable
           onPress={onToggle}
+          onPressIn={e => e.stopPropagation()}
+          onTouchStart={e => e.stopPropagation()}
+          onTouchEnd={e => e.stopPropagation()}
+          onStartShouldSetResponder={() => true}
+          onStartShouldSetResponderCapture={() => true}
+          onMoveShouldSetResponder={() => true}
+          onMoveShouldSetResponderCapture={() => true}
+          onResponderTerminationRequest={() => false}
           hitSlop={8}
           style={[
             styles.handle,
@@ -187,16 +202,12 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 0,
-    borderTopWidth: 1,
+    borderTopWidth: 0,
     borderLeftWidth: 0,
     borderRightWidth: 0,
     borderBottomWidth: 0,
-    elevation: 16,
+    elevation: 0,
     overflow: 'visible',
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
   },
   barInner: {
     width: '100%',
@@ -208,14 +219,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: 8,
     overflow: 'visible',
-  },
-  sheen: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 38,
-    borderRadius: 0,
   },
   item: {
     flex: 1,

@@ -48,24 +48,26 @@ export const FeedHeader = memo(function FeedHeaderInner({
       <View pointerEvents="box-none" style={styles.container}>
         {/* Info Row: Brand on bottom-left, Game Name on right */}
         <View style={styles.contentRow} pointerEvents="box-none">
-          {/* Bottom-Left: App Logo + Two-line "EiBi Games" brand lockup */}
+          {/* Bottom-Left: App Logo (Lightly Rounded) + Two-line "EiBi Games" brand lockup */}
           <View style={styles.brandLockup} pointerEvents="none">
-            <Image
-              source={APP_LOGO_IMAGE}
-              style={styles.appLogo}
-              resizeMode="contain"
-            />
+            <View style={styles.logoWrap}>
+              <Image
+                source={APP_LOGO_IMAGE}
+                style={styles.appLogo}
+                resizeMode="cover"
+              />
+            </View>
             <View style={styles.brandTextCol}>
               <Text style={styles.brandNameLine1} allowFontScaling={false}>
                 EiBi
               </Text>
               <Text style={styles.brandNameLine2} allowFontScaling={false}>
-                GAMES
+                Games
               </Text>
             </View>
           </View>
 
-          {/* Right: Active Game Name in vibrant purple */}
+          {/* Right: Active Game Name in bold black */}
           <View style={styles.gameTitleWrap} pointerEvents="box-none">
             <Text
               numberOfLines={1}
@@ -94,6 +96,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 0,
   },
   container: {
     backgroundColor: '#FFFFFF',
@@ -101,12 +104,12 @@ const styles = StyleSheet.create({
     paddingBottom: 5,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3E8FF',
-    shadowColor: '#7C3AED',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 3,
+    borderBottomColor: '#F3F4F6',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 2,
   },
   contentRow: {
     flexDirection: 'row',
@@ -120,10 +123,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexShrink: 0,
   },
-  appLogo: {
+  logoWrap: {
     width: 32,
     height: 32,
-    borderRadius: 7,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+  },
+  appLogo: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
   },
   brandTextCol: {
     marginLeft: 6,
@@ -133,15 +143,15 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 15.5,
     fontWeight: '900',
-    color: '#6B21A8',
+    color: '#000000',
     letterSpacing: 0.4,
   },
   brandNameLine2: {
     fontSize: 11,
     lineHeight: 12.5,
-    fontWeight: '800',
-    color: '#9333EA',
-    letterSpacing: 1.2,
+    fontWeight: '700',
+    color: '#000000',
+    letterSpacing: 0.3,
   },
   gameTitleWrap: {
     flex: 1,
@@ -151,7 +161,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   gameTitle: {
-    color: '#7C3AED',
+    color: '#000000',
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 0.3,

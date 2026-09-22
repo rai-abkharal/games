@@ -36,6 +36,50 @@ class MainActivity : ReactActivity() {
    */
   override fun getMainComponentName(): String = "SwipePlay"
 
+  override fun onPause() {
+    super.onPause()
+    try {
+      window?.decorView?.let { decor ->
+        pauseAllWebViews(decor)
+      }
+    } catch (_: Exception) {}
+  }
+
+  override fun onResume() {
+    super.onResume()
+    try {
+      window?.decorView?.let { decor ->
+        resumeAllWebViews(decor)
+      }
+    } catch (_: Exception) {}
+  }
+
+  private fun pauseAllWebViews(view: android.view.View) {
+    if (view is android.webkit.WebView) {
+      try {
+        view.onPause()
+        view.pauseTimers()
+      } catch (_: Exception) {}
+    } else if (view is android.view.ViewGroup) {
+      for (i in 0 until view.childCount) {
+        pauseAllWebViews(view.getChildAt(i))
+      }
+    }
+  }
+
+  private fun resumeAllWebViews(view: android.view.View) {
+    if (view is android.webkit.WebView) {
+      try {
+        view.resumeTimers()
+        view.onResume()
+      } catch (_: Exception) {}
+    } else if (view is android.view.ViewGroup) {
+      for (i in 0 until view.childCount) {
+        resumeAllWebViews(view.getChildAt(i))
+      }
+    }
+  }
+
   /**
    * Returns the instance of the [ReactActivityDelegate]. We use [DefaultReactActivityDelegate]
    * which allows you to enable New Architecture with a single boolean flags [fabricEnabled]

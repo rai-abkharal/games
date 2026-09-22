@@ -193,12 +193,6 @@ class GameBundleStore(context: Context) {
       for (child in children) {
         if (!child.isDirectory) continue
         val gameId = child.name
-        if (!knownGameIds.contains(gameId)) {
-          child.deleteRecursively()
-          if (active.remove(gameId) != null) indexChanged = true
-          lastPlayed.remove(gameId)
-          continue
-        }
         val keepActive = active[gameId]
         val keepWanted = wantedBuilds[gameId]
         for (buildDir in child.listFiles() ?: emptyArray()) {
@@ -207,10 +201,15 @@ class GameBundleStore(context: Context) {
           if (name.startsWith(".staging-")) {
             // Keep only the staging area for the build we still intend to fetch,
             // so an abandoned partial download cannot occupy space forever.
-            if (name.removePrefix(".staging-") != keepWanted) buildDir.deleteRecursively()
+            if (keepWanted != null && name.removePrefix(".staging-") != keepWanted) {
+              buildDir.deleteRecursively()
+            }
             continue
           }
-          if (name != keepActive) buildDir.deleteRecursively()
+          // Never delete an active playable build. Only prune superseded builds.
+          if (keepActive != null && name != keepActive) {
+            buildDir.deleteRecursively()
+          }
         }
       }
       cachedUsedBytes = -1L
