@@ -102,10 +102,15 @@ export const GamePage = memo(
     const soundMuted = Boolean(playerStoreState?.soundMuted);
     const vibrationEnabled = playerStoreState?.vibrationEnabled !== false;
     const pageBootstrapScript = useMemo(() => {
+      const isKnife =
+        /knife/i.test(game.id) ||
+        /knife/i.test(game.title) ||
+        /knife/i.test(game.sourceTitle || '');
       return `window.__SOUND_MUTED__ = ${soundMuted ? 'true' : 'false'};\n` +
              `window.__VIBRATION_DISABLED__ = ${!vibrationEnabled ? 'true' : 'false'};\n` +
+             `window.__IS_KNIFE_GAME__ = ${isKnife ? 'true' : 'false'};\n` +
              BOOTSTRAP_SCRIPT;
-    }, [soundMuted, vibrationEnabled]);
+    }, [soundMuted, vibrationEnabled, game.id, game.title, game.sourceTitle]);
     /**
      * Stage timings for the load in flight, in the order they happen:
      * the WebView being created, the document being fetched and parsed, and

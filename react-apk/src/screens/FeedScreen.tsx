@@ -9,6 +9,7 @@ import React, {
 import {
   ActivityIndicator,
   Animated,
+  Image,
   Pressable,
   StatusBar,
   StyleSheet,
@@ -21,6 +22,8 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { FeedDock, type FeedTab } from '../components/feed/FeedDock';
 import { FeedHeader } from '../components/feed/FeedHeader';
 import { BrowseAllGamesPage } from '../components/feed/BrowseAllGamesPage';
+
+const APP_LOGO_IMAGE = require('../assets/images/app_logo.png');
 import {
   GamePage,
   type GamePageHandle,
@@ -188,7 +191,14 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     const arrowGame =
       games.find(g => g.id === 'arrow-puzzle') || filtered[0];
     const knifeGame =
-      games.find(g => g.id === 'knife-hit' || g.id === 'knife_hit' || g.id.includes('knife'));
+      games.find(
+        g =>
+          g.id === 'knife-hit' ||
+          g.id === 'knife_hit' ||
+          g.id.toLowerCase().includes('knife') ||
+          (g.title && g.title.toLowerCase().includes('knife')) ||
+          (g.sourceTitle && g.sourceTitle.toLowerCase().includes('knife')),
+      );
     const waterGame =
       games.find(g => g.id === 'water-sort' || g.id === 'water-sort-3d') ||
       filtered.find(g => g.id !== arrowGame?.id && g.id !== knifeGame?.id) ||
@@ -693,11 +703,12 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
           if (isTutorialActive) {
             if (
-              (game.id === 'knife-hit' ||
-                game.id === 'knife_hit' ||
-                game.id.includes('knife') ||
-                positionRef.current.index === 1) &&
-              tutorialStep === 'knife_hit_playing'
+              positionRef.current.index === 1 ||
+              tutorialStep === 'knife_hit_playing' ||
+              game.id === 'knife-hit' ||
+              game.id === 'knife_hit' ||
+              game.id.includes('knife') ||
+              game.title?.toLowerCase().includes('knife')
             ) {
               setTutorialStep('knife_hit_completed');
               setSwipeEnabled(true);
@@ -731,10 +742,12 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
               return;
             }
             if (
+              positionRef.current.index === 1 ||
+              tutorialStep === 'knife_hit_playing' ||
               game.id === 'knife-hit' ||
               game.id === 'knife_hit' ||
               game.id.includes('knife') ||
-              positionRef.current.index === 1
+              game.title?.toLowerCase().includes('knife')
             ) {
               setTutorialStep('knife_hit_completed');
               setSwipeEnabled(true);
@@ -743,7 +756,8 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
             if (
               game.id === 'water-sort' ||
               game.id === 'water-sort-3d' ||
-              positionRef.current.index === 2
+              positionRef.current.index === 2 ||
+              tutorialStep === 'water_sort_playing'
             ) {
               setTutorialStep('water_sort_completed');
               return;
@@ -763,6 +777,14 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
             'earn_coins',
             message.amount,
           );
+          if (
+            isTutorialActive &&
+            (positionRef.current.index === 1 || tutorialStep === 'knife_hit_playing')
+          ) {
+            setTutorialStep('knife_hit_completed');
+            setSwipeEnabled(true);
+            return;
+          }
           if (
             !isTutorialActive ||
             (game.id !== 'water-sort' && game.id !== 'water-sort-3d')
@@ -791,6 +813,14 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         case 'saveLevelState':
           store.saveLevel(game.id, message.level);
           analytics.onLevelStart(game.id, game.title, message.level);
+          if (
+            isTutorialActive &&
+            (positionRef.current.index === 1 || tutorialStep === 'knife_hit_playing')
+          ) {
+            setTutorialStep('knife_hit_completed');
+            setSwipeEnabled(true);
+            return;
+          }
           break;
         case 'setSwipeEnabled':
           setSwipeEnabled(message.enabled);
@@ -1055,10 +1085,20 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           onLayout={onStageLayout}
           onTouchStart={onStageTouch}
         >
+          {/* Revealed backdrop when swipe gesture lifts the stage: Pure white with App Logo */}
           <View
-            style={styles.homeTutorialRevealBackdrop}
+            style={styles.tutorialRevealBackdrop}
             pointerEvents="none"
-          />
+          >
+            <View style={styles.revealLogoCard}>
+              <Image
+                source={APP_LOGO_IMAGE}
+                style={styles.revealLogo}
+                resizeMode="contain"
+              />
+              <Text style={styles.revealBrandTitle}>EiBi Games</Text>
+            </View>
+          </View>
           <Animated.View
             style={[
               styles.gameStageContent,
@@ -1110,14 +1150,39 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   // Clips the hidden dock at the stage edge the way the native window edge
   // does, instead of letting it show through a translucent navigation bar.
-  stage: { flex: 1, overflow: 'hidden' },
-  homeTutorialRevealBackdrop: {
+  stage: { flex: 1, overflow: 'hidden', backgroundColor: '#FFFFFF' },
+  tutorialRevealBackdrop: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: '14%',
-    backgroundColor: '#05070B',
+    top: 0,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 40,
+  },
+  revealLogoCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  revealLogo: {
+    width: 60,
+    height: 60,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  revealBrandTitle: {
+    marginTop: 8,
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: 0.3,
   },
   gameStageContent: { flex: 1, zIndex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },

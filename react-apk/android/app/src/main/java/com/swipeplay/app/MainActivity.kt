@@ -85,6 +85,49 @@ class MainActivity : ReactActivity() {
   private fun pauseAllWebViews(view: android.view.View) {
     if (view is android.webkit.WebView) {
       try {
+        view.evaluateJavascript(
+          """
+          (function() {
+            try {
+              window.__IS_SUSPENDED__ = true;
+              function muteScope(w) {
+                if (!w) return;
+                try {
+                  w.__IS_SUSPENDED__ = true;
+                  if (w.__ALL_AUDIO_CONTEXTS__) {
+                    w.__ALL_AUDIO_CONTEXTS__.forEach(function(c) { try { if (c && c.suspend) c.suspend(); } catch(e){} });
+                  }
+                  if (w.__ALL_MEDIA_ELEMENTS__) {
+                    w.__ALL_MEDIA_ELEMENTS__.forEach(function(m) { try { if (m) { m.pause(); m.muted = true; } } catch(e){} });
+                  }
+                  if (w.document) {
+                    var media = w.document.querySelectorAll('audio, video');
+                    for (var i = 0; i < media.length; i++) {
+                      try { media[i].pause(); media[i].muted = true; } catch(e){}
+                    }
+                    try {
+                      Object.defineProperty(w.document, 'hidden', { value: true, writable: true, configurable: true });
+                      Object.defineProperty(w.document, 'visibilityState', { value: 'hidden', writable: true, configurable: true });
+                      w.document.dispatchEvent(new Event('visibilitychange'));
+                    } catch(e){}
+                  }
+                  try { w.dispatchEvent(new Event('blur')); } catch(e){}
+                  try { w.dispatchEvent(new Event('pagehide')); } catch(e){}
+                  if (w.Howler) { try { if (w.Howler.mute) w.Howler.mute(true); if (w.Howler.stop) w.Howler.stop(); } catch(e){} }
+                  if (w.createjs && w.createjs.Sound) { try { w.createjs.Sound.muted = true; w.createjs.Sound.stop(); } catch(e){} }
+                  if (w.cr_getC2Runtime) { try { var r = w.cr_getC2Runtime(); if (r) { r.isSuspended = true; if (r.audio) r.audio.muted = true; } } catch(e){} }
+                } catch(e){}
+              }
+              muteScope(window);
+              var iframes = document.querySelectorAll('iframe');
+              for (var j = 0; j < iframes.length; j++) {
+                try { muteScope(iframes[j].contentWindow); } catch(e){}
+              }
+            } catch(e){}
+          })();
+          """.trimIndent(),
+          null
+        )
         view.onPause()
         view.pauseTimers()
       } catch (_: Exception) {}
@@ -100,6 +143,25 @@ class MainActivity : ReactActivity() {
       try {
         view.resumeTimers()
         view.onResume()
+        view.evaluateJavascript(
+          """
+          (function() {
+            try {
+              window.__IS_SUSPENDED__ = false;
+              if (window.document) {
+                try {
+                  Object.defineProperty(window.document, 'hidden', { value: false, writable: true, configurable: true });
+                  Object.defineProperty(window.document, 'visibilityState', { value: 'visible', writable: true, configurable: true });
+                  window.document.dispatchEvent(new Event('visibilitychange'));
+                } catch(e){}
+              }
+              try { window.dispatchEvent(new Event('focus')); } catch(e){}
+              try { window.dispatchEvent(new Event('pageshow')); } catch(e){}
+            } catch(e){}
+          })();
+          """.trimIndent(),
+          null
+        )
       } catch (_: Exception) {}
     } else if (view is android.view.ViewGroup) {
       for (i in 0 until view.childCount) {

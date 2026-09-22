@@ -57,8 +57,53 @@ export const BRIDGE_BOOTSTRAP_SCRIPT = `
   window.FlutterGameBridge = native;
   window.NativeBridge = native;
 
+  // Intercept window/parent postMessage from web game portals & embedded games
+  window.addEventListener('message', function (ev) {
+    try {
+      var d = ev.data;
+      if (typeof d === 'string') {
+        try { d = JSON.parse(d); } catch (e) {}
+      }
+      if (d && typeof d === 'object') {
+        var act = String(d.action || d.type || d.event || '');
+        if (/complete|clear|win|next|stage/i.test(act)) {
+          send('completed', { score: d.score || 100, level: d.level || 1 });
+        } else if (/over|dead|die|lose/i.test(act)) {
+          send('gameOver', { score: d.score || 0 });
+        } else if (/coin/i.test(act)) {
+          send('earnCoins', { amount: d.amount || 10 });
+        } else if (/score/i.test(act)) {
+          send('addScore', { points: d.points || d.score || 10 });
+        }
+      }
+    } catch (_) {}
+  });
+
+  // Stage-1 tap detector for Knife Hit & tap-based mini games
+  try {
+    var isKnife = window.__IS_KNIFE_GAME__ || /knife/i.test(window.location.href) || /knife/i.test(document.title);
+    var knifeThrows = 0;
+    var knifeTriggered = false;
+    window.addEventListener('pointerdown', function () {
+      if (!isKnife && !window.__IS_KNIFE_GAME__) {
+        isKnife = /knife/i.test(window.location.href) || /knife/i.test(document.title);
+      }
+      if (isKnife && !knifeTriggered) {
+        knifeThrows++;
+        // Standard Knife Hit stage 1 has 7 knives. After 7 throws, stage 1 is cleared!
+        if (knifeThrows >= 7) {
+          knifeTriggered = true;
+          setTimeout(function () {
+            send('completed', { score: 70, level: 1 });
+          }, 350);
+        }
+      }
+    }, true);
+  } catch (_) {}
+
   window.__SOUND_MUTED__ = window.__SOUND_MUTED__ || false;
   window.__VIBRATION_DISABLED__ = window.__VIBRATION_DISABLED__ || false;
+  window.__IS_SUSPENDED__ = false;
 
   if (!window.__ALL_AUDIO_CONTEXTS__) {
     window.__ALL_AUDIO_CONTEXTS__ = [];
@@ -73,12 +118,12 @@ export const BRIDGE_BOOTSTRAP_SCRIPT = `
           ctx = new OrigCtx();
         }
         window.__ALL_AUDIO_CONTEXTS__.push(ctx);
-        if (window.__SOUND_MUTED__) {
+        if (window.__SOUND_MUTED__ || window.__IS_SUSPENDED__) {
           try { if (typeof ctx.suspend === 'function') ctx.suspend(); } catch (e) {}
         }
         var origResume = ctx.resume;
         ctx.resume = function () {
-          if (window.__SOUND_MUTED__) {
+          if (window.__SOUND_MUTED__ || window.__IS_SUSPENDED__) {
             return Promise.resolve();
           }
           return origResume.apply(ctx, arguments);
@@ -91,14 +136,57 @@ export const BRIDGE_BOOTSTRAP_SCRIPT = `
     }
   }
 
+  if (!window.__ALL_MEDIA_ELEMENTS__) {
+    window.__ALL_MEDIA_ELEMENTS__ = [];
+  }
+
   if (typeof HTMLMediaElement !== 'undefined' && HTMLMediaElement.prototype) {
     var origMediaPlay = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function () {
-      if (window.__SOUND_MUTED__) {
+      if (window.__ALL_MEDIA_ELEMENTS__.indexOf(this) === -1) {
+        window.__ALL_MEDIA_ELEMENTS__.push(this);
+      }
+      if (window.__SOUND_MUTED__ || window.__IS_SUSPENDED__) {
         this.muted = true;
         this.volume = 0;
+        try { this.pause(); } catch (e) {}
+        return Promise.resolve();
       }
       return origMediaPlay.apply(this, arguments);
+    };
+  }
+
+  if (typeof window.Audio !== 'undefined') {
+    var OrigAudio = window.Audio;
+    window.Audio = function (src) {
+      var el = new OrigAudio(src);
+      if (window.__ALL_MEDIA_ELEMENTS__.indexOf(el) === -1) {
+        window.__ALL_MEDIA_ELEMENTS__.push(el);
+      }
+      if (window.__SOUND_MUTED__ || window.__IS_SUSPENDED__) {
+        el.muted = true;
+        el.volume = 0;
+      }
+      return el;
+    };
+    window.Audio.prototype = OrigAudio.prototype;
+  }
+
+  if (typeof document !== 'undefined' && document.createElement) {
+    var origCreateEl = document.createElement.bind(document);
+    document.createElement = function (tagName) {
+      var el = origCreateEl.apply(document, arguments);
+      var tag = String(tagName).toLowerCase();
+      if (tag === 'audio' || tag === 'video') {
+        if (window.__ALL_MEDIA_ELEMENTS__.indexOf(el) === -1) {
+          window.__ALL_MEDIA_ELEMENTS__.push(el);
+        }
+        if (window.__SOUND_MUTED__ || window.__IS_SUSPENDED__) {
+          el.muted = true;
+          el.volume = 0;
+        }
+      }
+      return el;
     };
   }
 
@@ -352,11 +440,50 @@ export function buildPauseScript(graceFrames = 0): string {
     function muteWin(w) {
       if (!w) return;
       try {
-        if (w.__ALL_AUDIO_CONTEXTS__) w.__ALL_AUDIO_CONTEXTS__.forEach(function (ctx) { if (ctx && typeof ctx.suspend === 'function' && ctx.state === 'running') ctx.suspend(); });
-        ['audioCtx', 'soundCtx', 'audioContext', 'SoundContext'].forEach(function (k) { var c = w[k]; if (c && typeof c.suspend === 'function') c.suspend(); });
-        if (w.SoundFx && w.SoundFx.ctx && typeof w.SoundFx.ctx.suspend === 'function') w.SoundFx.ctx.suspend();
-        if (w.Howler && typeof w.Howler.mute === 'function') w.Howler.mute(true);
-        if (w.createjs && w.createjs.Sound) { try { w.createjs.Sound.muted = true; } catch (e) {} }
+        w.__IS_SUSPENDED__ = true;
+        if (w.__ALL_AUDIO_CONTEXTS__) {
+          w.__ALL_AUDIO_CONTEXTS__.forEach(function (ctx) {
+            try { if (typeof ctx.suspend === 'function') ctx.suspend(); } catch (e) {}
+          });
+        }
+        if (w.__ALL_MEDIA_ELEMENTS__) {
+          w.__ALL_MEDIA_ELEMENTS__.forEach(function (m) {
+            try { m.pause(); m.muted = true; m.volume = 0; } catch (e) {}
+          });
+        }
+        ['audioCtx', 'soundCtx', 'audioContext', 'SoundContext'].forEach(function (k) {
+          try { var c = w[k]; if (c && typeof c.suspend === 'function') c.suspend(); } catch (e) {}
+        });
+        if (w.SoundFx && w.SoundFx.ctx && typeof w.SoundFx.ctx.suspend === 'function') {
+          try { w.SoundFx.ctx.suspend(); } catch (e) {}
+        }
+        if (w.Howler) {
+          try { if (typeof w.Howler.mute === 'function') w.Howler.mute(true); } catch (e) {}
+          try { if (typeof w.Howler.stop === 'function') w.Howler.stop(); } catch (e) {}
+          try { if (w.Howler.ctx && typeof w.Howler.ctx.suspend === 'function') w.Howler.ctx.suspend(); } catch (e) {}
+        }
+        if (w.createjs && w.createjs.Sound) {
+          try { w.createjs.Sound.muted = true; } catch (e) {}
+          try { w.createjs.Sound.stop(); } catch (e) {}
+        }
+        if (w.PIXI && w.PIXI.sound) {
+          try { if (typeof w.PIXI.sound.muteAll === 'function') w.PIXI.sound.muteAll(); } catch (e) {}
+          try { if (typeof w.PIXI.sound.stopAll === 'function') w.PIXI.sound.stopAll(); } catch (e) {}
+        }
+        ['Sound', 'AudioEngine', 'soundManager', 'sm', 'Audio', 'audio', 'audioManager', 'snd', 'IHG'].forEach(function (k) {
+          try {
+            var obj = w[k];
+            if (obj) {
+              if (typeof obj.mute === 'function') obj.mute(true);
+              if (typeof obj.setMute === 'function') obj.setMute(true);
+              if (typeof obj.pause === 'function') obj.pause();
+              if (typeof obj.pauseAll === 'function') obj.pauseAll();
+              if (typeof obj.stopAll === 'function') obj.stopAll();
+              if (typeof obj.stop === 'function') obj.stop();
+              if (obj.muted !== undefined) obj.muted = true;
+            }
+          } catch (e) {}
+        });
         if (w.cr_getC2Runtime) {
           try {
             var r = w.cr_getC2Runtime();
@@ -375,8 +502,17 @@ export function buildPauseScript(graceFrames = 0): string {
         }
         if (w.document) {
           var media = w.document.querySelectorAll('audio, video');
-          for (var i = 0; i < media.length; i++) { media[i].pause(); media[i].muted = true; }
+          for (var i = 0; i < media.length; i++) {
+            try { media[i].pause(); media[i].muted = true; media[i].volume = 0; } catch (e) {}
+          }
+          try {
+            Object.defineProperty(w.document, 'hidden', { value: true, writable: true, configurable: true });
+            Object.defineProperty(w.document, 'visibilityState', { value: 'hidden', writable: true, configurable: true });
+            w.document.dispatchEvent(new Event('visibilitychange'));
+          } catch (e) {}
         }
+        try { w.dispatchEvent(new Event('blur')); } catch (e) {}
+        try { w.dispatchEvent(new Event('pagehide')); } catch (e) {}
       } catch (e) {}
     }
     muteWin(window);
@@ -407,6 +543,7 @@ export function buildResumeScript(soundEnabled: boolean): string {
   const sound = soundEnabled ? 'true' : 'false';
   return js(`
     window.__GAME_ACTIVE__ = true;
+    window.__IS_SUSPENDED__ = false;
     window.__SOUND_MUTED__ = !${sound};
     try { if (window.__SP_RAF__) window.__SP_RAF__.resume(); } catch (e) {}
     try {
