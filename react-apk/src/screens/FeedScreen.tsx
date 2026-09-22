@@ -20,6 +20,7 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { FeedDock, type FeedTab } from '../components/feed/FeedDock';
 import { FeedHeader } from '../components/feed/FeedHeader';
+import { BrowseAllGamesPage } from '../components/feed/BrowseAllGamesPage';
 import {
   GamePage,
   type GamePageHandle,
@@ -74,42 +75,6 @@ const HAPTIC_PATTERNS: Record<HapticType, number | number[]> = {
   success: [0, 15, 50, 25],
   warning: [0, 20, 40, 20],
   error: [0, 30, 40, 30],
-};
-
-const FALLBACK_ARROW_PUZZLE: GameItem = {
-  id: 'arrow-puzzle',
-  title: 'Arrow Puzzle',
-  version: '1.0.0',
-  entryUrl: 'http://localhost:8080/games/arrow-puzzle/1.0.0/index.html',
-  thumbnailUrl: 'http://localhost:8080/thumbnails/arrow-puzzle.svg',
-  manifestUrl: 'http://localhost:8080/games/arrow-puzzle/1.0.0/manifest.json',
-  sizeBytes: 39252,
-  orientation: 'portrait',
-  engine: 'canvas2d',
-  feedOrder: 1,
-  category: 'Arcade',
-  description: 'Arrow Puzzle - Directional logic brain puzzle.',
-  status: 'published',
-  touchZones: [],
-  features: { sound: true, vibration: true, hint: false },
-};
-
-const FALLBACK_WATER_SORT: GameItem = {
-  id: 'water-sort',
-  title: 'Water Sort 3D',
-  version: '1.0.0',
-  entryUrl: 'http://localhost:8080/games/water-sort/1.0.0/index.html',
-  thumbnailUrl: 'http://localhost:8080/thumbnails/water-sort.webp',
-  manifestUrl: 'http://localhost:8080/games/water-sort/1.0.0/manifest.json',
-  sizeBytes: 372684,
-  orientation: 'portrait',
-  engine: 'canvas2d',
-  feedOrder: 2,
-  category: 'Puzzle',
-  description: 'AAA luxury 3D Liquid Sorting Puzzle.',
-  status: 'published',
-  touchZones: [],
-  features: { sound: true, vibration: true },
 };
 
 interface FeedPosition {
@@ -220,11 +185,14 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   const orderedForTutorial = useMemo(() => {
     if (!isTutorialActive) return filtered;
+    if (games.length === 0) return [];
     const arrowGame =
-      games.find(g => g.id === 'arrow-puzzle') || FALLBACK_ARROW_PUZZLE;
+      games.find(g => g.id === 'arrow-puzzle') || filtered[0];
     const waterGame =
       games.find(g => g.id === 'water-sort' || g.id === 'water-sort-3d') ||
-      FALLBACK_WATER_SORT;
+      filtered.find(g => g.id !== arrowGame?.id) ||
+      filtered[1];
+    if (!arrowGame || !waterGame) return filtered;
     const others = filtered.filter(
       g => g.id !== arrowGame.id && g.id !== waterGame.id,
     );
@@ -256,7 +224,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const [appActive, setAppActive] = useState(true);
   const [focused, setFocused] = useState(true);
   const suspended = !appActive || !focused || fullScreenAdShowing;
-  const loop = list.length > 2 && tab !== 'favorites';
+  const loop = tab !== 'favorites' && !isTutorialActive && list.length > 2;
 
   // Reconcile before committing children: starting page zero then correcting
   // in an effect used to create and abandon the wrong WebView at launch.
@@ -403,8 +371,8 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     setTutorialStep('water_sort_playing');
     setSwipeEnabled(false);
     useTutorialStore.getState().markSwipeSeen();
-    const nextGame = listRef.current[1] ?? FALLBACK_WATER_SORT;
-    currentIdRef.current = nextGame.id;
+    const nextGame = listRef.current[1] ?? listRef.current[0];
+    if (nextGame) currentIdRef.current = nextGame.id;
     setPosition({ index: 1, direction: 1, settling: false });
     analytics.onGameAction('global', 'Feed', 'tutorial_swipe_up_executed');
   }, []);
@@ -825,12 +793,29 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   // than kept in state, which cost two extra feed renders per swipe.
   const { index, direction, settling } = position;
   const rested = !settling;
+  const onAllGames = useCallback(() => {
+    resetDockTimer();
+    setTab('all');
+  }, [resetDockTimer]);
 
   const renderPage = useCallback(
     (i: number) => {
       const count = list.length;
       if (count === 0) return null;
-      const actualIdx = ((i % count) + count) % count;
+      if (tab === 'favorites' && i >= count) {
+        return (
+          <BrowseAllGamesPage
+            key="browse_all_games_end"
+            theme={theme}
+            isFavoritesTab={true}
+            onBrowseAll={onAllGames}
+            onRestartFeed={() => {
+              setPosition({ index: 0, direction: 1, settling: false });
+            }}
+          />
+        );
+      }
+      const actualIdx = i;
       const game = list[actualIdx];
       if (!game) return null;
       let slot: PageSlot = slotFor(
@@ -873,14 +858,14 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       refFor,
       onPhase,
       onMessage,
+      theme,
+      tab,
+      games,
+      onAllGames,
     ],
   );
 
   /* ---------------- dock actions --------------------------------------------- */
-  const onAllGames = useCallback(() => {
-    resetDockTimer();
-    setTab('all');
-  }, [resetDockTimer]);
   const onFavorites = useCallback(() => {
     resetDockTimer();
     analytics.onGameAction('global', 'Feed', 'view_favorites');
@@ -922,11 +907,14 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   /* ---------------- render --------------------------------------------------- */
   const isFavorite = current ? favorites.includes(current.id) : false;
 
+  const isFavoritesTab = tab === 'favorites';
+  const pagerCount = list.length > 0 ? (isFavoritesTab ? list.length + 1 : list.length) : 0;
+
   let body: React.ReactNode = null;
   if (list.length > 0 && stage.height > 0) {
     body = (
       <GamePager
-        count={list.length}
+        count={pagerCount}
         index={index}
         pageHeight={stage.height}
         width={stage.width}
@@ -935,7 +923,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           !fullScreenAdShowing &&
           (!isTutorialActive || tutorialStep === 'arrow_completed')
         }
-        loop={loop && !isTutorialActive}
+        loop={loop}
         touchZonesFor={touchZonesFor}
         onSwipeStart={onSwipeStart}
         onIndexChange={onIndexChange}
@@ -988,7 +976,12 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           theme={theme}
           insetTop={0}
           bannerEnabled={bannerEnabled}
-          title={current?.title ?? 'EiBi Games: Swipe & Play'}
+          title={
+            current?.title ??
+            (position.index >= list.length
+              ? (tab === 'favorites' ? (t('endOfFavoritesTitle') || 'End of Favorites') : 'Browse All Games')
+              : 'EiBi Games: Swipe & Play')
+          }
         />
         <View
           style={styles.stage}
@@ -1007,33 +1000,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           >
             {body}
           </Animated.View>
-          {tab === 'favorites' && list.length > 0 && position.index === list.length - 1 ? (
-            <View pointerEvents="box-none" style={styles.favoritesEndBannerWrap}>
-              <View style={[styles.favoritesEndBanner, { backgroundColor: theme.card, borderColor: theme.accent }]}>
-                <View style={styles.favoritesEndLeft}>
-                  <Text style={[styles.favoritesEndTitle, { color: theme.textPrimary }]} allowFontScaling={false}>
-                    {t('endOfFavoritesTitle') || "End of Favorites"}
-                  </Text>
-                  <Text style={[styles.favoritesEndSub, { color: theme.textSecondary }]} numberOfLines={1} allowFontScaling={false}>
-                    {t('endOfFavoritesSub') || 'Explore the full arcade catalogue'}
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={onAllGames}
-                  style={({ pressed }) => [
-                    styles.browseAllBtn,
-                    { backgroundColor: theme.accent, opacity: pressed ? 0.8 : 1 },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Browse All Games"
-                >
-                  <Text style={styles.browseAllBtnText} allowFontScaling={false}>
-                    {t('browseAllGames') || 'Browse All'} →
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
           <FeedDock
             theme={theme}
             visible={dockVisible && !isTutorialActive && !homeSwipeVisible}
@@ -1088,60 +1054,4 @@ const styles = StyleSheet.create({
   },
   gameStageContent: { flex: 1, zIndex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  favoritesEndBannerWrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 68,
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    zIndex: 8,
-  },
-  favoritesEndBanner: {
-    width: '100%',
-    maxWidth: 480,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
-  favoritesEndLeft: {
-    flex: 1,
-    marginRight: 12,
-  },
-  favoritesEndTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
-  favoritesEndSub: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  browseAllBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#B266FF',
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  browseAllBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12.5,
-    fontWeight: '900',
-    letterSpacing: 0.3,
-  },
 });

@@ -13,7 +13,7 @@ import {
   parseGameMessage,
 } from '../../services/gameBridge';
 import { analytics } from '../../services/analytics';
-import { localUrlFor, useDownloadStore, type BundleDownload } from '../../services/gameBundles';
+import { localUrlFor, useBundleStore, useDownloadStore, type BundleDownload } from '../../services/gameBundles';
 import { GAME_VIEWPORT_SCRIPT } from '../../services/gameViewport';
 import { usePlayerStore } from '../../store/playerStore';
 import { GAME_SURFACE, GLASS, HUD, THEMES } from '../../theme/themes';
@@ -22,6 +22,7 @@ import type { GameItem } from '../../types/game';
 import { displayCategory } from '../../utils/misc';
 import { buildGameEntryUrl } from '../../utils/url';
 import { MessageView } from '../StateViews';
+import { CircularLogoLoader } from '../common/CircularLogoLoader';
 
 /**
  * What the page's WebView is doing. Deliberately not where the *download* is:
@@ -361,6 +362,29 @@ export const GamePage = memo(
       }
     }, [slot, phase, retry]);
 
+    // When the offline bundle finishes downloading in the background,
+    // if the page had errored or is still stuck loading over the network,
+    // immediately re-launch with the fast local bundle.
+    const isBundleReady = useBundleStore(
+      useCallback(
+        state => Boolean(game.buildId && state.ready[game.id]),
+        [game.id, game.buildId],
+      ),
+    );
+    const bundlePromotedRef = useRef(false);
+    useEffect(() => {
+      bundlePromotedRef.current = false;
+    }, [sourceKey]);
+
+    useEffect(() => {
+      if (isBundleReady && !bundlePromotedRef.current) {
+        if (phase === 'error' || (phase === 'loading' && timingRef.current?.source === 'network')) {
+          bundlePromotedRef.current = true;
+          retry();
+        }
+      }
+    }, [isBundleReady, phase, retry]);
+
     const dismissPlaceholder = useCallback(() => {
       Animated.timing(placeholderOpacity, {
         toValue: 0,
@@ -509,15 +533,11 @@ export const GamePage = memo(
 
         {showPlaceholder ? (
           <Animated.View style={[styles.placeholder, { opacity: placeholderOpacity }]} pointerEvents="none">
-            <View pointerEvents="none" style={styles.logoCircle}>
-              <Text pointerEvents="none" style={styles.logoEmoji}>🎮</Text>
-            </View>
-            <Text pointerEvents="none" style={styles.placeholderTitle} numberOfLines={2} allowFontScaling={false}>
-              {game.title}
-            </Text>
-            <Text pointerEvents="none" style={styles.placeholderMeta} allowFontScaling={false}>
-              {displayCategory(game.category).toUpperCase()} • 120 FPS ENGINE
-            </Text>
+            <CircularLogoLoader
+              title={game.title}
+              subtitle={displayCategory(game.category).toUpperCase()}
+              logoSize={84}
+            />
             <LoadingStatus
               gameId={game.id}
               buildId={game.buildId}
@@ -526,7 +546,6 @@ export const GamePage = memo(
               phase={phase}
               show={slot === 'active'}
             />
-            <LoadingLine animate={animateLoadLine} />
           </Animated.View>
         ) : null}
 
@@ -650,41 +669,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: GAME_SURFACE,
+    backgroundColor: '#F6F3FC',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
   },
-  logoCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: GLASS.placeholderCircle,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoEmoji: { fontSize: 36 },
-  placeholderTitle: {
-    marginTop: 20,
-    color: HUD.text,
-    fontSize: 22,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  placeholderMeta: {
-    marginTop: 6,
-    color: GLASS.placeholderAccent,
-    fontSize: 12,
-    fontWeight: '500',
-    letterSpacing: 1.2,
-  },
   placeholderStatus: {
-    marginTop: 14,
-    color: HUD.text,
+    marginTop: 8,
+    color: '#8B5CF6',
     fontSize: 13,
     fontWeight: '700',
-    letterSpacing: 0.4,
-    opacity: 0.85,
+    letterSpacing: 0.5,
   },
   loadTrack: {
     position: 'absolute',

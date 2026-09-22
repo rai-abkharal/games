@@ -23,16 +23,16 @@ export const THEMES: Record<ThemeId, ThemeColors> = {
     id: 'eibi_purple',
     name: 'EiBi Violet',
     emoji: '🔮',
-    bg: '#120524',
-    card: '#230B40',
-    textPrimary: '#FFFFFF',
-    textSecondary: '#C084FC',
-    accent: '#B266FF',
-    secondaryAccent: '#F2C200',
-    nav: '#16062B',
-    banner: '#230B40',
-    border: 'rgba(178, 102, 255, 0.28)',
-    isDark: true,
+    bg: '#F6F3FC',
+    card: '#FFFFFF',
+    textPrimary: '#1E1035',
+    textSecondary: '#6D5D8A',
+    accent: '#8B5CF6',
+    secondaryAccent: '#F59E0B',
+    nav: '#FFFFFF',
+    banner: '#EDE6FD',
+    border: 'rgba(139, 92, 246, 0.18)',
+    isDark: false,
   },
   pure_white: {
     id: 'pure_white',
@@ -102,18 +102,18 @@ export const HUD = {
  */
 export const GLASS = {
   topBar: {
-    light: { fill: 'rgba(18, 58, 112, 0.27)', border: 'rgba(191, 227, 255, 0.55)', sheen: 'rgba(255, 255, 255, 0.10)' },
-    dark: { fill: 'rgba(35, 11, 64, 0.72)', border: 'rgba(178, 102, 255, 0.36)', sheen: 'rgba(255, 255, 255, 0.12)' },
+    light: { fill: 'rgba(18, 58, 112, 0.27)', border: 'rgba(191, 227, 255, 0.55)', sheen: 'rgba(255, 255, 255, 0.18)' },
+    dark: { fill: 'rgba(6, 20, 45, 0.32)', border: 'rgba(178, 102, 255, 0.46)', sheen: 'rgba(255, 255, 255, 0.15)' },
   },
   dock: {
-    light: { fill: 'rgba(18, 58, 112, 0.24)', border: 'rgba(191, 227, 255, 0.65)', sheen: 'rgba(255, 255, 255, 0.11)' },
-    dark: { fill: 'rgba(22, 6, 43, 0.85)', border: 'rgba(178, 102, 255, 0.32)', sheen: 'rgba(255, 255, 255, 0.12)' },
+    light: { fill: 'rgba(18, 58, 112, 0.28)', border: 'rgba(191, 227, 255, 0.65)', sheen: 'rgba(255, 255, 255, 0.22)' },
+    dark: { fill: 'rgba(6, 20, 45, 0.35)', border: 'rgba(178, 102, 255, 0.48)', sheen: 'rgba(255, 255, 255, 0.18)' },
   },
-  handle: { fill: 'rgba(35, 11, 64, 0.85)', border: 'rgba(178, 102, 255, 0.45)' },
+  handle: { fill: 'rgba(18, 58, 112, 0.60)', border: 'rgba(255, 255, 255, 0.50)' },
   coinsPill: { fill: 'rgba(242, 194, 0, 0.22)', border: 'rgba(242, 194, 0, 0.70)', text: '#F2C200' },
   bestPill: { fill: 'rgba(242, 194, 0, 0.22)', border: 'rgba(242, 194, 0, 0.70)', text: '#F2C200' },
-  /** Inactive dock tint: #D6E9FF on light themes, #D9D3EE on Dark/Violet. */
+  /** Inactive dock tint: #D6E9FF on light themes, #D9D3EE on Dark. */
   navInactive: { light: '#D6E9FF', dark: '#D9D3EE' },
-  placeholderAccent: '#B266FF',
-  placeholderCircle: '#230B40',
+  placeholderAccent: '#8B5CF6',
+  placeholderCircle: '#EDE6FD',
 } as const;

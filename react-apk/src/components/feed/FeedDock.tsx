@@ -75,7 +75,7 @@ export const FeedDock = memo(function FeedDockInner({
   const inactive = theme.isDark ? GLASS.navInactive.dark : GLASS.navInactive.light;
   const allColor = tab === 'all' ? theme.accent : inactive;
   const favColor = tab === 'favorites' ? theme.accent : inactive;
-  const likeColor = isFavorite ? HUD.heart : inactive;
+  const likeColor = isFavorite ? '#F43F5E' : inactive;
 
   return (
     <View pointerEvents="box-none" style={styles.layer}>
@@ -122,11 +122,20 @@ export const FeedDock = memo(function FeedDockInner({
         <Pressable
           onPress={onToggle}
           hitSlop={8}
-          style={styles.handle}
+          style={[
+            styles.handle,
+            {
+              backgroundColor: theme.isDark ? GLASS.handle.fill : '#FFFFFF',
+              borderColor: theme.isDark ? 'rgba(178, 102, 255, 0.45)' : 'rgba(139, 92, 246, 0.35)',
+            },
+          ]}
           accessibilityRole="button"
           accessibilityLabel={visible ? 'Hide controls' : 'Show controls'}
         >
-          <Text style={styles.handleText} allowFontScaling={false}>
+          <Text
+            style={[styles.handleText, { color: theme.isDark ? '#FFFFFF' : '#8B5CF6' }]}
+            allowFontScaling={false}
+          >
             {visible ? '⌄' : '⌃'}
           </Text>
         </Pressable>
@@ -183,7 +192,11 @@ const styles = StyleSheet.create({
     borderRightWidth: 0,
     borderBottomWidth: 0,
     elevation: 16,
-    overflow: 'hidden',
+    overflow: 'visible',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
   },
   barInner: {
     width: '100%',
@@ -193,7 +206,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     height: BAR_HEIGHT,
     alignSelf: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
+    overflow: 'visible',
   },
   sheen: {
     position: 'absolute',
@@ -205,11 +219,12 @@ const styles = StyleSheet.create({
   },
   item: {
     flex: 1,
-    minWidth: 54,
+    minWidth: 58,
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 2,
+    paddingHorizontal: 4,
+    overflow: 'visible',
   },
   itemPressed: { opacity: 0.7 },
   itemLabel: {

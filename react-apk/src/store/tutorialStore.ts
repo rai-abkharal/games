@@ -9,6 +9,7 @@ import {
 
 export const PRE_GAME_SNAKE_STORAGE_KEY = 'tutorials.v2.preGameSnake';
 export const FIRST_TIME_TUTORIAL_STORAGE_KEY = 'tutorials.v2.firstTimeTutorial';
+export const FIRST_TIME_SPLASH_STORAGE_KEY = 'tutorials.v2.firstTimeSplashCompleted';
 
 interface PersistedTutorials {
   swipeSeen: boolean;
@@ -16,18 +17,21 @@ interface PersistedTutorials {
   preGameSnakeSeen?: boolean;
   firstTimeTutorialCompleted?: boolean;
   homeSwipeSeen?: boolean;
+  firstTimeSplashCompleted?: boolean;
 }
 
 interface TutorialState extends PersistedTutorials {
   preGameSnakeSeen: boolean;
   firstTimeTutorialCompleted: boolean;
   homeSwipeSeen: boolean;
+  firstTimeSplashCompleted: boolean;
   hydrated: boolean;
   hydrate: () => Promise<void>;
   markSwipeSeen: () => void;
   markJoystickSeen: () => void;
   markPreGameSnakeSeen: () => void;
   markFirstTimeTutorialCompleted: () => void;
+  markFirstTimeSplashCompleted: () => void;
   markHomeSwipeSeen: () => void;
   resetTutorial: () => Promise<void>;
 }
@@ -39,6 +43,7 @@ function persist(state: TutorialState) {
     preGameSnakeSeen,
     firstTimeTutorialCompleted,
     homeSwipeSeen,
+    firstTimeSplashCompleted,
   } = state;
   writeJson(STORAGE_KEYS.tutorials, {
     swipeSeen,
@@ -46,12 +51,13 @@ function persist(state: TutorialState) {
     preGameSnakeSeen,
     firstTimeTutorialCompleted,
     homeSwipeSeen,
+    firstTimeSplashCompleted,
   } satisfies PersistedTutorials);
 }
 
 /**
  * First-run coach marks & pre-game onboarding.
- * Persists so each tutorial is never shown twice.
+ * Persists so each tutorial and first-time splash is never shown twice.
  */
 export const useTutorialStore = create<TutorialState>((set, get) => ({
   swipeSeen: false,
@@ -59,16 +65,23 @@ export const useTutorialStore = create<TutorialState>((set, get) => ({
   preGameSnakeSeen: false,
   firstTimeTutorialCompleted: false,
   homeSwipeSeen: false,
+  firstTimeSplashCompleted: false,
   hydrated: false,
 
   hydrate: async () => {
     if (get().hydrated) return;
-    const [saved, firstTimeRaw] = await Promise.all([
+    const [saved, firstTimeRaw, firstTimeSplashRaw] = await Promise.all([
       readJson<PersistedTutorials>(STORAGE_KEYS.tutorials),
       readString(FIRST_TIME_TUTORIAL_STORAGE_KEY),
+      readString(FIRST_TIME_SPLASH_STORAGE_KEY),
     ]);
     const firstTimeTutorialCompleted = Boolean(
       saved?.firstTimeTutorialCompleted || firstTimeRaw === '1',
+    );
+    const firstTimeSplashCompleted = Boolean(
+      saved?.firstTimeSplashCompleted ||
+        firstTimeSplashRaw === '1' ||
+        firstTimeTutorialCompleted,
     );
     const preGameSnakeSeen = Boolean(
       saved?.preGameSnakeSeen || firstTimeTutorialCompleted,
@@ -78,6 +91,7 @@ export const useTutorialStore = create<TutorialState>((set, get) => ({
       joystickSeen: true, // Never show joystick tutorial
       preGameSnakeSeen,
       firstTimeTutorialCompleted,
+      firstTimeSplashCompleted,
       homeSwipeSeen: Boolean(saved?.homeSwipeSeen),
       hydrated: true,
     });
@@ -112,6 +126,13 @@ export const useTutorialStore = create<TutorialState>((set, get) => ({
     persist(get());
   },
 
+  markFirstTimeSplashCompleted: () => {
+    if (get().firstTimeSplashCompleted) return;
+    set({ firstTimeSplashCompleted: true });
+    writeString(FIRST_TIME_SPLASH_STORAGE_KEY, '1');
+    persist(get());
+  },
+
   markHomeSwipeSeen: () => {
     if (get().homeSwipeSeen) return;
     set({ homeSwipeSeen: true });
@@ -125,16 +146,19 @@ export const useTutorialStore = create<TutorialState>((set, get) => ({
       preGameSnakeSeen: false,
       firstTimeTutorialCompleted: false,
       homeSwipeSeen: false,
+      firstTimeSplashCompleted: false,
     });
     await Promise.all([
       writeString(PRE_GAME_SNAKE_STORAGE_KEY, '0'),
       writeString(FIRST_TIME_TUTORIAL_STORAGE_KEY, '0'),
+      writeString(FIRST_TIME_SPLASH_STORAGE_KEY, '0'),
       writeJson(STORAGE_KEYS.tutorials, {
         swipeSeen: false,
         joystickSeen: true,
         preGameSnakeSeen: false,
         firstTimeTutorialCompleted: false,
         homeSwipeSeen: false,
+        firstTimeSplashCompleted: false,
       }),
     ]);
   },

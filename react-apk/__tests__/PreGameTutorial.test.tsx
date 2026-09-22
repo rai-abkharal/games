@@ -216,4 +216,19 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     expect(useTutorialStore.getState().homeSwipeSeen).toBe(true);
     expect(useTutorialStore.getState().firstTimeTutorialCompleted).toBe(false);
   });
+
+  test('firstTimeSplashCompleted is persisted and can be reset with resetTutorial', async () => {
+    const store = useTutorialStore.getState();
+    expect(store.firstTimeSplashCompleted).toBe(false);
+
+    act(() => {
+      store.markFirstTimeSplashCompleted();
+    });
+    expect(useTutorialStore.getState().firstTimeSplashCompleted).toBe(true);
+
+    await act(async () => {
+      await useTutorialStore.getState().resetTutorial();
+    });
+    expect(useTutorialStore.getState().firstTimeSplashCompleted).toBe(false);
+  });
 });

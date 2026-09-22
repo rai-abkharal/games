@@ -79,7 +79,7 @@ android {
 
     namespace "com.swipeplay.app"
     defaultConfig {
-        applicationId "com.sogeitest"
+        applicationId "com.eibigames.swipe.play.scroll"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

@@ -19,6 +19,8 @@ jest.mock('react-native-webview', () => {
 const mockLocalUrl: { value: string | null } = { value: null };
 jest.mock('../src/services/gameBundles', () => ({
   localUrlFor: () => mockLocalUrl.value,
+  useBundleStore: (selector: (state: { ready: Record<string, unknown> }) => unknown) =>
+    selector({ ready: {} }),
   // The page subscribes to download progress on its own; nothing is in flight
   // in these tests, and the selector must still be callable.
   useDownloadStore: (selector: (state: { active: Record<string, unknown> }) => unknown) =>

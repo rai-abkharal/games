@@ -9,7 +9,8 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 class MainActivity : ReactActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
+    // Pass null to prevent react-native-screens IllegalStateException on activity recreation
+    super.onCreate(null)
     // Lock window to highest hardware refresh rate (90Hz / 120Hz / 144Hz) matching native benchmark
     try {
       if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {

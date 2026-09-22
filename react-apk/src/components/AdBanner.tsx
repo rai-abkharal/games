@@ -19,7 +19,7 @@ export function AdBanner() {
       <BannerAd
         key={unitId}
         unitId={unitId}
-        size={BannerAdSize.BANNER}
+        size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
         onAdLoaded={() => setLoaded(true)}
         onAdFailedToLoad={() => setLoaded(false)}
       />
@@ -28,6 +28,6 @@ export function AdBanner() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { height: 50, width: '100%', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  hidden: { opacity: 0 },
+  wrap: { minHeight: 50, width: '100%', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  hidden: { opacity: 0, height: 0, minHeight: 0 },
 });

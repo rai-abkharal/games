@@ -32,9 +32,22 @@ export const GamepadIcon = memo(function GamepadIconInner({ size, color }: IconP
 });
 
 export const HeartIcon = memo(function HeartIconInner({ size, color, filled }: IconProps & { filled: boolean }) {
+  const boxWidth = size + 12;
   return (
-    <View style={[styles.box, { width: size, height: size }]}>
-      <Text style={[styles.glyph, { color, fontSize: size * 0.95, lineHeight: size * 1.05 }]} allowFontScaling={false}>
+    <View style={[styles.box, { width: boxWidth, height: size, overflow: 'visible' }]}>
+      <Text
+        style={[
+          styles.glyph,
+          styles.heartGlyph,
+          {
+            color,
+            fontSize: size * 0.95,
+            lineHeight: size * 1.12,
+            width: boxWidth,
+          },
+        ]}
+        allowFontScaling={false}
+      >
         {filled ? '♥' : '♡'}
       </Text>
     </View>
@@ -84,5 +97,9 @@ const styles = StyleSheet.create({
   padBody: { justifyContent: 'center' },
   cutout: { position: 'absolute', backgroundColor: CUTOUT, opacity: 0.85 },
   glyph: { includeFontPadding: false },
+  heartGlyph: {
+    textAlign: 'center',
+    includeFontPadding: true,
+  },
   tooth: { position: 'absolute', borderRadius: 2 },
 });

@@ -35,6 +35,9 @@ const BUNDLE_STORE_BOOT_MS = 1200;
 function App() {
   const playerHydrated = usePlayerStore(state => state.hydrated);
   const tutorialsHydrated = useTutorialStore(state => state.hydrated);
+  const firstTimeSplashCompleted = useTutorialStore(
+    state => state.firstTimeSplashCompleted,
+  );
   const games = useCatalogStore(state => state.games);
   const readyBundles = useBundleStore(state => state.ready);
 
@@ -43,7 +46,10 @@ function App() {
   const [preloadDone, setPreloadDone] = useState(false);
   const [preloadProgress, setPreloadProgress] = useState(0.02);
 
-  const hideSplash = useCallback(() => setSplashDone(true), []);
+  const hideSplash = useCallback(() => {
+    setSplashDone(true);
+    useTutorialStore.getState().markFirstTimeSplashCompleted();
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -78,8 +84,17 @@ function App() {
     });
   }, [bundlesSettled, games]);
 
-  // Preloading timer: runs for exactly 30 seconds
+  // Preloading timer: runs for exactly 30 seconds ONLY on the very first app launch (like first-time tutorial)
   useEffect(() => {
+    if (!tutorialsHydrated) return;
+
+    // Returning user: first-time 30-second splash preloading is already done
+    if (firstTimeSplashCompleted) {
+      setPreloadDone(true);
+      setSplashDone(true);
+      return;
+    }
+
     const startTime = Date.now();
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
@@ -91,7 +106,7 @@ function App() {
       }
     }, 100);
     return () => clearInterval(interval);
-  }, []);
+  }, [tutorialsHydrated, firstTimeSplashCompleted]);
 
   const readyCount = Object.keys(readyBundles).length;
   const statusText = useMemo(() => {
@@ -102,13 +117,18 @@ function App() {
   }, [readyCount]);
 
   const isReadyToEnter = preloadDone;
+  // Splash is only shown once on the very first app launch (like the first-time tutorial)
+  const shouldShowSplash =
+    !splashDone && tutorialsHydrated && !firstTimeSplashCompleted;
 
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <View style={styles.root}>
-          {playerHydrated && tutorialsHydrated && bundlesSettled ? <RootNavigator /> : null}
-          {splashDone ? null : (
+          {playerHydrated && tutorialsHydrated && bundlesSettled && !shouldShowSplash ? (
+            <RootNavigator />
+          ) : null}
+          {shouldShowSplash ? (
             <Splash
               minimumMs={PRELOAD_DURATION_MS}
               ready={isReadyToEnter}
@@ -117,7 +137,7 @@ function App() {
               totalSeconds={30}
               onDone={hideSplash}
             />
-          )}
+          ) : null}
         </View>
         <Toast />
       </SafeAreaProvider>
@@ -126,7 +146,7 @@ function App() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0F172A' },
+  root: { flex: 1, backgroundColor: '#F6F3FC' },
 });
 
 export default App;

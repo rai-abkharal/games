@@ -45,12 +45,13 @@ test('readiness during an existing fade does not restart or extend it', async ()
   expect(fades).toBe(1);
 });
 
-test('renders glowing progress bar and dynamic engine warming messages', async () => {
+test('renders centered preloading panel with progress percentage and branding', async () => {
   const done = jest.fn();
   await act(async () => {
     tree = TestRenderer.create(<Splash minimumMs={1200} progress={0.5} onDone={done} />);
   });
   const texts = tree.root.findAll(node => typeof node.props.children === 'string').map(n => n.props.children);
   expect(texts).toContain('50%');
-  expect(texts).toContain('Calibrating touch input response...');
+  expect(texts).toContain('EiBi Games');
+  expect(texts).toContain('SWIPE & PLAY');
 });

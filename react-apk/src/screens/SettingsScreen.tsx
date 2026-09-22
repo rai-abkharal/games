@@ -277,7 +277,18 @@ export function SettingsScreen({ navigation }: RootScreenProps<'Settings'>) {
             Audio, Themes & Language
           </Text>
         </Pressable>
-        <View style={{ width: 36 }} />
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={t('done')}
+          style={({ pressed }) => [
+            styles.doneButton,
+            { backgroundColor: theme.accent, opacity: pressed ? 0.8 : 1 },
+          ]}
+        >
+          <Text style={styles.doneButtonText}>{t('done')}</Text>
+        </Pressable>
       </View>
 
       <ScrollView
@@ -629,15 +640,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 1,
   },
-  doneBtnPill: {
-    paddingHorizontal: 14,
+  doneButton: {
+    paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 14,
-    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  doneText: {
+  doneButtonText: {
+    color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   content: { paddingHorizontal: 16, paddingTop: 14, gap: 14 },
   card: {
