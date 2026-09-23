@@ -1,10 +1,21 @@
-import { nextTutorialGame, orderTutorialGames, tutorialGameStep } from '../src/feed/tutorialFlow';
+import { bundledTutorialGames, nextTutorialGame, orderTutorialGames, tutorialGameStep } from '../src/feed/tutorialFlow';
 import type { GameItem } from '../src/types/game';
 
 const game = (id: string): GameItem => ({
   id, title: id, version: '1.0.0', entryUrl: 'https://games.test/' + id,
   thumbnailUrl: '', manifestUrl: '', sizeBytes: 100, orientation: 'portrait',
   engine: 'canvas', category: 'Puzzle', description: '', feedOrder: 0,
+});
+
+test('bundled onboarding works without a catalogue and cannot queue remote downloads', () => {
+  const bundles = ['arrow-puzzle', 'knife-hit', 'water-sort-3d'].map(gameId => ({
+    gameId, buildId: 'local-v1', entry: 'index.html',
+    url: `http://127.0.0.1:18888/token/__tutorial/${gameId}/index.html`,
+  }));
+  const ordered = orderTutorialGames(bundledTutorialGames(bundles), []);
+  expect(ordered.map(item => item.id)).toEqual(bundles.map(item => item.gameId));
+  expect(ordered.every(item => item.tutorial && !item.bundleUrl)).toBe(true);
+  expect(nextTutorialGame(ordered, 'arrow_completed')?.game.entryUrl).toBe(bundles[1].url);
 });
 
 test('Arrow -> Knife Hit -> Water Sort preserves the normal feed game and URL', () => {

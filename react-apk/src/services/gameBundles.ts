@@ -72,7 +72,7 @@ interface BundlePolicy {
 }
 
 interface NativeGameBundles {
-  start(): Promise<{ available: boolean; port: number; ready: ReadyBundle[] }>;
+  start(): Promise<{ available: boolean; port: number; ready: ReadyBundle[]; tutorials?: ReadyBundle[] }>;
   sync(requests: BundleRequest[]): void;
   setPlaying(playing: boolean): void;
   setPaused(paused: boolean): void;
@@ -94,12 +94,14 @@ export function isBundleStoreAvailable(): boolean {
 }
 
 interface BundleState {
+  tutorials: ReadyBundle[];
+  bootFinished: boolean;
   /** gameId -> the build currently playable from disk. */
   ready: Record<string, ReadyBundle>;
   started: boolean;
 }
 
-export const useBundleStore = create<BundleState>(() => ({ ready: {}, started: false }));
+export const useBundleStore = create<BundleState>(() => ({ ready: {}, tutorials: [], started: false, bootFinished: false }));
 
 /**
  * Live download state, kept in a store of its own on purpose.
@@ -252,9 +254,9 @@ export function startBundleStore(): Promise<void> {
     try {
       const result = await native.start();
       mergeReady(result?.ready ?? []);
-      useBundleStore.setState({ started: Boolean(result?.available) });
+      useBundleStore.setState({ started: Boolean(result?.available), tutorials: result?.tutorials ?? [], bootFinished: true });
     } catch {
-      useBundleStore.setState({ started: false });
+      useBundleStore.setState({ started: false, bootFinished: true });
     }
   })();
   return starting;

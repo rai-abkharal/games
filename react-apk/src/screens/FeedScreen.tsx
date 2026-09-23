@@ -31,7 +31,7 @@ import {
 } from '../components/feed/GamePage';
 import { GamePager } from '../components/feed/GamePager';
 import { MessageView } from '../components/StateViews';
-import { nextTutorialGame, orderTutorialGames, tutorialGameStep } from '../feed/tutorialFlow';
+import { bundledTutorialGames, nextTutorialGame, orderTutorialGames, tutorialGameStep } from '../feed/tutorialFlow';
 import { FEED, GAMEPLAY } from '../config/env';
 import {
   clampIndex,
@@ -54,6 +54,8 @@ import {
   setBundlePolicy,
   syncBundles,
   warmBundle,
+  useBundleStore,
+  isBundleStoreAvailable,
   type BundlePriorityValue,
 } from '../services/gameBundles';
 import {
@@ -186,10 +188,15 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     return games.filter(game => set.has(game.id));
   }, [games, tab, favorites]);
 
+  const tutorialBundles = useBundleStore(state => state.tutorials);
+  const bundleBootFinished = useBundleStore(state => state.bootFinished);
+  const [pagePhases, setPagePhases] = useState<Record<string, PagePhase>>({});
   const orderedForTutorial = useMemo(() => {
     if (!isTutorialActive) return filtered;
-    return orderTutorialGames(games, filtered);
-  }, [filtered, games, isTutorialActive]);
+    if (isBundleStoreAvailable() && !bundleBootFinished) return [];
+    const bundled = bundledTutorialGames(tutorialBundles);
+    return orderTutorialGames(bundled.length ? bundled : games, filtered);
+  }, [filtered, games, isTutorialActive, tutorialBundles, bundleBootFinished]);
   const list = useStableList(orderedForTutorial);
 
   /* ---------------- position ------------------------------------------------- */
@@ -311,6 +318,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   const onPhase = useCallback((gameId: string, phase: PagePhase) => {
     phasesRef.current.set(gameId, phase);
+    setPagePhases(phases => phases[gameId] === phase ? phases : { ...phases, [gameId]: phase });
     if (phase === 'ready' && gameId === currentIdRef.current) {
       markFirstGameReady();
       const tutorials = useTutorialStore.getState();
@@ -360,11 +368,13 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const onTutorialSwipeUp = useCallback(() => {
     const target = nextTutorialGame(listRef.current, tutorialStep);
     if (!target) return;
+    const targetPhase = phasesRef.current.get(target.game.id);
+    if (target.game.tutorial && targetPhase !== 'ready' && targetPhase !== 'error') return;
     useTutorialStore.getState().markSwipeSeen();
     setTutorialStep(target.step);
     setSwipeEnabled(false);
     currentIdRef.current = target.game.id;
-    // Match a real swipe: the target may boot only after GamePager.onSettled.
+    // A bundled target is already prepared; resume it only after the snap.
     setPosition({ index: target.index, direction: 1, settling: true });
     analytics.onGameAction('global', 'Feed',
       target.step === 'water_sort_playing' ? 'tutorial_swipe_to_water_sort' : 'tutorial_swipe_to_knife_hit');
@@ -558,7 +568,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     const ordered: GameItem[] = [];
     const seen = new Set<string>();
     const push = (game?: GameItem) => {
-      if (!game || seen.has(game.id)) return;
+      if (!game || game.tutorial || seen.has(game.id)) return;
       seen.add(game.id);
       ordered.push(game);
     };
@@ -607,7 +617,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     const nextIndex = lookahead[0];
     const nextGame = nextIndex === undefined ? undefined : list[nextIndex];
     if (nextGame) warmBundle(nextGame.id);
-  }, [list, position.index, position.direction, position.settling]);
+  }, [list, games, position.index, position.direction, position.settling]);
 
   // Ceilings apply to speculation only, and the game one swipe away barely
   // counts as speculation: it gets several times the distant catalogue's
@@ -665,7 +675,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
             message.score,
             message.stats,
           );
-          store.saveHighScore(game.id, message.score);
+          if (!game.tutorial) store.saveHighScore(game.id, message.score);
           const earned =
             message.score > 0 ? Math.max(Math.floor(message.score / 10), 5) : 2;
           store.addCoins(earned);
@@ -688,8 +698,8 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
             message.score,
             message.level,
           );
-          store.saveHighScore(game.id, message.score);
-          store.saveLevel(game.id, message.level + 1);
+          if (!game.tutorial) store.saveHighScore(game.id, message.score);
+          if (!game.tutorial) store.saveLevel(game.id, message.level + 1);
           const earned =
             50 + (message.score > 0 ? Math.floor(message.score / 10) : 0);
           store.addCoins(earned);
@@ -742,7 +752,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           void grantHint(message.rewardType);
           break;
         case 'saveLevelState':
-          store.saveLevel(game.id, message.level);
+          if (!game.tutorial) store.saveLevel(game.id, message.level);
           analytics.onLevelStart(game.id, game.title, message.level);
           break;
         case 'setSwipeEnabled':
@@ -844,9 +854,11 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         if (!settling) return null;
         slot = 'leaving';
       }
-      // An offscreen WebView cannot be safely preempted once its engine starts.
-      // Keep loaded neighbors, but initialize cold games only when selected.
-      const mayLoad = !suspended && slot === 'active' && rested;
+      // Normal cold games initialize only when selected. The next bundled
+      // tutorial may prepare once the current game has finished booting.
+      const preloadTutorial = Boolean(isTutorialActive && game.tutorial && slot === 'ahead'
+        && pagePhases[list[index]?.id] === 'ready');
+      const mayLoad = !suspended && rested && (slot === 'active' || preloadTutorial);
       return (
         <GamePage
           key={game.id}
@@ -854,6 +866,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           game={game}
           slot={slot}
           mayLoad={mayLoad}
+          preloadTutorial={preloadTutorial}
           near={true}
           suspended={suspended || settling}
           onPhase={onPhase}
@@ -874,8 +887,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       onMessage,
       theme,
       tab,
-      games,
       onAllGames,
+      isTutorialActive,
+      pagePhases,
     ],
   );
 
@@ -919,6 +933,12 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   }, []);
 
   /* ---------------- render --------------------------------------------------- */
+  const nextTutorialTarget = isTutorialActive ? nextTutorialGame(list, tutorialStep) : null;
+  // Keep the completed game visible until the next local page is ready. Errors
+  // remain reachable so its normal Retry control can recover the page.
+  const nextTutorialAvailable = !nextTutorialTarget?.game.tutorial ||
+    pagePhases[nextTutorialTarget.game.id] === 'ready' ||
+    pagePhases[nextTutorialTarget.game.id] === 'error';
   const isFavorite = current ? favorites.includes(current.id) : false;
 
   const isFavoritesTab = tab === 'favorites';
@@ -934,6 +954,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         width={stage.width}
         swipeEnabled={
           swipeEnabled &&
+          nextTutorialAvailable &&
           !fullScreenAdShowing &&
           (!isTutorialActive ||
             tutorialStep === 'arrow_completed' ||

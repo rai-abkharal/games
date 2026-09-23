@@ -53,7 +53,7 @@ import java.util.concurrent.ThreadFactory
  * Chromium keep its own copy costs disk the store already proves the device
  * has, and buys a warm code cache on the second open of every game.
  */
-class LocalGameServer(private val store: GameBundleStore) {
+class LocalGameServer(private val store: GameBundleStore, private val tutorialRoot: File) {
 
   @Volatile private var socket: ServerSocket? = null
   @Volatile private var acceptor: Thread? = null
@@ -317,7 +317,8 @@ class LocalGameServer(private val store: GameBundleStore) {
     val relative = segments.subList(3, segments.size).joinToString("/")
     if (!GameBundleStore.isSafeRelativePath(relative)) return null
 
-    val buildDir = store.buildDir(gameId, buildId)
+    val buildDir = if (gameId == "__tutorial") File(tutorialRoot, buildId)
+      else store.buildDir(gameId, buildId)
     val file = File(buildDir, relative)
     val canonicalRoot = try {
       buildDir.canonicalPath + File.separator

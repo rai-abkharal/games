@@ -1,4 +1,18 @@
 import type { GameItem } from '../types/game';
+import type { ReadyBundle } from '../services/gameBundles';
+
+export function bundledTutorialGames(bundles: ReadyBundle[]): GameItem[] {
+  const titles: Record<string, string> = {
+    'arrow-puzzle': 'Arrow Puzzle', 'knife-hit': 'Knife Hit', 'water-sort-3d': 'Water Sort 3D',
+  };
+  return bundles.filter(bundle => titles[bundle.gameId]).map((bundle, index) => ({
+    id: bundle.gameId, title: titles[bundle.gameId], version: 'tutorial-1',
+    buildId: bundle.buildId, entryUrl: bundle.url, tutorial: true,
+    sizeBytes: bundle.bytes ?? 0, thumbnailUrl: '', manifestUrl: '',
+    orientation: 'portrait', engine: 'canvas', category: 'Tutorial',
+    description: '', feedOrder: index,
+  }));
+}
 
 export type TutorialGameStep = 'arrow_playing' | 'knife_hit_playing' | 'water_sort_playing';
 

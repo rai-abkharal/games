@@ -51,6 +51,8 @@ interface Props {
   slot: PageSlot;
   /** Whether this page may create its WebView right now (see FeedScreen's load gating). */
   mayLoad: boolean;
+  /** Only small, APK-bundled tutorial games may initialize before selection. */
+  preloadTutorial?: boolean;
   /** Render placeholder chrome (only for pages near the current one). */
   near: boolean;
   /**
@@ -85,11 +87,12 @@ const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
  * feed down.
  */
 export const GamePage = memo(
-  forwardRef<GamePageHandle, Props>(function GamePageInner({ game, slot, mayLoad, near, suspended, onPhase, onMessage }, ref) {
+  forwardRef<GamePageHandle, Props>(function GamePageInner({ game, slot, mayLoad, preloadTutorial = false, near, suspended, onPhase, onMessage }, ref) {
+    const canPreload = Boolean(game.tutorial && preloadTutorial && slot === 'ahead');
     const webviewRef = useRef<WebView<object>>(null);
-    // The selected page can create its view in the first commit. Neighbors
-    // still cannot initialize an engine, even when their load gate is open.
-    const [live, setLive] = useState(() => slot === 'active' && mayLoad && !suspended);
+    // The selected page can create its view in the first commit. Only an
+    // explicitly opted-in bundled tutorial may initialize as a neighbor.
+    const [live, setLive] = useState(() => (slot === 'active' || canPreload) && mayLoad && !suspended);
     const [attempt, setAttempt] = useState(0);
     const [phase, setPhaseState] = useState<PagePhase>('idle');
     const [errorText, setErrorText] = useState<string | null>(null);
@@ -162,9 +165,13 @@ export const GamePage = memo(
         }
         return;
       }
-      // Offscreen pages retain an existing view only. A cold engine cannot
-      // be preempted by setting mayLoad=false after it has begun parsing.
+      // Normal offscreen games retain existing views only. Bundled tutorial
+      // preparation is allowed to finish even if the pager starts moving.
       if (slot !== 'active') {
+        if (game.tutorial && slot === 'ahead') {
+          if (canPreload && mayLoad && !suspended && !live) setLive(true);
+          return;
+        }
         // A fast swipe can leave the selected game before its load finishes.
         // Retain completed games only; otherwise that abandoned load competes
         // with the new foreground game. Slot changes occur after the snap.
@@ -176,14 +183,14 @@ export const GamePage = memo(
         return;
       }
       if (mayLoad && !live) setLive(true);
-    }, [slot, mayLoad, live, phase]);
+    }, [slot, mayLoad, live, phase, canPreload, game.tutorial, suspended]);
 
     // Source is decided once per WebView instance so a catalogue refresh (new
     // game object, same build) never reloads a running game. `buildId` is part
     // of the key: a genuinely new build *should* replace the document.
     const sourceKey = `${game.id}:${game.version}:${game.buildId ?? game.updatedAt ?? game.sha256 ?? ''}`;
     const entryUrl = useMemo(() => buildGameEntryUrl(game), [sourceKey]); // eslint-disable-line react-hooks/exhaustive-deps
-    const localUrl = live ? localUrlFor(game) : null;
+    const localUrl = live ? (game.tutorial ? entryUrl : localUrlFor(game)) : null;
     const source = useMemo<WebSource | null>(() => {
       if (!live) return null;
       // Two possibilities, and only two: the build stored on this device
@@ -300,6 +307,7 @@ export const GamePage = memo(
     }, []);
 
     const injectSavedState = useCallback(() => {
+      if (game.tutorial) return;
       const store = usePlayerStore.getState();
       inject(
         buildSavedStateScript({
@@ -308,7 +316,7 @@ export const GamePage = memo(
           highScore: store.getHighScore(game.id),
         }),
       );
-    }, [game.id, inject]);
+    }, [game.id, game.tutorial, inject]);
 
 
     const resume = useCallback(() => {

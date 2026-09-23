@@ -10,6 +10,8 @@ import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import android.os.Process
+import java.io.File
+import org.json.JSONArray
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -26,7 +28,8 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext), GameBundleDownloader.Listener {
 
   private val store = GameBundleStore(reactContext.applicationContext)
-  private val server = LocalGameServer(store)
+  private val tutorialRoot = File(reactContext.filesDir, "tutorial-games")
+  private val server = LocalGameServer(store, tutorialRoot)
   private val downloader = GameBundleDownloader(store, this)
 
   /** gameId -> entry path of the activated build, so URLs can be rebuilt cheaply. */
@@ -82,6 +85,28 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
           }
         }
         result.putArray("ready", ready)
+        val tutorials = Arguments.createArray()
+        if (started) {
+          val manifest = reactContext.assets.open("tutorial-games/manifest.json")
+            .bufferedReader().use { JSONArray(it.readText()) }
+          for (i in 0 until manifest.length()) {
+            val item = manifest.getJSONObject(i)
+            val gameId = item.getString("gameId")
+            val buildId = item.getString("buildId")
+            val entry = File(File(tutorialRoot, buildId), "index.html")
+            if (!entry.isFile || entry.length() != item.getLong("bytes")) {
+              entry.parentFile?.mkdirs()
+              reactContext.assets.open("tutorial-games/$gameId.html").use { input ->
+                entry.outputStream().use { output -> input.copyTo(output) }
+              }
+            }
+            val descriptor = describe(gameId, buildId, "index.html")
+            descriptor.putString("url", server.entryUrl("__tutorial", buildId, "index.html"))
+            descriptor.putDouble("bytes", entry.length().toDouble())
+            tutorials.pushMap(descriptor)
+          }
+        }
+        result.putArray("tutorials", tutorials)
         downloader.start()
         promise.resolve(result)
       } catch (error: Exception) {

@@ -27,6 +27,8 @@ export interface GameAdsConfig {
 export type GameStatus = 'published' | 'draft' | 'archived' | 'deactivated';
 
 export interface GameItem {
+  /** APK-bundled, single-level onboarding copy; never restores normal progress. */
+  tutorial?: boolean;
   id: string;
   /** Effective display name — already resolved server-side (admin override wins). */
   title: string;

@@ -98,6 +98,32 @@ test('a cold neighbor never starts an engine even when the caller opens its load
   expect(webviews()).toHaveLength(0);
 });
 
+test('only an explicitly opted-in bundled tutorial preloads and survives the swipe', async () => {
+  const localGame = { ...game, tutorial: true, entryUrl: 'http://127.0.0.1/tutorial/index.html' };
+  await act(async () => {
+    tree = TestRenderer.create(<GamePage {...props} game={localGame} slot="ahead" preloadTutorial />);
+  });
+  expect(webviews()).toHaveLength(1);
+  await act(async () => { webviews()[0].props.onLoadStart(); });
+  await act(async () => {
+    tree.update(<GamePage {...props} game={localGame} slot="ahead" mayLoad={false} suspended />);
+  });
+  expect(webviews()).toHaveLength(1);
+  expect(mockStopLoading).not.toHaveBeenCalled();
+  await act(async () => { webviews()[0].props.onLoad(); });
+  await act(async () => {
+    tree.update(<GamePage {...props} game={localGame} slot="active" />);
+  });
+  expect(webviews()).toHaveLength(1);
+});
+
+test('the tutorial preload opt-in never starts a normal feed neighbor', async () => {
+  await act(async () => {
+    tree = TestRenderer.create(<GamePage {...props} slot="ahead" preloadTutorial />);
+  });
+  expect(webviews()).toHaveLength(0);
+});
+
 test('tutorial Water Sort stays cold during the page transition and loads after settling', async () => {
   const water = { ...game, id: 'water-sort-3d', title: 'Water Sort 3D' };
   await act(async () => {

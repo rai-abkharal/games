@@ -125,8 +125,12 @@ function App() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <View style={styles.root}>
-          {playerHydrated && tutorialsHydrated && bundlesSettled && !shouldShowSplash ? (
-            <RootNavigator />
+          {playerHydrated && tutorialsHydrated && bundlesSettled ? (
+            <View style={styles.root} pointerEvents={shouldShowSplash ? 'none' : 'auto'}
+              accessibilityElementsHidden={shouldShowSplash}
+              importantForAccessibility={shouldShowSplash ? 'no-hide-descendants' : 'auto'}>
+              <RootNavigator />
+            </View>
           ) : null}
           {shouldShowSplash ? (
             <Splash
