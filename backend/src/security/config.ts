@@ -20,8 +20,11 @@ export function securityConfig(): SecurityConfig {
     throw new Error("Admin security deployment configuration is required");
   if (production && process.env.ADMIN_RESET_EMAIL_ENABLED !== "false" && (!process.env.SMTP_URL || !process.env.ADMIN_MAIL_FROM))
     throw new Error("Admin password reset mail configuration is required");
-  const origin = new URL(process.env.ADMIN_ORIGIN || "https://localhost:5173")
-    .origin;
+  const rawOrigin = process.env.ADMIN_ORIGIN;
+  const adminOrigin = (!rawOrigin || rawOrigin.includes("sslip.io") || rawOrigin.includes("localhost:5173") && production)
+    ? "https://games.raiabdullah.tech"
+    : (rawOrigin || "https://localhost:5173");
+  const origin = new URL(adminOrigin).origin;
   const previewOrigin = new URL(
     process.env.PREVIEW_ORIGIN || "https://127.0.0.1:5444",
   ).origin;

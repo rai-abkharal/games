@@ -77,10 +77,10 @@ export function createApp(
   );
   app.use(express.json({ limit: "64kb" }));
 
-  // Enforce Canonical Domain & Permanently redirect any legacy sslip.io host
+  // Enforce Canonical Domain & Permanently redirect any legacy sslip.io host or raw IP
   app.use((req, res, next) => {
-    const host = req.get("host") || "";
-    if (host.includes("sslip.io")) {
+    const host = (req.get("host") || "").split(":")[0];
+    if (host.includes("sslip.io") || host === "187.77.147.226" || host === "162.243.197.241") {
       return res.redirect(301, `https://games.raiabdullah.tech${req.originalUrl}`);
     }
     next();
@@ -176,8 +176,15 @@ export function createApp(
   // require a server-validated session, including direct index.html requests.
   app.use("/admin", (req, res, next) => {
     res.setHeader("Cache-Control", "no-store");
-    if (req.get("host") !== new URL(config.origin).host)
-      return res.redirect(302, config.origin + "/admin/login");
+    const hostHeader = (req.get("host") || "").split(":")[0];
+    const originHost = new URL(config.origin).hostname;
+    const isAllowed =
+      hostHeader === originHost ||
+      hostHeader === "games.raiabdullah.tech" ||
+      hostHeader === "localhost" ||
+      hostHeader === "127.0.0.1";
+    if (!isAllowed)
+      return res.redirect(302, "https://games.raiabdullah.tech/admin/login");
     securityMiddleware(store, config)(req, res, (error) => {
       if (error) return next(error);
       if (req.path === "/login" || req.path.startsWith("/assets/")) return next();

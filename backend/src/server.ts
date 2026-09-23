@@ -3,6 +3,9 @@ import { createApp } from "./app";
 import fs from "node:fs";
 import https from "node:https";
 
+if (fs.existsSync("/etc/games-admin.env")) {
+  dotenv.config({ path: "/etc/games-admin.env" });
+}
 dotenv.config();
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
