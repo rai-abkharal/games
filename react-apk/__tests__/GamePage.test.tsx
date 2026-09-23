@@ -98,6 +98,23 @@ test('a cold neighbor never starts an engine even when the caller opens its load
   expect(webviews()).toHaveLength(0);
 });
 
+test('tutorial Water Sort stays cold during the page transition and loads after settling', async () => {
+  const water = { ...game, id: 'water-sort-3d', title: 'Water Sort 3D' };
+  await act(async () => {
+    tree = TestRenderer.create(<GamePage {...props} game={water} slot="ahead" mayLoad={false} />);
+  });
+  await act(async () => {
+    tree.update(<GamePage {...props} game={water} slot="active" mayLoad={false} suspended={true} />);
+  });
+  expect(webviews()).toHaveLength(0);
+  await act(async () => {
+    tree.update(<GamePage {...props} game={water} slot="active" mayLoad={true} suspended={false} />);
+  });
+  expect(webviews()).toHaveLength(1);
+  await act(async () => webviews()[0].props.onLoad());
+  expect(props.onPhase).toHaveBeenCalledWith('water-sort-3d', 'ready');
+});
+
 test('swiping away during load stops and releases the abandoned WebView', async () => {
   await act(async () => {
     tree = TestRenderer.create(<GamePage {...props} slot="active" />);

@@ -31,6 +31,7 @@ import {
 } from '../components/feed/GamePage';
 import { GamePager } from '../components/feed/GamePager';
 import { MessageView } from '../components/StateViews';
+import { nextTutorialGame, orderTutorialGames, tutorialGameStep } from '../feed/tutorialFlow';
 import { FEED, GAMEPLAY } from '../config/env';
 import {
   clampIndex,
@@ -187,28 +188,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   const orderedForTutorial = useMemo(() => {
     if (!isTutorialActive) return filtered;
-    if (games.length === 0) return [];
-    const arrowGame =
-      games.find(g => g.id === 'arrow-puzzle') || filtered[0];
-    const knifeGame =
-      games.find(
-        g =>
-          g.id === 'knife-hit' ||
-          g.id === 'knife_hit' ||
-          g.id.toLowerCase().includes('knife') ||
-          (g.title && g.title.toLowerCase().includes('knife')) ||
-          (g.sourceTitle && g.sourceTitle.toLowerCase().includes('knife')),
-      );
-    const waterGame =
-      games.find(g => g.id === 'water-sort' || g.id === 'water-sort-3d') ||
-      filtered.find(g => g.id !== arrowGame?.id && g.id !== knifeGame?.id) ||
-      filtered[1];
-    const priorityList = [arrowGame, knifeGame, waterGame].filter(
-      (g): g is GameItem => Boolean(g),
-    );
-    const priorityIds = new Set(priorityList.map(g => g.id));
-    const others = filtered.filter(g => !priorityIds.has(g.id));
-    return [...priorityList, ...others];
+    return orderTutorialGames(games, filtered);
   }, [filtered, games, isTutorialActive]);
   const list = useStableList(orderedForTutorial);
 
@@ -246,14 +226,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     if (list.length) {
       let next: number;
       if (isTutorialActive) {
-        next =
-          tutorialStep === 'water_sort_playing' ||
-          tutorialStep === 'water_sort_completed'
-            ? 2
-            : tutorialStep === 'knife_hit_playing' ||
-              tutorialStep === 'knife_hit_completed'
-            ? 1
-            : 0;
+        const playingStep = tutorialStep.replace('_completed', '_playing');
+        const stageIndex = list.findIndex(game => tutorialGameStep(game) === playingStep);
+        next = stageIndex >= 0 ? stageIndex : clampIndex(position.index, list.length);
       } else {
         const wanted = list.findIndex(game => game.id === currentIdRef.current);
         next = wanted >= 0 ? wanted : clampIndex(position.index, list.length);
@@ -383,22 +358,16 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   /* ---------------- first-run tutorial flow --------------------------------- */
   const onTutorialSwipeUp = useCallback(() => {
+    const target = nextTutorialGame(listRef.current, tutorialStep);
+    if (!target) return;
     useTutorialStore.getState().markSwipeSeen();
-    if (tutorialStep === 'arrow_completed') {
-      setTutorialStep('knife_hit_playing');
-      setSwipeEnabled(false);
-      const nextGame = listRef.current[1] ?? listRef.current[0];
-      if (nextGame) currentIdRef.current = nextGame.id;
-      setPosition({ index: 1, direction: 1, settling: false });
-      analytics.onGameAction('global', 'Feed', 'tutorial_swipe_to_knife_hit');
-    } else if (tutorialStep === 'knife_hit_completed') {
-      setTutorialStep('water_sort_playing');
-      setSwipeEnabled(false);
-      const nextGame = listRef.current[2] ?? listRef.current[1] ?? listRef.current[0];
-      if (nextGame) currentIdRef.current = nextGame.id;
-      setPosition({ index: 2, direction: 1, settling: false });
-      analytics.onGameAction('global', 'Feed', 'tutorial_swipe_to_water_sort');
-    }
+    setTutorialStep(target.step);
+    setSwipeEnabled(false);
+    currentIdRef.current = target.game.id;
+    // Match a real swipe: the target may boot only after GamePager.onSettled.
+    setPosition({ index: target.index, direction: 1, settling: true });
+    analytics.onGameAction('global', 'Feed',
+      target.step === 'water_sort_playing' ? 'tutorial_swipe_to_water_sort' : 'tutorial_swipe_to_knife_hit');
   }, [tutorialStep]);
 
   const onCompleteTutorial = useCallback(() => {
@@ -726,30 +695,10 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           store.addCoins(earned);
 
           if (isTutorialActive) {
-            if (game.id === 'arrow-puzzle' || positionRef.current.index === 0) {
-              setTutorialStep('arrow_completed');
-              setSwipeEnabled(true);
-              return;
-            }
-            if (
-              positionRef.current.index === 1 ||
-              tutorialStep === 'knife_hit_playing' ||
-              game.id === 'knife-hit' ||
-              game.id === 'knife_hit' ||
-              game.id.includes('knife') ||
-              game.title?.toLowerCase().includes('knife')
-            ) {
-              setTutorialStep('knife_hit_completed');
-              setSwipeEnabled(true);
-              return;
-            }
-            if (
-              game.id === 'water-sort' ||
-              game.id === 'water-sort-3d' ||
-              positionRef.current.index === 2 ||
-              tutorialStep === 'water_sort_playing'
-            ) {
-              setTutorialStep('water_sort_completed');
+            const step = tutorialGameStep(game);
+            if (step) {
+              setTutorialStep(step.replace('_playing', '_completed') as TutorialFlowStep);
+              setSwipeEnabled(step !== 'water_sort_playing');
               return;
             }
           }
@@ -823,11 +772,10 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       // their own never needs the swipe coach mark, shown yet or not.
       useTutorialStore.getState().markSwipeSeen();
       if (isTutorialActive) {
-        if (index === 1) {
-          setTutorialStep('knife_hit_playing');
-          setSwipeEnabled(false);
-        } else if (index === 2) {
-          setTutorialStep('water_sort_playing');
+        const game = listRef.current[index];
+        const step = game && tutorialGameStep(game);
+        if (step) {
+          setTutorialStep(step);
           setSwipeEnabled(false);
         }
       }

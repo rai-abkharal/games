@@ -1,0 +1,30 @@
+import type { GameItem } from '../types/game';
+
+export type TutorialGameStep = 'arrow_playing' | 'knife_hit_playing' | 'water_sort_playing';
+
+export function tutorialGameStep(game: GameItem): TutorialGameStep | null {
+  if (game.id === 'arrow-puzzle') return 'arrow_playing';
+  if (game.id === 'water-sort' || game.id === 'water-sort-3d') return 'water_sort_playing';
+  if (/knife/i.test([game.id, game.title, game.sourceTitle ?? ''].join(' '))) return 'knife_hit_playing';
+  return null;
+}
+
+/** Keep the exact catalogue objects/URLs used by the normal feed. Missing stages are skipped. */
+export function orderTutorialGames(games: GameItem[], filtered: GameItem[]): GameItem[] {
+  const stages: TutorialGameStep[] = ['arrow_playing', 'knife_hit_playing', 'water_sort_playing'];
+  const priority = stages.map(step => games.find(game => tutorialGameStep(game) === step))
+    .filter((game): game is GameItem => Boolean(game));
+  const ids = new Set(priority.map(game => game.id));
+  return [...priority, ...filtered.filter(game => !ids.has(game.id))];
+}
+
+export function nextTutorialGame(games: GameItem[], completed: string) {
+  const steps: TutorialGameStep[] = ['arrow_playing', 'knife_hit_playing', 'water_sort_playing'];
+  const current = steps.findIndex(step => step.replace('_playing', '_completed') === completed);
+  if (current < 0) return null;
+  for (const step of steps.slice(current + 1)) {
+    const index = games.findIndex(game => tutorialGameStep(game) === step);
+    if (index >= 0) return { index, step, game: games[index] };
+  }
+  return null;
+}
