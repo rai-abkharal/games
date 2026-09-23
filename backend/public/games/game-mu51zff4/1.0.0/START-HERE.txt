@@ -1,0 +1,14 @@
+PASSENGER PARKING — UPDATED COMPACT YARDS
+
+Extract the whole ZIP. Open the top-level index.html in a full browser.
+No server or internet is needed for this standalone file.
+
+After Level 10, each level has more passenger demand. Vehicle counts grow
+from 31 at Level 10 to 51 at Level 50. Later levels introduce more colors
+and mix demand from more vehicles. Parking gaps are reduced across the
+campaign and the Bus Changer alternatives.
+
+Editable TypeScript + Babylon.js project: source/
+Setup and controls: source/README.md
+
+The hosted site is a separate copy; this ZIP contains the latest local update.

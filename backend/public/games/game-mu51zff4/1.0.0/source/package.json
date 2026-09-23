@@ -1,0 +1,21 @@
+{
+  "name": "passenger-parking",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "test": "tsx --test tests/*.test.ts",
+    "build:offline": "node scripts/build-offline.mjs"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^8.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "vite": "^6.1.0",
+    "tsx": "^4.20.0",
+    "@types/node": "^22.0.0"
+  }
+}

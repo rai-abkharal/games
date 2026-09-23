@@ -1,0 +1,15 @@
+{
+  "unlockLevels": [
+    4,
+    8,
+    13
+  ],
+  "inlineVectorIcons": 3,
+  "rasterImages": 0,
+  "referenceImageRequests": [],
+  "VIPSelection": true,
+  "passengerShuffle": true,
+  "busChanger": true,
+  "mobileAndLandscapeFit": true,
+  "errors": []
+}

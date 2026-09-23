@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "gameId": "bubble-shooter",
+  "version": "1.0.0",
+  "buildId": "08e450ddcc61970e791fed73208e237c",
+  "entry": "index.html",
+  "totalBytes": 82301,
+  "files": [
+    {
+      "path": "index.html",
+      "bytes": 81416,
+      "sha256": "559325ac0fcc7592e1f23e8959367186c1821be029d88cc76105db6e79ef4262"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 885,
+      "sha256": "5f63d37f587489c582f3b47095616524511cbf8cd43b7a7a6abbd6ed647e4014"
+    }
+  ],
+  "generatedAt": "2026-09-22T12:10:31.230Z"
+}

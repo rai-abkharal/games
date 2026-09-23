@@ -35,7 +35,7 @@ const LOGO_COLORS = {
 };
 
 export function Splash({
-  minimumMs = 30000,
+  minimumMs = 5000,
   ready = false,
   onDone,
   progress = 0,
@@ -147,66 +147,66 @@ export function Splash({
     }
 
     const sequence = Animated.sequence([
-      // 0% -> 22% in 3.5s (Smooth startup)
+      // 0% -> 22% in 600ms (Smooth startup)
       Animated.timing(progressAnim, {
         toValue: 0.22,
-        duration: 3500,
+        duration: 600,
         easing: Easing.out(Easing.quad),
         useNativeDriver: false,
       }),
-      // 22% -> 34% in 3.5s (Steady game asset loading)
+      // 22% -> 34% in 600ms (Unpacking native games)
       Animated.timing(progressAnim, {
         toValue: 0.34,
-        duration: 3500,
+        duration: 600,
         easing: Easing.linear,
         useNativeDriver: false,
       }),
-      // 34% -> 39% in 3.0s (STALL: brief hold / slow crawl)
+      // 34% -> 39% in 500ms (Activating local store)
       Animated.timing(progressAnim, {
         toValue: 0.39,
-        duration: 3000,
+        duration: 500,
         easing: Easing.inOut(Easing.quad),
         useNativeDriver: false,
       }),
-      // 39% -> 66% in 3.5s (AGGRESSIVE SURGE!)
+      // 39% -> 66% in 600ms (Surge)
       Animated.timing(progressAnim, {
         toValue: 0.66,
-        duration: 3500,
+        duration: 600,
         easing: Easing.inOut(Easing.cubic),
         useNativeDriver: false,
       }),
-      // 66% -> 74% in 3.5s (Steady asset verification)
+      // 66% -> 74% in 600ms (Pre-warming engine)
       Animated.timing(progressAnim, {
         toValue: 0.74,
-        duration: 3500,
+        duration: 600,
         easing: Easing.linear,
         useNativeDriver: false,
       }),
-      // 74% -> 78% in 3.5s (STALL: brief hold around 78%, exact to screenshot!)
+      // 74% -> 78% in 500ms (Brief settle)
       Animated.timing(progressAnim, {
         toValue: 0.78,
-        duration: 3500,
+        duration: 500,
         easing: Easing.inOut(Easing.quad),
         useNativeDriver: false,
       }),
-      // 78% -> 93% in 4.5s (AGGRESSIVE SURGE!)
+      // 78% -> 93% in 800ms (Surge)
       Animated.timing(progressAnim, {
         toValue: 0.93,
-        duration: 4500,
+        duration: 800,
         easing: Easing.inOut(Easing.cubic),
         useNativeDriver: false,
       }),
-      // 93% -> 98% in 3.0s (Finalizing environment)
+      // 93% -> 98% in 500ms (Finalizing environment)
       Animated.timing(progressAnim, {
         toValue: 0.98,
-        duration: 3000,
+        duration: 500,
         easing: Easing.out(Easing.quad),
         useNativeDriver: false,
       }),
-      // 98% -> 100% in 2.0s (Ready!)
+      // 98% -> 100% in 300ms (Ready!)
       Animated.timing(progressAnim, {
         toValue: 1.0,
-        duration: 2000,
+        duration: 300,
         easing: Easing.linear,
         useNativeDriver: false,
       }),

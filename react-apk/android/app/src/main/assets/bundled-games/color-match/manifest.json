@@ -1,0 +1,16 @@
+{
+  "id": "color-match",
+  "version": "1.1.0",
+  "title": "Color Match",
+  "entry": "index.html",
+  "orientation": "portrait",
+  "engine": "phaser",
+  "engineVersion": "3.88.2",
+  "category": "Puzzle",
+  "description": "Match falling & appearing colors before time runs out!",
+  "feedOrder": 2,
+  "features": {
+    "sound": true,
+    "vibration": false
+  }
+}

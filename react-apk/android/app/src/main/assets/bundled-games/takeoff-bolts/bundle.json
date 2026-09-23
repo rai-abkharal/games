@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "gameId": "takeoff-bolts",
+  "version": "1.0.0",
+  "buildId": "bbb0f2c91e81c453b7e3cc4545fae21c",
+  "entry": "index.html",
+  "totalBytes": 121723,
+  "files": [
+    {
+      "path": "index.html",
+      "bytes": 120877,
+      "sha256": "73df5567a3e620d39aeff578f6c57cc94691371cedf54c96a35e64f8e13ad3d3"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 846,
+      "sha256": "c0dbd95b2532259a5682bd219eb2288167446413f5c27d9ed20b09d97f21f1e9"
+    }
+  ],
+  "generatedAt": "2026-09-22T12:10:32.188Z"
+}

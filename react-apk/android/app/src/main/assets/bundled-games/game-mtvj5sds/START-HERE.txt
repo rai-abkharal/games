@@ -1,0 +1,2 @@
+Extract fully, then open index.html in your browser. For hosting or an app, replace the previous index.html and clear its HTML cache.
+Levels 1-10 are unchanged. Levels 11-50 have progressively harder container ordering. Pictures and batch quantities are unchanged. Interior colors wait in white slots until a path opens. All 50 levels passed the full ant simulation.

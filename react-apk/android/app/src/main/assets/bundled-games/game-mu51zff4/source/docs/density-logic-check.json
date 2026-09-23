@@ -1,0 +1,10 @@
+{
+  "checks": 15,
+  "passed": 15,
+  "levelsCompletedWithoutBoosters": 50,
+  "busChangerLayoutsCompleted": 38,
+  "allLayoutsDisjoint": true,
+  "allLayoutsInsideYard": true,
+  "passengerDemandStrictlyIncreasesAfterLevel10": true,
+  "physicalPhoneTested": false
+}

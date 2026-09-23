@@ -1,0 +1,15 @@
+import {createRequire} from 'node:module';
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {dirname,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const require=createRequire(import.meta.url);
+const {build}=createRequire(require.resolve('vite/package.json'))('esbuild');
+const result=await build({absWorkingDir:root,entryPoints:['src/main.ts'],bundle:true,write:false,outdir:'offline',format:'iife',platform:'browser',target:'es2022',minify:true,legalComments:'none',define:{'import.meta.env.DEV':'false'},loader:{'.png':'dataurl'}});
+const js=result.outputFiles.find(f=>f.path.endsWith('.js')).text.replaceAll('</script','<\\/script');
+const css=result.outputFiles.find(f=>f.path.endsWith('.css')).text;
+const template=await readFile(resolve(root,'index.html'),'utf8');
+const html=template.replace('</head>',()=>`<style>${css}</style></head>`).replace(/<script type="module" src="[^"]+"><\/script>/,()=>`<script>${js}</script>`);
+await mkdir(resolve(root,'offline'),{recursive:true});
+await writeFile(resolve(root,'offline/index.html'),html);
+console.log(`Standalone index.html ready: ${Buffer.byteLength(html)} bytes; no server or network required.`);

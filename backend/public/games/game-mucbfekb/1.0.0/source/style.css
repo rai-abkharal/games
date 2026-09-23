@@ -1,0 +1,503 @@
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0f172a;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        canvas {
+            display: block;
+        }
+        .top-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 57px;
+            height: 57px;
+            background: rgba(255, 255, 255, 0.16);
+            border-radius: 50%;
+            display: none; 
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 10;
+            transition: background 0.2s, transform 0.2s;
+            overflow: hidden;
+            
+            /* Hardware Acceleration to fix trail performance drop */
+            transform: translateZ(0);
+            will-change: transform, background-color, box-shadow;
+            backface-visibility: hidden;
+        }
+        @media (orientation: landscape) {
+            .top-btn {
+                transform: scale(1.2) translateZ(0);
+                transform-origin: top right;
+            }
+        }
+        .top-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .top-btn img {
+            opacity: 0.8;
+            pointer-events: none; /* Let clicks pass through to the button */
+        }
+
+        /* Text label shown underneath the top action button */
+        #top-action-label {
+            position: absolute;
+            top: 77px; /* Lowered to clear the button cleanly */
+            
+            /* Center-align directly with the button's center:
+               Button is right:15px with width:57px -> center is at (15 + 57/2) = 43.5px from right. */
+            right: 43.5px;
+            transform: translateX(50%) translateZ(0); /* Perfect horizontal center anchor */
+            
+            width: auto; /* Allow text to size naturally without clipping */
+            text-align: center;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 800;
+            font-size: 10px;
+            letter-spacing: 0.3px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+            display: none;
+            z-index: 10;
+            pointer-events: none;
+            white-space: nowrap;
+            will-change: transform;
+        }
+        @media (orientation: landscape) {
+            #top-action-label {
+                /* Scale relative to its horizontal center so it remains perfectly aligned */
+                transform: translateX(50%) scale(1.2) translateZ(0);
+                transform-origin: top center;
+                top: 84px; /* Lowered further to clear the scaled-up button */
+                right: 49.2px; /* Adjusted right position to match the scaled button's center (15 * 1.2 + 57 * 1.2 / 2) */
+            }
+        }
+
+        /* Glow Animation for Button */
+        .glow-button {
+            animation: blink-glow 0.5s linear 6;
+        }
+        @keyframes blink-glow {
+            0%, 100% { box-shadow: 0 0 0px rgba(255, 255, 255, 0); }
+            50% { box-shadow: 0 0 40px 5px rgba(255, 255, 255, 0.8); }
+        }
+
+        /* Skin Selection Button (round, lower-left) */
+        .skin-btn {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            width: 57px;
+            height: 57px;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 10;
+            transform: translateZ(0);
+            transition: width 0.25s ease, height 0.25s ease;
+        }
+        @media (orientation: landscape) {
+            .skin-btn {
+                transform: scale(1.2) translateZ(0);
+                transform-origin: bottom left;
+            }
+        }
+        .skin-btn-inner {
+            width: 57px;
+            height: 57px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.16);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            transition: width 0.25s ease, height 0.25s ease, background 0.2s;
+        }
+        .skin-btn:hover .skin-btn-inner {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .skin-btn-inner svg, .skin-btn-inner canvas {
+            opacity: 0.95;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        #skin-btn-canvas {
+            width: 47px;
+            height: 47px;
+        }
+        /* Minimized state: small empty circle, larger clickable area (2x) */
+        .skin-btn.minimized {
+            width: 34px;
+            height: 34px;
+        }
+        .skin-btn.minimized .skin-btn-inner {
+            width: 12px;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.45);
+        }
+        .skin-btn.minimized .skin-btn-inner svg,
+        .skin-btn.minimized .skin-btn-inner canvas {
+            opacity: 0;
+        }
+
+        /* Skin Selection Menu — single scrollable column.
+           Tiles are generated from cars.json, so the menu auto-extends. */
+        .skin-menu {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 134px;
+            max-height: calc(100% - 30px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            overscroll-behavior: contain;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            justify-content: flex-start;
+            z-index: 11;
+            opacity: 0;
+            visibility: hidden;
+            transform: scale(0.8);
+            transform-origin: bottom left;
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease, visibility 0s linear 0.25s;
+        }
+        .skin-menu::-webkit-scrollbar { display: none; }
+        .skin-menu.open {
+            opacity: 1;
+            visibility: visible;
+            transform: scale(1);
+            pointer-events: auto;
+            transition: opacity 0.25s ease, transform 0.25s ease, visibility 0s;
+        }
+        .skin-tile {
+            flex: 0 0 auto;
+            width: 130px;
+            height: 83px;
+            background: rgba(255, 255, 255, 0.16);
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-sizing: border-box;
+            border: 2px solid transparent;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .skin-menu.open .skin-tile {
+            animation: tilePop 0.3s ease backwards;
+            /* animation-delay set inline per tile (dynamic tile count) */
+        }
+        @keyframes tilePop {
+            0% { opacity: 0; transform: scale(0.5) translateY(20px); }
+            70% { opacity: 1; transform: scale(1.05) translateY(0); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .skin-tile:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .skin-tile.selected {
+            border-color: #2ed573;
+        }
+        .skin-tile canvas {
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        /* Car Unlock Reward Screen */
+        #car-reward {
+            position: absolute;
+            inset: 0;
+            background: #0f172a;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+        }
+        .reward-stage {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 56px;
+        }
+        .reward-rays, .reward-glow {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            pointer-events: none;
+            border-radius: 50%;
+        }
+        .reward-rays {
+            width: 420px; height: 420px;
+            transform: translate(-50%,-50%);
+            background: conic-gradient(from 0deg,
+                rgba(255,215,0,0) 0deg, rgba(255,215,0,0.28) 28deg, rgba(255,215,0,0) 56deg,
+                rgba(255,215,0,0) 116deg, rgba(255,215,0,0.28) 144deg, rgba(255,215,0,0) 172deg,
+                rgba(255,215,0,0) 232deg, rgba(255,215,0,0.28) 260deg, rgba(255,215,0,0) 288deg,
+                rgba(255,215,0,0) 360deg);
+            -webkit-mask: radial-gradient(circle, #000 28%, transparent 72%);
+            mask: radial-gradient(circle, #000 28%, transparent 72%);
+            animation: rewardSpin 10s linear infinite;
+        }
+        .reward-glow {
+            width: 360px; height: 360px;
+            background: radial-gradient(circle, rgba(255,215,0,0.45) 0%, rgba(255,165,0,0.16) 45%, rgba(255,215,0,0) 70%);
+            animation: rewardPulse 2.4s ease-in-out infinite;
+        }
+        @keyframes rewardSpin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+        @keyframes rewardPulse {
+            0%,100% { transform: translate(-50%,-50%) scale(0.85); opacity: 0.65; }
+            50% { transform: translate(-50%,-50%) scale(1.12); opacity: 1; }
+        }
+        #reward-particles {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%,-50%);
+            width: 400px;
+            max-width: 96vw;
+            height: 300px;
+            z-index: 1;
+            pointer-events: none;
+        }
+        #reward-car-canvas {
+            position: relative;
+            z-index: 2;
+            width: 300px;
+            max-width: 80vw;
+            height: auto;
+            animation: rewardFloat 3s ease-in-out infinite;
+        }
+        @keyframes rewardFloat {
+            0%,100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .reward-buttons {
+            position: relative;
+            z-index: 3;
+            display: flex;
+            gap: 22px;
+        }
+        .reward-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 28px;
+            border-radius: 30px;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.15s, filter 0.15s;
+        }
+        .reward-btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
+        .reward-btn:active { transform: translateY(0); }
+        .reward-get { background: #1e90ff; color: #052338; }
+        .reward-get svg { display: block; }
+        .reward-lose { background: rgba(255,255,255,0.16); color: #ffffff; }
+
+        /* Price tag overlay shown on the locked (blacked-out) car during the
+           reward screen for AB group B. Centered on the car, swings gently,
+           and fades out once the car is unlocked. */
+        #reward-price-tag {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 3;
+            display: none;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+        #reward-price-tag-inner {
+            display: inline-block;
+            background: linear-gradient(135deg, #ffd700, #ffae00);
+            color: #4a2b00;
+            font-weight: 900;
+            font-size: 22px;
+            padding: 8px 18px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            animation: priceTagSwing 2.2s ease-in-out infinite;
+            transform-origin: top center;
+            white-space: nowrap;
+        }
+        @keyframes priceTagSwing {
+            0%, 100% { transform: rotate(-9deg); }
+            50% { transform: rotate(9deg); }
+        }
+
+        /* Tutorial Hint Styles */
+        #tutorial-hint {
+            position: absolute;
+            bottom: 15vh;
+            right: 15vw;
+            width: 120px;
+            height: 120px;
+            pointer-events: none;
+            display: none;
+            z-index: 20;
+            --anim-duration: 0.3s;
+        }
+        #tutorial-hint.pos-left {
+            right: auto;
+            left: 15vw;
+        }
+        .hand-icon {
+            width: 84px;
+            height: 84px;
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            transform-origin: bottom right;
+            animation: handPress var(--anim-duration) infinite ease-in-out;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+        }
+        
+        .tap-burst {
+            position: absolute;
+            top: 67px;
+            left: 52px;
+            width: 50px;
+            height: 50px;
+            margin-top: -25px;
+            margin-left: -25px;
+            transform-origin: center;
+            animation: burstAnim var(--anim-duration) infinite;
+        }
+        .tap-burst .line {
+            position: absolute;
+            top: 0; left: 24px;
+            width: 2px; height: 50px;
+            background: transparent;
+        }
+        .tap-burst .line::before, .tap-burst .line::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 2px;
+        }
+        .tap-burst .line::before { top: 0; }
+        .tap-burst .line::after { bottom: 0; }
+
+        .tap-text {
+            position: absolute;
+            top: 10px;
+            left: 55px;
+            transform: translateX(-50%);
+            color: white;
+            font-weight: 900;
+            font-size: 18px;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            animation: textAnim var(--anim-duration) infinite;
+        }
+
+        @keyframes handPress {
+            0%, 100% { transform: scale(1.3) translate(0, 0); }
+            50% { transform: scale(0.75) translate(-10px, 10px); }
+        }
+        @keyframes burstAnim {
+            0%, 49% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(1.6); opacity: 0; }
+        }
+        @keyframes textAnim {
+            0%, 49% { opacity: 0; transform: translate(-50%, 5px); }
+            50% { opacity: 1; transform: translate(-50%, 0); }
+            100% { opacity: 0; transform: translate(-50%, -15px); }
+        }
+
+        /* Arrow Key Hint Styles (PC only) — shown on the opposite side of the
+           hand hint on levels 1 and 5, to teach the ArrowUp/Space keyboard
+           control. Mirrors the hand hint's timing via --anim-duration. */
+        #tutorial-arrows {
+            position: absolute;
+            bottom: 15vh;
+            width: 150px;
+            height: 130px;
+            pointer-events: none;
+            display: none;
+            z-index: 20;
+            --anim-duration: 0.3s;
+        }
+        #tutorial-arrows.pos-left { left: 15vw; }
+        #tutorial-arrows.pos-right { right: 15vw; }
+
+        .arrow-key {
+            position: absolute;
+            width: 42px;
+            height: 42px;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+        }
+        .arrow-key.arrow-dim {
+            opacity: 0.4;
+        }
+        .arrow-up-backdrop {
+            left: 54px;
+            top: 20px;
+            opacity: 0.35;
+        }
+        .arrow-up-anim {
+            left: 54px;
+            top: 20px;
+            animation: arrowBounce var(--anim-duration) infinite ease-in-out;
+        }
+        .arrow-side {
+            top: 78px;
+        }
+        .arrow-left-key { left: 4px; transform: rotate(-90deg); }
+        .arrow-down-key { left: 54px; transform: rotate(180deg); }
+        .arrow-right-key { left: 104px; transform: rotate(90deg); }
+
+        @keyframes arrowBounce {
+            0%, 100% { transform: translateY(-10px); }
+            50% { transform: translateY(0); }
+        }
+
+        .arrow-burst {
+            position: absolute;
+            top: 41px;
+            left: 75px;
+            width: 70px;
+            height: 70px;
+            margin-top: -35px;
+            margin-left: -35px;
+            transform-origin: center;
+            animation: burstAnim var(--anim-duration) infinite;
+        }
+        .arrow-burst .line {
+            position: absolute;
+            top: 0; left: 34px;
+            width: 2px; height: 70px;
+            background: transparent;
+        }
+        .arrow-burst .line::before, .arrow-burst .line::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 16px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 2px;
+        }
+        .arrow-burst .line::before { top: 0; }
+        .arrow-burst .line::after { bottom: 0; }
+    

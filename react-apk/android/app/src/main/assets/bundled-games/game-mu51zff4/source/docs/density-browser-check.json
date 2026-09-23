@@ -1,0 +1,42 @@
+{
+  "levels": [
+    {
+      "level": 2,
+      "cars": 12,
+      "passengers": 480,
+      "width": 390,
+      "body": 390
+    },
+    {
+      "level": 10,
+      "cars": 31,
+      "passengers": 728,
+      "width": 390,
+      "body": 390
+    },
+    {
+      "level": 11,
+      "cars": 31,
+      "passengers": 736,
+      "width": 390,
+      "body": 390
+    },
+    {
+      "level": 30,
+      "cars": 41,
+      "passengers": 960,
+      "width": 390,
+      "body": 390
+    },
+    {
+      "level": 50,
+      "cars": 51,
+      "passengers": 1184,
+      "width": 390,
+      "body": 390
+    }
+  ],
+  "touchDispatch": "passed on all five levels",
+  "busChanger": "level 50 compact alternate accepted",
+  "errors": []
+}

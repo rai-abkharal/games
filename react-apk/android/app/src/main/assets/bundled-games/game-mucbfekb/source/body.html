@@ -1,0 +1,32 @@
+
+
+    <canvas id="gameCanvas"></canvas>
+    
+
+    <div id="skin-btn" class="skin-btn" title="CARS" style="display: none;"><div class="skin-btn-inner"><canvas id="skin-btn-canvas" width="100" height="100"></canvas></div></div>
+    <div id="skin-menu" class="skin-menu"></div>
+
+    <div id="car-reward">
+        <div class="reward-stage">
+            <div class="reward-rays"></div>
+            <div class="reward-glow"></div>
+            <canvas id="reward-particles" width="400" height="300"></canvas>
+            <canvas id="reward-car-canvas" width="300" height="180"></canvas>
+            <div id="reward-price-tag"><span id="reward-price-tag-inner"></span></div>
+        </div>
+        <div class="reward-buttons">
+            <div id="reward-get" class="reward-btn reward-get"></div>
+            <div id="reward-lose" class="reward-btn reward-lose"></div>
+        </div>
+    </div>
+
+    <div id="tutorial-hint" style="display: block; --anim-duration: 0.5s;">
+        <div class="tap-text">TAP!</div>
+        <div class="tap-burst">
+            <div class="line" style="transform: rotate(0deg)"></div>
+            <div class="line" style="transform: rotate(60deg)"></div>
+            <div class="line" style="transform: rotate(120deg)"></div>
+        </div>
+        <img src="hand.png" class="hand-icon" alt="Hand Hint">
+    </div>
+

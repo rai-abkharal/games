@@ -1,0 +1,185 @@
+{
+  "embeddedResources": 30,
+  "files": [
+    {
+      "file": "original/arrow.png",
+      "bytes": 1252,
+      "sha256": "03b423a7f6aff14dbbc13eed98d0cfee0c1ed4dcc8bfd73c9e21daea1439c85d"
+    },
+    {
+      "file": "original/body.html",
+      "bytes": 2277,
+      "sha256": "2b1455aaa7bdaddeddb99a198c7b19da9c18fb3145d3e177bafab162565ea34b"
+    },
+    {
+      "file": "original/car0side.png",
+      "bytes": 3982,
+      "sha256": "ceb35f96b050abf45c3577b95d6e7794ba3754522cdb33630c76935eda17e3d9"
+    },
+    {
+      "file": "original/car1.png",
+      "bytes": 6926,
+      "sha256": "5dbfd93446c760dc412bee0e6ac461060067ed7b75d94e6e617060b99206f918"
+    },
+    {
+      "file": "original/car1side.png",
+      "bytes": 12803,
+      "sha256": "615d38b7d84534f5ba8efc7288af1d49b28a4ea973b7d339f3f9c9e7ec597834"
+    },
+    {
+      "file": "original/car2.png",
+      "bytes": 3497,
+      "sha256": "b592fe6af7bbc6a1a6432f0cd9080ebd6c3c16a3d90a4c51289358d2abfe7fee"
+    },
+    {
+      "file": "original/car2side.png",
+      "bytes": 12000,
+      "sha256": "4fb15fc60a69bdaf3e152977e6e64fddd73273f8e3383cf81035005718306377"
+    },
+    {
+      "file": "original/car3.png",
+      "bytes": 3967,
+      "sha256": "10726a0e4ac9e70da2978fbdfb24adf2bdd26f225807669e13b45e84bba20e6e"
+    },
+    {
+      "file": "original/car3side.png",
+      "bytes": 12338,
+      "sha256": "6be4519d6465033c704fc8c0e45e924d5378d089b9598ed68791dc1249a19f4b"
+    },
+    {
+      "file": "original/car4.png",
+      "bytes": 4584,
+      "sha256": "5d0abdf3cc2126d0571843d2d6e7a8a59f40a4f66b34071f3d04ac618a9f46de"
+    },
+    {
+      "file": "original/car4side.png",
+      "bytes": 12908,
+      "sha256": "fdc3230420b0c2309f71c7b8f379a953f740708f84b9aa70bf0469e475962a72"
+    },
+    {
+      "file": "original/car5.png",
+      "bytes": 5064,
+      "sha256": "10f92a362c5b11abde7f257f03ab9a241d3be5d5e309a7ffc10037798e474558"
+    },
+    {
+      "file": "original/car5side.png",
+      "bytes": 13338,
+      "sha256": "3817eda4756aea53eb9ddf12b221049586836ba0983ff27bd8ea366285151f39"
+    },
+    {
+      "file": "original/car6.png",
+      "bytes": 9187,
+      "sha256": "1a226032241ff2a76c5569d3b955ac93ebc74544665d100786a75685a6956bce"
+    },
+    {
+      "file": "original/car6side.png",
+      "bytes": 13974,
+      "sha256": "7a30c6800d6bb6241d7a4ad30825bd86f7945b4190c27a8af4f9c7c6dab978de"
+    },
+    {
+      "file": "original/car7.png",
+      "bytes": 8360,
+      "sha256": "46fd04c6bfcdcd33d07bc4cab0342cb35e7ecb9aa91a4d5318d8e9802d8c812b"
+    },
+    {
+      "file": "original/car7side.png",
+      "bytes": 14931,
+      "sha256": "4e7ce560ca0d5f04cc223754643768395b617af542d09f1c7d40d5d84169158a"
+    },
+    {
+      "file": "original/car8.png",
+      "bytes": 10348,
+      "sha256": "b9ffe2e4b02cdbd28316d2b5713c599058c9090471c1e15a0c7f217ec07e3d9f"
+    },
+    {
+      "file": "original/car8side.png",
+      "bytes": 12340,
+      "sha256": "9c12f4e8a69089732d636fa1a1959f7c85af28259dbdf811762fdd4a8084a969"
+    },
+    {
+      "file": "original/car9.png",
+      "bytes": 9381,
+      "sha256": "0e9105bba0c118e9111f5844475ef6ef65ab315b6fe23cfb7a8b65b725055f1c"
+    },
+    {
+      "file": "original/car9side.png",
+      "bytes": 12753,
+      "sha256": "a1e3148b326747ccf771fb7f6a27c23d9a99bacb92b2a8f6210863d0660f43f4"
+    },
+    {
+      "file": "original/cars.json",
+      "bytes": 247,
+      "sha256": "650fc232d9b75ec3e183102af66a199fc7d6abb2e25b31303abb37db0172932d"
+    },
+    {
+      "file": "original/end.webm",
+      "bytes": 9657,
+      "sha256": "2e40a0e8deaa349ea2a378cb87ae8a5fd47ea81a8f91e92bd91d1f886ceebef6"
+    },
+    {
+      "file": "original/exit.webm",
+      "bytes": 7133,
+      "sha256": "74fb13620a7a82ffed51a219fcdeff0583f3cd577cd1bc28c1365579be23b194"
+    },
+    {
+      "file": "original/flash.webm",
+      "bytes": 7904,
+      "sha256": "8f016c2f6616822a57c6bd03b10f14af58f54b07302bbff4b8b6a85fde28da45"
+    },
+    {
+      "file": "original/game.js",
+      "bytes": 181394,
+      "sha256": "e156ceff30ccb322a285efb9f9fa1b4cc6c6489a780d131b19df457230878306"
+    },
+    {
+      "file": "original/hand.png",
+      "bytes": 3780,
+      "sha256": "462f085aaa4115a15d379f7db1f6be70ab9fc0e19d9852f0d4230cbc391f6311"
+    },
+    {
+      "file": "original/hit.webm",
+      "bytes": 18101,
+      "sha256": "b31717b6a813b09001c21f827c40bd8757451bb74fc6526ee8c2ced79b7dfa1e"
+    },
+    {
+      "file": "original/levels.json",
+      "bytes": 3263,
+      "sha256": "eb95feacbf5a3aee8b570843f05b521dbb3d9d5ef201eb9fd84de4dabc2000f0"
+    },
+    {
+      "file": "original/move.webm",
+      "bytes": 2503,
+      "sha256": "d314ee25a4054d8f5c9e057dbfa14694bec1c1cf2a63038369b492cb3fb25562"
+    },
+    {
+      "file": "original/note.webm",
+      "bytes": 8254,
+      "sha256": "cb79b011795722fde73e29b4aa3d0b0bf06acd8ce8c231640fada1b861b9b15d"
+    },
+    {
+      "file": "original/palettes.json",
+      "bytes": 382,
+      "sha256": "41d76c733a9b497f9fe58b287c09c82e78ceeaaa098d031c3e8246b4e5acd091"
+    },
+    {
+      "file": "original/style.css",
+      "bytes": 17202,
+      "sha256": "7525ded2c7c84e55db711fa794490a6fcbb6583c73d3c6fa26fdd351633dd4ab"
+    },
+    {
+      "file": "source/body.html",
+      "bytes": 1337,
+      "sha256": "89cc675c247cd8920fb5a536b46e34a2b32fc1c7d6492d3608982c32bd95dc39"
+    },
+    {
+      "file": "source/game.js",
+      "bytes": 163615,
+      "sha256": "f4a094a313337ff46a82ddbd9bd21f0d36a703e077c11d49e928a2880b904e36"
+    },
+    {
+      "file": "source/style.css",
+      "bytes": 17202,
+      "sha256": "7525ded2c7c84e55db711fa794490a6fcbb6583c73d3c6fa26fdd351633dd4ab"
+    }
+  ]
+}

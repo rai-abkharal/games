@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "gameId": "ludo-race",
+  "version": "1.0.0",
+  "buildId": "16b8ebd7adad25ba0ce7521261c5aca1",
+  "entry": "index.html",
+  "totalBytes": 58281,
+  "files": [
+    {
+      "path": "index.html",
+      "bytes": 57503,
+      "sha256": "ff7f25fb5396939cb373c1b880480fcd66bf22969fe2dde55e00d08e785190d1"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 778,
+      "sha256": "0e7a3bf1c8022c46db4a8da1a84acf23a7287c6121eb0af646d9e2b655136e82"
+    }
+  ],
+  "generatedAt": "2026-09-22T12:10:31.998Z"
+}

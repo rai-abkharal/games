@@ -1,0 +1,104 @@
+{
+  "viewports": [
+    {
+      "width": 320,
+      "height": 568,
+      "notch": false,
+      "fullCoverage": true,
+      "contentFits": true,
+      "nextVisible": true
+    },
+    {
+      "width": 375,
+      "height": 667,
+      "notch": false,
+      "fullCoverage": true,
+      "contentFits": true,
+      "nextVisible": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "notch": true,
+      "fullCoverage": true,
+      "contentFits": true,
+      "nextVisible": true
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "notch": false,
+      "fullCoverage": true,
+      "contentFits": true,
+      "nextVisible": true
+    },
+    {
+      "width": 430,
+      "height": 932,
+      "notch": true,
+      "fullCoverage": true,
+      "contentFits": true,
+      "nextVisible": true
+    },
+    {
+      "width": 360,
+      "height": 640,
+      "notch": false,
+      "fullCoverage": true,
+      "contentFits": true,
+      "nextVisible": true
+    },
+    {
+      "width": 360,
+      "height": 500,
+      "notch": false,
+      "fullCoverage": true,
+      "contentFits": true,
+      "nextVisible": true
+    },
+    {
+      "width": 568,
+      "height": 320,
+      "notch": false,
+      "fullCoverage": true,
+      "contentFits": true,
+      "nextVisible": true
+    },
+    {
+      "width": 667,
+      "height": 375,
+      "notch": true,
+      "fullCoverage": true,
+      "contentFits": true,
+      "nextVisible": true
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "notch": true,
+      "fullCoverage": true,
+      "contentFits": true,
+      "nextVisible": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "notch": false,
+      "fullCoverage": true,
+      "contentFits": true,
+      "nextVisible": true
+    },
+    {
+      "width": 320,
+      "height": 480,
+      "notch": false,
+      "fullCoverage": true,
+      "contentFits": true,
+      "nextVisible": true
+    }
+  ],
+  "realLevelCompletion": true,
+  "nextAdvances": true,
+  "lastLevelOpensPicker": true,
+  "errors": []
+}

@@ -1,0 +1,24 @@
+{
+  "id": "ball-breaker",
+  "title": "Ball Breaker",
+  "version": "1.2.0",
+  "sdkVersion": 1,
+  "entry": "index.html",
+  "orientation": "portrait",
+  "controls": [
+    "TAP"
+  ],
+  "sizeBytes": 77807,
+  "sha256": "8a7a5b25ae1a807c5b0db16f211c78b4b0b3ad36ae70aa9ac280a6bac68920a8",
+  "ageRating": "everyone",
+  "minAppVersion": "1.0.0",
+  "hasReward": false,
+  "thumbnail": "ball-breaker.svg",
+  "tags": [
+    "arcade",
+    "hypercasual",
+    "casual",
+    "reflex"
+  ],
+  "description": "Aim a glowing stream of balls and smash the numbered neon blocks before they reach you."
+}

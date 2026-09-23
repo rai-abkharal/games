@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "gameId": "sudoku-pro",
+  "version": "1.0.1",
+  "buildId": "642af587784748b7e2381c60d89e605a",
+  "entry": "index.html",
+  "totalBytes": 89008,
+  "files": [
+    {
+      "path": "index.html",
+      "bytes": 88509,
+      "sha256": "d3b8e044c505907cf888c02708480c6b7213c7718299846af418e56035a62c06"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 499,
+      "sha256": "bbb765782a29de62d5ca03d6ea2d1f9ff8b218183bd8c34f161f852124e93943"
+    }
+  ],
+  "generatedAt": "2026-09-22T12:10:32.180Z"
+}

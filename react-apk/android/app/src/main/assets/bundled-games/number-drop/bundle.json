@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "gameId": "number-drop",
+  "version": "1.1.0",
+  "buildId": "0731f0823ff01775a250c08cf2f5ac7a",
+  "entry": "index.html",
+  "totalBytes": 66934,
+  "files": [
+    {
+      "path": "index.html",
+      "bytes": 66345,
+      "sha256": "0bc889febd4c43748687a50c507afec62d133542a88a8096ac102224fb5ab634"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 589,
+      "sha256": "8a90fdc523c823818b4df38a057fd36960dcf29c388756c425513169f220303e"
+    }
+  ],
+  "generatedAt": "2026-09-22T12:10:32.096Z"
+}

@@ -1,0 +1,29 @@
+{
+  "id": "deadzone-40",
+  "title": "Deadzone 40",
+  "version": "1.4.0",
+  "sdkVersion": 1,
+  "entry": "index.html",
+  "orientation": "portrait",
+  "controls": [
+    "TAP"
+  ],
+  "sizeBytes": 135972,
+  "sha256": "fcb4befb35c4c8a1d0a5ac4cef82153a2f9fd055e4522f92abf3e0d8c0124fc5",
+  "ageRating": "everyone",
+  "minAppVersion": "1.0.0",
+  "hasReward": false,
+  "thumbnail": "deadzone-40.svg",
+  "tags": [
+    "arcade",
+    "hypercasual",
+    "casual",
+    "reflex"
+  ],
+  "description": "Lead a four-soldier squad in a top-down arena firefight and race the enemy to forty kills.",
+  "features": {
+    "sound": true,
+    "vibration": false,
+    "hint": false
+  }
+}

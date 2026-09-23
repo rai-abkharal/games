@@ -1,0 +1,2181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Bubble Shooter - Match 3 Puzzle</title>
+  <meta name="application-name" content="Bubble Shooter">
+  <meta name="apple-mobile-web-app-title" content="Bubble Shooter">
+  <meta name="game-title" content="Bubble Shooter - Match 3 Puzzle">
+  <meta name="game-id" content="bubble-shooter">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900;1000&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #95A7EC;
+      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      touch-action: none;
+    }
+    #gameCanvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+(function() {
+  'use strict';
+  var exports = typeof exports !== 'undefined' ? exports : {};
+
+const COLOR_PALETTE = {
+    red: {
+        name: 'Red',
+        main: '#E51D2A',
+        dark: '#9E0C17',
+        light: '#FF6B77',
+        highlight: '#FFFFFF',
+        glow: 'rgba(229, 29, 42, 0.45)'
+    },
+    green: {
+        name: 'Green',
+        main: '#18C83A',
+        dark: '#0E7A22',
+        light: '#61F07C',
+        highlight: '#FFFFFF',
+        glow: 'rgba(24, 200, 58, 0.45)'
+    },
+    yellow: {
+        name: 'Yellow',
+        main: '#F4D600',
+        dark: '#9E8500',
+        light: '#FFF275',
+        highlight: '#FFFFFF',
+        glow: 'rgba(244, 214, 0, 0.45)'
+    },
+    purple: {
+        name: 'Purple',
+        main: '#C51BCB',
+        dark: '#7A0E7E',
+        light: '#F35CFA',
+        highlight: '#FFFFFF',
+        glow: 'rgba(197, 27, 203, 0.45)'
+    },
+    cyan: {
+        name: 'Cyan',
+        main: '#16C8D5',
+        dark: '#0C7E87',
+        light: '#61F0FA',
+        highlight: '#FFFFFF',
+        glow: 'rgba(22, 200, 213, 0.45)'
+    },
+    blue: {
+        name: 'Blue',
+        main: '#2475E8',
+        dark: '#114694',
+        light: '#68A5FF',
+        highlight: '#FFFFFF',
+        glow: 'rgba(36, 117, 232, 0.45)'
+    }
+};
+const STONE_PALETTE = {
+    main: '#777777',
+    dark: '#444444',
+    light: '#9E9E9E',
+    highlight: '#D5D5D5',
+    glow: 'rgba(100, 100, 100, 0.3)'
+};
+const STAR_PALETTE = {
+    main: '#FFD700',
+    dark: '#E69500',
+    light: '#FFF480',
+    highlight: '#FFFFFF',
+    glow: 'rgba(255, 215, 0, 0.6)'
+};
+const VIRTUAL_WIDTH = 380;
+const VIRTUAL_HEIGHT = 800;
+const GRID_COLS = 11;
+const BUBBLE_RADIUS = VIRTUAL_WIDTH / (GRID_COLS * 2);
+const ROW_HEIGHT = BUBBLE_RADIUS * Math.sqrt(3);
+const GRID_LEFT_OFFSET = 0;
+const LEFT_WALL = 0;
+const RIGHT_WALL = VIRTUAL_WIDTH;
+const CEILING_Y = 56;
+const LAUNCHER_Y = 690;
+const LAUNCHER_X = VIRTUAL_WIDTH / 2;
+const MIN_AIM_ANGLE = 16 * (Math.PI / 180);
+const MAX_AIM_ANGLE = 164 * (Math.PI / 180);
+const PROJECTILE_SPEED = 24;
+class ProceduralAudioEngine {
+    constructor() {
+        this.ctx = null;
+        this.isMuted = false;
+    }
+    initCtx() {
+        if (!this.ctx && typeof window !== 'undefined') {
+            const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtxClass) {
+                this.ctx = new AudioCtxClass();
+            }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => { });
+        }
+    }
+    unlock() {
+        this.initCtx();
+    }
+    playShoot() {
+        this.initCtx();
+        if (!this.ctx || this.isMuted)
+            return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(460, t);
+        osc.frequency.exponentialRampToValueAtTime(190, t + 0.12);
+        gain.gain.setValueAtTime(0.35, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.12);
+    }
+    playPop(comboIndex = 0) {
+        this.initCtx();
+        if (!this.ctx || this.isMuted)
+            return;
+        const t = this.ctx.currentTime;
+        const baseFreq = 480 + Math.min(comboIndex, 6) * 75;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(baseFreq, t);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.8, t + 0.08);
+        gain.gain.setValueAtTime(0.4, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.08);
+    }
+    playBounce() {
+        this.initCtx();
+        if (!this.ctx || this.isMuted)
+            return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(260, t);
+        osc.frequency.exponentialRampToValueAtTime(180, t + 0.05);
+        gain.gain.setValueAtTime(0.18, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.05);
+    }
+    playAttach() {
+        this.initCtx();
+        if (!this.ctx || this.isMuted)
+            return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(320, t);
+        osc.frequency.exponentialRampToValueAtTime(220, t + 0.06);
+        gain.gain.setValueAtTime(0.25, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.06);
+    }
+    playDrop(count = 1) {
+        this.initCtx();
+        if (!this.ctx || this.isMuted)
+            return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(540, t);
+        osc.frequency.exponentialRampToValueAtTime(280, t + 0.16);
+        gain.gain.setValueAtTime(0.3, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.16);
+    }
+    playBomb() {
+        this.initCtx();
+        if (!this.ctx || this.isMuted)
+            return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(160, t);
+        osc.frequency.exponentialRampToValueAtTime(35, t + 0.35);
+        gain.gain.setValueAtTime(0.5, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.35);
+    }
+    playStoneBreak() {
+        this.initCtx();
+        if (!this.ctx || this.isMuted)
+            return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(180, t);
+        osc.frequency.exponentialRampToValueAtTime(60, t + 0.14);
+        gain.gain.setValueAtTime(0.35, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.14);
+    }
+    playSwap() {
+        this.initCtx();
+        if (!this.ctx || this.isMuted)
+            return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(380, t);
+        osc.frequency.exponentialRampToValueAtTime(540, t + 0.08);
+        gain.gain.setValueAtTime(0.25, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.08);
+    }
+    playClick() {
+        this.initCtx();
+        if (!this.ctx || this.isMuted)
+            return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(600, t);
+        osc.frequency.exponentialRampToValueAtTime(300, t + 0.04);
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.04);
+    }
+    playWin() {
+        this.initCtx();
+        if (!this.ctx || this.isMuted)
+            return;
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((freq, idx) => {
+            const t = this.ctx.currentTime + idx * 0.11;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.3, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.22);
+        });
+    }
+    playFail() {
+        this.initCtx();
+        if (!this.ctx || this.isMuted)
+            return;
+        const notes = [330, 293.66, 261.63, 220];
+        notes.forEach((freq, idx) => {
+            const t = this.ctx.currentTime + idx * 0.12;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.25, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.2);
+        });
+    }
+}
+const SoundSynth = new ProceduralAudioEngine();
+function dist(x1, y1, x2, y2) {
+    return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+}
+function distSq(x1, y1, x2, y2) {
+    return (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+}
+function lerp(a, b, t) {
+    return a + (b - a) * t;
+}
+function clamp(val, min, max) {
+    return Math.max(min, Math.min(max, val));
+}
+function getHexPosition(row, col) {
+    const isOdd = row % 2 !== 0;
+    const colOffset = isOdd ? BUBBLE_RADIUS : 0;
+    const x = GRID_LEFT_OFFSET + col * (BUBBLE_RADIUS * 2) + BUBBLE_RADIUS + colOffset;
+    const y = CEILING_Y + row * ROW_HEIGHT + BUBBLE_RADIUS;
+    return { x, y };
+}
+class BubbleRenderer {
+    static drawBubble(ctx, x, y, radius, type, scale = 1.0, opacity = 1.0, rotation = 0, dualColors) {
+        if (opacity <= 0.01 || scale <= 0.01)
+            return;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+        if (rotation !== 0)
+            ctx.rotate(rotation);
+        ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
+        if (type === 'dual' && dualColors) {
+            this.drawDualColorBubble(ctx, radius, dualColors[0], dualColors[1]);
+        }
+        else if (type === 'stone') {
+            this.drawStoneBubble(ctx, radius);
+        }
+        else if (type === 'star') {
+            this.drawStarBubble(ctx, radius);
+        }
+        else if (type === 'bomb') {
+            this.drawBombBubble(ctx, radius);
+        }
+        else if (type === 'tricolor') {
+            this.drawTriColorBubble(ctx, radius);
+        }
+        else if (type === 'magic') {
+            this.drawMagicBubble(ctx, radius);
+        }
+        else {
+            this.drawGlossySphere(ctx, radius, type);
+        }
+        ctx.restore();
+    }
+    static drawDualColorBubble(ctx, r, color1, color2) {
+        const pal1 = COLOR_PALETTE[color1] || COLOR_PALETTE.red;
+        const pal2 = COLOR_PALETTE[color2] || COLOR_PALETTE.yellow;
+        ctx.beginPath();
+        ctx.arc(0, r * 0.32, r * 0.88, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 40, 0.16)';
+        ctx.fill();
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.clip();
+        const grad1 = ctx.createRadialGradient(-r * 0.4, -r * 0.4, r * 0.1, 0, 0, r * 1.1);
+        grad1.addColorStop(0, pal1.light);
+        grad1.addColorStop(0.5, pal1.main);
+        grad1.addColorStop(1, pal1.dark);
+        ctx.fillStyle = grad1;
+        ctx.beginPath();
+        ctx.arc(0, 0, r, Math.PI * 0.25, Math.PI * 1.25);
+        ctx.closePath();
+        ctx.fill();
+        const grad2 = ctx.createRadialGradient(r * 0.4, r * 0.4, r * 0.1, 0, 0, r * 1.1);
+        grad2.addColorStop(0, pal2.light);
+        grad2.addColorStop(0.5, pal2.main);
+        grad2.addColorStop(1, pal2.dark);
+        ctx.fillStyle = grad2;
+        ctx.beginPath();
+        ctx.arc(0, 0, r, Math.PI * 1.25, Math.PI * 0.25);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.707, -r * 0.707);
+        ctx.bezierCurveTo(-r * 0.2, -r * 0.1, r * 0.2, r * 0.1, r * 0.707, r * 0.707);
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+        ctx.stroke();
+        ctx.restore();
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+        ctx.stroke();
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(-r * 0.35, -r * 0.38, r * 0.38, r * 0.22, -Math.PI / 4, 0, Math.PI * 2);
+        const specGrad = ctx.createLinearGradient(-r * 0.5, -r * 0.5, -r * 0.2, -r * 0.2);
+        specGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+        specGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.65)');
+        specGrad.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+        ctx.fillStyle = specGrad;
+        ctx.fill();
+        ctx.restore();
+        ctx.beginPath();
+        ctx.arc(-r * 0.52, -r * 0.15, r * 0.09, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.fill();
+    }
+    static drawGlossySphere(ctx, r, colorKey) {
+        const palette = COLOR_PALETTE[colorKey] || COLOR_PALETTE.red;
+        ctx.beginPath();
+        ctx.arc(0, r * 0.32, r * 0.88, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 40, 0.16)';
+        ctx.fill();
+        const sphereGrad = ctx.createRadialGradient(-r * 0.3, -r * 0.32, r * 0.08, 0, 0, r);
+        sphereGrad.addColorStop(0, palette.light);
+        sphereGrad.addColorStop(0.38, palette.main);
+        sphereGrad.addColorStop(0.88, palette.dark);
+        sphereGrad.addColorStop(1, '#00000030');
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = sphereGrad;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = palette.dark;
+        ctx.stroke();
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(-r * 0.35, -r * 0.38, r * 0.38, r * 0.22, -Math.PI / 4, 0, Math.PI * 2);
+        const specGrad = ctx.createLinearGradient(-r * 0.5, -r * 0.5, -r * 0.2, -r * 0.2);
+        specGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+        specGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.65)');
+        specGrad.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+        ctx.fillStyle = specGrad;
+        ctx.fill();
+        ctx.restore();
+        ctx.beginPath();
+        ctx.arc(-r * 0.52, -r * 0.15, r * 0.09, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.fill();
+    }
+    static drawStoneBubble(ctx, r) {
+        ctx.beginPath();
+        ctx.arc(0, r * 0.32, r * 0.88, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+        ctx.fill();
+        const stoneGrad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
+        stoneGrad.addColorStop(0, STONE_PALETTE.light);
+        stoneGrad.addColorStop(0.5, STONE_PALETTE.main);
+        stoneGrad.addColorStop(0.9, STONE_PALETTE.dark);
+        stoneGrad.addColorStop(1, '#222222');
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = stoneGrad;
+        ctx.fill();
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = '#333333';
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(30, 30, 30, 0.65)';
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.4, -r * 0.2);
+        ctx.lineTo(-r * 0.1, 0);
+        ctx.lineTo(r * 0.3, -r * 0.3);
+        ctx.moveTo(-r * 0.1, 0);
+        ctx.lineTo(r * 0.1, r * 0.4);
+        ctx.stroke();
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(-r * 0.32, -r * 0.35, r * 0.32, r * 0.16, -Math.PI / 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.fill();
+        ctx.restore();
+    }
+    static drawStarBubble(ctx, r) {
+        ctx.save();
+        const glowGrad = ctx.createRadialGradient(0, 0, r * 0.4, 0, 0, r * 1.3);
+        glowGrad.addColorStop(0, 'rgba(255, 215, 0, 0.4)');
+        glowGrad.addColorStop(1, 'rgba(255, 215, 0, 0)');
+        ctx.fillStyle = glowGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 1.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        this.drawStarShape(ctx, 0, 0, 5, r * 1.1, r * 0.52);
+        const starGrad = ctx.createLinearGradient(0, -r, 0, r);
+        starGrad.addColorStop(0, STAR_PALETTE.light);
+        starGrad.addColorStop(0.4, STAR_PALETTE.main);
+        starGrad.addColorStop(1, STAR_PALETTE.dark);
+        ctx.fillStyle = starGrad;
+        ctx.fill();
+        ctx.lineWidth = 1.6;
+        ctx.strokeStyle = '#D48800';
+        ctx.stroke();
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.beginPath();
+        ctx.moveTo(0, -r * 1.1);
+        ctx.lineTo(r * 0.32, -r * 0.2);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+    static drawStarShape(ctx, cx, cy, spikes, outerRadius, innerRadius) {
+        let rot = (Math.PI / 2) * 3;
+        let x = cx;
+        let y = cy;
+        const step = Math.PI / spikes;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - outerRadius);
+        for (let i = 0; i < spikes; i++) {
+            x = cx + Math.cos(rot) * outerRadius;
+            y = cy + Math.sin(rot) * outerRadius;
+            ctx.lineTo(x, y);
+            rot += step;
+            x = cx + Math.cos(rot) * innerRadius;
+            y = cy + Math.sin(rot) * innerRadius;
+            ctx.lineTo(x, y);
+            rot += step;
+        }
+        ctx.lineTo(cx, cy - outerRadius);
+        ctx.closePath();
+    }
+    static drawBombBubble(ctx, r) {
+        ctx.beginPath();
+        ctx.arc(0, r * 0.32, r * 0.88, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        ctx.fill();
+        const bombGrad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
+        bombGrad.addColorStop(0, '#555555');
+        bombGrad.addColorStop(0.5, '#222222');
+        bombGrad.addColorStop(1, '#050505');
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = bombGrad;
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#111111';
+        ctx.stroke();
+        ctx.fillStyle = '#DAA520';
+        ctx.fillRect(-r * 0.22, -r * 1.05, r * 0.44, r * 0.2);
+        ctx.beginPath();
+        ctx.arc(0, -r * 1.15, r * 0.15, 0, Math.PI);
+        ctx.strokeStyle = '#8B4513';
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(r * 0.15, -r * 1.25, r * 0.14, 0, Math.PI * 2);
+        ctx.fillStyle = '#FF4500';
+        ctx.fill();
+        ctx.save();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `bold ${Math.round(r * 0.85)}px Nunito, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('💣', 0, 1);
+        ctx.restore();
+    }
+    static drawTriColorBubble(ctx, r) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.clip();
+        const rainbowGrad = ctx.createConicGradient ? ctx.createConicGradient(0, 0, 0) : null;
+        if (rainbowGrad) {
+            rainbowGrad.addColorStop(0 / 3, '#18C83A');
+            rainbowGrad.addColorStop(1 / 3, '#E51D2A');
+            rainbowGrad.addColorStop(2 / 3, '#2475E8');
+            rainbowGrad.addColorStop(3 / 3, '#18C83A');
+            ctx.fillStyle = rainbowGrad;
+            ctx.fillRect(-r, -r, r * 2, r * 2);
+        }
+        else {
+            ctx.fillStyle = '#16C8D5';
+            ctx.fillRect(-r, -r, r * 2, r * 2);
+        }
+        ctx.restore();
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(0, -r * 0.35, r * 0.25, 0, Math.PI * 2);
+        ctx.fillStyle = '#18C83A';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(-r * 0.35, r * 0.25, r * 0.25, 0, Math.PI * 2);
+        ctx.fillStyle = '#2475E8';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(r * 0.35, r * 0.25, r * 0.25, 0, Math.PI * 2);
+        ctx.fillStyle = '#E51D2A';
+        ctx.fill();
+        ctx.restore();
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(-r * 0.35, -r * 0.35, r * 0.35, r * 0.2, -Math.PI / 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.fill();
+        ctx.restore();
+    }
+    static drawMagicBubble(ctx, r) {
+        const magicGrad = ctx.createRadialGradient(-r * 0.2, -r * 0.2, r * 0.1, 0, 0, r);
+        magicGrad.addColorStop(0, '#FFFFFF');
+        magicGrad.addColorStop(0.3, '#E0E8FF');
+        magicGrad.addColorStop(0.7, '#8FA8F5');
+        magicGrad.addColorStop(1, '#4B68D6');
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = magicGrad;
+        ctx.fill();
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.6, 0, Math.PI);
+        ctx.stroke();
+        ctx.restore();
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(-r * 0.35, -r * 0.35, r * 0.35, r * 0.2, -Math.PI / 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fill();
+        ctx.restore();
+    }
+}
+class BubblePhysics {
+    static getNeighbors(row, col) {
+        const isOdd = row % 2 !== 0;
+        const maxCols = isOdd ? GRID_COLS - 1 : GRID_COLS;
+        const candidates = isOdd
+            ? [
+                { row: row, col: col - 1 },
+                { row: row, col: col + 1 },
+                { row: row - 1, col: col },
+                { row: row - 1, col: col + 1 },
+                { row: row + 1, col: col },
+                { row: row + 1, col: col + 1 }
+            ]
+            : [
+                { row: row, col: col - 1 },
+                { row: row, col: col + 1 },
+                { row: row - 1, col: col - 1 },
+                { row: row - 1, col: col },
+                { row: row + 1, col: col - 1 },
+                { row: row + 1, col: col }
+            ];
+        return candidates.filter(p => {
+            if (p.row < 0 || p.row > 60)
+                return false;
+            const rowMaxCols = p.row % 2 !== 0 ? GRID_COLS - 1 : GRID_COLS;
+            return p.col >= 0 && p.col < rowMaxCols;
+        });
+    }
+    static calculateTrajectory(aimAngle, bubbles, cameraOffsetY = 0) {
+        const activeBubbles = bubbles.filter(b => !b.isPopping && !b.isDropping);
+        const effectiveCeilingY = Math.max(CEILING_Y, CEILING_Y - cameraOffsetY);
+        const vertices = [{ x: LAUNCHER_X, y: LAUNCHER_Y }];
+        let currX = LAUNCHER_X;
+        let currY = LAUNCHER_Y;
+        let vx = Math.cos(aimAngle);
+        let vy = -Math.sin(aimAngle);
+        const stepSize = 3;
+        const maxSteps = 450;
+        for (let step = 0; step < maxSteps; step++) {
+            currX += vx * stepSize;
+            currY += vy * stepSize;
+            if (currX <= LEFT_WALL + BUBBLE_RADIUS) {
+                currX = LEFT_WALL + BUBBLE_RADIUS;
+                vertices.push({ x: currX, y: currY });
+                vx = -vx;
+            }
+            else if (currX >= RIGHT_WALL - BUBBLE_RADIUS) {
+                currX = RIGHT_WALL - BUBBLE_RADIUS;
+                vertices.push({ x: currX, y: currY });
+                vx = -vx;
+            }
+            if (currY <= effectiveCeilingY + BUBBLE_RADIUS) {
+                vertices.push({ x: currX, y: effectiveCeilingY + BUBBLE_RADIUS });
+                break;
+            }
+            let hit = false;
+            for (const b of activeBubbles) {
+                const renderY = b.y - cameraOffsetY;
+                if (renderY > -30 && renderY < LAUNCHER_Y) {
+                    if (distSq(currX, currY, b.x, renderY) <= Math.pow(BUBBLE_RADIUS * 1.85, 2)) {
+                        hit = true;
+                        break;
+                    }
+                }
+            }
+            if (hit) {
+                vertices.push({ x: currX, y: currY });
+                break;
+            }
+        }
+        if (vertices[vertices.length - 1].x !== currX || vertices[vertices.length - 1].y !== currY) {
+            vertices.push({ x: currX, y: currY });
+        }
+        return vertices;
+    }
+    static findAttachmentSlot(x, y, bubbles, cameraOffsetY = 0) {
+        const activeBubbles = bubbles.filter(b => !b.isPopping && !b.isDropping);
+        const occupiedKeys = new Set(activeBubbles.map(b => `${b.row},${b.col}`));
+        let bestSlot = null;
+        let bestDist = Infinity;
+        const worldY = y + cameraOffsetY;
+        for (let r = 0; r < 50; r++) {
+            const maxCols = r % 2 !== 0 ? GRID_COLS - 1 : GRID_COLS;
+            for (let c = 0; c < maxCols; c++) {
+                const key = `${r},${c}`;
+                if (occupiedKeys.has(key))
+                    continue;
+                const pos = getHexPosition(r, c);
+                const d = distSq(x, worldY, pos.x, pos.y);
+                let isAdjacent = r === 0;
+                if (!isAdjacent) {
+                    const neighbors = this.getNeighbors(r, c);
+                    for (const n of neighbors) {
+                        if (occupiedKeys.has(`${n.row},${n.col}`)) {
+                            isAdjacent = true;
+                            break;
+                        }
+                    }
+                }
+                if (isAdjacent && d < bestDist) {
+                    bestDist = d;
+                    bestSlot = { row: r, col: c };
+                }
+            }
+        }
+        return bestSlot;
+    }
+    static bubbleMatchesColor(b, color) {
+        if (b.isStone || b.isStar)
+            return false;
+        if (b.type === color)
+            return true;
+        if (b.type === 'dual' && b.dualColors) {
+            return b.dualColors[0] === color || b.dualColors[1] === color;
+        }
+        if (b.type === 'tricolor')
+            return true;
+        return false;
+    }
+    static findConnectedMatches(startBubble, bubbles) {
+        const activeBubbles = bubbles.filter(b => !b.isPopping && !b.isDropping);
+        const gridMap = new Map();
+        activeBubbles.forEach(b => gridMap.set(`${b.row},${b.col}`, b));
+        if (startBubble.isStone || startBubble.isStar)
+            return [];
+        if (startBubble.type === 'tricolor') {
+            const neighbors = this.getNeighbors(startBubble.row, startBubble.col);
+            let bestCluster = [];
+            for (const n of neighbors) {
+                const nb = gridMap.get(`${n.row},${n.col}`);
+                if (nb && !nb.isStone && !nb.isStar) {
+                    const colorToMatch = nb.type === 'dual' && nb.dualColors ? nb.dualColors[0] : nb.type;
+                    const cluster = this.findColorCluster(startBubble, colorToMatch, gridMap);
+                    if (cluster.length > bestCluster.length) {
+                        bestCluster = cluster;
+                    }
+                }
+            }
+            return bestCluster.length > 0 ? bestCluster : [startBubble];
+        }
+        const targetColor = startBubble.type;
+        return this.findColorCluster(startBubble, targetColor, gridMap);
+    }
+    static findColorCluster(start, targetColor, gridMap) {
+        const visited = new Set();
+        const queue = [start];
+        const cluster = [];
+        visited.add(`${start.row},${start.col}`);
+        while (queue.length > 0) {
+            const curr = queue.shift();
+            cluster.push(curr);
+            const neighbors = this.getNeighbors(curr.row, curr.col);
+            for (const n of neighbors) {
+                const key = `${n.row},${n.col}`;
+                if (!visited.has(key)) {
+                    const neighborBubble = gridMap.get(key);
+                    if (neighborBubble &&
+                        !neighborBubble.isPopping &&
+                        !neighborBubble.isDropping &&
+                        this.bubbleMatchesColor(neighborBubble, targetColor)) {
+                        visited.add(key);
+                        queue.push(neighborBubble);
+                    }
+                }
+            }
+        }
+        return cluster;
+    }
+    static findUnsupportedBubbles(bubbles) {
+        const activeBubbles = bubbles.filter(b => !b.isPopping && !b.isDropping);
+        const gridMap = new Map();
+        activeBubbles.forEach(b => gridMap.set(`${b.row},${b.col}`, b));
+        const supported = new Set();
+        const queue = [];
+        activeBubbles.forEach(b => {
+            if (b.row === 0) {
+                supported.add(`${b.row},${b.col}`);
+                queue.push(b);
+            }
+        });
+        while (queue.length > 0) {
+            const curr = queue.shift();
+            const neighbors = this.getNeighbors(curr.row, curr.col);
+            for (const n of neighbors) {
+                const key = `${n.row},${n.col}`;
+                if (!supported.has(key)) {
+                    const nb = gridMap.get(key);
+                    if (nb && !nb.isPopping && !nb.isDropping) {
+                        supported.add(key);
+                        queue.push(nb);
+                    }
+                }
+            }
+        }
+        return activeBubbles.filter(b => !supported.has(`${b.row},${b.col}`));
+    }
+    static findBombTargets(worldX, worldY, bubbles) {
+        const blastRadiusSq = Math.pow(BUBBLE_RADIUS * 2.5, 2);
+        return bubbles.filter(b => !b.isPopping && !b.isDropping && distSq(worldX, worldY, b.x, b.y) <= blastRadiusSq);
+    }
+}
+const ALL_COLORS = ['red', 'green', 'yellow', 'purple', 'cyan', 'blue'];
+function generateLevel(levelNum) {
+    const colorCount = Math.min(5, 3 + Math.floor((levelNum - 1) / 25));
+    const availableColors = ALL_COLORS.slice(0, colorCount);
+    const numRows = Math.min(36, 22 + Math.floor((levelNum - 1) / 7));
+    const shots = Math.min(55, 38 + Math.floor((levelNum - 1) / 6));
+    const targetScore = numRows * 50 + levelNum * 25;
+    const bubbleLayout = [];
+    let seed = levelNum * 997 + 1013;
+    function rng() {
+        seed = (seed * 9301 + 49297) % 233280;
+        return seed / 233280;
+    }
+    const dualChance = Math.min(0.30, 0.12 + (levelNum / 100) * 0.18);
+    const stoneChance = levelNum > 3 ? Math.min(0.12, 0.03 + (levelNum / 100) * 0.08) : 0;
+    for (let r = 0; r < numRows; r++) {
+        const maxCols = r % 2 !== 0 ? 10 : 11;
+        for (let c = 0; c < maxCols; c++) {
+            if (r >= 3 && r < numRows - 1 && (c === 0 || c === maxCols - 1) && rng() > 0.65) {
+                continue;
+            }
+            const roll = rng();
+            if (roll < stoneChance && r > 2) {
+                bubbleLayout.push({ row: r, col: c, type: 'stone' });
+            }
+            else if (roll < stoneChance + dualChance) {
+                const c1 = availableColors[Math.floor(rng() * availableColors.length)];
+                let c2 = availableColors[Math.floor(rng() * availableColors.length)];
+                if (c1 === c2) {
+                    c2 = availableColors[(availableColors.indexOf(c1) + 1) % availableColors.length];
+                }
+                bubbleLayout.push({
+                    row: r,
+                    col: c,
+                    type: 'dual',
+                    dualColors: [c1, c2]
+                });
+            }
+            else {
+                const color = availableColors[Math.floor(rng() * availableColors.length)];
+                bubbleLayout.push({ row: r, col: c, type: color });
+            }
+        }
+    }
+    return {
+        levelNumber: levelNum,
+        shots,
+        targetScore,
+        availableColors,
+        totalRows: numRows,
+        bubbleLayout
+    };
+}
+const LEVEL_DEFINITIONS = Array.from({ length: 100 }, (_, i) => generateLevel(i + 1));
+function pickSmartNextColor(activeBubbles, levelColors) {
+    const presentColors = [];
+    activeBubbles.forEach(b => {
+        if (!b.isStone && !b.isPopping && !b.isDropping) {
+            if (b.type === 'dual' && b.dualColors) {
+                if (!presentColors.includes(b.dualColors[0]))
+                    presentColors.push(b.dualColors[0]);
+                if (!presentColors.includes(b.dualColors[1]))
+                    presentColors.push(b.dualColors[1]);
+            }
+            else if (b.type !== 'tricolor') {
+                if (!presentColors.includes(b.type)) {
+                    presentColors.push(b.type);
+                }
+            }
+        }
+    });
+    if (presentColors.length > 0) {
+        const idx = Math.floor(Math.random() * presentColors.length);
+        return presentColors[idx];
+    }
+    return levelColors[Math.floor(Math.random() * levelColors.length)] || 'red';
+}
+class PowerUpManager {
+    constructor() {
+        this.items = [
+            { id: 'bomb', name: 'BOMB', count: 3, iconType: 'bomb', color: '#333333' },
+            { id: 'tricolor', name: 'WILD', count: 2, iconType: 'tricolor', color: '#16C8D5' }
+        ];
+        this.selectedPowerUp = null;
+        this.buttonBounds = [];
+        this.updateLayout();
+    }
+    updateLayout() {
+        const btnW = 96;
+        const btnH = 44;
+        const spacing = 28;
+        const totalW = btnW * 2 + spacing;
+        const startX = (VIRTUAL_WIDTH - totalW) / 2;
+        const y = VIRTUAL_HEIGHT - 54;
+        this.buttonBounds = this.items.map((item, idx) => ({
+            id: item.id,
+            x: startX + idx * (btnW + spacing),
+            y: y,
+            width: btnW,
+            height: btnH
+        }));
+    }
+    handleClick(pt) {
+        for (const btn of this.buttonBounds) {
+            if (pt.x >= btn.x - 4 &&
+                pt.x <= btn.x + btn.width + 12 &&
+                pt.y >= btn.y - 12 &&
+                pt.y <= btn.y + btn.height + 6) {
+                const item = this.items.find(i => i.id === btn.id);
+                if (item && item.count > 0) {
+                    if (this.selectedPowerUp === item.id) {
+                        this.selectedPowerUp = null;
+                    }
+                    else {
+                        this.selectedPowerUp = item.id;
+                        SoundSynth.playClick();
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    consumeSelected() {
+        if (!this.selectedPowerUp)
+            return null;
+        const item = this.items.find(i => i.id === this.selectedPowerUp);
+        if (item && item.count > 0) {
+            item.count--;
+            const used = this.selectedPowerUp;
+            this.selectedPowerUp = null;
+            return used;
+        }
+        this.selectedPowerUp = null;
+        return null;
+    }
+    draw(ctx, time) {
+        this.buttonBounds.forEach((btn, idx) => {
+            const item = this.items[idx];
+            const isSelected = this.selectedPowerUp === item.id;
+            const isAvailable = item.count > 0;
+            const r = 12;
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(btn.x, btn.y + 3, btn.width, btn.height, r);
+            ctx.fillStyle = 'rgba(10, 18, 45, 0.25)';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.roundRect(btn.x, btn.y + 4, btn.width, btn.height, r);
+            if (isSelected) {
+                ctx.fillStyle = '#C27803';
+            }
+            else if (item.id === 'tricolor') {
+                ctx.fillStyle = '#065F76';
+            }
+            else {
+                ctx.fillStyle = '#4338CA';
+            }
+            ctx.fill();
+            ctx.beginPath();
+            ctx.roundRect(btn.x, btn.y, btn.width, btn.height, r);
+            const surfaceGrad = ctx.createLinearGradient(btn.x, btn.y, btn.x, btn.y + btn.height);
+            if (isSelected) {
+                surfaceGrad.addColorStop(0, '#FFFBEB');
+                surfaceGrad.addColorStop(0.3, '#FDE047');
+                surfaceGrad.addColorStop(1, '#EAB308');
+            }
+            else if (item.id === 'tricolor') {
+                surfaceGrad.addColorStop(0, '#CFFAFE');
+                surfaceGrad.addColorStop(0.35, '#38BDF8');
+                surfaceGrad.addColorStop(1, '#0284C7');
+            }
+            else {
+                surfaceGrad.addColorStop(0, '#EEF2FF');
+                surfaceGrad.addColorStop(0.35, '#A5B4FC');
+                surfaceGrad.addColorStop(1, '#6366F1');
+            }
+            ctx.fillStyle = surfaceGrad;
+            if (isSelected) {
+                ctx.shadowColor = 'rgba(234, 179, 8, 0.7)';
+                ctx.shadowBlur = 12;
+            }
+            ctx.fill();
+            ctx.shadowColor = 'transparent';
+            ctx.lineWidth = isSelected ? 2.5 : 1.6;
+            ctx.strokeStyle = isSelected ? '#F59E0B' : 'rgba(255, 255, 255, 0.9)';
+            ctx.stroke();
+            const iconX = btn.x + 24;
+            const iconY = btn.y + btn.height / 2;
+            if (item.iconType === 'bomb') {
+                ctx.save();
+                ctx.translate(iconX, iconY + 1);
+                const bombSphere = ctx.createRadialGradient(-3, -3, 1, 0, 0, 11);
+                bombSphere.addColorStop(0, '#64748B');
+                bombSphere.addColorStop(0.5, '#1E293B');
+                bombSphere.addColorStop(1, '#020617');
+                ctx.beginPath();
+                ctx.arc(0, 0, 11, 0, Math.PI * 2);
+                ctx.fillStyle = bombSphere;
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(-3.5, -3.5, 3.5, 2, -Math.PI / 4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.fill();
+                ctx.fillStyle = '#F59E0B';
+                ctx.fillRect(-3.5, -13, 7, 3);
+                ctx.beginPath();
+                ctx.arc(0, -13, 4, 0, Math.PI);
+                ctx.strokeStyle = '#B45309';
+                ctx.lineWidth = 1.6;
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(4, -15, 3, 0, Math.PI * 2);
+                ctx.fillStyle = '#EF4444';
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(4, -15, 1.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#FDE047';
+                ctx.fill();
+                ctx.restore();
+            }
+            else if (item.iconType === 'tricolor') {
+                ctx.save();
+                ctx.translate(iconX, iconY);
+                const balls = [
+                    { x: 0, y: -7, col1: '#86EFAC', col2: '#15803D' },
+                    { x: -6.5, y: 4.5, col1: '#93C5FD', col2: '#1D4ED8' },
+                    { x: 6.5, y: 4.5, col1: '#FCA5A5', col2: '#B91C1C' }
+                ];
+                balls.forEach(b => {
+                    const ballGrad = ctx.createRadialGradient(b.x - 1, b.y - 1, 1, b.x, b.y, 5);
+                    ballGrad.addColorStop(0, b.col1);
+                    ballGrad.addColorStop(1, b.col2);
+                    ctx.beginPath();
+                    ctx.arc(b.x, b.y, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = ballGrad;
+                    ctx.fill();
+                    ctx.lineWidth = 0.8;
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(b.x - 1.2, b.y - 1.2, 1, 0, Math.PI * 2);
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fill();
+                });
+                ctx.restore();
+            }
+            ctx.fillStyle = isSelected ? '#78350F' : '#FFFFFF';
+            ctx.font = '900 13px Nunito, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(item.name, btn.x + 58, btn.y + btn.height / 2);
+            const badgeX = btn.x + btn.width - 2;
+            const badgeY = btn.y + 2;
+            const badgeR = 12;
+            ctx.beginPath();
+            ctx.arc(badgeX, badgeY + 1.5, badgeR, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(badgeX, badgeY, badgeR, 0, Math.PI * 2);
+            const bGrad = ctx.createLinearGradient(badgeX, badgeY - badgeR, badgeX, badgeY + badgeR);
+            bGrad.addColorStop(0, '#F43F5E');
+            bGrad.addColorStop(1, '#BE123C');
+            ctx.fillStyle = isAvailable ? bGrad : '#64748B';
+            ctx.fill();
+            ctx.lineWidth = 1.8;
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.stroke();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '900 12px Nunito, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${item.count}`, badgeX, badgeY + 1);
+            ctx.restore();
+        });
+    }
+}
+class GameEngine {
+    constructor() {
+        this.status = 'AIMING';
+        this.currentLevelIndex = 0;
+        this.score = 0;
+        this.displayScore = 0;
+        this.shotsRemaining = 40;
+        this.bubbles = [];
+        this.initialBubbleCount = 1;
+        this.currentBubbleType = 'red';
+        this.nextBubbleType = 'green';
+        this.projectile = null;
+        this.aimAngle = Math.PI / 2;
+        this.isAiming = false;
+        this.trajectoryPoints = [];
+        this.isSwapping = false;
+        this.swapProgress = 0;
+        this.cameraOffsetY = 0;
+        this.targetCameraOffsetY = 0;
+        this.powerUps = new PowerUpManager();
+        this.particles = [];
+        this.floatingTexts = [];
+        this.animTime = 0;
+        this.comboStreak = 0;
+        this.resultStarsCount = 0;
+        this.resultAnimProgress = 0;
+        this.nextBubbleBounds = {
+            x: LAUNCHER_X + 64,
+            y: LAUNCHER_Y + 5,
+            radius: 22
+        };
+        this.actionBtnBounds = {
+            x: (VIRTUAL_WIDTH - 180) / 2,
+            y: 500,
+            width: 180,
+            height: 52
+        };
+        this.loadLevel(0);
+    }
+    loadLevel(levelIndex) {
+        this.currentLevelIndex = levelIndex % LEVEL_DEFINITIONS.length;
+        const level = LEVEL_DEFINITIONS[this.currentLevelIndex];
+        this.shotsRemaining = level.shots;
+        this.status = 'AIMING';
+        this.projectile = null;
+        this.comboStreak = 0;
+        this.particles = [];
+        this.floatingTexts = [];
+        this.resultAnimProgress = 0;
+        this.isAiming = false;
+        this.bubbles = level.bubbleLayout.map((b, idx) => {
+            const pos = getHexPosition(b.row, b.col);
+            return {
+                id: `b_${idx}_${Date.now()}`,
+                row: b.row,
+                col: b.col,
+                x: pos.x,
+                y: pos.y,
+                radius: BUBBLE_RADIUS,
+                type: b.type,
+                dualColors: b.dualColors,
+                isStone: b.type === 'stone',
+                isStar: b.type === 'star',
+                isPopping: false,
+                popProgress: 0,
+                isDropping: false,
+                vx: 0,
+                vy: 0,
+                vr: 0,
+                rotation: 0,
+                opacity: 1,
+                scale: 1,
+                scaleOffset: Math.random() * Math.PI * 2
+            };
+        });
+        this.initialBubbleCount = Math.max(1, this.bubbles.filter(b => !b.isStone).length);
+        this.updateCameraScroll(true);
+        this.currentBubbleType = pickSmartNextColor(this.bubbles, level.availableColors);
+        this.nextBubbleType = pickSmartNextColor(this.bubbles, level.availableColors);
+        this.updateTrajectory();
+    }
+    updateCameraScroll(immediate = false) {
+        const activeBubbles = this.bubbles.filter(b => !b.isPopping && !b.isDropping);
+        if (activeBubbles.length === 0) {
+            this.targetCameraOffsetY = 0;
+            if (immediate)
+                this.cameraOffsetY = 0;
+            return;
+        }
+        let maxRow = 0;
+        activeBubbles.forEach(b => {
+            if (b.row > maxRow)
+                maxRow = b.row;
+        });
+        const desiredWorldY = getHexPosition(maxRow, 0).y;
+        const targetY = 320;
+        const offset = Math.max(0, desiredWorldY - targetY);
+        this.targetCameraOffsetY = offset;
+        if (immediate) {
+            this.cameraOffsetY = offset;
+        }
+    }
+    updateTrajectory() {
+        if (this.status !== 'AIMING') {
+            this.trajectoryPoints = [];
+            return;
+        }
+        this.trajectoryPoints = BubblePhysics.calculateTrajectory(this.aimAngle, this.bubbles, this.cameraOffsetY);
+    }
+    setAim(targetX, targetY) {
+        if (this.status !== 'AIMING')
+            return;
+        const dx = targetX - LAUNCHER_X;
+        const dy = LAUNCHER_Y - targetY;
+        if (dy <= 10)
+            return;
+        let angle = Math.atan2(dy, dx);
+        angle = Math.max(MIN_AIM_ANGLE, Math.min(MAX_AIM_ANGLE, angle));
+        this.aimAngle = angle;
+        this.isAiming = true;
+        this.updateTrajectory();
+    }
+    swapBubbles() {
+        if (this.status !== 'AIMING' || this.isSwapping)
+            return;
+        SoundSynth.playSwap();
+        this.isSwapping = true;
+        this.swapProgress = 0;
+        const temp = this.currentBubbleType;
+        this.currentBubbleType = this.nextBubbleType;
+        this.nextBubbleType = temp;
+    }
+    shoot() {
+        if (this.status !== 'AIMING' || this.shotsRemaining <= 0)
+            return;
+        let shootType = this.currentBubbleType;
+        const activePowerUp = this.powerUps.consumeSelected();
+        if (activePowerUp) {
+            shootType = activePowerUp;
+        }
+        const vx = Math.cos(this.aimAngle) * PROJECTILE_SPEED;
+        const vy = -Math.sin(this.aimAngle) * PROJECTILE_SPEED;
+        this.projectile = {
+            x: LAUNCHER_X,
+            y: LAUNCHER_Y,
+            prevX: LAUNCHER_X,
+            prevY: LAUNCHER_Y,
+            vx,
+            vy,
+            radius: BUBBLE_RADIUS,
+            type: shootType,
+            active: true,
+            trail: []
+        };
+        this.status = 'FLYING';
+        this.shotsRemaining--;
+        this.isAiming = false;
+        this.trajectoryPoints = [];
+        SoundSynth.playShoot();
+        if (!activePowerUp) {
+            const level = LEVEL_DEFINITIONS[this.currentLevelIndex];
+            this.currentBubbleType = this.nextBubbleType;
+            this.nextBubbleType = pickSmartNextColor(this.bubbles, level.availableColors);
+        }
+    }
+    handlePointerDown(x, y) {
+        SoundSynth.unlock();
+        if (this.status === 'CLEAR' || this.status === 'FAILED') {
+            const btn = this.actionBtnBounds;
+            if (x >= btn.x &&
+                x <= btn.x + btn.width &&
+                y >= btn.y &&
+                y <= btn.y + btn.height) {
+                SoundSynth.playClick();
+                if (this.status === 'CLEAR') {
+                    this.loadLevel(this.currentLevelIndex + 1);
+                }
+                else {
+                    this.loadLevel(this.currentLevelIndex);
+                }
+                return true;
+            }
+            return false;
+        }
+        if (this.status !== 'AIMING')
+            return false;
+        if (this.powerUps.handleClick({ x, y })) {
+            return true;
+        }
+        const dNext = dist(x, y, this.nextBubbleBounds.x, this.nextBubbleBounds.y);
+        if (dNext <= 36) {
+            this.swapBubbles();
+            return true;
+        }
+        if (y < LAUNCHER_Y + 40 && y > 60) {
+            this.setAim(x, y);
+            return true;
+        }
+        return false;
+    }
+    handlePointerMove(x, y) {
+        if (this.status === 'AIMING' && this.isAiming) {
+            this.setAim(x, y);
+        }
+    }
+    handlePointerUp(x, y) {
+        if (this.status === 'AIMING' && this.isAiming) {
+            this.shoot();
+        }
+        this.isAiming = false;
+    }
+    update(dt) {
+        this.animTime += dt;
+        this.cameraOffsetY += (this.targetCameraOffsetY - this.cameraOffsetY) * (dt * 4.5);
+        if (this.displayScore < this.score) {
+            const diff = this.score - this.displayScore;
+            this.displayScore += Math.max(1, Math.ceil(diff * 0.2));
+        }
+        if (this.isSwapping) {
+            this.swapProgress += dt * 5;
+            if (this.swapProgress >= 1) {
+                this.isSwapping = false;
+                this.swapProgress = 0;
+            }
+        }
+        if (this.status === 'CLEAR' || this.status === 'FAILED') {
+            this.resultAnimProgress = Math.min(1, this.resultAnimProgress + dt * 2.5);
+        }
+        if (this.status === 'FLYING' && this.projectile && this.projectile.active) {
+            this.updateProjectile(dt);
+        }
+        let anyPopping = false;
+        for (let i = this.bubbles.length - 1; i >= 0; i--) {
+            const b = this.bubbles[i];
+            if (b.isPopping) {
+                anyPopping = true;
+                b.popProgress += dt * 4.5;
+                if (b.popProgress < 0.3) {
+                    b.scale = 1 + b.popProgress * 0.6;
+                }
+                else {
+                    b.scale = Math.max(0, 1.18 - (b.popProgress - 0.3) * 1.7);
+                    b.opacity = Math.max(0, 1 - (b.popProgress - 0.3) * 1.5);
+                }
+                if (b.popProgress >= 1) {
+                    this.spawnPopParticles(b.x, b.y - this.cameraOffsetY, b.type, b.dualColors);
+                    this.bubbles.splice(i, 1);
+                }
+            }
+        }
+        let anyDropping = false;
+        for (let i = this.bubbles.length - 1; i >= 0; i--) {
+            const b = this.bubbles[i];
+            if (b.isDropping) {
+                anyDropping = true;
+                b.vy += 22 * dt;
+                b.x += b.vx * 60 * dt;
+                b.y += b.vy * 60 * dt;
+                b.rotation += b.vr;
+                b.opacity = Math.max(0, b.opacity - dt * 1.2);
+                if (b.y - this.cameraOffsetY > VIRTUAL_HEIGHT + 60 || b.opacity <= 0) {
+                    this.bubbles.splice(i, 1);
+                }
+            }
+        }
+        if (this.status === 'RESOLVING' && !anyPopping && !anyDropping) {
+            this.checkLevelEndConditions();
+        }
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.life += dt;
+            p.x += p.vx * 60 * dt;
+            p.y += p.vy * 60 * dt;
+            p.vy += 8 * dt;
+            if (p.vr)
+                p.rotation = (p.rotation || 0) + p.vr;
+            p.alpha = Math.max(0, 1 - p.life / p.maxLife);
+            if (p.life >= p.maxLife) {
+                this.particles.splice(i, 1);
+            }
+        }
+        for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+            const ft = this.floatingTexts[i];
+            ft.life += dt;
+            ft.y += ft.vy * 60 * dt;
+            ft.alpha = Math.max(0, 1 - ft.life / ft.maxLife);
+            if (ft.life >= ft.maxLife) {
+                this.floatingTexts.splice(i, 1);
+            }
+        }
+    }
+    updateProjectile(dt) {
+        const proj = this.projectile;
+        proj.prevX = proj.x;
+        proj.prevY = proj.y;
+        proj.x += proj.vx;
+        proj.y += proj.vy;
+        if (proj.x <= LEFT_WALL + proj.radius) {
+            proj.x = LEFT_WALL + proj.radius;
+            proj.vx = -proj.vx;
+            SoundSynth.playBounce();
+        }
+        else if (proj.x >= RIGHT_WALL - proj.radius) {
+            proj.x = RIGHT_WALL - proj.radius;
+            proj.vx = -proj.vx;
+            SoundSynth.playBounce();
+        }
+        const effectiveCeilingY = Math.max(CEILING_Y, CEILING_Y - this.cameraOffsetY);
+        if (proj.y <= effectiveCeilingY + proj.radius) {
+            this.attachProjectile(proj.x, effectiveCeilingY + proj.radius);
+            return;
+        }
+        const activeBubbles = this.bubbles.filter(b => !b.isPopping && !b.isDropping);
+        for (const b of activeBubbles) {
+            const renderY = b.y - this.cameraOffsetY;
+            if (renderY > -30 && renderY < LAUNCHER_Y) {
+                if (distSq(proj.x, proj.y, b.x, renderY) <= Math.pow(BUBBLE_RADIUS * 1.85, 2)) {
+                    this.attachProjectile(proj.x, proj.y);
+                    return;
+                }
+            }
+        }
+    }
+    attachProjectile(x, y) {
+        const proj = this.projectile;
+        proj.active = false;
+        if (proj.type === 'bomb') {
+            SoundSynth.playBomb();
+            const worldY = y + this.cameraOffsetY;
+            const targets = BubblePhysics.findBombTargets(x, worldY, this.bubbles);
+            targets.forEach(b => {
+                b.isPopping = true;
+                b.popProgress = 0;
+                this.addScore(10, b.x, b.y - this.cameraOffsetY);
+                if (b.isStone)
+                    SoundSynth.playStoneBreak();
+            });
+            this.spawnBombExplosion(x, y);
+            this.status = 'RESOLVING';
+            this.resolveCeilingSupport();
+            return;
+        }
+        const slot = BubblePhysics.findAttachmentSlot(x, y, this.bubbles, this.cameraOffsetY);
+        if (!slot) {
+            this.status = 'RESOLVING';
+            this.resolveCeilingSupport();
+            return;
+        }
+        const pos = getHexPosition(slot.row, slot.col);
+        const newBubble = {
+            id: `b_new_${Date.now()}`,
+            row: slot.row,
+            col: slot.col,
+            x: pos.x,
+            y: pos.y,
+            radius: BUBBLE_RADIUS,
+            type: proj.type,
+            dualColors: proj.dualColors,
+            isStone: false,
+            isStar: false,
+            isPopping: false,
+            popProgress: 0,
+            isDropping: false,
+            vx: 0,
+            vy: 0,
+            vr: 0,
+            rotation: 0,
+            opacity: 1,
+            scale: 1,
+            scaleOffset: 0
+        };
+        this.bubbles.push(newBubble);
+        SoundSynth.playAttach();
+        const matches = BubblePhysics.findConnectedMatches(newBubble, this.bubbles);
+        if (matches.length >= 3) {
+            this.comboStreak++;
+            const comboMult = Math.min(3, 1 + (this.comboStreak - 1) * 0.5);
+            matches.forEach(m => {
+                m.isPopping = true;
+                m.popProgress = 0;
+                this.addScore(Math.round(10 * comboMult), m.x, m.y - this.cameraOffsetY);
+            });
+            SoundSynth.playPop(this.comboStreak - 1);
+            if (matches.length >= 5) {
+                this.addFloatingText('NICE COMBO! ✨', pos.x, pos.y - this.cameraOffsetY - 20, '#FFD700');
+            }
+            this.status = 'RESOLVING';
+            this.resolveCeilingSupport();
+        }
+        else {
+            this.comboStreak = 0;
+            this.status = 'RESOLVING';
+            this.resolveCeilingSupport();
+        }
+    }
+    resolveCeilingSupport() {
+        setTimeout(() => {
+            const unsupported = BubblePhysics.findUnsupportedBubbles(this.bubbles);
+            if (unsupported.length > 0) {
+                SoundSynth.playDrop(unsupported.length);
+                let dropScore = 0;
+                unsupported.forEach(b => {
+                    b.isDropping = true;
+                    b.vx = (Math.random() - 0.5) * 3;
+                    b.vy = -(Math.random() * 2 + 1);
+                    b.vr = (Math.random() - 0.5) * 0.15;
+                    dropScore += 10;
+                });
+                this.addScore(dropScore, VIRTUAL_WIDTH / 2, 200);
+                this.addFloatingText(`+${dropScore} DROP BONUS! 💥`, VIRTUAL_WIDTH / 2, 220, '#61F07C');
+            }
+            this.updateCameraScroll();
+        }, 120);
+    }
+    checkLevelEndConditions() {
+        const activeBubbles = this.bubbles.filter(b => !b.isPopping && !b.isDropping && !b.isStone);
+        if (activeBubbles.length === 0) {
+            this.status = 'CLEAR';
+            this.calculateStarRating();
+            SoundSynth.playWin();
+            this.spawnVictoryConfetti();
+            return;
+        }
+        if (this.shotsRemaining <= 0) {
+            this.status = 'FAILED';
+            SoundSynth.playFail();
+            return;
+        }
+        const level = LEVEL_DEFINITIONS[this.currentLevelIndex];
+        const presentColors = [];
+        activeBubbles.forEach(b => {
+            if (b.type === 'dual' && b.dualColors) {
+                if (!presentColors.includes(b.dualColors[0]))
+                    presentColors.push(b.dualColors[0]);
+                if (!presentColors.includes(b.dualColors[1]))
+                    presentColors.push(b.dualColors[1]);
+            }
+            else if (b.type !== 'tricolor') {
+                if (!presentColors.includes(b.type)) {
+                    presentColors.push(b.type);
+                }
+            }
+        });
+        if (presentColors.length > 0) {
+            if (this.currentBubbleType !== 'tricolor' &&
+                !presentColors.includes(this.currentBubbleType)) {
+                this.currentBubbleType = pickSmartNextColor(this.bubbles, level.availableColors);
+            }
+            if (this.nextBubbleType !== 'tricolor' &&
+                !presentColors.includes(this.nextBubbleType)) {
+                this.nextBubbleType = pickSmartNextColor(this.bubbles, level.availableColors);
+            }
+        }
+        this.status = 'AIMING';
+        this.updateTrajectory();
+    }
+    calculateStarRating() {
+        const level = LEVEL_DEFINITIONS[this.currentLevelIndex];
+        if (this.score >= level.targetScore) {
+            this.resultStarsCount = 3;
+        }
+        else if (this.score >= level.targetScore * 0.65) {
+            this.resultStarsCount = 2;
+        }
+        else {
+            this.resultStarsCount = 1;
+        }
+    }
+    addScore(pts, x, y) {
+        this.score += pts;
+        this.addFloatingText(`+${pts}`, x, y, '#FFFFFF');
+    }
+    addFloatingText(text, x, y, color) {
+        this.floatingTexts.push({
+            id: `ft_${Date.now()}_${Math.random()}`,
+            text,
+            x,
+            y,
+            color,
+            strokeColor: 'rgba(0, 0, 0, 0.7)',
+            scale: 1,
+            alpha: 1,
+            vy: -1.2,
+            life: 0,
+            maxLife: 0.8
+        });
+    }
+    spawnPopParticles(x, y, type, dualColors) {
+        const count = 10;
+        let col = '#FF5C69';
+        if (type === 'dual' && dualColors) {
+            const p = COLOR_PALETTE[dualColors[0]] || COLOR_PALETTE.red;
+            col = p.main;
+        }
+        else {
+            const p = COLOR_PALETTE[type] || COLOR_PALETTE.red;
+            col = p.main;
+        }
+        for (let i = 0; i < count; i++) {
+            const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+            const speed = Math.random() * 3.5 + 1.5;
+            this.particles.push({
+                x,
+                y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                radius: Math.random() * 3 + 1.5,
+                color: col,
+                alpha: 1,
+                life: 0,
+                maxLife: Math.random() * 0.3 + 0.2
+            });
+        }
+    }
+    spawnBombExplosion(x, y) {
+        for (let i = 0; i < 24; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 6 + 2;
+            this.particles.push({
+                x,
+                y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 1,
+                radius: Math.random() * 5 + 2,
+                color: ['#FF4500', '#FFA500', '#FFFF00', '#555555'][Math.floor(Math.random() * 4)],
+                alpha: 1,
+                life: 0,
+                maxLife: Math.random() * 0.4 + 0.25
+            });
+        }
+    }
+    spawnVictoryConfetti() {
+        const colors = ['#E51D2A', '#18C83A', '#F4D600', '#C51BCB', '#16C8D5', '#2475E8', '#FFD700'];
+        for (let i = 0; i < 50; i++) {
+            this.particles.push({
+                x: VIRTUAL_WIDTH / 2 + (Math.random() - 0.5) * 200,
+                y: 260 + (Math.random() - 0.5) * 60,
+                vx: (Math.random() - 0.5) * 7,
+                vy: -(Math.random() * 6 + 2.5),
+                radius: Math.random() * 4 + 2,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                alpha: 1,
+                life: 0,
+                maxLife: Math.random() * 1.0 + 0.6,
+                rotation: Math.random() * Math.PI * 2,
+                vr: (Math.random() - 0.5) * 0.3
+            });
+        }
+    }
+    draw(ctx) {
+        ctx.clearRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+        this.drawBackground(ctx);
+        this.drawBoardBubbles(ctx);
+        if (this.status === 'AIMING' && this.isAiming && this.trajectoryPoints.length > 1) {
+            this.drawTrajectory(ctx);
+        }
+        if (this.status === 'FLYING' && this.projectile && this.projectile.active) {
+            BubbleRenderer.drawBubble(ctx, this.projectile.x, this.projectile.y, this.projectile.radius, this.projectile.type, 1, 1, 0, this.projectile.dualColors);
+        }
+        this.drawLauncher(ctx);
+        this.powerUps.draw(ctx, this.animTime);
+        this.drawVFX(ctx);
+        this.drawTopHeader(ctx);
+        if (this.status === 'CLEAR' || this.status === 'FAILED') {
+            this.drawResultModal(ctx);
+        }
+    }
+    drawBackground(ctx) {
+        const bgGrad = ctx.createLinearGradient(0, -60, 0, VIRTUAL_HEIGHT + 60);
+        bgGrad.addColorStop(0, '#95A7EC');
+        bgGrad.addColorStop(0.5, '#A1B2F2');
+        bgGrad.addColorStop(1, '#B5C3F7');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(-80, -80, VIRTUAL_WIDTH + 160, VIRTUAL_HEIGHT + 160);
+    }
+    drawBoardBubbles(ctx) {
+        for (const b of this.bubbles) {
+            const renderY = b.y - this.cameraOffsetY;
+            if (renderY > -40 && renderY < LAUNCHER_Y + 20) {
+                const idleBreathing = Math.sin(this.animTime * 2.5 + b.scaleOffset) * 0.015;
+                const curScale = b.scale + (b.isPopping || b.isDropping ? 0 : idleBreathing);
+                BubbleRenderer.drawBubble(ctx, b.x, renderY, b.radius, b.type, curScale, b.opacity, b.rotation, b.dualColors);
+            }
+        }
+    }
+    getActiveBubbleColorHex() {
+        let type = this.currentBubbleType;
+        if (this.powerUps.selectedPowerUp) {
+            type = this.powerUps.selectedPowerUp;
+        }
+        if (type === 'bomb')
+            return '#334155';
+        if (type === 'tricolor')
+            return '#06B6D4';
+        if (type === 'dual') {
+            return COLOR_PALETTE.red.main;
+        }
+        const pal = COLOR_PALETTE[type];
+        return pal ? pal.main : '#E51D2A';
+    }
+    drawTrajectory(ctx) {
+        ctx.save();
+        const verts = this.trajectoryPoints;
+        const dotSpacing = 24;
+        const activeColor = this.getActiveBubbleColorHex();
+        if (verts.length > 1) {
+            const p0 = verts[0];
+            const p1 = verts[1];
+            const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+            ctx.save();
+            ctx.translate(p0.x + Math.cos(ang) * 32, p0.y + Math.sin(ang) * 32);
+            ctx.rotate(ang + Math.PI / 2);
+            ctx.strokeStyle = activeColor;
+            ctx.lineWidth = 3.0;
+            ctx.beginPath();
+            ctx.moveTo(-6, 6);
+            ctx.lineTo(0, -6);
+            ctx.lineTo(6, 6);
+            ctx.stroke();
+            ctx.restore();
+        }
+        let distTraveled = 0;
+        let nextDotDist = 20;
+        for (let i = 1; i < verts.length; i++) {
+            const p1 = verts[i - 1];
+            const p2 = verts[i];
+            const segLen = dist(p1.x, p1.y, p2.x, p2.y);
+            if (segLen <= 0.1)
+                continue;
+            while (distTraveled + segLen >= nextDotDist) {
+                const t = (nextDotDist - distTraveled) / segLen;
+                const x = lerp(p1.x, p2.x, t);
+                const y = lerp(p1.y, p2.y, t);
+                ctx.beginPath();
+                ctx.arc(x, y, 3.6, 0, Math.PI * 2);
+                ctx.fillStyle = activeColor;
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(x - 1, y - 1, 1.2, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+                ctx.fill();
+                nextDotDist += dotSpacing;
+            }
+            distTraveled += segLen;
+        }
+        ctx.restore();
+    }
+    drawLauncher(ctx) {
+        ctx.save();
+        if (this.status !== 'FLYING' || !this.projectile) {
+            let curX = LAUNCHER_X;
+            let curY = LAUNCHER_Y;
+            let curScale = 1.15;
+            if (this.isSwapping) {
+                curX = lerp(LAUNCHER_X, this.nextBubbleBounds.x, 1 - this.swapProgress);
+                curScale = lerp(0.85, 1.15, this.swapProgress);
+            }
+            BubbleRenderer.drawBubble(ctx, curX, curY, BUBBLE_RADIUS, this.currentBubbleType, curScale);
+        }
+        const nextX = this.nextBubbleBounds.x;
+        const nextY = this.nextBubbleBounds.y;
+        let nextScale = 0.88;
+        if (this.isSwapping) {
+            nextScale = lerp(1.15, 0.88, this.swapProgress);
+        }
+        BubbleRenderer.drawBubble(ctx, nextX, nextY, BUBBLE_RADIUS, this.nextBubbleType, nextScale);
+        ctx.save();
+        ctx.translate(nextX, nextY);
+        ctx.rotate(this.animTime * 2.2);
+        const arrowR = BUBBLE_RADIUS * 1.35;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+        ctx.lineWidth = 2.4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(0, 0, arrowR, Math.PI * 0.75, Math.PI * 1.35);
+        ctx.stroke();
+        const a1x = Math.cos(Math.PI * 1.35) * arrowR;
+        const a1y = Math.sin(Math.PI * 1.35) * arrowR;
+        ctx.save();
+        ctx.translate(a1x, a1y);
+        ctx.rotate(Math.PI * 1.35 + Math.PI / 2);
+        ctx.beginPath();
+        ctx.moveTo(-4, -4);
+        ctx.lineTo(0, 2);
+        ctx.lineTo(4, -4);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.restore();
+        ctx.beginPath();
+        ctx.arc(0, 0, arrowR, Math.PI * 1.75, Math.PI * 2.35);
+        ctx.stroke();
+        const a2x = Math.cos(Math.PI * 2.35) * arrowR;
+        const a2y = Math.sin(Math.PI * 2.35) * arrowR;
+        ctx.save();
+        ctx.translate(a2x, a2y);
+        ctx.rotate(Math.PI * 2.35 + Math.PI / 2);
+        ctx.beginPath();
+        ctx.moveTo(-4, -4);
+        ctx.lineTo(0, 2);
+        ctx.lineTo(4, -4);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.restore();
+        ctx.restore();
+        const pillW = 46;
+        const pillH = 28;
+        const pillX = LAUNCHER_X - 66;
+        const pillY = LAUNCHER_Y + 4;
+        ctx.beginPath();
+        ctx.roundRect(pillX, pillY, pillW, pillH, 14);
+        const purpleGrad = ctx.createLinearGradient(pillX, pillY, pillX, pillY + pillH);
+        purpleGrad.addColorStop(0, '#8B5CF6');
+        purpleGrad.addColorStop(1, '#6D28D9');
+        ctx.fillStyle = purpleGrad;
+        ctx.shadowColor = 'rgba(0, 0, 50, 0.25)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.lineWidth = 1.6;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.stroke();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '900 14px Nunito, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${this.shotsRemaining}`, pillX + pillW / 2, pillY + pillH / 2 + 1);
+        ctx.restore();
+    }
+    drawTopHeader(ctx) {
+        ctx.save();
+        const topY = 16;
+        const topH = 32;
+        const lvlX = 10;
+        const lvlW = 66;
+        ctx.beginPath();
+        ctx.roundRect(lvlX, topY, lvlW, topH, 16);
+        const lvlGrad = ctx.createLinearGradient(lvlX, topY, lvlX, topY + topH);
+        lvlGrad.addColorStop(0, '#38BDF8');
+        lvlGrad.addColorStop(1, '#0284C7');
+        ctx.fillStyle = lvlGrad;
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.stroke();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '900 13px Nunito, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`LV ${this.currentLevelIndex + 1}`, lvlX + lvlW / 2, topY + topH / 2 + 1);
+        const barX = 84;
+        const barW = 196;
+        const barH = 24;
+        const barY = topY + 4;
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, barW, barH, 12);
+        ctx.fillStyle = 'rgba(30, 45, 80, 0.65)';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#5E8CE8';
+        ctx.stroke();
+        const activeNonStone = this.bubbles.filter(b => !b.isPopping && !b.isDropping && !b.isStone).length;
+        const clearedRatio = Math.max(0, Math.min(1, 1 - activeNonStone / this.initialBubbleCount));
+        if (clearedRatio > 0.02) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(barX + 2, barY + 2, (barW - 4) * clearedRatio, barH - 4, 10);
+            const fillGrad = ctx.createLinearGradient(barX, barY, barX, barY + barH);
+            fillGrad.addColorStop(0, '#5ED5F8');
+            fillGrad.addColorStop(1, '#1D82E2');
+            ctx.fillStyle = fillGrad;
+            ctx.fill();
+            ctx.restore();
+        }
+        const starMilestones = [0.33, 0.66, 0.98];
+        starMilestones.forEach(m => {
+            const starX = barX + barW * m;
+            const starY = barY + barH / 2;
+            const isReached = clearedRatio >= m;
+            ctx.save();
+            if (isReached) {
+                BubbleRenderer.drawStarBubble(ctx, 11);
+            }
+            else {
+                ctx.globalAlpha = 0.45;
+                BubbleRenderer.drawStarBubble(ctx, 9);
+            }
+            ctx.restore();
+        });
+        const scoreX = 288;
+        const scoreW = 82;
+        ctx.beginPath();
+        ctx.roundRect(scoreX, topY, scoreW, topH, 16);
+        const scoreGrad = ctx.createLinearGradient(scoreX, topY, scoreX, topY + topH);
+        scoreGrad.addColorStop(0, '#2D3A5D');
+        scoreGrad.addColorStop(1, '#18223C');
+        ctx.fillStyle = scoreGrad;
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.stroke();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '900 15px Nunito, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${this.displayScore}`, scoreX + scoreW / 2, topY + topH / 2 + 1);
+        ctx.restore();
+    }
+    drawVFX(ctx) {
+        for (const p of this.particles) {
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha));
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+        for (const ft of this.floatingTexts) {
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, Math.min(1, ft.alpha));
+            ctx.font = '900 16px Nunito, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = ft.strokeColor;
+            ctx.strokeText(ft.text, ft.x, ft.y);
+            ctx.fillStyle = ft.color;
+            ctx.fillText(ft.text, ft.x, ft.y);
+            ctx.restore();
+        }
+    }
+    drawResultModal(ctx) {
+        ctx.save();
+        const t = this.resultAnimProgress;
+        ctx.fillStyle = `rgba(15, 20, 45, ${0.72 * t})`;
+        ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+        const cardW = 320;
+        const cardH = 340;
+        const cardX = (VIRTUAL_WIDTH - cardW) / 2;
+        const cardY = (VIRTUAL_HEIGHT - cardH) / 2 - 20;
+        const scale = lerp(0.85, 1.0, t);
+        ctx.translate(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
+        ctx.scale(scale, scale);
+        ctx.translate(-VIRTUAL_WIDTH / 2, -VIRTUAL_HEIGHT / 2);
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        const cardGrad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
+        cardGrad.addColorStop(0, '#FFFFFF');
+        cardGrad.addColorStop(1, '#EBF1FF');
+        ctx.fillStyle = cardGrad;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+        ctx.shadowBlur = 18;
+        ctx.shadowOffsetY = 10;
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = this.status === 'CLEAR' ? '#FFD700' : '#8E44AD';
+        ctx.stroke();
+        if (this.status === 'CLEAR') {
+            this.drawResultStars(ctx, cardX + cardW / 2, cardY + 45);
+            ctx.fillStyle = '#2C3E50';
+            ctx.font = '900 24px Nunito, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('YOU DID IT!', cardX + cardW / 2, cardY + 115);
+            ctx.font = '700 15px Nunito, sans-serif';
+            ctx.fillStyle = '#617D98';
+            ctx.fillText(`LEVEL ${this.currentLevelIndex + 1} COMPLETED!`, cardX + cardW / 2, cardY + 140);
+            ctx.font = '800 20px Nunito, sans-serif';
+            ctx.fillStyle = '#E51D2A';
+            ctx.fillText(`SCORE: ${this.score}`, cardX + cardW / 2, cardY + 180);
+            this.draw3DButton(ctx, this.actionBtnBounds, 'NEXT', '#18C83A', '#0E8F28');
+        }
+        else {
+            ctx.font = '48px Nunito, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('💔', cardX + cardW / 2, cardY + 65);
+            ctx.fillStyle = '#2C3E50';
+            ctx.font = '900 24px Nunito, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('TRY AGAIN!', cardX + cardW / 2, cardY + 120);
+            ctx.font = '700 15px Nunito, sans-serif';
+            ctx.fillStyle = '#8E44AD';
+            ctx.fillText('OUT OF SHOTS', cardX + cardW / 2, cardY + 145);
+            ctx.font = '800 20px Nunito, sans-serif';
+            ctx.fillStyle = '#555555';
+            ctx.fillText(`SCORE: ${this.score}`, cardX + cardW / 2, cardY + 185);
+            this.draw3DButton(ctx, this.actionBtnBounds, 'RETRY', '#18C83A', '#0E8F28');
+        }
+        ctx.restore();
+    }
+    drawResultStars(ctx, cx, cy) {
+        const starSpacing = 42;
+        for (let i = 0; i < 3; i++) {
+            const starX = cx + (i - 1) * starSpacing;
+            const starY = cy + (i === 1 ? -6 : 4);
+            const isEarned = i < this.resultStarsCount;
+            ctx.save();
+            if (isEarned) {
+                BubbleRenderer.drawStarBubble(ctx, 16);
+            }
+            else {
+                ctx.globalAlpha = 0.3;
+                BubbleRenderer.drawStarBubble(ctx, 14);
+            }
+            ctx.restore();
+        }
+    }
+    draw3DButton(ctx, bounds, label, colorTop, colorBottom) {
+        ctx.save();
+        const r = bounds.height / 2;
+        ctx.beginPath();
+        ctx.roundRect(bounds.x, bounds.y + 4, bounds.width, bounds.height, r);
+        ctx.fillStyle = colorBottom;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, r);
+        const grad = ctx.createLinearGradient(bounds.x, bounds.y, bounds.x, bounds.y + bounds.height);
+        grad.addColorStop(0, colorTop);
+        grad.addColorStop(1, colorBottom);
+        ctx.fillStyle = grad;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetY = 2;
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.stroke();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '900 18px Nunito, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+        ctx.restore();
+    }
+}
+window.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('gameCanvas');
+    if (!canvas) {
+        console.error('❌ gameCanvas element not found!');
+        return;
+    }
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) {
+        console.error('❌ Could not acquire 2D context!');
+        return;
+    }
+    const engine = new GameEngine();
+    let canvasScale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+    function resizeCanvas() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const winW = window.innerWidth;
+        const winH = window.innerHeight;
+        const scaleX = winW / VIRTUAL_WIDTH;
+        const scaleY = winH / VIRTUAL_HEIGHT;
+        if (winW / winH < VIRTUAL_WIDTH / VIRTUAL_HEIGHT) {
+            canvasScale = scaleX;
+            offsetX = 0;
+            offsetY = Math.max(0, (winH - VIRTUAL_HEIGHT * canvasScale) / 2);
+        }
+        else {
+            canvasScale = scaleY;
+            offsetX = (winW - VIRTUAL_WIDTH * canvasScale) / 2;
+            offsetY = 0;
+        }
+        canvas.width = Math.round(winW * dpr);
+        canvas.height = Math.round(winH * dpr);
+        canvas.style.width = `${winW}px`;
+        canvas.style.height = `${winH}px`;
+        ctx.resetTransform?.();
+        ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', resizeCanvas);
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', resizeCanvas);
+    }
+    resizeCanvas();
+    function getVirtualCoords(clientX, clientY) {
+        const x = (clientX - offsetX) / canvasScale;
+        const y = (clientY - offsetY) / canvasScale;
+        return { x, y };
+    }
+    let isPointerActive = false;
+    canvas.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        isPointerActive = true;
+        const pt = getVirtualCoords(e.clientX, e.clientY);
+        engine.handlePointerDown(pt.x, pt.y);
+    });
+    window.addEventListener('pointermove', (e) => {
+        if (!isPointerActive)
+            return;
+        e.preventDefault();
+        const pt = getVirtualCoords(e.clientX, e.clientY);
+        engine.handlePointerMove(pt.x, pt.y);
+    });
+    window.addEventListener('pointerup', (e) => {
+        if (!isPointerActive)
+            return;
+        e.preventDefault();
+        isPointerActive = false;
+        const pt = getVirtualCoords(e.clientX, e.clientY);
+        engine.handlePointerUp(pt.x, pt.y);
+    });
+    window.addEventListener('pointercancel', (e) => {
+        if (!isPointerActive)
+            return;
+        isPointerActive = false;
+        const pt = getVirtualCoords(e.clientX, e.clientY);
+        engine.handlePointerUp(pt.x, pt.y);
+    });
+    let lastTime = performance.now();
+    function loop(now) {
+        const dt = Math.min((now - lastTime) / 1000, 0.1);
+        lastTime = now;
+        engine.update(dt);
+        ctx.save();
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, window.innerHeight);
+        bgGrad.addColorStop(0, '#95A7EC');
+        bgGrad.addColorStop(0.5, '#A1B2F2');
+        bgGrad.addColorStop(1, '#B5C3F7');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+        ctx.translate(offsetX, offsetY);
+        ctx.scale(canvasScale, canvasScale);
+        engine.draw(ctx);
+        ctx.restore();
+        requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+});
+})();
+  </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "gameId": "maze-paint",
+  "version": "1.14.0",
+  "buildId": "e556c1eae1e690a2ef361143e5a38919",
+  "entry": "index.html",
+  "totalBytes": 131929,
+  "files": [
+    {
+      "path": "index.html",
+      "bytes": 131307,
+      "sha256": "a6969702c595eeaf4ee2e4779944e28bbbae218bbb5d6588c717160e55f92673"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 622,
+      "sha256": "bd3dc5d1e38e99bb628db783f9fc25e88993128992943b93e6d2dede65db3216"
+    }
+  ],
+  "generatedAt": "2026-09-22T12:10:32.008Z"
+}

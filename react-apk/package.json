@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "bundle:native": "node scripts/bundle-native-games.cjs",
     "tutorial:build": "node scripts/build-tutorial-games.cjs",
     "android": "react-native run-android",
     "ios": "react-native run-ios",

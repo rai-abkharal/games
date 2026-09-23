@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "gameId": "gun-simulator",
+  "version": "1.0.0",
+  "buildId": "62997f9ce1a11c018f157c147c505826",
+  "entry": "index.html",
+  "totalBytes": 2149494,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 5955,
+      "sha256": "3b480f794bbf1ffb39845e6ae7aaee6fd0fb2a59b4d9a6dbc5a4b7c553b68204"
+    },
+    {
+      "path": "gun-simulator.svg",
+      "bytes": 1921,
+      "sha256": "57bc28ce19a0adef108ce718ec2447fe0ffef8cca91f0328927c499d7e8e8dee"
+    },
+    {
+      "path": "index.html",
+      "bytes": 2096993,
+      "sha256": "84a10f8d0d23fb18ee6bec7c0bd211a4b495bcaa45a77aacf00b35bd3cd9eff4"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 672,
+      "sha256": "d536290921cd2dc6d2d6f8fd438875abec34f597c4431d14300a70fe9d4aaa13"
+    },
+    {
+      "path": "src/audio.ts",
+      "bytes": 2601,
+      "sha256": "667c211b4121be266f6989561c627d593b9fb10f66ea111a4b8eb2d1e3a940f2"
+    },
+    {
+      "path": "src/data.ts",
+      "bytes": 9021,
+      "sha256": "5975f71e76bad773fe2638c53b13dfa6f92306ebbe728c3c205c1f060adf8e57"
+    },
+    {
+      "path": "src/game.ts",
+      "bytes": 30347,
+      "sha256": "9c8c29cc0e496756029e52754119b561e1e4616667480ce83d4077309f7acfd6"
+    },
+    {
+      "path": "src/main.ts",
+      "bytes": 1984,
+      "sha256": "419c7139cf2c5d118247ea9d9af832187259c73b83563113e2672312034286c7"
+    }
+  ],
+  "generatedAt": "2026-09-18T11:16:24.343Z"
+}

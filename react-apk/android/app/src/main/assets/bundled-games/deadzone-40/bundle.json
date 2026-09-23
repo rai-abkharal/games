@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "gameId": "deadzone-40",
+  "version": "1.4.0",
+  "buildId": "7bc74fc6fbc1b9e7a4e7172dd9c268ef",
+  "entry": "index.html",
+  "totalBytes": 276122,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 8034,
+      "sha256": "4163cad32cba7ac986df7bc11e85813662fef738d7e7ccbad4db3108e96b3986"
+    },
+    {
+      "path": "deadzone-40.svg",
+      "bytes": 5640,
+      "sha256": "04ee0b761c5514d292a38fecdb766fe3bc70100c528bdf58e2956065b88cbe27"
+    },
+    {
+      "path": "index.html",
+      "bytes": 135972,
+      "sha256": "fcb4befb35c4c8a1d0a5ac4cef82153a2f9fd055e4522f92abf3e0d8c0124fc5"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 661,
+      "sha256": "c6b2736a34c0937a1e01296ed537ba936df216bce329e63211f1c18c809ad19e"
+    },
+    {
+      "path": "src/assets.ts",
+      "bytes": 14525,
+      "sha256": "9bfafcdb7c845df3276d9e45a5f52697dc14834baabd9f5cd9de8c9b8e6698c1"
+    },
+    {
+      "path": "src/engine.ts",
+      "bytes": 68680,
+      "sha256": "25ce63b97056981a4febc0b6457b69b80dac5dc54252cc9e65a8c8d221d564ba"
+    },
+    {
+      "path": "src/entities.ts",
+      "bytes": 26868,
+      "sha256": "6d2ebed97c8924e49027f3b92afedeb377771ccd15ed23776095137c4a0a89a9"
+    },
+    {
+      "path": "src/main.ts",
+      "bytes": 860,
+      "sha256": "da40a873bc53272c2e7883ada3fac21269d11bbb2b15f09f45fffe30a33ec52e"
+    },
+    {
+      "path": "src/utils.ts",
+      "bytes": 14882,
+      "sha256": "d8a8433c3e749a611b2879639905d3149b443f85cbddb73e8c31b1ea52e7aa1d"
+    }
+  ],
+  "generatedAt": "2026-09-15T12:00:17.004Z"
+}

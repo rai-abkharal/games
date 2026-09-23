@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "gameId": "knife-hit",
+  "version": "1.3.0",
+  "buildId": "f65f60c1490dd86bdcba05f313e130f6",
+  "entry": "index.html",
+  "totalBytes": 1372530,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1863,
+      "sha256": "15b4e9b1094fe8d3f3f66b1127835f66aea752a684813d8244577693c8e729a4"
+    },
+    {
+      "path": "index.html",
+      "bytes": 1278548,
+      "sha256": "f688a949570719f86bb630f622501ff4911352ce542c86898f26b4eee6a8baa1"
+    },
+    {
+      "path": "knife-hit.svg",
+      "bytes": 2338,
+      "sha256": "29ae142ab51dc8b7e385510bc6c4f285376efb59512e894f7a7f5fcc194914d6"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 659,
+      "sha256": "6cb53b2f7033e9ab4fc8c89f55c69bf7a3197d4b9d720f3917d89be85155e654"
+    },
+    {
+      "path": "src/art.ts",
+      "bytes": 36582,
+      "sha256": "126720fc4df3576d9bff909355aba6a170ad94ee120ac18f4f9516e98f2c6139"
+    },
+    {
+      "path": "src/config.ts",
+      "bytes": 8008,
+      "sha256": "c8387b6651d32bba062e9661ebaec80f0e2404f15bf10575f798e79ca56b980b"
+    },
+    {
+      "path": "src/game.ts",
+      "bytes": 22876,
+      "sha256": "ad7a77dfe70e899a1ceaf92fd58cb05df4f2b3abbca5f079431bffbcacbe53fd"
+    },
+    {
+      "path": "src/global.d.ts",
+      "bytes": 33,
+      "sha256": "ba5f1cb91e748856f64882e7e1aed217c14889a21a63d5c066730093661fb6d9"
+    },
+    {
+      "path": "src/main.ts",
+      "bytes": 1851,
+      "sha256": "88831e7a86c762922550eb626769de743050070381910ee5f073395fd38cfbb0"
+    },
+    {
+      "path": "src/menus.ts",
+      "bytes": 8107,
+      "sha256": "c61b9783fa0a42858106ddbaaf84fb4c36940627efeabd9e8fd70fdb002d02ce"
+    },
+    {
+      "path": "src/sfx.ts",
+      "bytes": 5147,
+      "sha256": "e4d0cc087c40539b162a984399f6ff666af32f4183c6ecf317ee03cc55383162"
+    },
+    {
+      "path": "src/ui.ts",
+      "bytes": 6518,
+      "sha256": "593c4004b609feee1aab8e713b45473479275c3c6be7c4d0b793204b0ffd4001"
+    }
+  ],
+  "generatedAt": "2026-09-17T12:26:10.218Z"
+}

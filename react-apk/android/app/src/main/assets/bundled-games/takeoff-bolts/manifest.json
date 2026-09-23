@@ -1,0 +1,31 @@
+{
+  "id": "takeoff-bolts",
+  "gameId": "takeoff-bolts",
+  "name": "TakeOff Bolts — Screw Puzzle",
+  "title": "TakeOff Bolts — Screw Puzzle",
+  "slug": "takeoff-bolts",
+  "version": "1.0.0",
+  "type": "hyper-casual",
+  "orientation": "portrait",
+  "targetFrameRate": 60,
+  "dimensions": {
+    "width": 480,
+    "height": 800
+  },
+  "entry": "index.html",
+  "sizeBytes": 120877,
+  "sha256": "73df5567a3e620d39aeff578f6c57cc94691371cedf54c96a35e64f8e13ad3d3",
+  "author": "Antigravity Game Studios",
+  "description": "TakeOff Bolts is a mobile casual screw puzzle game. Tap screws to move them into empty holes, freeing puzzle pieces that fall away with satisfying physics.",
+  "categories": [
+    "puzzle",
+    "casual",
+    "brain"
+  ],
+  "features": [
+    "offline-capable",
+    "touch-support",
+    "procedural-audio",
+    "responsive"
+  ]
+}

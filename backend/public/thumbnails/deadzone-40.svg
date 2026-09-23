@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="480" viewBox="0 0 360 480">
+<defs>
+<pattern id="tile" width="90" height="90" patternUnits="userSpaceOnUse">
+<rect width="90" height="90" fill="#cfccc2"/><rect width="45" height="45" fill="#c4c0b5"/><rect x="45" y="45" width="45" height="45" fill="#c4c0b5"/>
+<path d="M45 0v90M0 45h90" stroke="#78746a" stroke-opacity=".22"/></pattern>
+<pattern id="dia" width="56" height="56" patternUnits="userSpaceOnUse">
+<rect width="56" height="56" fill="#5b6066"/><path d="M0 0l56 56M56 0L0 56" stroke="#1e2226" stroke-opacity=".35" stroke-width="1.4"/></pattern>
+<linearGradient id="cr" x2="0" y2="1"><stop offset="0" stop-color="#79bd97"/><stop offset="1" stop-color="#468467"/></linearGradient>
+<linearGradient id="br" x2="0" y2="1"><stop offset="0" stop-color="#c2bc78"/><stop offset="1" stop-color="#8d8850"/></linearGradient>
+<linearGradient id="fd" x2="0" y2="1"><stop offset="0" stop-color="#070a12" stop-opacity="0"/><stop offset="1" stop-color="#070a12"/></linearGradient>
+<radialGradient id="fl"><stop offset="0" stop-color="#ffd67a"/><stop offset="1" stop-color="#ffd67a" stop-opacity="0"/></radialGradient>
+<g id="sol" stroke="#20242e" stroke-width="2.4" stroke-linejoin="round">
+<ellipse cx="3" cy="7" rx="18" ry="10" fill="#000" stroke="none" opacity=".3"/>
+<rect x="-5" y="-12" width="13" height="8" rx="3.4" fill="#3b4351"/><rect x="-5" y="4" width="13" height="8" rx="3.4" fill="#3b4351"/>
+<rect x="-16" y="-9" width="10" height="18" rx="4" fill="#000" fill-opacity=".35"/>
+<ellipse cx="-2" cy="0" rx="12.5" ry="13.5" fill="currentColor"/>
+<rect x="-7.5" y="-9.5" width="13" height="19" rx="4.5" fill="#000" fill-opacity=".28"/>
+<rect x="-6.5" y="-14.6" width="10.5" height="6" rx="2.8" fill="#fff" fill-opacity=".3"/>
+<rect x="-6.5" y="8.6" width="10.5" height="6" rx="2.8" fill="#fff" fill-opacity=".3"/>
+<rect x="2" y="-11.6" width="15" height="6" rx="3" fill="#e2ab74" transform="rotate(20 2 -11.6)"/>
+<rect x="2" y="5.6" width="18" height="6" rx="3" fill="#e2ab74" transform="rotate(-30 2 5.6)"/>
+<rect x="-7" y="-2.6" width="13" height="5.2" rx="2.2" fill="#2c313b"/><rect x="4" y="-3.4" width="15" height="6.8" rx="2.4" fill="#39404c"/>
+<rect x="18" y="-2.7" width="9" height="5.4" rx="2" fill="#313742"/><rect x="26" y="-1.6" width="9" height="3.2" rx="1.4" fill="#4a5364"/>
+<circle cx="16.5" cy="-5" r="3.7" fill="#20252f"/><circle cx="19.5" cy="4.2" r="3.7" fill="#20252f"/>
+<circle cx="2" cy="0" r="8" fill="#e2ab74"/>
+<path d="M2 0 m-8 0 a8 8 0 1 1 5.6 7.6 z" fill="currentColor"/>
+<rect x="7.4" y="-4.4" width="4.4" height="8.8" rx="2.2" fill="#000" fill-opacity=".25"/>
+<circle cx="4.4" cy="-2.6" r="1.25" fill="#25292f" stroke="none"/><circle cx="4.4" cy="2.6" r="1.25" fill="#25292f" stroke="none"/></g>
+<g id="grass"><rect width="92" height="80" rx="14" fill="#86c033" stroke="#5d8c1e" stroke-width="3"/>
+<g fill="#74ab28"><ellipse cx="24" cy="22" rx="10" ry="6"/><ellipse cx="60" cy="44" rx="11" ry="7"/><ellipse cx="34" cy="62" rx="9" ry="6"/></g></g>
+</defs>
+
+<rect width="360" height="480" fill="url(#tile)"/>
+<rect x="112" width="136" height="360" fill="url(#dia)" stroke="#1c2024" stroke-opacity=".45" stroke-width="2.4"/>
+<use href="#grass" x="-8" y="36"/><use href="#grass" x="276" y="200"/>
+
+<g stroke="#5f5c36" stroke-width="2.8">
+<rect x="16" y="140" width="76" height="34" rx="7" fill="url(#br)"/>
+<rect x="260" y="88" width="76" height="34" rx="7" fill="url(#br)"/></g>
+<g stroke="#504c2c" stroke-opacity=".45" stroke-width="1.6" fill="none">
+<path d="M16 153H92M16 166H92M32 140v13M64 140v13M48 153v13M80 153v13"/>
+<path d="M260 101H336M260 114H336M276 88v13M308 88v13M292 101v13M324 101v13"/></g>
+
+<g stroke="#2f5d48" stroke-width="2.8">
+<rect x="40" y="228" width="66" height="66" rx="7" fill="url(#cr)"/>
+<rect x="260" y="308" width="60" height="60" rx="7" fill="url(#cr)"/></g>
+<g stroke="#1e4635" stroke-opacity=".35" stroke-width="2"><path d="M62 228v66M84 228v66M282 308v60M304 308v60"/></g>
+<path d="M45 289l56-56" stroke="#fff" stroke-opacity=".18" stroke-width="4"/>
+
+<g color="#e8455f"><use href="#sol" transform="translate(150,96) rotate(105)"/></g>
+<circle cx="196" cy="128" r="26" fill="url(#fl)"/>
+<g stroke="#fff6d8" stroke-width="3.4" stroke-linecap="round"><path d="M196 132l-22 78M186 126l-58 34"/></g>
+<g color="#37a0e0"><use href="#sol" transform="translate(176,268) rotate(-70)"/></g>
+<g fill="#7a1f2c" opacity=".55"><ellipse cx="214" cy="196" rx="13" ry="8"/><ellipse cx="228" cy="186" rx="7" ry="5"/></g>
+
+<rect y="300" width="360" height="180" fill="url(#fd)"/>
+<g font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" stroke="#10141e" paint-order="stroke">
+<g stroke-width="2.4"><rect x="14" y="12" width="120" height="32" rx="11" fill="#2578ab"/><rect x="226" y="12" width="120" height="32" rx="11" fill="#b33449"/></g>
+<g stroke-width="2"><circle cx="33" cy="28" r="9" fill="#63bcf0"/><circle cx="327" cy="28" r="9" fill="#f0697d"/></g>
+<text x="50" y="34" fill="#fff" font-size="17" font-weight="900" stroke-width="3.4">31</text>
+<text x="310" y="34" fill="#fff" font-size="17" font-weight="900" text-anchor="end" stroke-width="3.4">24</text>
+<text x="180" y="382" fill="#fff" font-size="31" font-weight="900" text-anchor="middle" stroke-width="7">DEADZONE 40</text>
+<text x="180" y="414" fill="#f5c342" font-size="14" font-weight="900" text-anchor="middle" letter-spacing="2" stroke-width="4">4v4 · MOVE · FIRE · UPGRADE</text>
+<text x="180" y="442" fill="#e9eef8" fill-opacity=".7" font-size="11" font-weight="800" text-anchor="middle" stroke="none">FIRST SQUAD TO 40 KILLS WINS</text>
+</g>
+</svg>

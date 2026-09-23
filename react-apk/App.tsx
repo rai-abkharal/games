@@ -19,18 +19,16 @@ import {
   useBundleStore,
 } from './src/services/gameBundles';
 
-/** Preload duration: runs for exactly 30 seconds. */
-const PRELOAD_DURATION_MS = 30_000;
+/** Preload duration: runs for approximately 5 seconds on first launch. */
+const PRELOAD_DURATION_MS = 5_000;
 
 /** Hard cap on waiting for the local game store before mounting the feed anyway. */
 const BUNDLE_STORE_BOOT_MS = 1200;
 
 /**
  * Enhanced startup sequence:
- * Continuously preloads as many arcade games as possible into local device
- * storage for exactly 30 seconds while displaying a modern, premium loading screen.
- * There is no fixed game-count limit: during these 30 seconds, downloads run
- * continuously in priority order so games are ready for instant zero-lag play.
+ * Quickly unpacks and warms the 20 native APK games into local device storage
+ * in approximately 5 seconds while displaying a modern, premium loading screen.
  */
 function App() {
   const playerHydrated = usePlayerStore(state => state.hydrated);
@@ -111,7 +109,7 @@ function App() {
   const readyCount = Object.keys(readyBundles).length;
   const statusText = useMemo(() => {
     if (readyCount > 0) {
-      return `Cached ${readyCount} game${readyCount > 1 ? 's' : ''} • Preloading arcade feed...`;
+      return `Loaded ${readyCount} native game${readyCount > 1 ? 's' : ''} • Ready to play!`;
     }
     return undefined;
   }, [readyCount]);
@@ -138,7 +136,7 @@ function App() {
               ready={isReadyToEnter}
               progress={preloadProgress}
               statusText={statusText}
-              totalSeconds={30}
+              totalSeconds={5}
               onDone={hideSplash}
             />
           ) : null}

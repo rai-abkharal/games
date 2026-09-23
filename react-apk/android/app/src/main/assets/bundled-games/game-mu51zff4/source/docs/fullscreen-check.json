@@ -1,0 +1,70 @@
+{
+  "viewports": [
+    {
+      "width": 375,
+      "height": 667,
+      "canvasFillsScreen": true,
+      "controlsVisible": true,
+      "tapDispatch": true
+    },
+    {
+      "width": 360,
+      "height": 640,
+      "canvasFillsScreen": true,
+      "controlsVisible": true,
+      "tapDispatch": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "canvasFillsScreen": true,
+      "controlsVisible": true,
+      "tapDispatch": true
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "canvasFillsScreen": true,
+      "controlsVisible": true,
+      "tapDispatch": true
+    },
+    {
+      "width": 430,
+      "height": 932,
+      "canvasFillsScreen": true,
+      "controlsVisible": true,
+      "tapDispatch": true
+    },
+    {
+      "width": 360,
+      "height": 800,
+      "canvasFillsScreen": true,
+      "controlsVisible": true,
+      "tapDispatch": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "canvasFillsScreen": true,
+      "controlsVisible": true,
+      "tapDispatch": true
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "canvasFillsScreen": true,
+      "controlsVisible": true,
+      "tapDispatch": true
+    }
+  ],
+  "safeArea": {
+    "top": 44,
+    "bottom": 810,
+    "left": 23.862499237060547,
+    "gameWidth": 390,
+    "gameHeight": 844
+  },
+  "proximityPicking": true,
+  "pauseResume": true,
+  "errors": []
+}

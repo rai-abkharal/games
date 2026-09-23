@@ -1,0 +1,29 @@
+{
+  "id": "knife-hit",
+  "title": "Knife Hit",
+  "version": "1.3.0",
+  "sdkVersion": 1,
+  "entry": "index.html",
+  "orientation": "portrait",
+  "controls": [
+    "TAP"
+  ],
+  "sizeBytes": 1278548,
+  "sha256": "f688a949570719f86bb630f622501ff4911352ce542c86898f26b4eee6a8baa1",
+  "ageRating": "everyone",
+  "minAppVersion": "1.0.0",
+  "hasReward": false,
+  "thumbnail": "knife-hit.svg",
+  "tags": [
+    "arcade",
+    "hypercasual",
+    "casual",
+    "reflex"
+  ],
+  "description": "Tap to throw knives into spinning boards, slice apples and beat ten bosses across 100 stages.",
+  "features": {
+    "sound": true,
+    "vibration": false,
+    "hint": false
+  }
+}

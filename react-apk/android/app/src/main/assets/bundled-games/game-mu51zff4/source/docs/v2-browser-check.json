@@ -1,0 +1,43 @@
+{
+  "hd": {
+    "canvasWidth": 780,
+    "canvasHeight": 1686,
+    "cssWidth": 390,
+    "scaling": 0.5
+  },
+  "touch": "high-DPR off-center bus tap dispatched",
+  "settings": "battery saver and Levels removed",
+  "extraBay": "single unlock enforced",
+  "groups": {
+    "entry": true,
+    "board": true,
+    "entering": 4,
+    "remaining": [
+      32
+    ]
+  },
+  "celebration": {
+    "localized": true,
+    "count": 32,
+    "after": 0
+  },
+  "victory": "text only, no coin image; Next works",
+  "sizes": [
+    {
+      "w": 320,
+      "h": 568,
+      "overflow": false
+    },
+    {
+      "w": 430,
+      "h": 932,
+      "overflow": false
+    },
+    {
+      "w": 844,
+      "h": 390,
+      "overflow": false
+    }
+  ],
+  "errors": []
+}

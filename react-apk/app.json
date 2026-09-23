@@ -2,7 +2,7 @@
   "name": "SwipePlay",
   "displayName": "EiBi Games: Swipe & Play",
   "react-native-google-mobile-ads": {
-    "android_app_id": "ca-app-pub-3940256099942544~3347511713",
+    "android_app_id": "ca-app-pub-7756444099802746~2218584705",
     "ios_app_id": "ca-app-pub-3940256099942544~1458002511",
     "delay_app_measurement_init": true,
     "optimize_initialization": true,

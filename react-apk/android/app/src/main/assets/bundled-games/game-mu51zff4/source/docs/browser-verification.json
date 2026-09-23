@@ -1,0 +1,67 @@
+{
+  "boarding": {
+    "status": "boarding",
+    "remaining": 33
+  },
+  "pause": "freezes simulation",
+  "next": "advances to level 2",
+  "level4": {
+    "vehicles": 30,
+    "meshes": 302,
+    "fps": 10.524100189345779
+  },
+  "level50": {
+    "vehicles": 40,
+    "meshes": 392,
+    "fps": 7.19441713224363,
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "sizes": [
+    {
+      "w": 320,
+      "h": 568,
+      "overflow": false,
+      "rect": {
+        "x": 28.65625,
+        "y": 0,
+        "width": 262.6875,
+        "height": 568,
+        "top": 0,
+        "right": 291.34375,
+        "bottom": 568,
+        "left": 28.65625
+      }
+    },
+    {
+      "w": 430,
+      "h": 932,
+      "overflow": false,
+      "rect": {
+        "x": 0,
+        "y": 1.140625,
+        "width": 430,
+        "height": 929.71875,
+        "top": 1.140625,
+        "right": 430,
+        "bottom": 930.859375,
+        "left": 0
+      }
+    },
+    {
+      "w": 844,
+      "h": 390,
+      "overflow": false,
+      "rect": {
+        "x": 331.8125,
+        "y": 0,
+        "width": 180.375,
+        "height": 390,
+        "top": 0,
+        "right": 512.1875,
+        "bottom": 390,
+        "left": 331.8125
+      }
+    }
+  ],
+  "errors": []
+}

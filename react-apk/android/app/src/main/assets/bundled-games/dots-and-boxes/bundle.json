@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "gameId": "dots-and-boxes",
+  "version": "1.0.0",
+  "buildId": "8f72af307c78e16f8a77df6818652b48",
+  "entry": "index.html",
+  "totalBytes": 41473,
+  "files": [
+    {
+      "path": "index.html",
+      "bytes": 40676,
+      "sha256": "ee88560cc2438d4adc9ea70c79a41cbc15260b73301c106e47d2f2f3b6592bc7"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 797,
+      "sha256": "ae78692bdc8222f762c5a8bece4c6806f1051b4146d8c23107ced57a31059020"
+    }
+  ],
+  "generatedAt": "2026-09-22T12:10:31.346Z"
+}

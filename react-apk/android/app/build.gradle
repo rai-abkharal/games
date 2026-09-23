@@ -72,6 +72,25 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+def releaseKeyFile = rootProject.file("key.properties")
+def releaseKeyProperties = new Properties()
+if (releaseKeyFile.exists()) {
+    releaseKeyFile.withInputStream { releaseKeyProperties.load(it) }
+}
+
+def validateReleaseKey = tasks.register("validateReleaseKey") {
+    doLast {
+        ["storeFile", "storePassword", "keyAlias", "keyPassword"].each { name ->
+            if (!releaseKeyProperties.getProperty(name)?.trim()) {
+                throw new GradleException("Set ${name} in android/key.properties before building a release. See key.properties.example.")
+            }
+        }
+        if (!rootProject.file(releaseKeyProperties.getProperty("storeFile")).isFile()) {
+            throw new GradleException("The storeFile in android/key.properties does not exist.")
+        }
+    }
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -86,6 +105,14 @@ android {
         versionName "1.0"
     }
     signingConfigs {
+        release {
+            if (releaseKeyProperties.getProperty("storeFile")) {
+                storeFile rootProject.file(releaseKeyProperties.getProperty("storeFile"))
+            }
+            storePassword releaseKeyProperties.getProperty("storePassword")
+            keyAlias releaseKeyProperties.getProperty("keyAlias")
+            keyPassword releaseKeyProperties.getProperty("keyPassword")
+        }
         debug {
             storeFile file('debug.keystore')
             storePassword 'android'
@@ -98,9 +125,7 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
@@ -127,3 +152,6 @@ tasks.register("buildTutorialGames", Exec) {
     commandLine "node", "scripts/build-tutorial-games.cjs"
 }
 tasks.named("preBuild").configure { dependsOn("buildTutorialGames") }
+tasks.matching { it.name == "preReleaseBuild" || it.name == "validateSigningRelease" }.configureEach {
+    dependsOn(validateReleaseKey)
+}

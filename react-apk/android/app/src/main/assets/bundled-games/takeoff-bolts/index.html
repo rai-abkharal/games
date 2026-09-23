@@ -1,0 +1,2288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#173D78" />
+<meta name="description" content="TakeOff Bolts — Unscrew the bolts, free the pieces, complete the puzzle!" />
+<title>TakeOff Bolts — Screw Puzzle</title>
+<meta name="application-name" content="TakeOff Bolts" />
+<meta name="apple-mobile-web-app-title" content="TakeOff Bolts" />
+<meta name="game-title" content="TakeOff Bolts — Screw Puzzle" />
+<meta name="game-id" content="takeoff-bolts" />
+<style>
+  :root { --bg: #173D78; --ink: #FFFFFF; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: linear-gradient(180deg, #1E4F96 0%, #0D2649 100%);
+    color: var(--ink);
+    font-family: 'Fredoka', 'Nunito', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    user-select: none; -webkit-user-select: none;
+    touch-action: none; overscroll-behavior: none;
+  }
+  #app { height: 100%; width: 100%; display: block; overflow: hidden; }
+  #stage { width: 100%; height: 100%; display: grid; place-items: center; overflow: hidden; }
+  #stage canvas { display: block; touch-action: none; }
+</style>
+</head>
+<body>
+  <div id="app"><div id="stage" aria-label="game canvas"><canvas id="gameCanvas"></canvas></div></div>
+  <script>
+"use strict";
+(() => {
+  // src/utils.ts
+  var C = {
+    bgTop: "#1E4F96",
+    bgBot: "#0D2649",
+    boardBase: "#D7A967",
+    boardHi: "#E5BD7A",
+    boardSh: "#B98243",
+    boardEdge: "#A0713A",
+    holeColor: "#0F2E5C",
+    holeBorder: "#1A3D6E",
+    screwHead: "#D0D4DA",
+    screwHi: "#EEF0F4",
+    screwSh: "#8E929A",
+    screwSlot: "#555962",
+    metal: "#D8D9DC",
+    metalHi: "#ECEDEF",
+    metalSh: "#A0A2A6",
+    yellow: "#F2B51D",
+    orange: "#E87D24",
+    brown: "#914B28",
+    green: "#5BC95F",
+    blue: "#4A91D8",
+    purple: "#B15CC9",
+    pink: "#D967B8",
+    red: "#E85454",
+    gold: "#FFD700",
+    bannerBlue: "#2E8BEF",
+    bannerPurple: "#7B3FA0",
+    bannerOrange: "#F5A623",
+    panelPurple: "#5B2C85",
+    panelGold: "#FFD54F",
+    toolBg: "#2566B8",
+    toolBgDark: "#1B4A8B",
+    toolBadge: "#4CCA5A",
+    white: "#FFFFFF",
+    black: "#000000",
+    textShadow: "#2A1D0E"
+  };
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+  function clamp(v, lo, hi) {
+    return v < lo ? lo : v > hi ? hi : v;
+  }
+  function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+  function dist(x1, y1, x2, y2) {
+    return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+  }
+  function randRange(lo, hi) {
+    return lo + Math.random() * (hi - lo);
+  }
+  function randSign() {
+    return Math.random() < 0.5 ? -1 : 1;
+  }
+  function randFrom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+  var SAVE_KEY = "takeoff_bolts_save";
+  function saveProgress(level, coins) {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ level, coins }));
+    } catch {
+    }
+  }
+  function loadProgress() {
+    try {
+      let d = JSON.parse(localStorage.getItem(SAVE_KEY) || "");
+      return { level: d.level || 1, coins: d.coins || 1e3 };
+    } catch {
+      return { level: 1, coins: 1e3 };
+    }
+  }
+  function roundRectPath(ctx2, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2), ctx2.beginPath(), ctx2.moveTo(x + r, y), ctx2.lineTo(x + w - r, y), ctx2.arcTo(x + w, y, x + w, y + r, r), ctx2.lineTo(x + w, y + h - r), ctx2.arcTo(x + w, y + h, x + w - r, y + h, r), ctx2.lineTo(x + r, y + h), ctx2.arcTo(x, y + h, x, y + h - r, r), ctx2.lineTo(x, y + r), ctx2.arcTo(x, y, x + r, y, r), ctx2.closePath();
+  }
+  function drawTextOutline(ctx2, text, x, y, fill, stroke, fontSize, align = "center", strokeW = 4, fontFamily = "Fredoka, Nunito, Arial, sans-serif") {
+    ctx2.textAlign = align, ctx2.textBaseline = "middle", ctx2.font = `bold ${fontSize}px ${fontFamily}`, ctx2.lineWidth = strokeW, ctx2.strokeStyle = stroke, ctx2.strokeText(text, x, y), ctx2.fillStyle = fill, ctx2.fillText(text, x, y);
+  }
+  var audioCtx = null;
+  function getAudio() {
+    return audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)()), audioCtx.state === "suspended" && audioCtx.resume(), audioCtx;
+  }
+  function playTone(freq, dur, type = "sine", vol = 0.15, detune = 0) {
+    let ctx2 = getAudio(), osc = ctx2.createOscillator(), gain = ctx2.createGain();
+    osc.type = type, osc.frequency.value = freq, osc.detune.value = detune, gain.gain.setValueAtTime(vol, ctx2.currentTime), gain.gain.exponentialRampToValueAtTime(1e-3, ctx2.currentTime + dur), osc.connect(gain).connect(ctx2.destination), osc.start(ctx2.currentTime), osc.stop(ctx2.currentTime + dur);
+  }
+  function playNoise(dur, vol = 0.06) {
+    let ctx2 = getAudio(), bufSize = ctx2.sampleRate * dur, buf = ctx2.createBuffer(1, bufSize, ctx2.sampleRate), data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+    let src = ctx2.createBufferSource();
+    src.buffer = buf;
+    let gain = ctx2.createGain(), filter = ctx2.createBiquadFilter();
+    filter.type = "bandpass", filter.frequency.value = 3e3, filter.Q.value = 0.8, gain.gain.setValueAtTime(vol, ctx2.currentTime), gain.gain.exponentialRampToValueAtTime(1e-3, ctx2.currentTime + dur), src.connect(filter).connect(gain).connect(ctx2.destination), src.start(), src.stop(ctx2.currentTime + dur);
+  }
+  var Sound = {
+    screwUnscrew() {
+      playTone(1200, 0.08, "square", 0.06), playTone(900, 0.1, "triangle", 0.08, 20), playNoise(0.06, 0.04);
+    },
+    screwDrop() {
+      playTone(600, 0.12, "triangle", 0.12), playTone(400, 0.08, "square", 0.04), playNoise(0.05, 0.03);
+    },
+    screwMove() {
+      playTone(1e3, 0.06, "triangle", 0.07), playTone(800, 0.15, "sine", 0.06);
+    },
+    pieceRelease() {
+      playTone(350, 0.2, "triangle", 0.1), playTone(250, 0.15, "square", 0.05), playNoise(0.12, 0.06);
+    },
+    metalClank() {
+      playTone(2600, 0.1, "triangle", 0.12), playTone(1850, 0.16, "sine", 0.15, 12), playTone(920, 0.22, "triangle", 0.11, -8), playTone(460, 0.18, "square", 0.04), playNoise(0.04, 0.08);
+    },
+    pieceFall() {
+      playTone(180, 0.25, "triangle", 0.12), playTone(100, 0.15, "sine", 0.06), playNoise(0.1, 0.05);
+    },
+    invalidMove() {
+      playTone(200, 0.12, "square", 0.08), playTone(160, 0.1, "square", 0.06);
+    },
+    buttonClick() {
+      playTone(800, 0.06, "sine", 0.08), playTone(1100, 0.04, "triangle", 0.05);
+    },
+    toolUse() {
+      playTone(600, 0.1, "triangle", 0.1), playTone(900, 0.08, "sine", 0.07), playTone(1200, 0.06, "triangle", 0.05);
+    },
+    bombExplode() {
+      playNoise(0.4, 0.15), playTone(80, 0.3, "sine", 0.15), playTone(60, 0.4, "triangle", 0.1);
+    },
+    timerTick() {
+      playTone(1e3, 0.05, "sine", 0.05);
+    },
+    victoryJingle() {
+      let ctx2 = getAudio();
+      [523, 659, 784, 1047].forEach((freq, i) => {
+        setTimeout(() => playTone(freq, 0.3, "triangle", 0.1), i * 120);
+      }), setTimeout(() => playTone(1047, 0.5, "sine", 0.12), 500), setTimeout(() => {
+        playNoise(0.15, 0.04), playTone(1200, 0.2, "triangle", 0.06);
+      }, 650);
+    },
+    confettiPop() {
+      playNoise(0.08, 0.08), playTone(1500, 0.06, "sine", 0.06);
+    },
+    levelFailed() {
+      playTone(300, 0.3, "triangle", 0.1), setTimeout(() => playTone(200, 0.4, "sine", 0.08), 200), setTimeout(() => playTone(150, 0.5, "triangle", 0.06), 400);
+    }
+  }, CONFETTI_COLORS = ["#FF6B8A", "#FFD93D", "#6BCB77", "#4D96FF", "#FF8B3D", "#C77DFF", "#FF5E5E", "#4ECDC4"];
+  function spawnSparks(particles, x, y, count = 6) {
+    for (let i = 0; i < count; i++)
+      particles.push({
+        x,
+        y,
+        vx: randRange(-120, 120),
+        vy: randRange(-180, -40),
+        color: randFrom(["#FFE082", "#FFC107", "#E0E0E0", "#BDBDBD"]),
+        size: randRange(2, 5),
+        alpha: 1,
+        life: 0,
+        maxLife: randRange(0.3, 0.7),
+        rotation: Math.random() * Math.PI * 2,
+        vRot: randRange(-5, 5),
+        type: "spark"
+      });
+  }
+  function spawnDust(particles, x, y, count = 4) {
+    for (let i = 0; i < count; i++)
+      particles.push({
+        x: x + randRange(-15, 15),
+        y: y + randRange(-10, 5),
+        vx: randRange(-30, 30),
+        vy: randRange(-50, -15),
+        color: randFrom(["#D7A967", "#C49A5C", "#B98243"]),
+        size: randRange(3, 7),
+        alpha: 0.6,
+        life: 0,
+        maxLife: randRange(0.4, 0.8),
+        rotation: 0,
+        vRot: 0,
+        type: "dust"
+      });
+  }
+  function spawnConfetti(particles, x, y, count = 40) {
+    for (let i = 0; i < count; i++)
+      particles.push({
+        x: x + randRange(-60, 60),
+        y: y + randRange(-30, 10),
+        vx: randRange(-200, 200),
+        vy: randRange(-400, -100),
+        color: randFrom(CONFETTI_COLORS),
+        size: randRange(4, 10),
+        alpha: 1,
+        life: 0,
+        maxLife: randRange(1.5, 3),
+        rotation: Math.random() * Math.PI * 2,
+        vRot: randRange(-8, 8),
+        type: "confetti",
+        shape: randFrom(["circle", "rect", "triangle"])
+      });
+  }
+  function spawnStars(particles, x, y, count = 8) {
+    for (let i = 0; i < count; i++) {
+      let angle = i / count * Math.PI * 2;
+      particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * randRange(80, 160),
+        vy: Math.sin(angle) * randRange(80, 160),
+        color: randFrom(["#FFD700", "#FFF9C4", "#FFFFFF"]),
+        size: randRange(3, 7),
+        alpha: 1,
+        life: 0,
+        maxLife: randRange(0.5, 1),
+        rotation: 0,
+        vRot: randRange(-4, 4),
+        type: "star"
+      });
+    }
+  }
+  function updateParticles(particles, dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      let p = particles[i];
+      if (p.life += dt, p.life >= p.maxLife) {
+        particles.splice(i, 1);
+        continue;
+      }
+      let t = p.life / p.maxLife;
+      p.x += p.vx * dt, p.y += p.vy * dt, p.vy += 400 * dt, p.rotation += p.vRot * dt, p.alpha = 1 - t, p.type === "confetti" && (p.alpha = t < 0.8 ? 1 : 1 - (t - 0.8) / 0.2, p.vy += 200 * dt);
+    }
+  }
+  function drawParticles(ctx2, particles) {
+    for (let p of particles)
+      ctx2.save(), ctx2.globalAlpha = p.alpha, ctx2.translate(p.x, p.y), ctx2.rotate(p.rotation), ctx2.fillStyle = p.color, p.type === "star" ? drawStar(ctx2, 0, 0, p.size, p.size * 0.4, 5) : p.shape === "rect" || p.type === "confetti" ? ctx2.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2) : p.shape === "triangle" ? (ctx2.beginPath(), ctx2.moveTo(0, -p.size / 2), ctx2.lineTo(-p.size / 2, p.size / 2), ctx2.lineTo(p.size / 2, p.size / 2), ctx2.closePath(), ctx2.fill()) : (ctx2.beginPath(), ctx2.arc(0, 0, p.size / 2, 0, Math.PI * 2), ctx2.fill()), ctx2.restore();
+  }
+  function drawStar(ctx2, cx, cy, outerR, innerR, points) {
+    ctx2.beginPath();
+    for (let i = 0; i < points * 2; i++) {
+      let angle = i * Math.PI / points - Math.PI / 2, r = i % 2 === 0 ? outerR : innerR, x = cx + Math.cos(angle) * r, y = cy + Math.sin(angle) * r;
+      i === 0 ? ctx2.moveTo(x, y) : ctx2.lineTo(x, y);
+    }
+    ctx2.closePath(), ctx2.fill();
+  }
+  function formatTime(seconds) {
+    let m = Math.floor(seconds / 60), s = Math.floor(seconds % 60);
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  }
+
+  // src/renderer.ts
+  var BOARD_X = 20, BOARD_Y = 120, BOARD_W = 440, BOARD_H = 520, BOARD_R = 18, HOLE_R = 22, SCREW_R = 16;
+  function drawBackground(ctx2, W, H) {
+    let grad = ctx2.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, "#1E4F96"), grad.addColorStop(0.5, "#173D78"), grad.addColorStop(1, "#0D2649"), ctx2.fillStyle = grad, ctx2.fillRect(0, 0, W, H);
+    let rg = ctx2.createRadialGradient(W / 2, H * 0.35, 40, W / 2, H * 0.35, W * 0.7);
+    rg.addColorStop(0, "rgba(60,120,200,0.12)"), rg.addColorStop(1, "rgba(0,0,0,0)"), ctx2.fillStyle = rg, ctx2.fillRect(0, 0, W, H);
+  }
+  function drawBoard(ctx2) {
+    ctx2.save(), ctx2.shadowColor = "rgba(0,0,0,0.5)", ctx2.shadowBlur = 18, ctx2.shadowOffsetY = 6;
+    let baseGrad = ctx2.createLinearGradient(BOARD_X, BOARD_Y, BOARD_X, BOARD_Y + BOARD_H);
+    baseGrad.addColorStop(0, "#E5BD7A"), baseGrad.addColorStop(0.3, "#D7A967"), baseGrad.addColorStop(0.7, "#CFA05A"), baseGrad.addColorStop(1, "#B98243"), ctx2.fillStyle = baseGrad, roundRectPath(ctx2, BOARD_X, BOARD_Y, BOARD_W, BOARD_H, BOARD_R), ctx2.fill(), ctx2.shadowColor = "transparent", ctx2.shadowBlur = 0, ctx2.shadowOffsetY = 0, ctx2.save(), ctx2.clip(), ctx2.globalAlpha = 0.08;
+    for (let i = 0; i < 30; i++) {
+      let x = BOARD_X + 14 * i + Math.sin(i * 0.7) * 6;
+      ctx2.strokeStyle = i % 3 === 0 ? "#8B6330" : "#A07840", ctx2.lineWidth = 1 + Math.random() * 1.5, ctx2.beginPath(), ctx2.moveTo(x, BOARD_Y);
+      for (let y = BOARD_Y; y < BOARD_Y + BOARD_H; y += 10)
+        ctx2.lineTo(x + Math.sin(y * 0.02 + i) * 4, y);
+      ctx2.stroke();
+    }
+    ctx2.globalAlpha = 1, ctx2.restore(), roundRectPath(ctx2, BOARD_X, BOARD_Y, BOARD_W, BOARD_H, BOARD_R), ctx2.clip();
+    let hiGrad = ctx2.createLinearGradient(BOARD_X, BOARD_Y, BOARD_X, BOARD_Y + 12);
+    hiGrad.addColorStop(0, "rgba(255,255,255,0.25)"), hiGrad.addColorStop(1, "rgba(255,255,255,0)"), ctx2.fillStyle = hiGrad, ctx2.fillRect(BOARD_X, BOARD_Y, BOARD_W, 12);
+    let shGrad = ctx2.createLinearGradient(BOARD_X, BOARD_Y + BOARD_H - 12, BOARD_X, BOARD_Y + BOARD_H);
+    shGrad.addColorStop(0, "rgba(0,0,0,0)"), shGrad.addColorStop(1, "rgba(0,0,0,0.15)"), ctx2.fillStyle = shGrad, ctx2.fillRect(BOARD_X, BOARD_Y + BOARD_H - 12, BOARD_W, 12), ctx2.restore(), ctx2.strokeStyle = C.boardEdge, ctx2.lineWidth = 2, roundRectPath(ctx2, BOARD_X, BOARD_Y, BOARD_W, BOARD_H, BOARD_R), ctx2.stroke();
+  }
+  function drawHole(ctx2, hole) {
+    let hx = BOARD_X + hole.x, hy = BOARD_Y + hole.y, scale = hole.addedScale ?? 1;
+    ctx2.save(), ctx2.translate(hx, hy), ctx2.scale(scale, scale), ctx2.beginPath(), ctx2.arc(0, 0, HOLE_R + 3, 0, Math.PI * 2), ctx2.fillStyle = "rgba(100,75,45,0.3)", ctx2.fill();
+    let holeGrad = ctx2.createRadialGradient(0, -2, 2, 0, 0, HOLE_R);
+    holeGrad.addColorStop(0, "#1A3D6E"), holeGrad.addColorStop(0.6, "#0F2E5C"), holeGrad.addColorStop(1, "#0A1F3D"), ctx2.beginPath(), ctx2.arc(0, 0, HOLE_R, 0, Math.PI * 2), ctx2.fillStyle = holeGrad, ctx2.fill(), ctx2.beginPath(), ctx2.arc(0, 0, HOLE_R, 0, Math.PI * 2), ctx2.strokeStyle = "rgba(0,0,0,0.3)", ctx2.lineWidth = 2, ctx2.stroke(), ctx2.beginPath(), ctx2.arc(0, -1, HOLE_R - 1, Math.PI * 1.2, Math.PI * 1.8), ctx2.strokeStyle = "rgba(200,180,140,0.25)", ctx2.lineWidth = 1.5, ctx2.stroke(), ctx2.restore();
+  }
+  function drawPhillipsCrossPath(ctx2, len, halfW) {
+    ctx2.beginPath(), ctx2.moveTo(-len, -halfW * 0.7), ctx2.lineTo(-len, halfW * 0.7), ctx2.arcTo(-halfW, halfW, -halfW, len, halfW * 0.5), ctx2.lineTo(-halfW * 0.7, len), ctx2.lineTo(halfW * 0.7, len), ctx2.arcTo(halfW, halfW, len, halfW, halfW * 0.5), ctx2.lineTo(len, halfW * 0.7), ctx2.lineTo(len, -halfW * 0.7), ctx2.arcTo(halfW, -halfW, halfW, -len, halfW * 0.5), ctx2.lineTo(halfW * 0.7, -len), ctx2.lineTo(-halfW * 0.7, -len), ctx2.arcTo(-halfW, -halfW, -len, -halfW, halfW * 0.5), ctx2.closePath();
+  }
+  function drawScrew(ctx2, screw) {
+    let sx = screw.x, sy = screw.y, lift = screw.z, scale = 1 + lift * 0.015;
+    ctx2.save(), ctx2.translate(sx, sy - lift), ctx2.scale(scale, scale), ctx2.save(), ctx2.globalAlpha = Math.max(0.12, 0.38 - lift * 8e-3);
+    let shadowSpread = lift * 0.12;
+    ctx2.beginPath(), ctx2.ellipse(0, lift * 0.5 + 3, SCREW_R + 2 + shadowSpread, (SCREW_R + shadowSpread) * 0.6 + 1, 0, 0, Math.PI * 2), ctx2.fillStyle = "rgba(0, 0, 0, 0.45)", ctx2.fill(), ctx2.restore();
+    let rimGrad = ctx2.createLinearGradient(-SCREW_R, -SCREW_R, SCREW_R, SCREW_R);
+    rimGrad.addColorStop(0, "#FFFFFF"), rimGrad.addColorStop(0.3, "#E2E5EB"), rimGrad.addColorStop(0.7, "#A5ACB8"), rimGrad.addColorStop(1, "#686E7B"), ctx2.beginPath(), ctx2.arc(0, 0, SCREW_R, 0, Math.PI * 2), ctx2.fillStyle = rimGrad, ctx2.fill(), ctx2.beginPath(), ctx2.arc(0, 0, SCREW_R, 0, Math.PI * 2), ctx2.strokeStyle = "rgba(70, 75, 85, 0.55)", ctx2.lineWidth = 1.2, ctx2.stroke();
+    let domeR = SCREW_R - 2.2, headGrad = ctx2.createRadialGradient(-domeR * 0.35, -domeR * 0.35, 1, 0, 0, domeR);
+    headGrad.addColorStop(0, "#FFFFFF"), headGrad.addColorStop(0.2, "#F2F4F8"), headGrad.addColorStop(0.5, "#D5D9E2"), headGrad.addColorStop(0.8, "#A8ADB8"), headGrad.addColorStop(1, "#828792"), ctx2.beginPath(), ctx2.arc(0, 0, domeR, 0, Math.PI * 2), ctx2.fillStyle = headGrad, ctx2.fill(), ctx2.beginPath(), ctx2.arc(0, 0, domeR * 0.78, 0, Math.PI * 2), ctx2.strokeStyle = "rgba(255, 255, 255, 0.25)", ctx2.lineWidth = 0.7, ctx2.stroke(), ctx2.save(), ctx2.rotate(screw.rotation);
+    let armLen = SCREW_R * 0.56, halfW = 2.4;
+    ctx2.save(), ctx2.translate(0.5, 0.5), drawPhillipsCrossPath(ctx2, armLen, halfW), ctx2.fillStyle = "rgba(20, 22, 28, 0.5)", ctx2.fill(), ctx2.restore();
+    let slotGrad = ctx2.createLinearGradient(0, -armLen, 0, armLen);
+    slotGrad.addColorStop(0, "#1E2128"), slotGrad.addColorStop(0.5, "#2A2E38"), slotGrad.addColorStop(1, "#1A1D24"), drawPhillipsCrossPath(ctx2, armLen, halfW), ctx2.fillStyle = slotGrad, ctx2.fill(), drawPhillipsCrossPath(ctx2, armLen, halfW), ctx2.strokeStyle = "#14161C", ctx2.lineWidth = 1, ctx2.stroke(), ctx2.save(), ctx2.beginPath(), ctx2.moveTo(-armLen, halfW * 0.7), ctx2.lineTo(-halfW, halfW * 0.7), ctx2.lineTo(-halfW, armLen), ctx2.moveTo(halfW * 0.7, armLen), ctx2.lineTo(halfW * 0.7, halfW), ctx2.lineTo(armLen, halfW), ctx2.strokeStyle = "rgba(255, 255, 255, 0.45)", ctx2.lineWidth = 1, ctx2.stroke(), ctx2.restore(), ctx2.beginPath(), ctx2.arc(0, 0, 2.8, 0, Math.PI * 2);
+    let centerGrad = ctx2.createRadialGradient(-0.5, -0.5, 0.2, 0, 0, 2.8);
+    centerGrad.addColorStop(0, "#111317"), centerGrad.addColorStop(1, "#252932"), ctx2.fillStyle = centerGrad, ctx2.fill(), ctx2.restore(), ctx2.beginPath(), ctx2.arc(-domeR * 0.28, -domeR * 0.32, domeR * 0.38, 0, Math.PI * 2), ctx2.fillStyle = "rgba(255, 255, 255, 0.42)", ctx2.fill(), ctx2.beginPath(), ctx2.arc(0, 0, domeR - 0.5, Math.PI * 1.15, Math.PI * 1.85), ctx2.strokeStyle = "rgba(255, 255, 255, 0.65)", ctx2.lineWidth = 1.2, ctx2.stroke(), ctx2.restore();
+  }
+  function buildPiecePath(ctx2, w, h, r, holes, shape = "rect", radius) {
+    if (ctx2.beginPath(), shape === "circle") {
+      let cr = radius || Math.min(w, h) / 2;
+      ctx2.arc(w / 2, h / 2, cr, 0, Math.PI * 2);
+    } else
+      r = Math.min(r, w / 2, h / 2), ctx2.moveTo(r, 0), ctx2.lineTo(w - r, 0), ctx2.arcTo(w, 0, w, r, r), ctx2.lineTo(w, h - r), ctx2.arcTo(w, h, w - r, h, r), ctx2.lineTo(r, h), ctx2.arcTo(0, h, 0, h - r, r), ctx2.lineTo(0, r), ctx2.arcTo(0, 0, r, 0, r), ctx2.closePath();
+    for (let lh of holes)
+      ctx2.moveTo(lh.x + HOLE_R, lh.y), ctx2.arc(lh.x, lh.y, HOLE_R, 0, Math.PI * 2);
+  }
+  function drawPiece(ctx2, piece, allHoles) {
+    if (piece.removed || piece.alpha <= 0) return;
+    ctx2.save(), ctx2.globalAlpha = piece.alpha;
+    let px = piece.isFree ? piece.x : BOARD_X + piece.x, py = piece.isFree ? piece.y : BOARD_Y + piece.y;
+    ctx2.translate(px + piece.width / 2, py + piece.height / 2), ctx2.rotate(piece.angle), ctx2.translate(-piece.width / 2, -piece.height / 2);
+    let w = piece.width, h = piece.height, r = 8, holes = piece.localHoles || [];
+    if (ctx2.save(), ctx2.shadowColor = piece.isFree ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.25)", ctx2.shadowBlur = piece.isFree ? 14 : 8, ctx2.shadowOffsetX = 2, ctx2.shadowOffsetY = piece.isFree ? 6 : 4, piece.material === "metal") {
+      let mGrad = ctx2.createLinearGradient(0, 0, 0, h);
+      mGrad.addColorStop(0, "#ECEDEF"), mGrad.addColorStop(0.3, "#D8D9DC"), mGrad.addColorStop(0.7, "#C0C2C6"), mGrad.addColorStop(1, "#A0A2A6"), ctx2.fillStyle = mGrad;
+    } else {
+      let wGrad = ctx2.createLinearGradient(0, 0, 0, h), base = piece.color;
+      wGrad.addColorStop(0, lighten(base, 30)), wGrad.addColorStop(0.4, base), wGrad.addColorStop(1, darken(base, 25)), ctx2.fillStyle = wGrad;
+    }
+    buildPiecePath(ctx2, w, h, r, holes, piece.shape, piece.radius), ctx2.fill("evenodd"), ctx2.shadowColor = "transparent", ctx2.restore(), ctx2.save(), buildPiecePath(ctx2, w, h, r, holes, piece.shape, piece.radius), ctx2.clip("evenodd");
+    let topH = ctx2.createLinearGradient(0, 0, 0, 6);
+    topH.addColorStop(0, "rgba(255,255,255,0.3)"), topH.addColorStop(1, "rgba(255,255,255,0)"), ctx2.fillStyle = topH, ctx2.fillRect(0, 0, w, 6);
+    let botS = ctx2.createLinearGradient(0, h - 6, 0, h);
+    if (botS.addColorStop(0, "rgba(0,0,0,0)"), botS.addColorStop(1, "rgba(0,0,0,0.15)"), ctx2.fillStyle = botS, ctx2.fillRect(0, h - 6, w, 6), piece.material === "metal") {
+      ctx2.globalAlpha = 0.06;
+      for (let y = 2; y < h; y += 3)
+        ctx2.beginPath(), ctx2.moveTo(0, y), ctx2.lineTo(w, y), ctx2.strokeStyle = "#666", ctx2.lineWidth = 0.5, ctx2.stroke();
+      ctx2.globalAlpha = piece.alpha;
+    }
+    if (ctx2.restore(), ctx2.strokeStyle = piece.material === "metal" ? "rgba(100,104,112,0.45)" : darken(piece.color, 40), ctx2.lineWidth = 1.5, piece.shape === "circle") {
+      let cr = piece.radius || Math.min(w, h) / 2;
+      ctx2.beginPath(), ctx2.arc(w / 2, h / 2, cr, 0, Math.PI * 2), ctx2.stroke();
+    } else
+      roundRectPath(ctx2, 0, 0, w, h, r), ctx2.stroke();
+    for (let lh of holes)
+      ctx2.beginPath(), ctx2.arc(lh.x, lh.y, HOLE_R, 0, Math.PI * 2), ctx2.strokeStyle = piece.material === "metal" ? "rgba(80,85,95,0.6)" : darken(piece.color, 45), ctx2.lineWidth = 2, ctx2.stroke(), ctx2.beginPath(), ctx2.arc(lh.x, lh.y, HOLE_R - 0.5, Math.PI * 0.7, Math.PI * 1.8), ctx2.strokeStyle = "rgba(0,0,0,0.35)", ctx2.lineWidth = 2, ctx2.stroke(), ctx2.beginPath(), ctx2.arc(lh.x, lh.y, HOLE_R - 0.5, Math.PI * 1.8, Math.PI * 2.7), ctx2.strokeStyle = piece.material === "metal" ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.22)", ctx2.lineWidth = 1.5, ctx2.stroke();
+    piece.shape !== "circle" && (ctx2.fillStyle = darken(piece.material === "metal" ? "#A0A2A6" : piece.color, 35), roundRectPath(ctx2, 0, h - 1, w, 4, r), ctx2.globalAlpha = 0.3 * piece.alpha, ctx2.fill(), ctx2.fillRect(w - 1, r, 4, h - r * 2), ctx2.globalAlpha = piece.alpha), ctx2.restore();
+  }
+  function drawHUD(ctx2, W, level, timer, progress, pauseRect, timerRect, addHoleRect, addedHolesCount = 0, maxAddedHoles = 2) {
+    timerRect.x = 16, timerRect.y = 16, timerRect.w = 100, timerRect.h = 38, ctx2.save(), roundRectPath(ctx2, timerRect.x, timerRect.y, timerRect.w, timerRect.h, 12), ctx2.fillStyle = "rgba(10,25,60,0.6)", ctx2.fill(), ctx2.strokeStyle = "rgba(80,130,220,0.4)", ctx2.lineWidth = 1, ctx2.stroke();
+    let clockX = timerRect.x + 20, clockY = timerRect.y + timerRect.h / 2;
+    ctx2.beginPath(), ctx2.arc(clockX, clockY, 8, 0, Math.PI * 2), ctx2.strokeStyle = "#FFE082", ctx2.lineWidth = 1.5, ctx2.stroke(), ctx2.beginPath(), ctx2.moveTo(clockX, clockY - 2), ctx2.lineTo(clockX, clockY), ctx2.lineTo(clockX + 3, clockY + 2), ctx2.stroke();
+    let timerColor = timer <= 10 ? "#FF5E5E" : "#FFE082";
+    drawTextOutline(ctx2, formatTime(timer), timerRect.x + 65, timerRect.y + timerRect.h / 2, timerColor, "rgba(0,0,0,0.5)", 16, "center", 2), ctx2.restore(), drawTextOutline(ctx2, `Level ${level}`, W / 2, 30, C.white, "rgba(0,0,0,0.6)", 22, "center", 3);
+    let progW = 120, progH = 8, progX = W / 2 - progW / 2, progY = 48;
+    roundRectPath(ctx2, progX, progY, progW, progH, 4), ctx2.fillStyle = "rgba(10,25,60,0.5)", ctx2.fill();
+    let fillW = progW * clamp(progress, 0, 1);
+    if (fillW > 0) {
+      ctx2.save(), roundRectPath(ctx2, progX, progY, progW, progH, 4), ctx2.clip();
+      let pGrad = ctx2.createLinearGradient(progX, progY, progX + fillW, progY);
+      pGrad.addColorStop(0, "#4CCA5A"), pGrad.addColorStop(1, "#6BF07A"), ctx2.fillStyle = pGrad, roundRectPath(ctx2, progX, progY, fillW, progH, 4), ctx2.fill(), ctx2.restore();
+    }
+    ctx2.beginPath(), ctx2.arc(progX + 2, progY + progH / 2, 4, 0, Math.PI * 2), ctx2.fillStyle = progress > 0 ? "#4CCA5A" : "rgba(80,130,220,0.4)", ctx2.fill(), ctx2.beginPath(), ctx2.arc(progX + progW - 2, progY + progH / 2, 4, 0, Math.PI * 2), ctx2.fillStyle = progress >= 1 ? "#4CCA5A" : "rgba(80,130,220,0.4)", ctx2.fill(), pauseRect.x = W - 56, pauseRect.y = 16, pauseRect.w = 40, pauseRect.h = 38, ctx2.save(), roundRectPath(ctx2, pauseRect.x, pauseRect.y, pauseRect.w, pauseRect.h, 10);
+    let pauseGrad = ctx2.createLinearGradient(pauseRect.x, pauseRect.y, pauseRect.x, pauseRect.y + pauseRect.h);
+    pauseGrad.addColorStop(0, "#3B8BEB"), pauseGrad.addColorStop(1, "#2566B8"), ctx2.fillStyle = pauseGrad, ctx2.fill(), ctx2.strokeStyle = "rgba(0,0,0,0.2)", ctx2.lineWidth = 1.5, ctx2.stroke(), ctx2.fillStyle = C.white, ctx2.fillRect(pauseRect.x + 14, pauseRect.y + 10, 4, 18), ctx2.fillRect(pauseRect.x + 22, pauseRect.y + 10, 4, 18), ctx2.restore(), addHoleRect.x = W - 56, addHoleRect.y = 64, addHoleRect.w = 40, addHoleRect.h = 38;
+    let isLimitReached = addedHolesCount >= maxAddedHoles, remaining = Math.max(0, maxAddedHoles - addedHolesCount);
+    ctx2.save(), roundRectPath(ctx2, addHoleRect.x, addHoleRect.y, addHoleRect.w, addHoleRect.h, 10);
+    let addHoleGrad = ctx2.createLinearGradient(addHoleRect.x, addHoleRect.y, addHoleRect.x, addHoleRect.y + addHoleRect.h);
+    isLimitReached ? (addHoleGrad.addColorStop(0, "#556275"), addHoleGrad.addColorStop(1, "#3B4554")) : (addHoleGrad.addColorStop(0, "#5BC95F"), addHoleGrad.addColorStop(1, "#3EA843")), ctx2.fillStyle = addHoleGrad, ctx2.fill(), ctx2.strokeStyle = isLimitReached ? "rgba(0,0,0,0.15)" : "rgba(0,0,0,0.2)", ctx2.lineWidth = 1.5, ctx2.stroke(), ctx2.fillStyle = isLimitReached ? "rgba(255,255,255,0.45)" : C.white, ctx2.textAlign = "center", ctx2.textBaseline = "middle", ctx2.font = "bold 15px Arial, sans-serif", ctx2.fillText("+1", addHoleRect.x + addHoleRect.w / 2, addHoleRect.y + addHoleRect.h / 2 - 2);
+    let badgeX = addHoleRect.x + addHoleRect.w - 6, badgeY = addHoleRect.y + addHoleRect.h - 6, badgeW = 16, badgeH = 12;
+    roundRectPath(ctx2, badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, 5), ctx2.fillStyle = isLimitReached ? "#6B7280" : "#2E8A33", ctx2.fill(), ctx2.textAlign = "center", ctx2.textBaseline = "middle", ctx2.font = "bold 9px Arial, sans-serif", ctx2.fillStyle = C.white, ctx2.fillText(`${remaining}`, badgeX, badgeY), ctx2.restore();
+  }
+  function drawToolbar(ctx2, W, H, tools, btnRects, activeToolMode) {
+    let toolbarX = (W - 340) / 2, toolbarY = H - 70 - 20;
+    roundRectPath(ctx2, toolbarX, toolbarY, 340, 70, 18), ctx2.fillStyle = "rgba(8,20,50,0.55)", ctx2.fill(), ctx2.strokeStyle = "rgba(60,100,180,0.3)", ctx2.lineWidth = 1, ctx2.stroke();
+    let btnSize = 52, gap = 20, totalW = btnSize * 4 + gap * 3, startX = toolbarX + (340 - totalW) / 2, btnY = toolbarY + (70 - btnSize) / 2;
+    [
+      { key: "reset", icon: "\u21BB", uses: tools.resetUses, label: "reset" },
+      { key: "screwdriver", icon: "\u{1F527}", uses: tools.screwdriverUses, label: "screwdriver" },
+      { key: "bomb", icon: "\u{1F4A3}", uses: tools.bombUses, label: "bomb" },
+      { key: "undo", icon: "\u21B6", uses: tools.undoUses, label: "undo" }
+    ].forEach((btn, i) => {
+      let bx = startX + i * (btnSize + gap), by = btnY, rect = btnRects[btn.key];
+      rect.x = bx, rect.y = by, rect.w = btnSize, rect.h = btnSize, ctx2.save();
+      let isActive = activeToolMode === btn.label, isLocked = btn.uses <= 0, bGrad = ctx2.createLinearGradient(bx, by, bx, by + btnSize);
+      isActive ? (bGrad.addColorStop(0, "#5BA8F7"), bGrad.addColorStop(1, "#3080E0")) : isLocked ? (bGrad.addColorStop(0, "#3A5070"), bGrad.addColorStop(1, "#2A3C55")) : (bGrad.addColorStop(0, "#3B8BEB"), bGrad.addColorStop(1, "#2566B8")), roundRectPath(ctx2, bx, by, btnSize, btnSize, 12), ctx2.fillStyle = bGrad, ctx2.fill(), ctx2.strokeStyle = isActive ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.25)", ctx2.lineWidth = isActive ? 2 : 1.5, ctx2.stroke(), roundRectPath(ctx2, bx, by, btnSize, btnSize, 12), ctx2.save(), ctx2.clip();
+      let topH = ctx2.createLinearGradient(bx, by, bx, by + 8);
+      if (topH.addColorStop(0, "rgba(255,255,255,0.2)"), topH.addColorStop(1, "rgba(255,255,255,0)"), ctx2.fillStyle = topH, ctx2.fillRect(bx, by, btnSize, 8), ctx2.restore(), ctx2.save(), isLocked && (ctx2.globalAlpha = 0.4), ctx2.textAlign = "center", ctx2.textBaseline = "middle", ctx2.font = `${btn.key === "reset" || btn.key === "undo" ? "bold 24px" : "22px"} Arial, sans-serif`, ctx2.fillStyle = C.white, ctx2.fillText(btn.icon, bx + btnSize / 2, by + btnSize / 2 - 3), ctx2.restore(), btn.uses > 0) {
+        let badgeX = bx + btnSize - 8, badgeY = by + btnSize - 8, badgeW = 20, badgeH = 14;
+        roundRectPath(ctx2, badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, 6), ctx2.fillStyle = C.toolBadge, ctx2.fill(), ctx2.textAlign = "center", ctx2.textBaseline = "middle", ctx2.font = "bold 10px Arial, sans-serif", ctx2.fillStyle = C.white, ctx2.fillText(`${btn.uses}`, badgeX, badgeY);
+      }
+      isLocked && (ctx2.textAlign = "center", ctx2.textBaseline = "middle", ctx2.font = "12px Arial, sans-serif", ctx2.fillStyle = "rgba(255,255,255,0.5)", ctx2.fillText("\u{1F512}", bx + btnSize / 2, by + btnSize - 8)), ctx2.restore();
+    });
+  }
+  function drawBanner(ctx2, W, H, banner) {
+    let t = banner.timer / banner.duration, alpha = 1, yOffset = 0;
+    if (t > 0.8) {
+      let fadeT = (t - 0.8) / 0.2;
+      alpha = 1 - fadeT, yOffset = -30 * fadeT;
+    } else t < 0.2 && (alpha = t / 0.2, yOffset = 30 * (1 - t / 0.2));
+    ctx2.save(), ctx2.globalAlpha = alpha;
+    let bannerW = 280, bannerH = 50, bx = (W - bannerW) / 2, by = H * 0.3 + yOffset, bg1, bg2, border;
+    banner.type === "hard_level" ? (bg1 = "#9B4DCA", bg2 = "#6A2C91", border = "#5A1F7A") : banner.type === "level_complete" ? (bg1 = "#F5A623", bg2 = "#E8821C", border = "#C96A10") : banner.type === "compliment" ? (bg1 = "#FFD54F", bg2 = "#FFA726", border = "#E88C18") : (bg1 = "#3B8BEB", bg2 = "#2566B8", border = "#1B4A8B"), roundRectPath(ctx2, bx, by, bannerW, bannerH, 10);
+    let ribGrad = ctx2.createLinearGradient(bx, by, bx, by + bannerH);
+    ribGrad.addColorStop(0, bg1), ribGrad.addColorStop(1, bg2), ctx2.fillStyle = ribGrad, ctx2.fill(), ctx2.strokeStyle = border, ctx2.lineWidth = 2, ctx2.stroke();
+    let icon = "";
+    banner.type === "hard_level" && (icon = "\u{1F480} "), drawTextOutline(ctx2, icon + banner.text, W / 2, by + bannerH / 2, C.white, "rgba(0,0,0,0.5)", 20, "center", 3), ctx2.restore();
+  }
+  function drawVictoryPanel(ctx2, W, H, completionTime, anim) {
+    let alpha = clamp(anim, 0, 1);
+    if (ctx2.save(), ctx2.globalAlpha = alpha * 0.65, ctx2.fillStyle = "#0A1020", ctx2.fillRect(0, 0, W, H), ctx2.restore(), anim < 0.2) return;
+    let panelAnim = clamp((anim - 0.2) / 0.8, 0, 1), scale = easeOutCubic(panelAnim);
+    ctx2.save(), ctx2.globalAlpha = panelAnim, ctx2.translate(W / 2, H * 0.42), ctx2.scale(scale, scale), ctx2.translate(-W / 2, -H * 0.42);
+    let panelW = 320, panelH = 340, px = (W - panelW) / 2, py = H * 0.42 - panelH / 2;
+    roundRectPath(ctx2, px - 4, py - 4, panelW + 8, panelH + 8, 22), ctx2.fillStyle = C.panelGold, ctx2.fill();
+    let panelGrad = ctx2.createLinearGradient(px, py, px, py + panelH);
+    panelGrad.addColorStop(0, "#7B3FA0"), panelGrad.addColorStop(0.5, "#5B2C85"), panelGrad.addColorStop(1, "#3D1A60"), roundRectPath(ctx2, px, py, panelW, panelH, 18), ctx2.fillStyle = panelGrad, ctx2.fill();
+    let glow = ctx2.createRadialGradient(W / 2, py + panelH * 0.3, 10, W / 2, py + panelH * 0.3, panelW * 0.6);
+    glow.addColorStop(0, "rgba(180,120,255,0.15)"), glow.addColorStop(1, "rgba(0,0,0,0)"), ctx2.fillStyle = glow, ctx2.fillRect(px, py, panelW, panelH), drawScrewCharacter(ctx2, W / 2, py + 65, !0), drawTextOutline(ctx2, "Victory!", W / 2, py + 140, "#FFD54F", "rgba(0,0,0,0.6)", 36, "center", 4), drawTextOutline(ctx2, `It took ${completionTime} to`, W / 2, py + 190, C.white, "rgba(0,0,0,0.4)", 16, "center", 2), drawTextOutline(ctx2, "complete!", W / 2, py + 212, C.white, "rgba(0,0,0,0.4)", 16, "center", 2);
+    let tapAlpha = 0.6 + Math.sin(Date.now() * 5e-3) * 0.4;
+    ctx2.globalAlpha = panelAnim * tapAlpha;
+    let tapGlow = ctx2.createLinearGradient(px, py + panelH - 50, px + panelW, py + panelH - 50);
+    tapGlow.addColorStop(0, "rgba(255,215,0,0)"), tapGlow.addColorStop(0.3, "rgba(255,215,0,0.15)"), tapGlow.addColorStop(0.5, "rgba(255,215,0,0.25)"), tapGlow.addColorStop(0.7, "rgba(255,215,0,0.15)"), tapGlow.addColorStop(1, "rgba(255,215,0,0)"), ctx2.fillStyle = tapGlow, ctx2.fillRect(px, py + panelH - 65, panelW, 40), ctx2.globalAlpha = panelAnim, drawTextOutline(ctx2, "Tap to Continue", W / 2, py + panelH - 40, C.white, "rgba(0,0,0,0.4)", 18, "center", 2), ctx2.restore();
+  }
+  function drawFailedPanel(ctx2, W, H, anim, retryRect) {
+    let alpha = clamp(anim, 0, 1);
+    if (ctx2.save(), ctx2.globalAlpha = alpha * 0.7, ctx2.fillStyle = "#0A1020", ctx2.fillRect(0, 0, W, H), ctx2.restore(), anim < 0.15) return;
+    let panelAnim = clamp((anim - 0.15) / 0.85, 0, 1), scale = easeOutCubic(panelAnim);
+    ctx2.save(), ctx2.globalAlpha = panelAnim, ctx2.translate(W / 2, H * 0.42), ctx2.scale(scale, scale), ctx2.translate(-W / 2, -H * 0.42);
+    let panelW = 300, panelH = 310, px = (W - panelW) / 2, py = H * 0.42 - panelH / 2;
+    roundRectPath(ctx2, px - 4, py - 4, panelW + 8, panelH + 8, 22), ctx2.fillStyle = C.panelGold, ctx2.fill();
+    let panelGrad = ctx2.createLinearGradient(px, py, px, py + panelH);
+    panelGrad.addColorStop(0, "#3D5CA0"), panelGrad.addColorStop(0.5, "#2D4480"), panelGrad.addColorStop(1, "#1C2E5A"), roundRectPath(ctx2, px, py, panelW, panelH, 18), ctx2.fillStyle = panelGrad, ctx2.fill(), drawScrewCharacter(ctx2, W / 2, py + 60, !1), drawTextOutline(ctx2, "Level Failed!", W / 2, py + 130, "#FF6B6B", "rgba(0,0,0,0.6)", 30, "center", 4), drawTextOutline(ctx2, "Time's Up!", W / 2, py + 170, C.white, "rgba(0,0,0,0.4)", 16, "center", 2);
+    let btnW = 200, btnH = 52, btnX = (W - btnW) / 2, btnY = py + panelH - 80;
+    retryRect.x = btnX, retryRect.y = btnY, retryRect.w = btnW, retryRect.h = btnH;
+    let btnGrad = ctx2.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
+    btnGrad.addColorStop(0, "#5BC95F"), btnGrad.addColorStop(1, "#3EA843"), roundRectPath(ctx2, btnX, btnY, btnW, btnH, 14), ctx2.fillStyle = btnGrad, ctx2.fill(), ctx2.strokeStyle = "#2E8A33", ctx2.lineWidth = 2, ctx2.stroke(), roundRectPath(ctx2, btnX, btnY, btnW, btnH, 14), ctx2.save(), ctx2.clip();
+    let btnHi = ctx2.createLinearGradient(btnX, btnY, btnX, btnY + 8);
+    btnHi.addColorStop(0, "rgba(255,255,255,0.3)"), btnHi.addColorStop(1, "rgba(255,255,255,0)"), ctx2.fillStyle = btnHi, ctx2.fillRect(btnX, btnY, btnW, 8), ctx2.restore(), drawTextOutline(ctx2, "TRY AGAIN", W / 2, btnY + btnH / 2, C.white, "rgba(0,0,0,0.4)", 20, "center", 3), ctx2.restore();
+  }
+  function drawScrewCharacter(ctx2, cx, cy, happy) {
+    ctx2.save(), ctx2.translate(cx, cy), ctx2.beginPath(), ctx2.arc(0, 0, 28, 0, Math.PI * 2);
+    let bodyGrad = ctx2.createRadialGradient(-6, -8, 4, 0, 0, 28);
+    bodyGrad.addColorStop(0, "#F0F2F5"), bodyGrad.addColorStop(0.5, "#C8CCD4"), bodyGrad.addColorStop(1, "#96A0AE"), ctx2.fillStyle = bodyGrad, ctx2.fill(), ctx2.strokeStyle = "#7A8292", ctx2.lineWidth = 2, ctx2.stroke();
+    let eyeY = -6, eyeSpacing = 10;
+    ctx2.beginPath(), ctx2.ellipse(-eyeSpacing, eyeY, 6, 7, 0, 0, Math.PI * 2), ctx2.fillStyle = C.white, ctx2.fill(), ctx2.beginPath(), ctx2.arc(-eyeSpacing + 1, eyeY, 3, 0, Math.PI * 2), ctx2.fillStyle = "#2A2D35", ctx2.fill(), ctx2.beginPath(), ctx2.arc(-eyeSpacing, eyeY - 1, 1.2, 0, Math.PI * 2), ctx2.fillStyle = C.white, ctx2.fill(), ctx2.beginPath(), ctx2.ellipse(eyeSpacing, eyeY, 6, 7, 0, 0, Math.PI * 2), ctx2.fillStyle = C.white, ctx2.fill(), ctx2.beginPath(), ctx2.arc(eyeSpacing + 1, eyeY, 3, 0, Math.PI * 2), ctx2.fillStyle = "#2A2D35", ctx2.fill(), ctx2.beginPath(), ctx2.arc(eyeSpacing, eyeY - 1, 1.2, 0, Math.PI * 2), ctx2.fillStyle = C.white, ctx2.fill(), happy ? (ctx2.beginPath(), ctx2.arc(0, 6, 8, 0.1 * Math.PI, 0.9 * Math.PI), ctx2.strokeStyle = "#4A4E58", ctx2.lineWidth = 2, ctx2.stroke(), ctx2.globalAlpha = 0.3, ctx2.beginPath(), ctx2.ellipse(-16, 4, 5, 3, 0, 0, Math.PI * 2), ctx2.fillStyle = "#FF8A8A", ctx2.fill(), ctx2.beginPath(), ctx2.ellipse(16, 4, 5, 3, 0, 0, Math.PI * 2), ctx2.fill(), ctx2.globalAlpha = 1, ctx2.save(), ctx2.translate(24, -10), ctx2.rotate(0.3), ctx2.beginPath(), ctx2.moveTo(0, 0), ctx2.lineTo(20, -6), ctx2.lineTo(20, 6), ctx2.closePath(), ctx2.fillStyle = "#FF5E5E", ctx2.fill(), ctx2.beginPath(), ctx2.arc(22, 0, 4, 0, Math.PI * 2), ctx2.fillStyle = "#FFD54F", ctx2.fill(), ctx2.restore()) : (ctx2.beginPath(), ctx2.arc(0, 14, 7, 1.1 * Math.PI, 1.9 * Math.PI), ctx2.strokeStyle = "#4A4E58", ctx2.lineWidth = 2, ctx2.stroke(), ctx2.beginPath(), ctx2.ellipse(eyeSpacing + 2, eyeY + 12, 2, 3, 0, 0, Math.PI * 2), ctx2.fillStyle = "rgba(100,180,255,0.6)", ctx2.fill()), ctx2.restore();
+  }
+  function lighten(hex, pct) {
+    let r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16), f = pct / 100;
+    return `rgb(${Math.min(255, r + (255 - r) * f)},${Math.min(255, g + (255 - g) * f)},${Math.min(255, b + (255 - b) * f)})`;
+  }
+  function darken(hex, pct) {
+    let r, g, b;
+    if (hex.startsWith("rgb")) {
+      let m = hex.match(/[\d.]+/g);
+      if (!m) return hex;
+      r = +m[0], g = +m[1], b = +m[2];
+    } else
+      r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    let f = 1 - pct / 100;
+    return `rgb(${Math.max(0, Math.floor(r * f))},${Math.max(0, Math.floor(g * f))},${Math.max(0, Math.floor(b * f))})`;
+  }
+
+  // src/levels.ts
+  function makeHBar(id, y, h1, h2, material, color, layer, padding = 25, thickness = 54, extraHoleIds = []) {
+    let minX = Math.min(h1.x, h2.x), width = Math.max(h1.x, h2.x) - minX + padding * 2, allHoleIds = Array.from(/* @__PURE__ */ new Set([h1.id, h2.id, ...extraHoleIds]));
+    return {
+      id,
+      material,
+      color,
+      x: minX - padding,
+      y: y - thickness / 2,
+      width,
+      height: thickness,
+      angle: 0,
+      shape: "rect",
+      attachmentHoleIds: allHoleIds,
+      layer
+    };
+  }
+  function makeVBar(id, x, h1, h2, material, color, layer, padding = 25, thickness = 54, extraHoleIds = []) {
+    let minY = Math.min(h1.y, h2.y), height = Math.max(h1.y, h2.y) - minY + padding * 2, allHoleIds = Array.from(/* @__PURE__ */ new Set([h1.id, h2.id, ...extraHoleIds]));
+    return {
+      id,
+      material,
+      color,
+      x: x - thickness / 2,
+      y: minY - padding,
+      width: thickness,
+      height,
+      angle: 0,
+      shape: "rect",
+      attachmentHoleIds: allHoleIds,
+      layer
+    };
+  }
+  function makeAngledBar(id, h1, h2, material, color, layer, padding = 25, thickness = 54, extraHoleIds = []) {
+    let dx = h2.x - h1.x, dy = h2.y - h1.y, len = Math.hypot(dx, dy), angle = Math.atan2(dy, dx), mx = (h1.x + h2.x) / 2, my = (h1.y + h2.y) / 2, width = len + padding * 2, allHoleIds = Array.from(/* @__PURE__ */ new Set([h1.id, h2.id, ...extraHoleIds]));
+    return {
+      id,
+      material,
+      color,
+      x: mx - width / 2,
+      y: my - thickness / 2,
+      width,
+      height: thickness,
+      angle,
+      shape: "rect",
+      attachmentHoleIds: allHoleIds,
+      layer
+    };
+  }
+  function makePlate(id, cx, cy, w, h, holeIds, material, color, layer, shape = "rect", radius) {
+    return {
+      id,
+      material,
+      color,
+      x: cx - w / 2,
+      y: cy - h / 2,
+      width: w,
+      height: h,
+      angle: 0,
+      shape,
+      radius,
+      attachmentHoleIds: [...holeIds],
+      layer
+    };
+  }
+  var HANDCRAFTED_LEVELS = [
+    /* ─── Level 1: Tutorial — First Flight (1 plate, 1 screw, 2 empty) ─── */
+    {
+      id: 1,
+      title: "Level 1",
+      timeLimit: 180,
+      holes: [
+        { id: 1, x: 220, y: 260 },
+        // center screw
+        { id: 2, x: 80, y: 100 },
+        // empty top-left
+        { id: 3, x: 360, y: 100 }
+        // empty top-right
+      ],
+      screws: [
+        { id: 1, holeId: 1 }
+      ],
+      pieces: [
+        makePlate(1, 220, 260, 160, 90, [1], "metal", C.metal, 0)
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 2 }
+    },
+    /* ─── Level 2: Overlap Basics (2 plates, 3 screws, 2 empty) ─── */
+    {
+      id: 2,
+      title: "Level 2",
+      timeLimit: 180,
+      holes: [
+        { id: 1, x: 130, y: 200 },
+        { id: 2, x: 310, y: 200 },
+        { id: 3, x: 220, y: 340 },
+        { id: 4, x: 70, y: 90 },
+        // empty
+        { id: 5, x: 370, y: 90 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 }
+      ],
+      pieces: [
+        makeHBar(1, 200, { id: 1, x: 130, y: 200 }, { id: 2, x: 310, y: 200 }, "wood", C.yellow, 1),
+        makePlate(2, 220, 320, 110, 130, [3], "metal", C.metal, 0)
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 2 }
+    },
+    /* ─── Level 3: Crossroads (3 plates, 4 screws, 2 empty) ─── */
+    {
+      id: 3,
+      title: "Level 3",
+      timeLimit: 180,
+      holes: [
+        { id: 1, x: 130, y: 190 },
+        { id: 2, x: 310, y: 190 },
+        { id: 3, x: 130, y: 350 },
+        { id: 4, x: 310, y: 350 },
+        { id: 5, x: 60, y: 90 },
+        // empty
+        { id: 6, x: 380, y: 90 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 }
+      ],
+      pieces: [
+        makeHBar(1, 190, { id: 1, x: 130, y: 190 }, { id: 2, x: 310, y: 190 }, "wood", C.orange, 1),
+        makeHBar(2, 350, { id: 3, x: 130, y: 350 }, { id: 4, x: 310, y: 350 }, "wood", C.green, 1),
+        makeVBar(3, 130, { id: 1, x: 130, y: 190 }, { id: 3, x: 130, y: 350 }, "metal", C.metal, 0)
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 2 }
+    },
+    /* ─── Level 4: T-Frame & Pendulum (4 plates, 5 screws, 2 empty) ─── */
+    {
+      id: 4,
+      title: "Level 4",
+      timeLimit: 180,
+      holes: [
+        { id: 1, x: 120, y: 160 },
+        { id: 2, x: 320, y: 160 },
+        { id: 3, x: 120, y: 330 },
+        { id: 4, x: 320, y: 330 },
+        { id: 5, x: 220, y: 330 },
+        { id: 6, x: 60, y: 80 },
+        // empty
+        { id: 7, x: 380, y: 80 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 }
+      ],
+      pieces: [
+        makeHBar(1, 160, { id: 1, x: 120, y: 160 }, { id: 2, x: 320, y: 160 }, "wood", C.yellow, 2),
+        makeVBar(2, 120, { id: 1, x: 120, y: 160 }, { id: 3, x: 120, y: 330 }, "wood", C.blue, 1),
+        makeVBar(3, 320, { id: 2, x: 320, y: 160 }, { id: 4, x: 320, y: 330 }, "wood", C.purple, 1),
+        makeHBar(4, 330, { id: 3, x: 120, y: 330 }, { id: 4, x: 320, y: 330 }, "metal", C.metal, 0, 25, 54, [5])
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 3 }
+    },
+    /* ─── Level 5: Diagonal Braces (4 plates, 5 screws, 3 empty) ─── */
+    {
+      id: 5,
+      title: "Level 5",
+      timeLimit: 180,
+      holes: [
+        { id: 1, x: 110, y: 160 },
+        { id: 2, x: 330, y: 160 },
+        { id: 3, x: 220, y: 280 },
+        { id: 4, x: 110, y: 400 },
+        { id: 5, x: 330, y: 400 },
+        { id: 6, x: 60, y: 80 },
+        // empty
+        { id: 7, x: 220, y: 80 },
+        // empty
+        { id: 8, x: 380, y: 80 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 }
+      ],
+      pieces: [
+        makeHBar(1, 160, { id: 1, x: 110, y: 160 }, { id: 2, x: 330, y: 160 }, "wood", C.pink, 2),
+        makeHBar(2, 400, { id: 4, x: 110, y: 400 }, { id: 5, x: 330, y: 400 }, "wood", C.green, 2),
+        makeVBar(3, 110, { id: 1, x: 110, y: 160 }, { id: 4, x: 110, y: 400 }, "metal", C.metal, 1),
+        makeAngledBar(4, { id: 3, x: 220, y: 280 }, { id: 5, x: 330, y: 400 }, "wood", C.orange, 0)
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 3 }
+    },
+    /* ─── Level 6: Stepped Ladder (5 plates, 7 screws, 2 empty) ─── */
+    {
+      id: 6,
+      title: "Level 6",
+      timeLimit: 180,
+      holes: [
+        { id: 1, x: 120, y: 160 },
+        { id: 2, x: 320, y: 160 },
+        { id: 3, x: 120, y: 270 },
+        { id: 4, x: 320, y: 270 },
+        { id: 5, x: 120, y: 380 },
+        { id: 6, x: 320, y: 380 },
+        { id: 7, x: 220, y: 270 },
+        { id: 8, x: 60, y: 80 },
+        // empty
+        { id: 9, x: 380, y: 80 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 }
+      ],
+      pieces: [
+        makeHBar(1, 160, { id: 1, x: 120, y: 160 }, { id: 2, x: 320, y: 160 }, "wood", C.yellow, 2),
+        makeHBar(2, 270, { id: 3, x: 120, y: 270 }, { id: 4, x: 320, y: 270 }, "wood", C.blue, 2, 25, 54, [7]),
+        makeHBar(3, 380, { id: 5, x: 120, y: 380 }, { id: 6, x: 320, y: 380 }, "wood", C.green, 2),
+        makeVBar(4, 120, { id: 1, x: 120, y: 160 }, { id: 5, x: 120, y: 380 }, "metal", C.metal, 1, 25, 54, [3]),
+        makeVBar(5, 320, { id: 2, x: 320, y: 160 }, { id: 6, x: 320, y: 380 }, "wood", C.brown, 1, 25, 54, [4])
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 3 }
+    },
+    /* ─── Level 7: Pinwheel Star (5 plates, 8 screws, 2 empty) ─── */
+    {
+      id: 7,
+      title: "Level 7",
+      timeLimit: 180,
+      holes: [
+        { id: 1, x: 220, y: 260 },
+        // center
+        { id: 2, x: 220, y: 150 },
+        // top
+        { id: 3, x: 330, y: 260 },
+        // right
+        { id: 4, x: 220, y: 370 },
+        // bottom
+        { id: 5, x: 110, y: 260 },
+        // left
+        { id: 6, x: 140, y: 180 },
+        // top-left
+        { id: 7, x: 300, y: 180 },
+        // top-right
+        { id: 8, x: 300, y: 340 },
+        // bottom-right
+        { id: 9, x: 60, y: 70 },
+        // empty
+        { id: 10, x: 380, y: 70 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 },
+        { id: 8, holeId: 8 }
+      ],
+      pieces: [
+        makeHBar(1, 260, { id: 5, x: 110, y: 260 }, { id: 3, x: 330, y: 260 }, "wood", C.orange, 2, 25, 54, [1]),
+        makeVBar(2, 220, { id: 2, x: 220, y: 150 }, { id: 4, x: 220, y: 370 }, "wood", C.blue, 2, 25, 54, [1]),
+        makeAngledBar(3, { id: 6, x: 140, y: 180 }, { id: 8, x: 300, y: 340 }, "wood", C.pink, 1),
+        makeAngledBar(4, { id: 7, x: 300, y: 180 }, { id: 1, x: 220, y: 260 }, "wood", C.green, 1),
+        makePlate(5, 220, 260, 110, 110, [1], "metal", C.metal, 0)
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 3 }
+    },
+    /* ─── Level 8: Double Cross (6 plates, 8 screws, 2 empty) ─── */
+    {
+      id: 8,
+      title: "Level 8",
+      timeLimit: 180,
+      holes: [
+        { id: 1, x: 110, y: 170 },
+        { id: 2, x: 220, y: 170 },
+        { id: 3, x: 330, y: 170 },
+        { id: 4, x: 110, y: 320 },
+        { id: 5, x: 220, y: 320 },
+        { id: 6, x: 330, y: 320 },
+        { id: 7, x: 110, y: 410 },
+        { id: 8, x: 330, y: 410 },
+        { id: 9, x: 60, y: 80 },
+        // empty
+        { id: 10, x: 380, y: 80 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 },
+        { id: 8, holeId: 8 }
+      ],
+      pieces: [
+        makeHBar(1, 170, { id: 1, x: 110, y: 170 }, { id: 3, x: 330, y: 170 }, "wood", C.yellow, 2, 25, 54, [2]),
+        makeHBar(2, 320, { id: 4, x: 110, y: 320 }, { id: 6, x: 330, y: 320 }, "wood", C.purple, 2, 25, 54, [5]),
+        makeVBar(3, 110, { id: 1, x: 110, y: 170 }, { id: 7, x: 110, y: 410 }, "metal", C.metal, 1, 25, 54, [4]),
+        makeVBar(4, 220, { id: 2, x: 220, y: 170 }, { id: 5, x: 220, y: 320 }, "wood", C.green, 1),
+        makeVBar(5, 330, { id: 3, x: 330, y: 170 }, { id: 8, x: 330, y: 410 }, "wood", C.orange, 1, 25, 54, [6]),
+        makeHBar(6, 410, { id: 7, x: 110, y: 410 }, { id: 8, x: 330, y: 410 }, "wood", C.blue, 0)
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 3 }
+    },
+    /* ─── Level 9: Woven Frame (6 plates, 9 screws, 2 empty) ─── */
+    {
+      id: 9,
+      title: "Level 9",
+      timeLimit: 180,
+      holes: [
+        { id: 1, x: 120, y: 160 },
+        { id: 2, x: 220, y: 160 },
+        { id: 3, x: 320, y: 160 },
+        { id: 4, x: 320, y: 260 },
+        { id: 5, x: 320, y: 360 },
+        { id: 6, x: 220, y: 360 },
+        { id: 7, x: 120, y: 360 },
+        { id: 8, x: 120, y: 260 },
+        { id: 9, x: 220, y: 260 },
+        // center
+        { id: 10, x: 60, y: 80 },
+        // empty
+        { id: 11, x: 380, y: 80 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 },
+        { id: 8, holeId: 8 },
+        { id: 9, holeId: 9 }
+      ],
+      pieces: [
+        makeHBar(1, 160, { id: 1, x: 120, y: 160 }, { id: 3, x: 320, y: 160 }, "wood", C.red, 2, 25, 54, [2]),
+        makeVBar(2, 320, { id: 3, x: 320, y: 160 }, { id: 5, x: 320, y: 360 }, "wood", C.blue, 2, 25, 54, [4]),
+        makeHBar(3, 360, { id: 7, x: 120, y: 360 }, { id: 5, x: 320, y: 360 }, "wood", C.green, 1, 25, 54, [6]),
+        makeVBar(4, 120, { id: 1, x: 120, y: 160 }, { id: 7, x: 120, y: 360 }, "metal", C.metal, 1, 25, 54, [8]),
+        makeAngledBar(5, { id: 1, x: 120, y: 160 }, { id: 5, x: 320, y: 360 }, "wood", C.orange, 0, 25, 54, [9]),
+        makeAngledBar(6, { id: 7, x: 120, y: 360 }, { id: 3, x: 320, y: 160 }, "wood", C.yellow, 0, 25, 54, [9])
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 3 }
+    },
+    /* ─── Level 10: The Vault (HARD 💀 — 7 plates, 10 screws, 2 empty) ─── */
+    {
+      id: 10,
+      title: "Level 10",
+      isHard: !0,
+      timeLimit: 180,
+      holes: [
+        { id: 1, x: 160, y: 140 },
+        { id: 2, x: 280, y: 140 },
+        { id: 3, x: 100, y: 200 },
+        { id: 4, x: 340, y: 200 },
+        { id: 5, x: 100, y: 320 },
+        { id: 6, x: 340, y: 320 },
+        { id: 7, x: 160, y: 380 },
+        { id: 8, x: 280, y: 380 },
+        { id: 9, x: 180, y: 260 },
+        // vault core left
+        { id: 10, x: 260, y: 260 },
+        // vault core right
+        { id: 11, x: 60, y: 70 },
+        // empty
+        { id: 12, x: 380, y: 70 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 },
+        { id: 8, holeId: 8 },
+        { id: 9, holeId: 9 },
+        { id: 10, holeId: 10 }
+      ],
+      pieces: [
+        makeHBar(1, 140, { id: 1, x: 160, y: 140 }, { id: 2, x: 280, y: 140 }, "wood", C.gold, 2),
+        makeHBar(2, 380, { id: 7, x: 160, y: 380 }, { id: 8, x: 280, y: 380 }, "wood", C.gold, 2),
+        makeAngledBar(3, { id: 3, x: 100, y: 200 }, { id: 1, x: 160, y: 140 }, "wood", C.purple, 1),
+        makeAngledBar(4, { id: 2, x: 280, y: 140 }, { id: 4, x: 340, y: 200 }, "wood", C.blue, 1),
+        makeAngledBar(5, { id: 5, x: 100, y: 320 }, { id: 7, x: 160, y: 380 }, "wood", C.green, 1),
+        makeAngledBar(6, { id: 8, x: 280, y: 380 }, { id: 6, x: 340, y: 320 }, "wood", C.orange, 1),
+        makePlate(7, 220, 260, 130, 120, [9, 10], "metal", C.metal, 0)
+      ],
+      tools: { resetUses: 2, screwdriverUses: 2, bombUses: 2, undoUses: 4 }
+    },
+    /* ─── Level 11: Hexagon Hub (7 plates, 10 screws, 2 empty) ─── */
+    {
+      id: 11,
+      title: "Level 11",
+      timeLimit: 175,
+      holes: [
+        { id: 1, x: 220, y: 180 },
+        { id: 2, x: 220, y: 340 },
+        { id: 3, x: 130, y: 190 },
+        { id: 4, x: 310, y: 190 },
+        { id: 5, x: 100, y: 280 },
+        { id: 6, x: 340, y: 280 },
+        { id: 7, x: 130, y: 370 },
+        { id: 8, x: 310, y: 370 },
+        { id: 9, x: 170, y: 260 },
+        { id: 10, x: 270, y: 260 },
+        { id: 11, x: 60, y: 80 },
+        // empty
+        { id: 12, x: 380, y: 80 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 },
+        { id: 8, holeId: 8 },
+        { id: 9, holeId: 9 },
+        { id: 10, holeId: 10 }
+      ],
+      pieces: [
+        makeHBar(1, 190, { id: 3, x: 130, y: 190 }, { id: 4, x: 310, y: 190 }, "wood", C.pink, 2),
+        makeHBar(2, 370, { id: 7, x: 130, y: 370 }, { id: 8, x: 310, y: 370 }, "wood", C.green, 2),
+        makeVBar(3, 220, { id: 1, x: 220, y: 180 }, { id: 2, x: 220, y: 340 }, "wood", C.blue, 2),
+        makeAngledBar(4, { id: 3, x: 130, y: 190 }, { id: 5, x: 100, y: 280 }, "wood", C.orange, 1),
+        makeAngledBar(5, { id: 4, x: 310, y: 190 }, { id: 6, x: 340, y: 280 }, "wood", C.purple, 1),
+        makeAngledBar(6, { id: 5, x: 100, y: 280 }, { id: 7, x: 130, y: 370 }, "wood", C.yellow, 1),
+        makePlate(7, 220, 260, 140, 90, [9, 10], "metal", C.metal, 0)
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 3 }
+    },
+    /* ─── Level 12: Spiral Wings (8 plates, 11 screws, 2 empty) ─── */
+    {
+      id: 12,
+      title: "Level 12",
+      timeLimit: 175,
+      holes: [
+        { id: 1, x: 150, y: 170 },
+        { id: 2, x: 290, y: 170 },
+        { id: 3, x: 150, y: 230 },
+        { id: 4, x: 290, y: 230 },
+        { id: 5, x: 150, y: 290 },
+        { id: 6, x: 290, y: 290 },
+        { id: 7, x: 150, y: 350 },
+        { id: 8, x: 290, y: 350 },
+        { id: 9, x: 90, y: 230 },
+        { id: 10, x: 350, y: 290 },
+        { id: 11, x: 220, y: 260 },
+        // center
+        { id: 12, x: 60, y: 80 },
+        // empty
+        { id: 13, x: 380, y: 80 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 },
+        { id: 8, holeId: 8 },
+        { id: 9, holeId: 9 },
+        { id: 10, holeId: 10 },
+        { id: 11, holeId: 11 }
+      ],
+      pieces: [
+        makeHBar(1, 170, { id: 1, x: 150, y: 170 }, { id: 2, x: 290, y: 170 }, "wood", C.yellow, 2),
+        makeHBar(2, 350, { id: 7, x: 150, y: 350 }, { id: 8, x: 290, y: 350 }, "wood", C.blue, 2),
+        makeHBar(3, 230, { id: 9, x: 90, y: 230 }, { id: 3, x: 150, y: 230 }, "wood", C.orange, 2),
+        makeHBar(4, 290, { id: 6, x: 290, y: 290 }, { id: 10, x: 350, y: 290 }, "wood", C.pink, 2),
+        makeVBar(5, 150, { id: 1, x: 150, y: 170 }, { id: 5, x: 150, y: 290 }, "metal", C.metal, 1, 25, 54, [3]),
+        makeVBar(6, 290, { id: 4, x: 290, y: 230 }, { id: 8, x: 290, y: 350 }, "wood", C.green, 1, 25, 54, [6]),
+        makeAngledBar(7, { id: 3, x: 150, y: 230 }, { id: 11, x: 220, y: 260 }, "wood", C.purple, 0),
+        makeAngledBar(8, { id: 11, x: 220, y: 260 }, { id: 6, x: 290, y: 290 }, "wood", C.brown, 0)
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 3 }
+    },
+    /* ─── Level 13: Clockwork Matrix (8 plates, 12 screws, 2 empty) ─── */
+    {
+      id: 13,
+      title: "Level 13",
+      timeLimit: 170,
+      holes: [
+        { id: 1, x: 120, y: 160 },
+        { id: 2, x: 220, y: 160 },
+        { id: 3, x: 320, y: 160 },
+        { id: 4, x: 120, y: 260 },
+        { id: 5, x: 220, y: 260 },
+        { id: 6, x: 320, y: 260 },
+        { id: 7, x: 120, y: 360 },
+        { id: 8, x: 220, y: 360 },
+        { id: 9, x: 320, y: 360 },
+        { id: 10, x: 170, y: 210 },
+        { id: 11, x: 270, y: 210 },
+        { id: 12, x: 220, y: 310 },
+        { id: 13, x: 60, y: 80 },
+        // empty
+        { id: 14, x: 380, y: 80 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 },
+        { id: 8, holeId: 8 },
+        { id: 9, holeId: 9 },
+        { id: 10, holeId: 10 },
+        { id: 11, holeId: 11 },
+        { id: 12, holeId: 12 }
+      ],
+      pieces: [
+        makeHBar(1, 160, { id: 1, x: 120, y: 160 }, { id: 3, x: 320, y: 160 }, "wood", C.red, 2, 25, 54, [2]),
+        makeHBar(2, 360, { id: 7, x: 120, y: 360 }, { id: 9, x: 320, y: 360 }, "wood", C.blue, 2, 25, 54, [8]),
+        makeVBar(3, 120, { id: 1, x: 120, y: 160 }, { id: 7, x: 120, y: 360 }, "wood", C.yellow, 2, 25, 54, [4]),
+        makeVBar(4, 320, { id: 3, x: 320, y: 160 }, { id: 9, x: 320, y: 360 }, "wood", C.green, 2, 25, 54, [6]),
+        makeHBar(5, 260, { id: 4, x: 120, y: 260 }, { id: 6, x: 320, y: 260 }, "metal", C.metal, 1, 25, 54, [5]),
+        makeVBar(6, 220, { id: 2, x: 220, y: 160 }, { id: 8, x: 220, y: 360 }, "metal", C.metal, 1, 25, 54, [5]),
+        makeAngledBar(7, { id: 10, x: 170, y: 210 }, { id: 11, x: 270, y: 210 }, "wood", C.pink, 0),
+        makeAngledBar(8, { id: 10, x: 170, y: 210 }, { id: 12, x: 220, y: 310 }, "wood", C.purple, 0)
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 3 }
+    },
+    /* ─── Level 14: Diamond Web (8 plates, 12 screws, 2 empty) ─── */
+    {
+      id: 14,
+      title: "Level 14",
+      timeLimit: 170,
+      holes: [
+        { id: 1, x: 220, y: 140 },
+        // N
+        { id: 2, x: 340, y: 260 },
+        // E
+        { id: 3, x: 220, y: 380 },
+        // S
+        { id: 4, x: 100, y: 260 },
+        // W
+        { id: 5, x: 160, y: 200 },
+        { id: 6, x: 280, y: 200 },
+        { id: 7, x: 160, y: 320 },
+        { id: 8, x: 280, y: 320 },
+        { id: 9, x: 220, y: 200 },
+        { id: 10, x: 220, y: 320 },
+        { id: 11, x: 160, y: 260 },
+        { id: 12, x: 280, y: 260 },
+        { id: 13, x: 60, y: 80 },
+        // empty
+        { id: 14, x: 380, y: 80 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 },
+        { id: 8, holeId: 8 },
+        { id: 9, holeId: 9 },
+        { id: 10, holeId: 10 },
+        { id: 11, holeId: 11 },
+        { id: 12, holeId: 12 }
+      ],
+      pieces: [
+        makeAngledBar(1, { id: 1, x: 220, y: 140 }, { id: 2, x: 340, y: 260 }, "wood", C.yellow, 2),
+        makeAngledBar(2, { id: 2, x: 340, y: 260 }, { id: 3, x: 220, y: 380 }, "wood", C.blue, 2),
+        makeAngledBar(3, { id: 3, x: 220, y: 380 }, { id: 4, x: 100, y: 260 }, "wood", C.green, 2),
+        makeAngledBar(4, { id: 4, x: 100, y: 260 }, { id: 1, x: 220, y: 140 }, "wood", C.orange, 2),
+        makeHBar(5, 260, { id: 11, x: 160, y: 260 }, { id: 12, x: 280, y: 260 }, "metal", C.metal, 1),
+        makeVBar(6, 220, { id: 9, x: 220, y: 200 }, { id: 10, x: 220, y: 320 }, "metal", C.metal, 1),
+        makeAngledBar(7, { id: 5, x: 160, y: 200 }, { id: 8, x: 280, y: 320 }, "wood", C.purple, 0),
+        makeAngledBar(8, { id: 6, x: 280, y: 200 }, { id: 7, x: 160, y: 320 }, "wood", C.pink, 0)
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 3 }
+    },
+    /* ─── Level 15: Fortress Gate (HARD 💀 — 9 plates, 13 screws, 2 empty) ─── */
+    {
+      id: 15,
+      title: "Level 15",
+      isHard: !0,
+      timeLimit: 170,
+      holes: [
+        { id: 1, x: 110, y: 150 },
+        { id: 2, x: 180, y: 150 },
+        { id: 3, x: 260, y: 150 },
+        { id: 4, x: 330, y: 150 },
+        { id: 5, x: 110, y: 260 },
+        { id: 6, x: 180, y: 260 },
+        { id: 7, x: 260, y: 260 },
+        { id: 8, x: 330, y: 260 },
+        { id: 9, x: 110, y: 370 },
+        { id: 10, x: 180, y: 370 },
+        { id: 11, x: 260, y: 370 },
+        { id: 12, x: 330, y: 370 },
+        { id: 13, x: 220, y: 260 },
+        // center lock pin
+        { id: 14, x: 60, y: 70 },
+        // empty
+        { id: 15, x: 380, y: 70 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 },
+        { id: 8, holeId: 8 },
+        { id: 9, holeId: 9 },
+        { id: 10, holeId: 10 },
+        { id: 11, holeId: 11 },
+        { id: 12, holeId: 12 },
+        { id: 13, holeId: 13 }
+      ],
+      pieces: [
+        makeHBar(1, 150, { id: 1, x: 110, y: 150 }, { id: 4, x: 330, y: 150 }, "wood", C.red, 3, 25, 54, [2, 3]),
+        makeHBar(2, 370, { id: 9, x: 110, y: 370 }, { id: 12, x: 330, y: 370 }, "wood", C.blue, 3, 25, 54, [10, 11]),
+        makeVBar(3, 110, { id: 1, x: 110, y: 150 }, { id: 9, x: 110, y: 370 }, "metal", C.metal, 2, 25, 54, [5]),
+        makeVBar(4, 180, { id: 2, x: 180, y: 150 }, { id: 10, x: 180, y: 370 }, "wood", C.green, 2, 25, 54, [6]),
+        makeVBar(5, 260, { id: 3, x: 260, y: 150 }, { id: 11, x: 260, y: 370 }, "wood", C.orange, 2, 25, 54, [7]),
+        makeVBar(6, 330, { id: 4, x: 330, y: 150 }, { id: 12, x: 330, y: 370 }, "metal", C.metal, 2, 25, 54, [8]),
+        makeHBar(7, 260, { id: 5, x: 110, y: 260 }, { id: 13, x: 220, y: 260 }, "wood", C.purple, 1, 25, 54, [6]),
+        makeHBar(8, 260, { id: 13, x: 220, y: 260 }, { id: 8, x: 330, y: 260 }, "wood", C.yellow, 1, 25, 54, [7]),
+        makePlate(9, 220, 260, 130, 110, [6, 7], "metal", C.metal, 0)
+      ],
+      tools: { resetUses: 2, screwdriverUses: 2, bombUses: 2, undoUses: 4 }
+    },
+    /* ─── Level 16: Chevron Lattice (9 plates, 14 screws, 2 empty) ─── */
+    {
+      id: 16,
+      title: "Level 16",
+      timeLimit: 165,
+      holes: [
+        { id: 1, x: 110, y: 150 },
+        { id: 2, x: 220, y: 190 },
+        { id: 3, x: 330, y: 150 },
+        { id: 4, x: 110, y: 250 },
+        { id: 5, x: 220, y: 290 },
+        { id: 6, x: 330, y: 250 },
+        { id: 7, x: 110, y: 350 },
+        { id: 8, x: 220, y: 390 },
+        { id: 9, x: 330, y: 350 },
+        { id: 10, x: 165, y: 170 },
+        { id: 11, x: 275, y: 170 },
+        { id: 12, x: 165, y: 270 },
+        { id: 13, x: 275, y: 270 },
+        { id: 14, x: 220, y: 120 },
+        { id: 15, x: 60, y: 80 },
+        // empty
+        { id: 16, x: 380, y: 80 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 },
+        { id: 8, holeId: 8 },
+        { id: 9, holeId: 9 },
+        { id: 10, holeId: 10 },
+        { id: 11, holeId: 11 },
+        { id: 12, holeId: 12 },
+        { id: 13, holeId: 13 },
+        { id: 14, holeId: 14 }
+      ],
+      pieces: [
+        makeAngledBar(1, { id: 1, x: 110, y: 150 }, { id: 2, x: 220, y: 190 }, "wood", C.yellow, 2, 25, 54, [10]),
+        makeAngledBar(2, { id: 2, x: 220, y: 190 }, { id: 3, x: 330, y: 150 }, "wood", C.yellow, 2, 25, 54, [11]),
+        makeAngledBar(3, { id: 4, x: 110, y: 250 }, { id: 5, x: 220, y: 290 }, "wood", C.blue, 2, 25, 54, [12]),
+        makeAngledBar(4, { id: 5, x: 220, y: 290 }, { id: 6, x: 330, y: 250 }, "wood", C.blue, 2, 25, 54, [13]),
+        makeAngledBar(5, { id: 7, x: 110, y: 350 }, { id: 8, x: 220, y: 390 }, "wood", C.green, 2),
+        makeAngledBar(6, { id: 8, x: 220, y: 390 }, { id: 9, x: 330, y: 350 }, "wood", C.green, 2),
+        makeVBar(7, 110, { id: 1, x: 110, y: 150 }, { id: 7, x: 110, y: 350 }, "metal", C.metal, 1, 25, 54, [4]),
+        makeVBar(8, 330, { id: 3, x: 330, y: 150 }, { id: 9, x: 330, y: 350 }, "metal", C.metal, 1, 25, 54, [6]),
+        makeVBar(9, 220, { id: 14, x: 220, y: 120 }, { id: 8, x: 220, y: 390 }, "wood", C.orange, 0, 25, 54, [2, 5])
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 3 }
+    },
+    /* ─── Level 17: Triple Crossbar Matrix (10 plates, 15 screws, 2 empty) ─── */
+    {
+      id: 17,
+      title: "Level 17",
+      timeLimit: 165,
+      holes: [
+        { id: 1, x: 100, y: 160 },
+        { id: 2, x: 180, y: 160 },
+        { id: 3, x: 260, y: 160 },
+        { id: 4, x: 340, y: 160 },
+        { id: 5, x: 100, y: 260 },
+        { id: 6, x: 180, y: 260 },
+        { id: 7, x: 260, y: 260 },
+        { id: 8, x: 340, y: 260 },
+        { id: 9, x: 100, y: 360 },
+        { id: 10, x: 180, y: 360 },
+        { id: 11, x: 260, y: 360 },
+        { id: 12, x: 340, y: 360 },
+        { id: 13, x: 140, y: 210 },
+        { id: 14, x: 300, y: 210 },
+        { id: 15, x: 220, y: 310 },
+        { id: 16, x: 60, y: 80 },
+        // empty
+        { id: 17, x: 380, y: 80 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 },
+        { id: 8, holeId: 8 },
+        { id: 9, holeId: 9 },
+        { id: 10, holeId: 10 },
+        { id: 11, holeId: 11 },
+        { id: 12, holeId: 12 },
+        { id: 13, holeId: 13 },
+        { id: 14, holeId: 14 },
+        { id: 15, holeId: 15 }
+      ],
+      pieces: [
+        makeHBar(1, 160, { id: 1, x: 100, y: 160 }, { id: 4, x: 340, y: 160 }, "wood", C.yellow, 2, 25, 54, [2, 3]),
+        makeHBar(2, 260, { id: 5, x: 100, y: 260 }, { id: 8, x: 340, y: 260 }, "wood", C.blue, 2, 25, 54, [6, 7]),
+        makeHBar(3, 360, { id: 9, x: 100, y: 360 }, { id: 12, x: 340, y: 360 }, "wood", C.green, 2, 25, 54, [10, 11]),
+        makeVBar(4, 100, { id: 1, x: 100, y: 160 }, { id: 9, x: 100, y: 360 }, "metal", C.metal, 1, 25, 54, [5]),
+        makeVBar(5, 180, { id: 2, x: 180, y: 160 }, { id: 10, x: 180, y: 360 }, "wood", C.brown, 1, 25, 54, [6]),
+        makeVBar(6, 260, { id: 3, x: 260, y: 160 }, { id: 11, x: 260, y: 360 }, "wood", C.purple, 1, 25, 54, [7]),
+        makeVBar(7, 340, { id: 4, x: 340, y: 160 }, { id: 12, x: 340, y: 360 }, "metal", C.metal, 1, 25, 54, [8]),
+        makeAngledBar(8, { id: 1, x: 100, y: 160 }, { id: 6, x: 180, y: 260 }, "wood", C.pink, 0, 25, 54, [13]),
+        makeAngledBar(9, { id: 3, x: 260, y: 160 }, { id: 8, x: 340, y: 260 }, "wood", C.orange, 0, 25, 54, [14]),
+        makeAngledBar(10, { id: 6, x: 180, y: 260 }, { id: 11, x: 260, y: 360 }, "wood", C.red, 0, 25, 54, [15])
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 3 }
+    },
+    /* ─── Level 18: Stepped Zigzag (10 plates, 15 screws, 2 empty) ─── */
+    {
+      id: 18,
+      title: "Level 18",
+      timeLimit: 160,
+      holes: [
+        { id: 1, x: 110, y: 140 },
+        { id: 2, x: 210, y: 140 },
+        { id: 3, x: 310, y: 140 },
+        { id: 4, x: 160, y: 210 },
+        { id: 5, x: 260, y: 210 },
+        { id: 6, x: 360, y: 210 },
+        { id: 7, x: 110, y: 280 },
+        { id: 8, x: 210, y: 280 },
+        { id: 9, x: 310, y: 280 },
+        { id: 10, x: 160, y: 350 },
+        { id: 11, x: 260, y: 350 },
+        { id: 12, x: 360, y: 350 },
+        { id: 13, x: 110, y: 420 },
+        { id: 14, x: 210, y: 420 },
+        { id: 15, x: 310, y: 420 },
+        { id: 16, x: 60, y: 80 },
+        // empty
+        { id: 17, x: 380, y: 80 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 },
+        { id: 8, holeId: 8 },
+        { id: 9, holeId: 9 },
+        { id: 10, holeId: 10 },
+        { id: 11, holeId: 11 },
+        { id: 12, holeId: 12 },
+        { id: 13, holeId: 13 },
+        { id: 14, holeId: 14 },
+        { id: 15, holeId: 15 }
+      ],
+      pieces: [
+        makeHBar(1, 140, { id: 1, x: 110, y: 140 }, { id: 3, x: 310, y: 140 }, "wood", C.yellow, 2, 25, 54, [2]),
+        makeHBar(2, 210, { id: 4, x: 160, y: 210 }, { id: 6, x: 360, y: 210 }, "wood", C.orange, 2, 25, 54, [5]),
+        makeHBar(3, 280, { id: 7, x: 110, y: 280 }, { id: 9, x: 310, y: 280 }, "wood", C.blue, 2, 25, 54, [8]),
+        makeHBar(4, 350, { id: 10, x: 160, y: 350 }, { id: 12, x: 360, y: 350 }, "wood", C.pink, 2, 25, 54, [11]),
+        makeHBar(5, 420, { id: 13, x: 110, y: 420 }, { id: 15, x: 310, y: 420 }, "wood", C.green, 2, 25, 54, [14]),
+        makeAngledBar(6, { id: 1, x: 110, y: 140 }, { id: 7, x: 110, y: 280 }, "metal", C.metal, 1, 25, 54, [4]),
+        makeAngledBar(7, { id: 2, x: 210, y: 140 }, { id: 8, x: 210, y: 280 }, "wood", C.purple, 1, 25, 54, [5]),
+        makeAngledBar(8, { id: 3, x: 310, y: 140 }, { id: 9, x: 310, y: 280 }, "metal", C.metal, 1, 25, 54, [6]),
+        makeAngledBar(9, { id: 7, x: 110, y: 280 }, { id: 13, x: 110, y: 420 }, "wood", C.brown, 0, 25, 54, [10]),
+        makeAngledBar(10, { id: 8, x: 210, y: 280 }, { id: 14, x: 210, y: 420 }, "metal", C.metal, 0, 25, 54, [11])
+      ],
+      tools: { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 3 }
+    },
+    /* ─── Level 19: Heavy Metal Cage (10 plates, 16 screws, 2 empty) ─── */
+    {
+      id: 19,
+      title: "Level 19",
+      timeLimit: 160,
+      holes: [
+        { id: 1, x: 110, y: 150 },
+        { id: 2, x: 180, y: 150 },
+        { id: 3, x: 260, y: 150 },
+        { id: 4, x: 330, y: 150 },
+        { id: 5, x: 110, y: 220 },
+        { id: 6, x: 180, y: 220 },
+        { id: 7, x: 260, y: 220 },
+        { id: 8, x: 330, y: 220 },
+        { id: 9, x: 110, y: 290 },
+        { id: 10, x: 180, y: 290 },
+        { id: 11, x: 260, y: 290 },
+        { id: 12, x: 330, y: 290 },
+        { id: 13, x: 110, y: 360 },
+        { id: 14, x: 180, y: 360 },
+        { id: 15, x: 260, y: 360 },
+        { id: 16, x: 330, y: 360 },
+        { id: 17, x: 60, y: 80 },
+        // empty
+        { id: 18, x: 380, y: 80 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 },
+        { id: 8, holeId: 8 },
+        { id: 9, holeId: 9 },
+        { id: 10, holeId: 10 },
+        { id: 11, holeId: 11 },
+        { id: 12, holeId: 12 },
+        { id: 13, holeId: 13 },
+        { id: 14, holeId: 14 },
+        { id: 15, holeId: 15 },
+        { id: 16, holeId: 16 }
+      ],
+      pieces: [
+        makeHBar(1, 150, { id: 1, x: 110, y: 150 }, { id: 4, x: 330, y: 150 }, "metal", C.metal, 3, 25, 54, [2, 3]),
+        makeHBar(2, 360, { id: 13, x: 110, y: 360 }, { id: 16, x: 330, y: 360 }, "metal", C.metal, 3, 25, 54, [14, 15]),
+        makeVBar(3, 110, { id: 1, x: 110, y: 150 }, { id: 13, x: 110, y: 360 }, "wood", C.yellow, 2, 25, 54, [5, 9]),
+        makeVBar(4, 330, { id: 4, x: 330, y: 150 }, { id: 16, x: 330, y: 360 }, "wood", C.blue, 2, 25, 54, [8, 12]),
+        makeVBar(5, 180, { id: 2, x: 180, y: 150 }, { id: 14, x: 180, y: 360 }, "metal", C.metal, 2, 25, 54, [6, 10]),
+        makeVBar(6, 260, { id: 3, x: 260, y: 150 }, { id: 15, x: 260, y: 360 }, "metal", C.metal, 2, 25, 54, [7, 11]),
+        makeHBar(7, 220, { id: 5, x: 110, y: 220 }, { id: 6, x: 180, y: 220 }, "wood", C.orange, 1),
+        makeHBar(8, 220, { id: 7, x: 260, y: 220 }, { id: 8, x: 330, y: 220 }, "wood", C.pink, 1),
+        makeHBar(9, 290, { id: 9, x: 110, y: 290 }, { id: 10, x: 180, y: 290 }, "wood", C.green, 1),
+        makeHBar(10, 290, { id: 11, x: 260, y: 290 }, { id: 12, x: 330, y: 290 }, "wood", C.purple, 1)
+      ],
+      tools: { resetUses: 2, screwdriverUses: 2, bombUses: 2, undoUses: 4 }
+    },
+    /* ─── Level 20: The Master Lock (MASTER 💀 — 11 plates, 17 screws, 2 empty) ─── */
+    {
+      id: 20,
+      title: "Level 20",
+      isHard: !0,
+      timeLimit: 180,
+      holes: [
+        { id: 1, x: 110, y: 130 },
+        { id: 2, x: 220, y: 130 },
+        { id: 3, x: 330, y: 130 },
+        { id: 4, x: 110, y: 220 },
+        { id: 5, x: 330, y: 220 },
+        { id: 6, x: 110, y: 310 },
+        { id: 7, x: 330, y: 310 },
+        { id: 8, x: 110, y: 400 },
+        { id: 9, x: 220, y: 400 },
+        { id: 10, x: 330, y: 400 },
+        { id: 11, x: 170, y: 180 },
+        { id: 12, x: 270, y: 180 },
+        { id: 13, x: 170, y: 350 },
+        { id: 14, x: 270, y: 350 },
+        { id: 15, x: 170, y: 260 },
+        { id: 16, x: 270, y: 260 },
+        { id: 17, x: 220, y: 260 },
+        // Master keyhole
+        { id: 18, x: 60, y: 70 },
+        // empty
+        { id: 19, x: 380, y: 70 }
+        // empty
+      ],
+      screws: [
+        { id: 1, holeId: 1 },
+        { id: 2, holeId: 2 },
+        { id: 3, holeId: 3 },
+        { id: 4, holeId: 4 },
+        { id: 5, holeId: 5 },
+        { id: 6, holeId: 6 },
+        { id: 7, holeId: 7 },
+        { id: 8, holeId: 8 },
+        { id: 9, holeId: 9 },
+        { id: 10, holeId: 10 },
+        { id: 11, holeId: 11 },
+        { id: 12, holeId: 12 },
+        { id: 13, holeId: 13 },
+        { id: 14, holeId: 14 },
+        { id: 15, holeId: 15 },
+        { id: 16, holeId: 16 },
+        { id: 17, holeId: 17 }
+      ],
+      pieces: [
+        makeHBar(1, 130, { id: 1, x: 110, y: 130 }, { id: 3, x: 330, y: 130 }, "wood", C.gold, 3, 25, 54, [2]),
+        makeHBar(2, 400, { id: 8, x: 110, y: 400 }, { id: 10, x: 330, y: 400 }, "wood", C.gold, 3, 25, 54, [9]),
+        makeVBar(3, 110, { id: 1, x: 110, y: 130 }, { id: 8, x: 110, y: 400 }, "metal", C.metal, 2, 25, 54, [4, 6]),
+        makeVBar(4, 330, { id: 3, x: 330, y: 130 }, { id: 10, x: 330, y: 400 }, "metal", C.metal, 2, 25, 54, [5, 7]),
+        makeAngledBar(5, { id: 11, x: 170, y: 180 }, { id: 15, x: 170, y: 260 }, "wood", C.red, 1),
+        makeAngledBar(6, { id: 12, x: 270, y: 180 }, { id: 16, x: 270, y: 260 }, "wood", C.blue, 1),
+        makeAngledBar(7, { id: 13, x: 170, y: 350 }, { id: 15, x: 170, y: 260 }, "wood", C.green, 1),
+        makeAngledBar(8, { id: 14, x: 270, y: 350 }, { id: 16, x: 270, y: 260 }, "wood", C.purple, 1),
+        makeHBar(9, 180, { id: 11, x: 170, y: 180 }, { id: 12, x: 270, y: 180 }, "wood", C.yellow, 1),
+        makeHBar(10, 350, { id: 13, x: 170, y: 350 }, { id: 14, x: 270, y: 350 }, "wood", C.orange, 1),
+        makePlate(11, 220, 260, 130, 110, [15, 17, 16], "metal", C.metal, 0)
+      ],
+      tools: { resetUses: 3, screwdriverUses: 2, bombUses: 2, undoUses: 4 }
+    }
+  ];
+  function makeSeededRng(seed) {
+    let s = seed % 2147483647;
+    return s <= 0 && (s += 2147483646), () => (s = s * 16807 % 2147483647, (s - 1) / 2147483646);
+  }
+  var PALETTE = [
+    C.yellow,
+    C.orange,
+    C.brown,
+    C.green,
+    C.blue,
+    C.purple,
+    C.pink,
+    C.red
+  ];
+  function generateProceduralLevel(levelId) {
+    let rng = makeSeededRng(levelId * 7919 + 104729), isHard = levelId % 5 === 0, cols = Math.min(5, 3 + levelId % 3), rows = Math.min(5, 3 + (levelId + 1) % 3), startX = 100 + (rng() - 0.5) * 20, endX = 340 + (rng() - 0.5) * 20, startY = 140 + (rng() - 0.5) * 20, endY = 400 + (rng() - 0.5) * 20, stepX = (endX - startX) / (cols - 1), stepY = (endY - startY) / (rows - 1), holes = [], holeIdCounter = 1, grid = [];
+    for (let r = 0; r < rows; r++) {
+      grid[r] = [];
+      for (let c = 0; c < cols; c++) {
+        let jx = (rng() - 0.5) * 10, jy = (rng() - 0.5) * 10, h = {
+          id: holeIdCounter++,
+          x: Math.round(startX + c * stepX + jx),
+          y: Math.round(startY + r * stepY + jy)
+        };
+        holes.push(h), grid[r][c] = h;
+      }
+    }
+    let emptyHole1 = { id: holeIdCounter++, x: 60, y: Math.round(startY + rng() * 50) }, emptyHole2 = { id: holeIdCounter++, x: 380, y: Math.round(endY - rng() * 50) };
+    holes.push(emptyHole1, emptyHole2);
+    let pieces = [], pieceId = 1, usedHoles = /* @__PURE__ */ new Set(), targetPieces = Math.min(13, 7 + Math.floor((levelId - 20) / 4) + levelId % 3), numLayers = Math.min(4, 2 + Math.floor((levelId - 20) / 7)), candidateBars = [];
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols - 1; c++)
+        candidateBars.push({ h1: grid[r][c], h2: grid[r][c + 1] }), c < cols - 2 && rng() < 0.4 && candidateBars.push({ h1: grid[r][c], h2: grid[r][c + 2], h3: grid[r][c + 1] });
+    for (let c = 0; c < cols; c++)
+      for (let r = 0; r < rows - 1; r++)
+        candidateBars.push({ h1: grid[r][c], h2: grid[r + 1][c] }), r < rows - 2 && rng() < 0.4 && candidateBars.push({ h1: grid[r][c], h2: grid[r + 2][c], h3: grid[r + 1][c] });
+    for (let r = 0; r < rows - 1; r++)
+      for (let c = 0; c < cols - 1; c++)
+        candidateBars.push({ h1: grid[r][c], h2: grid[r + 1][c + 1] }), candidateBars.push({ h1: grid[r + 1][c], h2: grid[r][c + 1] });
+    for (let i = candidateBars.length - 1; i > 0; i--) {
+      let j = Math.floor(rng() * (i + 1));
+      [candidateBars[i], candidateBars[j]] = [candidateBars[j], candidateBars[i]];
+    }
+    let selectedBars = [], signatures = /* @__PURE__ */ new Set();
+    for (let b of candidateBars) {
+      let sig = `${Math.min(b.h1.id, b.h2.id)}-${Math.max(b.h1.id, b.h2.id)}`;
+      if (!signatures.has(sig) && (signatures.add(sig), selectedBars.push(b), selectedBars.length >= targetPieces))
+        break;
+    }
+    for (let i = 0; i < selectedBars.length; i++) {
+      let b = selectedBars[i], layer = Math.floor(i / selectedBars.length * numLayers), material = rng() < 0.3 ? "metal" : "wood", color = material === "metal" ? C.metal : PALETTE[Math.floor(rng() * PALETTE.length)], extraHoles = b.h3 ? [b.h3.id] : [], piece = makeAngledBar(pieceId++, b.h1, b.h2, material, color, layer, 25, 54, extraHoles);
+      usedHoles.add(b.h1.id), usedHoles.add(b.h2.id), b.h3 && usedHoles.add(b.h3.id), pieces.push(piece);
+    }
+    let activeHoles = holes.filter((h) => usedHoles.has(h.id) || h.id === emptyHole1.id || h.id === emptyHole2.id), screwId = 1, screws = [];
+    for (let h of activeHoles)
+      h.id !== emptyHole1.id && h.id !== emptyHole2.id && screws.push({ id: screwId++, holeId: h.id });
+    return {
+      id: levelId,
+      title: `Level ${levelId}`,
+      isHard,
+      timeLimit: Math.max(120, 180 - Math.min(60, Math.floor((levelId - 20) * 1.5))),
+      holes: activeHoles,
+      screws,
+      pieces,
+      tools: {
+        resetUses: 2,
+        screwdriverUses: isHard ? 2 : 1,
+        bombUses: isHard ? 2 : 1,
+        undoUses: isHard ? 4 : 3
+      }
+    };
+  }
+  function getLevelData(levelId) {
+    let raw;
+    levelId >= 1 && levelId <= HANDCRAFTED_LEVELS.length ? raw = HANDCRAFTED_LEVELS[levelId - 1] : raw = generateProceduralLevel(levelId);
+    let clone = JSON.parse(JSON.stringify(raw));
+    return clone.id = levelId, clone.title = `Level ${levelId}`, clone;
+  }
+
+  // src/physics.ts
+  function checkPegBoxCollision(sx, sy, r, cx, cy, w, h, angle) {
+    let hw = w / 2, hh = h / 2, dx = sx - cx, dy = sy - cy, cos = Math.cos(angle), sin = Math.sin(angle), lx = dx * cos + dy * sin, ly = -dx * sin + dy * cos, qx = Math.max(-hw, Math.min(hw, lx)), qy = Math.max(-hh, Math.min(hh, ly)), dlx = lx - qx, dly = ly - qy, distSq = dlx * dlx + dly * dly;
+    if (Math.abs(lx) < hw && Math.abs(ly) < hh) {
+      let dRight = hw - lx, dLeft = lx - -hw, dBottom = hh - ly, dTop = ly - -hh, minD = Math.min(dRight, dLeft, dBottom, dTop), normLx = 0, normLy = 0;
+      minD === dRight ? normLx = -1 : minD === dLeft ? normLx = 1 : minD === dBottom ? normLy = -1 : normLy = 1;
+      let penetration = minD + r, normalX = normLx * cos - normLy * sin, normalY = normLx * sin + normLy * cos;
+      return {
+        collided: !0,
+        penetration,
+        normalX,
+        normalY,
+        contactX: sx + normalX * r,
+        contactY: sy + normalY * r
+      };
+    }
+    if (distSq < r * r) {
+      let dist2 = Math.max(1e-4, Math.sqrt(distSq)), penetration = r - dist2, normLx = -dlx / dist2, normLy = -dly / dist2, normalX = normLx * cos - normLy * sin, normalY = normLx * sin + normLy * cos;
+      return {
+        collided: !0,
+        penetration,
+        normalX,
+        normalY,
+        contactX: sx + normalX * r,
+        contactY: sy + normalY * r
+      };
+    }
+    return {
+      collided: !1,
+      penetration: 0,
+      normalX: 0,
+      normalY: 0,
+      contactX: 0,
+      contactY: 0
+    };
+  }
+  function checkOBBOBBCollision(cx1, cy1, w1, h1, a1, cx2, cy2, w2, h2, a2) {
+    let hw1 = w1 / 2, hh1 = h1 / 2, hw2 = w2 / 2, hh2 = h2 / 2, cos1 = Math.cos(a1), sin1 = Math.sin(a1), cos2 = Math.cos(a2), sin2 = Math.sin(a2), axes = [
+      { x: cos1, y: sin1 },
+      { x: -sin1, y: cos1 },
+      { x: cos2, y: sin2 },
+      { x: -sin2, y: cos2 }
+    ], dx = cx1 - cx2, dy = cy1 - cy2, minOverlap = 1 / 0, bestAxis = axes[0];
+    for (let axis of axes) {
+      let r1 = Math.abs(hw1 * (cos1 * axis.x + sin1 * axis.y)) + Math.abs(hh1 * (-sin1 * axis.x + cos1 * axis.y)), r2 = Math.abs(hw2 * (cos2 * axis.x + sin2 * axis.y)) + Math.abs(hh2 * (-sin2 * axis.x + cos2 * axis.y)), distProj = Math.abs(dx * axis.x + dy * axis.y), overlap = r1 + r2 - distProj;
+      if (overlap <= 0)
+        return {
+          collided: !1,
+          penetration: 0,
+          normalX: 0,
+          normalY: 0,
+          contactX: 0,
+          contactY: 0
+        };
+      overlap < minOverlap && (minOverlap = overlap, bestAxis = axis);
+    }
+    let normalX = bestAxis.x, normalY = bestAxis.y;
+    dx * normalX + dy * normalY < 0 && (normalX = -normalX, normalY = -normalY);
+    let contactX = (cx1 + cx2) * 0.5, contactY = (cy1 + cy2) * 0.5;
+    return {
+      collided: !0,
+      penetration: minOverlap,
+      normalX,
+      normalY,
+      contactX,
+      contactY
+    };
+  }
+
+  // src/engine.ts
+  var GameEngine = class {
+    constructor() {
+      // Virtual canvas size
+      this.W = 480;
+      this.H = 800;
+      // Game state
+      this.state = "PLAYING";
+      this.currentLevel = 1;
+      this.coins = 1e3;
+      // Puzzle data
+      this.holes = [];
+      this.screws = [];
+      this.pieces = [];
+      this.tools = { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 2 };
+      this.initialLevelTools = { resetUses: 2, screwdriverUses: 1, bombUses: 1, undoUses: 2 };
+      // Timer
+      this.timer = 180;
+      this.timeLimit = 180;
+      this.completionTime = 0;
+      // Progress
+      this.totalPieces = 0;
+      this.removedPieces = 0;
+      this.addedHolesThisLevel = 0;
+      this.maxAddedHolesPerLevel = 2;
+      // Undo
+      this.undoStack = [];
+      // Particles & banners
+      this.particles = [];
+      this.banners = [];
+      // Animation timers
+      this.victoryAnim = 0;
+      this.failedAnim = 0;
+      this.addHoleAnim = 0;
+      this.levelStartBannerShown = !1;
+      this.completionDelay = 0;
+      this.isPaused = !1;
+      this.prevState = "PLAYING";
+      this.tickSoundPlayed = /* @__PURE__ */ new Set();
+      // Active tool & selection
+      this.activeToolMode = null;
+      this.selectedScrewId = null;
+      // UI Hit rects
+      this.pauseBtn = { x: 0, y: 0, w: 0, h: 0 };
+      this.timerRect = { x: 0, y: 0, w: 0, h: 0 };
+      this.addHoleHUD = { x: 0, y: 0, w: 0, h: 0 };
+      this.toolBtns = {
+        reset: { x: 0, y: 0, w: 0, h: 0 },
+        screwdriver: { x: 0, y: 0, w: 0, h: 0 },
+        bomb: { x: 0, y: 0, w: 0, h: 0 },
+        undo: { x: 0, y: 0, w: 0, h: 0 }
+      };
+      this.retryBtn = { x: 0, y: 0, w: 0, h: 0 };
+      this.addHoleCloseBtn = { x: 0, y: 0, w: 0, h: 0 };
+      this.addHoleBuyBtn = { x: 0, y: 0, w: 0, h: 0 };
+      this.addHoleFreeBtn = { x: 0, y: 0, w: 0, h: 0 };
+      let saved = loadProgress();
+      this.currentLevel = saved.level, this.coins = saved.coins, this.loadLevel(this.currentLevel);
+    }
+    /* ─────── Level Management ─────── */
+    loadLevel(levelId) {
+      let data = getLevelData(levelId);
+      this.currentLevel = levelId, this.state = "PLAYING", this.timer = data.timeLimit, this.timeLimit = data.timeLimit, this.completionTime = 0, this.victoryAnim = 0, this.failedAnim = 0, this.addHoleAnim = 0, this.completionDelay = 0, this.isPaused = !1, this.activeToolMode = null, this.selectedScrewId = null, this.addedHolesThisLevel = 0, this.particles = [], this.banners = [], this.undoStack = [], this.tickSoundPlayed = /* @__PURE__ */ new Set(), this.tools = { ...data.tools }, this.initialLevelTools = { ...data.tools }, this.holes = data.holes.map((h) => ({
+        id: h.id,
+        x: h.x,
+        y: h.y,
+        isOccupied: !1,
+        screwId: null,
+        isLocked: h.isLocked || !1,
+        addedScale: 1
+      }));
+      let candidates = [
+        { x: 210, y: 55 },
+        { x: 90, y: 55 },
+        { x: 330, y: 55 },
+        { x: 210, y: 465 },
+        { x: 90, y: 465 },
+        { x: 330, y: 465 },
+        { x: 50, y: 260 },
+        { x: 370, y: 260 }
+      ], bestPos = candidates[0], maxMinDist = -1;
+      for (let c of candidates) {
+        let minDist = 1 / 0;
+        for (let h of this.holes) {
+          let d = dist(c.x, c.y, h.x, h.y);
+          d < minDist && (minDist = d);
+        }
+        minDist > maxMinDist && (maxMinDist = minDist, bestPos = c);
+      }
+      if (maxMinDist > 45) {
+        let extraHoleId = Math.max(0, ...this.holes.map((h) => h.id)) + 1;
+        this.holes.push({
+          id: extraHoleId,
+          x: bestPos.x,
+          y: bestPos.y,
+          isOccupied: !1,
+          screwId: null,
+          isLocked: !1,
+          addedScale: 1
+        });
+      }
+      this.screws = data.screws.map((s) => {
+        let hole = this.holes.find((h) => h.id === s.holeId);
+        return hole.isOccupied = !0, hole.screwId = s.id, {
+          id: s.id,
+          currentHoleId: s.holeId,
+          x: BOARD_X + hole.x,
+          y: BOARD_Y + hole.y,
+          z: 0,
+          rotation: 0,
+          isMoving: !1,
+          startPos: { x: 0, y: 0 },
+          targetPos: { x: 0, y: 0 },
+          targetHoleId: -1,
+          progress: 0,
+          duration: 0.28,
+          shakeTimer: 0,
+          attachedPieceIds: []
+        };
+      }), this.pieces = data.pieces.map((p) => {
+        let pCenterX = p.x + p.width / 2, pCenterY = p.y + p.height / 2, cos = Math.cos(-p.angle), sin = Math.sin(-p.angle), localHoles = p.attachmentHoleIds.map((hId) => {
+          let h = data.holes.find((hole) => hole.id === hId);
+          if (!h) return { holeId: hId, x: p.width / 2, y: p.height / 2 };
+          let dx = h.x - pCenterX, dy = h.y - pCenterY;
+          return {
+            holeId: hId,
+            x: dx * cos - dy * sin + p.width / 2,
+            y: dx * sin + dy * cos + p.height / 2
+          };
+        });
+        return {
+          ...p,
+          plateHoleIds: [...p.attachmentHoleIds],
+          origX: p.x,
+          origY: p.y,
+          origAngle: p.angle,
+          attachmentHoleIds: [...p.attachmentHoleIds],
+          localHoles,
+          isFree: !1,
+          vx: 0,
+          vy: 0,
+          vAngle: 0,
+          alpha: 1,
+          removed: !1,
+          hasCollidedObstacles: [],
+          hasCollidedBoard: !1,
+          isSwinging: !1,
+          pivotHoleId: null,
+          swingCollisionCooldown: 0,
+          hasPlayedSwingClank: !1,
+          fallTimer: 0,
+          lastClankTime: 0
+        };
+      });
+      for (let screw of this.screws) {
+        screw.attachedPieceIds = [];
+        for (let piece of this.pieces)
+          piece.attachmentHoleIds.includes(screw.currentHoleId) && screw.attachedPieceIds.push(piece.id);
+      }
+      this.totalPieces = this.pieces.length, this.removedPieces = 0, this.checkPieceSupport(), this.levelStartBannerShown = !0, data.isHard ? this.banners.push({
+        text: "Hard Level",
+        type: "hard_level",
+        timer: 2,
+        duration: 2
+      }) : this.banners.push({
+        text: data.title,
+        type: "level_start",
+        timer: 1.8,
+        duration: 1.8
+      }), saveProgress(this.currentLevel, this.coins);
+    }
+    /* ─────── Undo ─────── */
+    saveUndoState() {
+      this.undoStack.push({
+        screws: this.screws.map((s) => ({ id: s.id, holeId: s.currentHoleId, x: s.x, y: s.y })),
+        holes: this.holes.map((h) => ({ id: h.id, isOccupied: h.isOccupied, screwId: h.screwId })),
+        pieces: this.pieces.map((p) => ({
+          id: p.id,
+          isFree: p.isFree,
+          removed: p.removed,
+          x: p.x,
+          y: p.y,
+          angle: p.angle,
+          alpha: p.alpha,
+          isSwinging: p.isSwinging,
+          pivotHoleId: p.pivotHoleId,
+          hasPlayedSwingClank: p.hasPlayedSwingClank,
+          attachmentHoleIds: [...p.attachmentHoleIds]
+        })),
+        tools: { ...this.tools }
+      });
+    }
+    restoreUndo() {
+      if (this.undoStack.length === 0 || this.tools.undoUses <= 0) return;
+      let snap = this.undoStack.pop();
+      this.tools.undoUses--;
+      for (let sh of snap.holes) {
+        let hole = this.holes.find((h) => h.id === sh.id);
+        hole && (hole.isOccupied = sh.isOccupied, hole.screwId = sh.screwId);
+      }
+      for (let ss of snap.screws) {
+        let screw = this.screws.find((s) => s.id === ss.id);
+        if (screw) {
+          screw.currentHoleId = ss.holeId;
+          let hole = this.holes.find((h) => h.id === ss.holeId);
+          hole && (screw.x = BOARD_X + hole.x, screw.y = BOARD_Y + hole.y), screw.isMoving = !1, screw.z = 0, screw.progress = 0;
+        }
+      }
+      for (let sp of snap.pieces) {
+        let piece = this.pieces.find((p) => p.id === sp.id);
+        piece && (piece.isFree = sp.isFree, piece.removed = sp.removed, piece.x = sp.x, piece.y = sp.y, piece.angle = sp.angle, piece.alpha = sp.alpha, piece.vx = 0, piece.vy = 0, piece.vAngle = 0, piece.hasCollidedObstacles = [], piece.hasCollidedBoard = !1, piece.isSwinging = sp.isSwinging ?? !1, piece.pivotHoleId = sp.pivotHoleId ?? null, piece.swingCollisionCooldown = 0, piece.hasPlayedSwingClank = sp.hasPlayedSwingClank ?? !1, piece.fallTimer = 0, sp.attachmentHoleIds && (piece.attachmentHoleIds = [...sp.attachmentHoleIds]));
+      }
+      for (let screw of this.screws) {
+        screw.attachedPieceIds = [];
+        for (let piece of this.pieces)
+          !piece.removed && !piece.isFree && piece.attachmentHoleIds.includes(screw.currentHoleId) && screw.attachedPieceIds.push(piece.id);
+      }
+      this.removedPieces = this.pieces.filter((p) => p.removed).length, this.checkPieceSupport(), this.activeToolMode = null, this.state = "PLAYING", this.selectedScrewId = null, Sound.buttonClick();
+    }
+    /* ─────── Core Screw Mechanic ─────── */
+    findNearestEmptyHole(fromX, fromY) {
+      let best = null, bestDist = 1 / 0;
+      for (let hole of this.holes) {
+        if (hole.isOccupied || hole.isLocked) continue;
+        let d = dist(fromX, fromY, BOARD_X + hole.x, BOARD_Y + hole.y);
+        d < bestDist && (bestDist = d, best = hole);
+      }
+      return best;
+    }
+    moveScrewToHole(screw, targetHole) {
+      this.saveUndoState();
+      let oldHole = this.holes.find((h) => h.id === screw.currentHoleId);
+      oldHole.isOccupied = !1, oldHole.screwId = null;
+      for (let piece of this.pieces)
+        if (!piece.isFree && !piece.removed) {
+          let idx = piece.attachmentHoleIds.indexOf(oldHole.id);
+          idx !== -1 && piece.attachmentHoleIds.splice(idx, 1);
+        }
+      targetHole.isOccupied = !0, targetHole.screwId = screw.id, screw.isMoving = !0, screw.startPos = { x: screw.x, y: screw.y }, screw.targetPos = { x: BOARD_X + targetHole.x, y: BOARD_Y + targetHole.y }, screw.targetHoleId = targetHole.id, screw.progress = 0, screw.duration = 0.28, this.checkPieceSupport(), Sound.screwUnscrew(), spawnSparks(this.particles, screw.x, screw.y, 4);
+    }
+    onScrewArrived(screw) {
+      screw.isMoving = !1, screw.currentHoleId = screw.targetHoleId, screw.x = screw.targetPos.x, screw.y = screw.targetPos.y, screw.z = 0, screw.rotation = 0, Sound.screwDrop(), spawnDust(this.particles, screw.x, screw.y, 3);
+      let targetHole = this.holes.find((h) => h.id === screw.currentHoleId);
+      if (targetHole) {
+        let bhX = BOARD_X + targetHole.x, bhY = BOARD_Y + targetHole.y;
+        for (let piece of this.pieces) {
+          if (piece.removed || piece.isFree) continue;
+          let pCenterX = BOARD_X + piece.x + piece.width / 2, pCenterY = BOARD_Y + piece.y + piece.height / 2, cos = Math.cos(piece.angle), sin = Math.sin(piece.angle), isOverHole = !1;
+          for (let lh of piece.localHoles) {
+            let offX = lh.x - piece.width / 2, offY = lh.y - piece.height / 2, curHoleWorldX = pCenterX + (offX * cos - offY * sin), curHoleWorldY = pCenterY + (offX * sin + offY * cos), d = Math.hypot(curHoleWorldX - bhX, curHoleWorldY - bhY);
+            if (!piece.isSwinging && lh.holeId === targetHole.id) {
+              isOverHole = !0;
+              break;
+            }
+            if (d <= 14) {
+              isOverHole = !0;
+              break;
+            }
+          }
+          if (isOverHole && (piece.attachmentHoleIds.includes(screw.currentHoleId) || piece.attachmentHoleIds.push(screw.currentHoleId), piece.attachmentHoleIds.length >= 2)) {
+            let wasSwinging = piece.isSwinging;
+            piece.isSwinging = !1, piece.pivotHoleId = null, piece.vAngle = 0, wasSwinging || (piece.angle = piece.origAngle, piece.x = piece.origX, piece.y = piece.origY);
+          }
+        }
+      }
+      screw.attachedPieceIds = [];
+      for (let piece of this.pieces)
+        !piece.removed && !piece.isFree && piece.attachmentHoleIds.includes(screw.currentHoleId) && screw.attachedPieceIds.push(piece.id);
+      this.checkPieceSupport();
+    }
+    checkPieceSupport() {
+      for (let piece of this.pieces) {
+        if (piece.isFree || piece.removed) continue;
+        let remainingBolts = piece.attachmentHoleIds.length;
+        if (remainingBolts === 0)
+          this.releasePiece(piece);
+        else if (remainingBolts === 1) {
+          let pivotId = piece.attachmentHoleIds[0];
+          if ((!piece.isSwinging || piece.pivotHoleId !== pivotId) && (piece.isSwinging = !0, piece.pivotHoleId = pivotId, piece.hasPlayedSwingClank = !1, Math.abs(piece.vAngle) < 0.05)) {
+            let lh = piece.localHoles.find((h) => h.holeId === pivotId);
+            if (lh) {
+              let offX = lh.x - piece.width / 2;
+              piece.vAngle = (offX !== 0 ? Math.sign(offX) : randSign()) * 0.2;
+            }
+          }
+        } else
+          piece.isSwinging = !1, piece.pivotHoleId = null, piece.vAngle = 0;
+      }
+    }
+    releasePiece(piece) {
+      let wasSwinging = piece.isSwinging, oldVAngle = piece.vAngle;
+      if (piece.isFree = !0, piece.isSwinging = !1, piece.pivotHoleId = null, piece.fallTimer = 0, piece.hasCollidedObstacles = [], piece.hasCollidedBoard = !1, piece.lastClankTime = 0, piece.x = BOARD_X + piece.x, piece.y = BOARD_Y + piece.y, wasSwinging) {
+        let slopeForce = Math.sin(piece.angle) * 45;
+        piece.vx = clamp(-oldVAngle * 18 + slopeForce, -60, 60), piece.vy = 20, piece.vAngle = clamp(oldVAngle * 0.4, -2, 2);
+      } else
+        piece.vx = randRange(-6, 6), piece.vy = 20, piece.vAngle = randRange(-0.15, 0.15);
+      Sound.pieceRelease(), spawnSparks(this.particles, piece.x + piece.width / 2, piece.y + piece.height / 2, 6);
+    }
+    /* ─────── Tool Actions ─────── */
+    doReset() {
+      if (this.tools.resetUses <= 0) return;
+      let remainingReset = this.tools.resetUses - 1;
+      Sound.toolUse(), this.loadLevel(this.currentLevel), this.tools.resetUses = remainingReset;
+    }
+    doScrewdriver(screw) {
+      if (this.tools.screwdriverUses <= 0) return;
+      this.saveUndoState(), this.tools.screwdriverUses--, this.activeToolMode = null, this.state = "PLAYING", this.selectedScrewId = null;
+      let oldHole = this.holes.find((h) => h.id === screw.currentHoleId);
+      oldHole && (oldHole.isOccupied = !1, oldHole.screwId = null);
+      for (let piece of this.pieces)
+        if (!piece.isFree && !piece.removed && oldHole) {
+          let idx = piece.attachmentHoleIds.indexOf(oldHole.id);
+          idx !== -1 && piece.attachmentHoleIds.splice(idx, 1);
+        }
+      Sound.toolUse(), spawnSparks(this.particles, screw.x, screw.y, 10), screw.x = -1e3, screw.y = -1e3, screw.currentHoleId = -1, screw.attachedPieceIds = [], screw.isMoving = !1, screw.z = 0, this.checkPieceSupport();
+    }
+    doBomb(piece) {
+      if (this.tools.bombUses <= 0) return;
+      this.saveUndoState(), this.tools.bombUses--, this.activeToolMode = null, this.state = "PLAYING", this.selectedScrewId = null, Sound.bombExplode(), spawnStars(this.particles, BOARD_X + piece.x + piece.width / 2, BOARD_Y + piece.y + piece.height / 2, 12);
+      let holesToFree = [...piece.attachmentHoleIds];
+      piece.attachmentHoleIds = [];
+      for (let holeId of holesToFree) {
+        let hole = this.holes.find((h) => h.id === holeId);
+        hole && (hole.isOccupied = !1, hole.screwId = null);
+        for (let other of this.pieces)
+          if (!other.isFree && !other.removed) {
+            let idx = other.attachmentHoleIds.indexOf(holeId);
+            idx !== -1 && other.attachmentHoleIds.splice(idx, 1);
+          }
+      }
+      this.releasePiece(piece), piece.vy = -100, piece.vAngle = randRange(-3, 3), this.checkPieceSupport();
+    }
+    addHole() {
+      if (this.addedHolesThisLevel >= this.maxAddedHolesPerLevel) {
+        Sound.invalidMove();
+        return;
+      }
+      this.addedHolesThisLevel++;
+      let candidates = [
+        { x: 60, y: 470 },
+        { x: 360, y: 470 },
+        { x: 210, y: 490 },
+        { x: 100, y: 450 },
+        { x: 320, y: 450 },
+        { x: 210, y: 60 },
+        { x: 60, y: 60 },
+        { x: 360, y: 60 }
+      ], bestPos = null, bestDist = 0;
+      for (let c of candidates) {
+        let minDist = 1 / 0;
+        for (let h of this.holes) {
+          let d = dist(c.x, c.y, h.x, h.y);
+          d < minDist && (minDist = d);
+        }
+        minDist > bestDist && (bestDist = minDist, bestPos = c);
+      }
+      bestPos || (bestPos = candidates[0]);
+      let newHole = {
+        id: Math.max(0, ...this.holes.map((h) => h.id)) + 1,
+        x: bestPos.x,
+        y: bestPos.y,
+        isOccupied: !1,
+        screwId: null,
+        isLocked: !1,
+        addedScale: 0
+        // animate from 0 to 1
+      };
+      this.holes.push(newHole), Sound.toolUse(), spawnStars(this.particles, BOARD_X + bestPos.x, BOARD_Y + bestPos.y, 8);
+    }
+    /* ─────── Update ─────── */
+    update(dt) {
+      for (let i = this.banners.length - 1; i >= 0; i--)
+        this.banners[i].timer -= dt, this.banners[i].timer <= 0 && this.banners.splice(i, 1);
+      updateParticles(this.particles, dt);
+      for (let hole of this.holes)
+        hole.addedScale < 1 && (hole.addedScale = Math.min(1, hole.addedScale + dt * 3));
+      if (this.state !== "PAUSED") {
+        if (this.state === "PLAYING" || this.state === "TOOL_SCREWDRIVER" || this.state === "TOOL_BOMB") {
+          if (!this.isPaused) {
+            if (this.timer -= dt, this.timer <= 10 && this.timer > 0) {
+              let sec = Math.ceil(this.timer);
+              this.tickSoundPlayed.has(sec) || (this.tickSoundPlayed.add(sec), Sound.timerTick());
+            }
+            if (this.timer <= 0) {
+              this.timer = 0, this.failLevel();
+              return;
+            }
+          }
+          for (let screw of this.screws) {
+            if (!screw.isMoving) {
+              screw.shakeTimer > 0 && (screw.shakeTimer -= dt);
+              continue;
+            }
+            if (screw.progress += dt / screw.duration, screw.progress >= 1)
+              screw.progress = 1, this.onScrewArrived(screw);
+            else {
+              let t = easeOutCubic(screw.progress), liftT = screw.progress < 0.3 ? screw.progress / 0.3 : screw.progress > 0.7 ? (1 - screw.progress) / 0.3 : 1;
+              screw.z = Math.sin(liftT * Math.PI) * 15, screw.x = lerp(screw.startPos.x, screw.targetPos.x, t), screw.y = lerp(screw.startPos.y, screw.targetPos.y, t), screw.rotation = t * Math.PI * 0.5;
+            }
+          }
+          for (let piece of this.pieces) {
+            if (piece.isFree || piece.removed || !piece.isSwinging || piece.pivotHoleId === null) continue;
+            piece.swingCollisionCooldown > 0 && (piece.swingCollisionCooldown -= dt);
+            let pivotHole = this.holes.find((h) => h.id === piece.pivotHoleId), lh = piece.localHoles.find((h) => h.holeId === piece.pivotHoleId);
+            if (!pivotHole || !lh) continue;
+            let pivotWorldX = BOARD_X + pivotHole.x, pivotWorldY = BOARD_Y + pivotHole.y, offX = lh.x - piece.width / 2, offY = lh.y - piece.height / 2, distToPivot = Math.hypot(offX, offY);
+            if (distToPivot < 3)
+              continue;
+            let prevAngle = piece.angle, cos = Math.cos(prevAngle), sin = Math.sin(prevAngle), curCx = pivotWorldX - (offX * cos - offY * sin), curCy = pivotWorldY - (offX * sin + offY * cos), rx = curCx - pivotWorldX, angularAcc = rx / distToPivot * 38 - 3.2 * piece.vAngle;
+            piece.vAngle += angularAcc * dt, piece.vAngle = clamp(piece.vAngle, -8.5, 8.5);
+            let targetAngle = prevAngle + piece.vAngle * dt, targetCos = Math.cos(targetAngle), targetSin = Math.sin(targetAngle), targetCx = pivotWorldX - (offX * targetCos - offY * targetSin), targetCy = pivotWorldY - (offX * targetSin + offY * targetCos), hit = !1, clankX = targetCx, clankY = targetCy;
+            for (let screw of this.screws) {
+              if (screw.currentHoleId === -1 || screw.currentHoleId === piece.pivotHoleId) continue;
+              let col = checkPegBoxCollision(screw.x, screw.y, SCREW_R, targetCx, targetCy, piece.width, piece.height, targetAngle);
+              if (col.collided) {
+                hit = !0, clankX = col.contactX, clankY = col.contactY;
+                break;
+              }
+            }
+            if (!hit)
+              for (let other of this.pieces) {
+                if (other.id === piece.id || other.isFree || other.removed || other.layer < piece.layer) continue;
+                let oCx = BOARD_X + other.x + other.width / 2, oCy = BOARD_Y + other.y + other.height / 2, col = checkOBBOBBCollision(targetCx, targetCy, piece.width, piece.height, targetAngle, oCx, oCy, other.width, other.height, other.angle);
+                if (col.collided) {
+                  hit = !0, clankX = col.contactX, clankY = col.contactY;
+                  break;
+                }
+              }
+            if (hit) {
+              let low = 0, high = 1, safeT = 0;
+              for (let iter = 0; iter < 4; iter++) {
+                let mid = (low + high) * 0.5, testA = prevAngle + (targetAngle - prevAngle) * mid, tCos = Math.cos(testA), tSin = Math.sin(testA), tCx = pivotWorldX - (offX * tCos - offY * tSin), tCy = pivotWorldY - (offX * tSin + offY * tCos), subHit = !1;
+                for (let screw of this.screws)
+                  if (!(screw.currentHoleId === -1 || screw.currentHoleId === piece.pivotHoleId) && checkPegBoxCollision(screw.x, screw.y, SCREW_R, tCx, tCy, piece.width, piece.height, testA).collided) {
+                    subHit = !0;
+                    break;
+                  }
+                if (!subHit)
+                  for (let other of this.pieces) {
+                    if (other.id === piece.id || other.isFree || other.removed || other.layer < piece.layer) continue;
+                    let oCx = BOARD_X + other.x + other.width / 2, oCy = BOARD_Y + other.y + other.height / 2;
+                    if (checkOBBOBBCollision(tCx, tCy, piece.width, piece.height, testA, oCx, oCy, other.width, other.height, other.angle).collided) {
+                      subHit = !0;
+                      break;
+                    }
+                  }
+                subHit ? high = mid : (low = mid, safeT = mid);
+              }
+              piece.angle = prevAngle + (targetAngle - prevAngle) * safeT;
+              let impactSpeed = Math.abs(piece.vAngle);
+              piece.vAngle = 0;
+              let now = Date.now();
+              impactSpeed > 0.25 && (!piece.lastClankTime || now - piece.lastClankTime > 180) && (piece.lastClankTime = now, Sound.metalClank(), spawnSparks(this.particles, clankX, clankY, 5));
+            } else
+              piece.angle = targetAngle, Math.abs(rx) < 0.8 && Math.abs(piece.vAngle) < 0.15 && (piece.vAngle = 0);
+            let newCos = Math.cos(piece.angle), newSin = Math.sin(piece.angle), newCx = pivotWorldX - (offX * newCos - offY * newSin), newCy = pivotWorldY - (offX * newSin + offY * newCos);
+            piece.x = newCx - BOARD_X - piece.width / 2, piece.y = newCy - BOARD_Y - piece.height / 2;
+          }
+          let SUB_STEPS = 3, subDt = dt / SUB_STEPS;
+          for (let piece of this.pieces) {
+            if (!piece.isFree || piece.removed) continue;
+            piece.fallTimer = (piece.fallTimer || 0) + dt;
+            let cx = piece.x + piece.width / 2, cy = piece.y + piece.height / 2;
+            for (let step = 0; step < SUB_STEPS; step++) {
+              piece.vy += 760 * subDt, piece.vx *= 1 - 0.2 * subDt, piece.vAngle *= 1 - 0.5 * subDt, cx += piece.vx * subDt, cy += piece.vy * subDt, piece.angle += piece.vAngle * subDt;
+              let hadPegContact = !1;
+              for (let screw of this.screws) {
+                if (screw.currentHoleId === -1) continue;
+                let col = checkPegBoxCollision(
+                  screw.x,
+                  screw.y,
+                  SCREW_R,
+                  cx,
+                  cy,
+                  piece.width,
+                  piece.height,
+                  piece.angle
+                );
+                if (col.collided) {
+                  hadPegContact = !0, cx += col.normalX * col.penetration, cy += col.normalY * col.penetration;
+                  let rx = col.contactX - cx, ry = col.contactY - cy, vpx = piece.vx - piece.vAngle * ry, vpy = piece.vy + piece.vAngle * rx, vn = vpx * col.normalX + vpy * col.normalY;
+                  if (vn < 0) {
+                    let I = (piece.width * piece.width + piece.height * piece.height) / 12, rCrossN = rx * col.normalY - ry * col.normalX, invMassEff = 1 + rCrossN * rCrossN / I, jn = -(1 + 0.22) * vn / invMassEff;
+                    piece.vx += jn * col.normalX, piece.vy += jn * col.normalY, piece.vAngle += rCrossN * jn / I;
+                    let tx = -col.normalY, ty = col.normalX, vt = vpx * tx + vpy * ty, rCrossT = rx * ty - ry * tx, invMassEffT = 1 + rCrossT * rCrossT / I, maxFriction = 0.16 * jn, jt = -clamp(vt / invMassEffT, -maxFriction, maxFriction);
+                    piece.vx += jt * tx, piece.vy += jt * ty, piece.vAngle += rCrossT * jt / I;
+                    let now = Date.now();
+                    jn > 25 && (!piece.lastClankTime || now - piece.lastClankTime > 140) && (piece.lastClankTime = now, Sound.metalClank(), spawnSparks(this.particles, col.contactX, col.contactY, 4));
+                  }
+                }
+              }
+              for (let other of this.pieces) {
+                if (other.id === piece.id || other.isFree || other.removed || other.layer < piece.layer) continue;
+                let oCx = BOARD_X + other.x + other.width / 2, oCy = BOARD_Y + other.y + other.height / 2, col = checkOBBOBBCollision(
+                  cx,
+                  cy,
+                  piece.width,
+                  piece.height,
+                  piece.angle,
+                  oCx,
+                  oCy,
+                  other.width,
+                  other.height,
+                  other.angle
+                );
+                if (col.collided) {
+                  hadPegContact = !0, cx += col.normalX * col.penetration, cy += col.normalY * col.penetration;
+                  let rx = col.contactX - cx, ry = col.contactY - cy, vpx = piece.vx - piece.vAngle * ry, vpy = piece.vy + piece.vAngle * rx, vn = vpx * col.normalX + vpy * col.normalY;
+                  if (vn < 0) {
+                    let I = (piece.width * piece.width + piece.height * piece.height) / 12, rCrossN = rx * col.normalY - ry * col.normalX, invMassEff = 1 + rCrossN * rCrossN / I, jn = -(1 + 0.2) * vn / invMassEff;
+                    piece.vx += jn * col.normalX, piece.vy += jn * col.normalY, piece.vAngle += rCrossN * jn / I;
+                    let tx = -col.normalY, ty = col.normalX, vt = vpx * tx + vpy * ty, rCrossT = rx * ty - ry * tx, invMassEffT = 1 + rCrossT * rCrossT / I, jt = -clamp(vt / invMassEffT, -0.16 * jn, 0.16 * jn);
+                    piece.vx += jt * tx, piece.vy += jt * ty, piece.vAngle += rCrossT * jt / I;
+                  }
+                }
+              }
+              if (hadPegContact) {
+                let slideDir = Math.abs(piece.vx) > 5 ? Math.sign(piece.vx) : piece.angle >= 0 ? 1 : -1, slideAcc = 420;
+                piece.vx += slideDir * slideAcc * subDt, piece.vy > 80 && (piece.vy *= 0.85);
+              }
+            }
+            piece.x = cx - piece.width / 2, piece.y = cy - piece.height / 2, cy > this.H + 140 || cx < -240 || cx > this.W + 240 ? (piece.removed = !0, piece.alpha = 0, this.removedPieces++, Sound.pieceFall(), this.checkLevelCompletion()) : cy > BOARD_Y + BOARD_H + 40 && (piece.alpha = Math.max(0, 1 - (cy - (BOARD_Y + BOARD_H + 40)) / 140));
+          }
+        }
+        this.state === "COMPLETING" && (this.completionDelay -= dt, this.completionDelay <= 0 && (this.state = "VICTORY", this.victoryAnim = 0, Sound.victoryJingle(), spawnConfetti(this.particles, this.W / 2, this.H * 0.3, 60))), this.state === "VICTORY" && (this.victoryAnim = Math.min(1, this.victoryAnim + dt * 1.5), Math.random() < dt * 5 && spawnConfetti(this.particles, randRange(60, this.W - 60), randRange(50, 150), 3)), this.state === "FAILED" && (this.failedAnim = Math.min(1, this.failedAnim + dt * 1.5)), this.state === "MODAL_ADD_HOLE" && (this.addHoleAnim = Math.min(1, this.addHoleAnim + dt * 2.5));
+      }
+    }
+    /* ─────── Level State Changes ─────── */
+    checkLevelCompletion() {
+      this.pieces.filter((p) => !p.removed).length === 0 && this.state === "PLAYING" && (this.state = "COMPLETING", this.completionTime = this.timeLimit - this.timer, this.completionDelay = 0.6, this.banners.push({
+        text: "Level Complete!",
+        type: "level_complete",
+        timer: 2,
+        duration: 2
+      }), Sound.confettiPop(), spawnStars(this.particles, this.W / 2, this.H * 0.5, 12));
+    }
+    failLevel() {
+      this.state = "FAILED", this.failedAnim = 0, Sound.levelFailed();
+    }
+    /* ─────── Input Handling ─────── */
+    handleTap(worldX, worldY) {
+      if (this.state === "VICTORY") {
+        this.victoryAnim > 0.5 && (this.currentLevel++, saveProgress(this.currentLevel, this.coins), this.loadLevel(this.currentLevel));
+        return;
+      }
+      if (this.state === "FAILED") {
+        this.failedAnim > 0.5 && hitTest(worldX, worldY, this.retryBtn) && (Sound.buttonClick(), this.loadLevel(this.currentLevel));
+        return;
+      }
+      if (this.state !== "COMPLETING") {
+        if (hitTest(worldX, worldY, this.addHoleHUD)) {
+          this.addedHolesThisLevel < this.maxAddedHolesPerLevel ? (Sound.buttonClick(), this.addHole()) : Sound.invalidMove();
+          return;
+        }
+        if (hitTest(worldX, worldY, this.pauseBtn)) {
+          Sound.buttonClick(), this.state === "PAUSED" ? (this.state = this.prevState, this.isPaused = !1) : (this.prevState = this.state, this.state = "PAUSED", this.isPaused = !0);
+          return;
+        }
+        if (this.state === "PAUSED") {
+          this.state = this.prevState, this.isPaused = !1;
+          return;
+        }
+        if (hitTest(worldX, worldY, this.toolBtns.reset)) {
+          this.tools.resetUses > 0 ? (Sound.buttonClick(), this.doReset()) : Sound.invalidMove();
+          return;
+        }
+        if (hitTest(worldX, worldY, this.toolBtns.screwdriver)) {
+          this.tools.screwdriverUses > 0 ? (Sound.buttonClick(), this.selectedScrewId = null, this.activeToolMode = this.activeToolMode === "screwdriver" ? null : "screwdriver", this.state = this.activeToolMode ? "TOOL_SCREWDRIVER" : "PLAYING") : Sound.invalidMove();
+          return;
+        }
+        if (hitTest(worldX, worldY, this.toolBtns.bomb)) {
+          this.tools.bombUses > 0 ? (Sound.buttonClick(), this.selectedScrewId = null, this.activeToolMode = this.activeToolMode === "bomb" ? null : "bomb", this.state = this.activeToolMode ? "TOOL_BOMB" : "PLAYING") : Sound.invalidMove();
+          return;
+        }
+        if (hitTest(worldX, worldY, this.toolBtns.undo)) {
+          this.tools.undoUses > 0 && this.undoStack.length > 0 ? this.restoreUndo() : Sound.invalidMove();
+          return;
+        }
+        if (this.state === "PLAYING" || this.state === "TOOL_SCREWDRIVER" || this.state === "TOOL_BOMB") {
+          if (this.state === "TOOL_SCREWDRIVER") {
+            let screw2 = this.findTappedScrew(worldX, worldY);
+            screw2 && this.doScrewdriver(screw2);
+            return;
+          }
+          if (this.state === "TOOL_BOMB") {
+            let piece = this.findTappedPiece(worldX, worldY);
+            piece && this.doBomb(piece);
+            return;
+          }
+          let screw = this.findTappedScrew(worldX, worldY);
+          if (screw && !screw.isMoving) {
+            this.selectedScrewId === screw.id ? (this.selectedScrewId = null, Sound.buttonClick()) : (this.selectedScrewId = screw.id, Sound.buttonClick());
+            return;
+          }
+          let tappedHole = this.findTappedEmptyHole(worldX, worldY);
+          if (tappedHole && !tappedHole.isOccupied) {
+            if (this.selectedScrewId !== null) {
+              let selectedScrew = this.screws.find((s) => s.id === this.selectedScrewId);
+              selectedScrew && !selectedScrew.isMoving && (this.moveScrewToHole(selectedScrew, tappedHole), this.selectedScrewId = null);
+            }
+            return;
+          }
+        }
+      }
+    }
+    findTappedScrew(worldX, worldY) {
+      let best = null, bestDist = SCREW_R + 25;
+      for (let screw of this.screws) {
+        if (screw.currentHoleId === -1) continue;
+        let d = dist(worldX, worldY, screw.x, screw.y);
+        d < bestDist && (bestDist = d, best = screw);
+      }
+      return best;
+    }
+    findTappedPiece(worldX, worldY) {
+      let best = null, bestLayer = -1;
+      for (let piece of this.pieces) {
+        if (piece.isFree || piece.removed) continue;
+        let px = BOARD_X + piece.x, py = BOARD_Y + piece.y;
+        worldX >= px && worldX <= px + piece.width && worldY >= py && worldY <= py + piece.height && piece.layer > bestLayer && (bestLayer = piece.layer, best = piece);
+      }
+      return best;
+    }
+    findTappedEmptyHole(worldX, worldY) {
+      for (let hole of this.holes)
+        if (dist(worldX, worldY, BOARD_X + hole.x, BOARD_Y + hole.y) < HOLE_R + 10) return hole;
+      return null;
+    }
+    /* ─────── Render ─────── */
+    render(ctx2) {
+      ctx2.clearRect(0, 0, this.W, this.H), drawBackground(ctx2, this.W, this.H), drawBoard(ctx2);
+      for (let hole of this.holes)
+        drawHole(ctx2, hole);
+      let attachedPieces = this.pieces.filter((p) => !p.removed && !p.isFree).sort((a, b) => a.layer - b.layer);
+      for (let piece of attachedPieces)
+        drawPiece(ctx2, piece);
+      for (let screw of this.screws) {
+        if (screw.currentHoleId === -1 && !screw.isMoving) continue;
+        let sx = screw.x, sy = screw.y, sz = screw.z;
+        screw.shakeTimer > 0 && (sx += Math.sin(screw.shakeTimer * 40) * 3), this.selectedScrewId === screw.id && !screw.isMoving && (sz = 8 + Math.sin(Date.now() * 5e-3) * 2);
+        let drawS = { ...screw, x: sx, y: sy, z: sz };
+        drawScrew(ctx2, drawS);
+      }
+      let freePieces = this.pieces.filter((p) => !p.removed && p.isFree);
+      for (let piece of freePieces)
+        drawPiece(ctx2, piece);
+      drawParticles(ctx2, this.particles);
+      let progress = this.totalPieces > 0 ? this.removedPieces / this.totalPieces : 0;
+      drawHUD(ctx2, this.W, this.currentLevel, this.timer, progress, this.pauseBtn, this.timerRect, this.addHoleHUD, this.addedHolesThisLevel, this.maxAddedHolesPerLevel), drawToolbar(ctx2, this.W, this.H, this.tools, this.toolBtns, this.activeToolMode);
+      for (let banner of this.banners)
+        drawBanner(ctx2, this.W, this.H, banner);
+      if (this.state === "PAUSED" && (ctx2.save(), ctx2.globalAlpha = 0.5, ctx2.fillStyle = "#0A1020", ctx2.fillRect(0, 0, this.W, this.H), ctx2.restore(), ctx2.save(), ctx2.textAlign = "center", ctx2.textBaseline = "middle", ctx2.font = "bold 36px Fredoka, Nunito, Arial, sans-serif", ctx2.fillStyle = C.white, ctx2.strokeStyle = "rgba(0,0,0,0.5)", ctx2.lineWidth = 4, ctx2.strokeText("PAUSED", this.W / 2, this.H / 2), ctx2.fillText("PAUSED", this.W / 2, this.H / 2), ctx2.font = "16px Fredoka, Nunito, Arial, sans-serif", ctx2.fillStyle = "rgba(255,255,255,0.6)", ctx2.fillText("Tap to Resume", this.W / 2, this.H / 2 + 40), ctx2.restore()), this.state === "VICTORY" && drawVictoryPanel(ctx2, this.W, this.H, formatTime(this.completionTime), this.victoryAnim), this.state === "FAILED" && drawFailedPanel(ctx2, this.W, this.H, this.failedAnim, this.retryBtn), this.activeToolMode) {
+        ctx2.save(), ctx2.textAlign = "center", ctx2.font = "bold 14px Fredoka, Nunito, Arial, sans-serif";
+        let modeText = this.activeToolMode === "screwdriver" ? "Tap a screw to remove" : "Tap a piece to blast";
+        ctx2.fillStyle = "rgba(0,0,0,0.5)", ctx2.fillRect(this.W / 2 - 110, BOARD_Y + BOARD_H + 8, 220, 26), ctx2.fillStyle = "#FFE082", ctx2.fillText(modeText, this.W / 2, BOARD_Y + BOARD_H + 22), ctx2.restore();
+      }
+    }
+  };
+  function hitTest(x, y, rect) {
+    return x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h;
+  }
+
+  // src/main.ts
+  var fontLink = document.createElement("link");
+  fontLink.rel = "stylesheet";
+  fontLink.href = "https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@700;800&display=swap";
+  document.head.appendChild(fontLink);
+  var canvas = document.getElementById("gameCanvas"), ctx = canvas.getContext("2d"), stage = document.getElementById("stage"), engine = new GameEngine();
+  window.__engine = engine;
+  function resize() {
+    let vw = window.visualViewport?.width ?? window.innerWidth, vh = window.visualViewport?.height ?? window.innerHeight, dpr = Math.min(window.devicePixelRatio || 1, 2), VW = engine.W, VH = engine.H, aspect = VW / VH, screenAspect = vw / vh, cssW, cssH;
+    screenAspect > aspect ? (cssH = vh, cssW = vh * aspect) : (cssW = vw, cssH = vw / aspect), canvas.style.width = `${cssW}px`, canvas.style.height = `${cssH}px`, canvas.width = VW * dpr, canvas.height = VH * dpr, ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.visualViewport ? window.visualViewport.addEventListener("resize", resize) : window.addEventListener("resize", resize);
+  function getCanvasPos(clientX, clientY) {
+    let rect = canvas.getBoundingClientRect(), scaleX = engine.W / rect.width, scaleY = engine.H / rect.height;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  }
+  canvas.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    let pos = getCanvasPos(e.clientX, e.clientY);
+    engine.handleTap(pos.x, pos.y);
+  });
+  canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+  var lastTime = performance.now();
+  function gameLoop(now) {
+    let dt = Math.min((now - lastTime) / 1e3, 0.05);
+    lastTime = now, engine.update(dt), engine.render(ctx), requestAnimationFrame(gameLoop);
+  }
+  document.fonts.ready.then(() => {
+    requestAnimationFrame(gameLoop);
+  }).catch(() => {
+    requestAnimationFrame(gameLoop);
+  });
+})();
+
+  </script>
+</body>
+</html>

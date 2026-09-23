@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "gameId": "ball-breaker",
+  "version": "1.2.0",
+  "buildId": "d0e536a2a531fd565e2b4545b77be3c4",
+  "entry": "index.html",
+  "totalBytes": 78386,
+  "files": [
+    {
+      "path": "index.html",
+      "bytes": 77807,
+      "sha256": "8a7a5b25ae1a807c5b0db16f211c78b4b0b3ad36ae70aa9ac280a6bac68920a8"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 579,
+      "sha256": "a4f135747083bbc52e83efdf90dd078ebcf018cda2904422ea1eca8e123dedb5"
+    }
+  ],
+  "generatedAt": "2026-09-22T12:10:31.178Z"
+}

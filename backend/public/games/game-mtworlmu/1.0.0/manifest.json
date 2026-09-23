@@ -1,0 +1,12 @@
+{
+  "id": "game-mtworlmu",
+  "title": "New Custom Game",
+  "version": "1.0.0",
+  "orientation": "portrait",
+  "category": "Arcade",
+  "features": {
+    "sound": true,
+    "vibration": false,
+    "hint": false
+  }
+}

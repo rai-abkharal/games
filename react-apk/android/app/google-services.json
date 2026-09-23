@@ -7,28 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:636984344295:android:b908946318bf5f5a472c42",
+        "mobilesdk_app_id": "1:636984344295:android:a1d1fb05b73f8838472c42",
         "android_client_info": {
           "package_name": "com.eibigames.swipe.play.scroll"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDDqiW1DGlejKEFgJwjJ3p8ehqohW9DBPg"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:636984344295:android:b908946318bf5f5a472c42",
-        "android_client_info": {
-          "package_name": "com.sogeitest"
         }
       },
       "oauth_client": [],

@@ -1,0 +1,32 @@
+{
+  "id": "bubble-shooter",
+  "gameId": "bubble-shooter",
+  "name": "Bubble Shooter - Match 3 Puzzle",
+  "title": "Bubble Shooter - Match 3 Puzzle",
+  "slug": "bubble-shooter",
+  "version": "1.0.0",
+  "type": "hyper-casual",
+  "orientation": "portrait",
+  "targetFrameRate": 60,
+  "dimensions": {
+    "width": 380,
+    "height": 800
+  },
+  "entry": "index.html",
+  "sizeBytes": 81416,
+  "sha256": "559325ac0fcc7592e1f23e8959367186c1821be029d88cc76105db6e79ef4262",
+  "author": "Antigravity Game Studios",
+  "description": "Bubble Shooter casual mobile Match-3 puzzle featuring dual-colored split bubbles, 100 progressive levels, top star progress bar, tight trajectory prediction, and 3 power-ups.",
+  "categories": [
+    "puzzle",
+    "physics",
+    "casual",
+    "arcade"
+  ],
+  "features": [
+    "offline-capable",
+    "touch-support",
+    "procedural-audio",
+    "responsive"
+  ]
+}

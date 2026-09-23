@@ -78,10 +78,17 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
         result.putInt("port", server.port)
         val ready = Arguments.createArray()
         if (started) {
+          unpackBundledGames()
           for ((gameId, buildId) in store.activeBuilds()) {
             val entry = resolveEntry(gameId, buildId) ?: continue
             if (!store.verifyActive(gameId, entry)) continue
             ready.pushMap(describe(gameId, buildId, entry))
+          }
+          // Pre-warm the first bundled game in the page cache
+          val firstGameId = "game-mudsy3a8"
+          val firstBuild = store.activeBuild(firstGameId)
+          if (firstBuild != null) {
+            store.warm(firstGameId, firstBuild)
           }
         }
         result.putArray("ready", ready)
@@ -116,6 +123,53 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
   }
 
   /**
+   * Unpacks pre-bundled APK games into the on-device store on first launch.
+   * Runs on the IO executor and skips any build already verified on disk.
+   */
+  private fun unpackBundledGames() {
+    try {
+      val assetList = reactContext.assets.list("bundled-games") ?: return
+      if (!assetList.contains("manifest.json")) return
+      val manifest = reactContext.assets.open("bundled-games/manifest.json")
+        .bufferedReader().use { JSONArray(it.readText()) }
+
+      for (i in 0 until manifest.length()) {
+        val item = manifest.getJSONObject(i)
+        val gameId = item.getString("gameId")
+        val buildId = item.getString("buildId")
+        val entry = item.optString("entry", "index.html")
+        val buildDir = store.buildDir(gameId, buildId)
+        val entryFile = File(buildDir, entry)
+
+        // If the store already has this exact active build and entry exists, skip
+        if (store.isActive(gameId, buildId) && entryFile.isFile && entryFile.length() > 0) {
+          continue
+        }
+
+        val staging = store.stagingDir(gameId, buildId)
+        staging.mkdirs()
+
+        val filesArray = item.optJSONArray("files")
+        if (filesArray != null) {
+          for (j in 0 until filesArray.length()) {
+            val relPath = filesArray.getString(j)
+            val destFile = File(staging, relPath)
+            destFile.parentFile?.mkdirs()
+            reactContext.assets.open("bundled-games/$gameId/$relPath").use { input ->
+              destFile.outputStream().use { output -> input.copyTo(output) }
+            }
+          }
+        }
+
+        // Atomically activate this build into the store
+        store.activate(gameId, buildId, staging)
+      }
+    } catch (e: Exception) {
+      android.util.Log.w("GameBundles", "Bundled games unpack skipped: ${e.message}")
+    }
+  }
+
+  /**
    * Replaces the download wish-list, highest priority first. Each entry carries
    * how close its game is to the player (`priority`: 0 = on screen, 1 = one
    * swipe away, 2 = the short lookahead, 3 = the rest of the catalogue), which
@@ -139,6 +193,8 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
       val bundleUrl = item.getString("bundleUrl") ?: continue
       val version = item.getString("version") ?: ""
       if (gameId.isEmpty() || buildId.isEmpty() || bundleUrl.isEmpty()) continue
+      // Never re-download APK bundled games
+      if (GameBundleStore.BUNDLED_GAME_IDS.contains(gameId)) continue
       // `foreground` is still honoured so a JS bundle from before priorities
       // existed keeps working: it simply means "on screen".
       val priority = when {

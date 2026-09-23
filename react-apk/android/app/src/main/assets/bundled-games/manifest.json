@@ -1,0 +1,381 @@
+[
+  {
+    "gameId": "game-mudsy3a8",
+    "version": "1.0.0",
+    "buildId": "be7ba3ea36ee0fa116160a194c6f8a4e",
+    "entry": "index.html",
+    "bytes": 2586512,
+    "feedOrder": 0,
+    "files": [
+      "assets/browserAll-BmpJewo4.js",
+      "assets/BufferResource-0NVsrDaL.js",
+      "assets/CanvasPool-_B6RIIjb.js",
+      "assets/CanvasRenderer-B97Toy0N.js",
+      "assets/canvasUtils-Dvj1TeKW.js",
+      "assets/index-CYdtFSz-.js",
+      "assets/index-sMNX7gq7.css",
+      "assets/RenderTargetSystem-Ctw6lcvu.js",
+      "assets/WebGLRenderer-DQetRgJn.js",
+      "assets/WebGPURenderer-D1_7-dm2.js",
+      "assets/webworkerAll-DSYIleCY.js",
+      "audio/blocked.wav",
+      "audio/slide.wav",
+      "bundle.json",
+      "index.html",
+      "manifest.json",
+      "WEB-BUILD-README.txt"
+    ]
+  },
+  {
+    "gameId": "game-mucbfekb",
+    "version": "1.0.0",
+    "buildId": "7be89fc86e75cc9ea5ac34cb38bc203f",
+    "entry": "index.html",
+    "bytes": 1720068,
+    "feedOrder": 1,
+    "files": [
+      "asset-manifest.json",
+      "bundle.json",
+      "GAME-STRUCTURE.md",
+      "index.html",
+      "manifest.json",
+      "offline-loader.js",
+      "original/arrow.png",
+      "original/body.html",
+      "original/car0side.png",
+      "original/car1.png",
+      "original/car1side.png",
+      "original/car2.png",
+      "original/car2side.png",
+      "original/car3.png",
+      "original/car3side.png",
+      "original/car4.png",
+      "original/car4side.png",
+      "original/car5.png",
+      "original/car5side.png",
+      "original/car6.png",
+      "original/car6side.png",
+      "original/car7.png",
+      "original/car7side.png",
+      "original/car8.png",
+      "original/car8side.png",
+      "original/car9.png",
+      "original/car9side.png",
+      "original/cars.json",
+      "original/end.webm",
+      "original/exit.webm",
+      "original/flash.webm",
+      "original/game.js",
+      "original/hand.png",
+      "original/hit.webm",
+      "original/levels.json",
+      "original/move.webm",
+      "original/note.webm",
+      "original/palettes.json",
+      "original/style.css",
+      "README.md",
+      "reference/game-live-dom.html.txt",
+      "reference/poki-page.html.txt",
+      "source/body.html",
+      "source/game.js",
+      "source/style.css",
+      "tools/rebuild.cjs",
+      "tools/serve.cjs",
+      "VERIFICATION.md"
+    ]
+  },
+  {
+    "gameId": "knife-hit",
+    "version": "1.3.0",
+    "buildId": "f65f60c1490dd86bdcba05f313e130f6",
+    "entry": "index.html",
+    "bytes": 1374557,
+    "feedOrder": 2,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "knife-hit.svg",
+      "manifest.json",
+      "README.md",
+      "src/art.ts",
+      "src/config.ts",
+      "src/game.ts",
+      "src/global.d.ts",
+      "src/main.ts",
+      "src/menus.ts",
+      "src/sfx.ts",
+      "src/ui.ts"
+    ]
+  },
+  {
+    "gameId": "maze-paint",
+    "version": "1.14.0",
+    "buildId": "e556c1eae1e690a2ef361143e5a38919",
+    "entry": "index.html",
+    "bytes": 132450,
+    "feedOrder": 3,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "manifest.json"
+    ]
+  },
+  {
+    "gameId": "game-mtworlmu",
+    "version": "1.0.0",
+    "buildId": "7f22e03ee57d7f36f6a56f2cf2f9e170",
+    "entry": "index.html",
+    "bytes": 1766402,
+    "feedOrder": 4,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "manifest.json",
+      "README.txt"
+    ]
+  },
+  {
+    "gameId": "game-mtvj5sds",
+    "version": "1.0.0",
+    "buildId": "045c9b0a79763f9b44c2fa710f000f4a",
+    "entry": "index.html",
+    "bytes": 4257924,
+    "feedOrder": 5,
+    "files": [
+      "APP-INTEGRATION.md",
+      "bundle.json",
+      "index.html",
+      "licenses/Fredoka-OFL.txt",
+      "manifest.json",
+      "START-HERE.txt"
+    ]
+  },
+  {
+    "gameId": "number-drop",
+    "version": "1.1.0",
+    "buildId": "0731f0823ff01775a250c08cf2f5ac7a",
+    "entry": "index.html",
+    "bytes": 67453,
+    "feedOrder": 6,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "manifest.json"
+    ]
+  },
+  {
+    "gameId": "snake-classic",
+    "version": "1.0.0",
+    "buildId": "0f0033fb6589f4800c04abe84782478e",
+    "entry": "index.html",
+    "bytes": 47295,
+    "feedOrder": 7,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "manifest.json"
+    ]
+  },
+  {
+    "gameId": "gun-simulator",
+    "version": "1.0.0",
+    "buildId": "62997f9ce1a11c018f157c147c505826",
+    "entry": "index.html",
+    "bytes": 2150944,
+    "feedOrder": 8,
+    "files": [
+      "bundle.json",
+      "gun-simulator.svg",
+      "index.html",
+      "manifest.json",
+      "README.md",
+      "src/audio.ts",
+      "src/data.ts",
+      "src/game.ts",
+      "src/main.ts"
+    ]
+  },
+  {
+    "gameId": "ludo-race",
+    "version": "1.0.0",
+    "buildId": "8e468b81ac3c8d53bed1b75abd24dc7a",
+    "entry": "index.html",
+    "bytes": 58798,
+    "feedOrder": 9,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "manifest.json"
+    ]
+  },
+  {
+    "gameId": "fruit-merge",
+    "version": "1.0.0",
+    "buildId": "1cb40aa3f9b02ce685124de2a03997c4",
+    "entry": "index.html",
+    "bytes": 77712,
+    "feedOrder": 10,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "manifest.json"
+    ]
+  },
+  {
+    "gameId": "bubble-shooter",
+    "version": "1.0.0",
+    "buildId": "c81f9d5cebffb1e4227bc8129ef1fafe",
+    "entry": "index.html",
+    "bytes": 82823,
+    "feedOrder": 11,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "manifest.json"
+    ]
+  },
+  {
+    "gameId": "game-mu51zff4",
+    "version": "1.0.0",
+    "buildId": "ee31a63fc1e6fd3f639ca3356dd0a817",
+    "entry": "index.html",
+    "bytes": 3630803,
+    "feedOrder": 12,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "manifest.json",
+      "source/docs/booster-icons-check.json",
+      "source/docs/browser-verification.json",
+      "source/docs/density-browser-check.json",
+      "source/docs/density-logic-check.json",
+      "source/docs/fullscreen-check.json",
+      "source/docs/v2-browser-check.json",
+      "source/docs/v2-offline-check.json",
+      "source/docs/v3-browser-check.json",
+      "source/docs/victory-fit-check.json",
+      "source/index.html",
+      "source/package.json",
+      "source/pnpm-lock.yaml",
+      "source/pnpm-workspace.yaml",
+      "source/public/assets/reference-hud.png",
+      "source/public/levels.json",
+      "source/public/vehicle-shuffles.json",
+      "source/README.md",
+      "source/scripts/build-offline.mjs",
+      "source/scripts/export-levels.ts",
+      "source/scripts/export-shuffles.ts",
+      "source/src/audio.ts",
+      "source/src/booster-icons.ts",
+      "source/src/logic.ts",
+      "source/src/main.ts",
+      "source/src/reference-layout.ts",
+      "source/src/scene.ts",
+      "source/src/style.css",
+      "source/src/viewport.ts",
+      "source/src/vite-env.d.ts",
+      "source/tests/logic.test.ts",
+      "source/tsconfig.json",
+      "START-HERE.txt"
+    ]
+  },
+  {
+    "gameId": "deadzone-40",
+    "version": "1.4.0",
+    "buildId": "7bc74fc6fbc1b9e7a4e7172dd9c268ef",
+    "entry": "index.html",
+    "bytes": 277722,
+    "feedOrder": 13,
+    "files": [
+      "bundle.json",
+      "deadzone-40.svg",
+      "index.html",
+      "manifest.json",
+      "README.md",
+      "src/assets.ts",
+      "src/engine.ts",
+      "src/entities.ts",
+      "src/main.ts",
+      "src/utils.ts"
+    ]
+  },
+  {
+    "gameId": "dots-and-boxes",
+    "version": "1.0.0",
+    "buildId": "ccf60ed33c794b67a2f38d6e0759f99f",
+    "entry": "index.html",
+    "bytes": 41995,
+    "feedOrder": 14,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "manifest.json"
+    ]
+  },
+  {
+    "gameId": "takeoff-bolts",
+    "version": "1.0.0",
+    "buildId": "d9935706d07b4478ff26510455aa84eb",
+    "entry": "index.html",
+    "bytes": 122246,
+    "feedOrder": 15,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "manifest.json"
+    ]
+  },
+  {
+    "gameId": "four-in-a-row",
+    "version": "1.0.0",
+    "buildId": "bfdc03aaa7f5712d3c79013528f0e336",
+    "entry": "index.html",
+    "bytes": 34495,
+    "feedOrder": 16,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "manifest.json",
+      "thumbnail.webp"
+    ]
+  },
+  {
+    "gameId": "ball-breaker",
+    "version": "1.2.0",
+    "buildId": "019861d2f0bf863cb5d9b55f3624f969",
+    "entry": "index.html",
+    "bytes": 78906,
+    "feedOrder": 17,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "manifest.json"
+    ]
+  },
+  {
+    "gameId": "sudoku-pro",
+    "version": "1.0.1",
+    "buildId": "642af587784748b7e2381c60d89e605a",
+    "entry": "index.html",
+    "bytes": 89526,
+    "feedOrder": 18,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "manifest.json"
+    ]
+  },
+  {
+    "gameId": "color-match",
+    "version": "1.1.0",
+    "buildId": "f201ca0dba0d5d7a68f0ddb102565da5",
+    "entry": "index.html",
+    "bytes": 9647,
+    "feedOrder": 19,
+    "files": [
+      "bundle.json",
+      "index.html",
+      "manifest.json"
+    ]
+  }
+]

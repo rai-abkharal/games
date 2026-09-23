@@ -42,7 +42,7 @@ export function bundledTutorialGames(bundles: ReadyBundle[]): GameItem[] {
 export type TutorialGameStep = 'arrow_playing' | 'knife_hit_playing' | 'water_sort_playing';
 
 export function tutorialGameStep(game: GameItem): TutorialGameStep | null {
-  if (game.id === 'arrow-puzzle') return 'arrow_playing';
+  if (game.id === 'arrow-puzzle' || game.id === 'game-mudsy3a8' || /arrow/i.test(game.title)) return 'arrow_playing';
   if (game.id === 'water-sort' || game.id === 'water-sort-3d') return 'water_sort_playing';
   if (/knife/i.test([game.id, game.title, game.sourceTitle ?? ''].join(' '))) return 'knife_hit_playing';
   return null;

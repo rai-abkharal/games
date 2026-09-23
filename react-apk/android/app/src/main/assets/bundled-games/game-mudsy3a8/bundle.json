@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "gameId": "game-mudsy3a8",
+  "version": "1.0.0",
+  "buildId": "be7ba3ea36ee0fa116160a194c6f8a4e",
+  "entry": "index.html",
+  "totalBytes": 2583654,
+  "files": [
+    {
+      "path": "WEB-BUILD-README.txt",
+      "bytes": 1009,
+      "sha256": "972b2e2765333f95b24843a080facfbf91836b9084a179c164ad33425e5a521d"
+    },
+    {
+      "path": "assets/BufferResource-0NVsrDaL.js",
+      "bytes": 11111,
+      "sha256": "95d6c836c134d9af68690af15dfca251df2d998c3c638e0f465b8fe8f3372bb7"
+    },
+    {
+      "path": "assets/CanvasPool-_B6RIIjb.js",
+      "bytes": 2749,
+      "sha256": "12d9b93abac98bc92ef85886fd20275cdd64aafaf85c1bee91bcfb42ad6a8c47"
+    },
+    {
+      "path": "assets/CanvasRenderer-B97Toy0N.js",
+      "bytes": 17891,
+      "sha256": "839ab831a7042e3c8990056eb6e14ed99c56b705224d7c91019967f213c2f5b2"
+    },
+    {
+      "path": "assets/RenderTargetSystem-Ctw6lcvu.js",
+      "bytes": 53860,
+      "sha256": "0440848f113910ba080bd56ffbd7fd69bd6955e5bf50b1e13bbefb6fe7dd9940"
+    },
+    {
+      "path": "assets/WebGLRenderer-DQetRgJn.js",
+      "bytes": 72469,
+      "sha256": "343d8485ed452c5b3d874db564c89b8671c97a30c04954b6a21c00646be93b3c"
+    },
+    {
+      "path": "assets/WebGPURenderer-D1_7-dm2.js",
+      "bytes": 48471,
+      "sha256": "3bf63dc9192747f84b17d91d1b92fba8716a520a29a61f0bbfe586193598e16e"
+    },
+    {
+      "path": "assets/browserAll-BmpJewo4.js",
+      "bytes": 43124,
+      "sha256": "2cbcf4d8e3ae28eed271f0e1008ba5a582a4a0bf86f311769b2d8073d38a3724"
+    },
+    {
+      "path": "assets/canvasUtils-Dvj1TeKW.js",
+      "bytes": 5709,
+      "sha256": "ca5dc41b35f37e4ac833caae9aae307be53fa066ee4fcc1583c85a1f40b37af2"
+    },
+    {
+      "path": "assets/index-CYdtFSz-.js",
+      "bytes": 1029743,
+      "sha256": "daeb7489b11227b86e1e861d13e86eacbcda543c24e455eef8394485883e201f"
+    },
+    {
+      "path": "assets/index-sMNX7gq7.css",
+      "bytes": 8133,
+      "sha256": "b92bd44e8a3527de5c71f00c5192b51583712d89d6b27d455e944e2cf350bdc9"
+    },
+    {
+      "path": "assets/webworkerAll-DSYIleCY.js",
+      "bytes": 15978,
+      "sha256": "2da243d2d15144ef1442992ad0680b0e0085446937b30d5e5ae3d8bfb3f52b76"
+    },
+    {
+      "path": "audio/blocked.wav",
+      "bytes": 24740,
+      "sha256": "a4ae36514c61d1cb6c8e0c2d1a18828970f07e6c3cf10d88bf08bcd3372a79da"
+    },
+    {
+      "path": "audio/slide.wav",
+      "bytes": 11510,
+      "sha256": "e33462ee57291021d9e74687a5e9372d0a7656c908f7bef7337e539e37e9426d"
+    },
+    {
+      "path": "index.html",
+      "bytes": 1236943,
+      "sha256": "395b7211433eb69a908b72c7c204c53dbfc9b35c706254aa5cc5c5c862441b19"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 214,
+      "sha256": "8b5a65a41e26c85d7e6e1a48b8d337bfd25a6244ae99eb2ddd6233c3c7f7c113"
+    }
+  ],
+  "generatedAt": "2026-09-23T07:49:20.363Z"
+}

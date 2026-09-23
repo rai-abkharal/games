@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { fetchCatalog } from '../api/catalogApi';
 import { getActiveBaseUrl, hydrateBaseUrl, isAbortError } from '../api/http';
 import { NETWORK, STORAGE_KEYS } from '../config/env';
+import { BUNDLED_GAMES, BUNDLED_GAME_IDS } from '../config/bundledGames';
 import { readJson, writeJson } from '../services/storage';
 import type { GameItem } from '../types/game';
 import { displayCategory } from '../utils/misc';
@@ -43,21 +44,25 @@ function deriveCategories(games: GameItem[]): string[] {
   return Array.from(seen.values());
 }
 
+function mergeWithBundledGames(serverGames: GameItem[]): GameItem[] {
+  const serverOnly = serverGames.filter(g => !BUNDLED_GAME_IDS.has(g.id));
+  return [...BUNDLED_GAMES, ...serverOnly];
+}
+
 let inflight: AbortController | null = null;
 let hydration: Promise<void> | null = null;
 
 /**
- * Catalogue = single source of truth for every screen. Boot renders instantly
- * from the persisted copy (MainActivity.loadCatalog step 1), then a network
- * refresh replaces it. Refreshes are throttled to 30 s, de-duplicated, and
- * abortable; a failure never discards data we already have.
+ * Catalogue = single source of truth for every screen.
+ * Initializes immediately with the 20 APK-bundled games as the first 20 items (indices 0-19),
+ * ensuring complete offline availability without any server dependency.
  */
 export const useCatalogStore = create<CatalogState>((set, get) => ({
-  games: [],
-  categories: [],
-  status: 'booting',
+  games: BUNDLED_GAMES,
+  categories: deriveCategories(BUNDLED_GAMES),
+  status: 'ready',
   refreshing: false,
-  source: 'none',
+  source: 'cache',
   error: null,
   lastFetchedAt: 0,
 
@@ -68,11 +73,9 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
         hydrateBaseUrl(),
         readJson<PersistedCatalog>(STORAGE_KEYS.catalog),
       ]);
-      // A network refresh started by the first screen may already have
-      // landed; never let the stale cached copy overwrite it.
-      if (cached && Array.isArray(cached.games) && cached.games.length && get().source === 'none') {
+      if (cached && Array.isArray(cached.games) && cached.games.length) {
         const base = getActiveBaseUrl();
-        const games = cached.games.map(game => normalizeGameUrls(game, base));
+        const games = mergeWithBundledGames(cached.games.map(game => normalizeGameUrls(game, base)));
         set({
           games,
           categories: deriveCategories(games),
@@ -80,8 +83,6 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
           source: 'cache',
           lastFetchedAt: 0,
         });
-      } else if (get().source === 'none') {
-        set({ status: 'loading' });
       }
       await get().refresh({ force: true });
     })();
@@ -95,14 +96,15 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
     const controller = new AbortController();
     inflight = controller;
-    set({ refreshing: true, error: null, status: games.length ? 'ready' : 'loading' });
+    set({ refreshing: true, error: null, status: 'ready' });
     try {
       const result = await fetchCatalog(controller.signal);
       if (controller.signal.aborted) return;
       const fetchedAt = Date.now();
+      const mergedGames = mergeWithBundledGames(result.games);
       set({
-        games: result.games,
-        categories: deriveCategories(result.games),
+        games: mergedGames,
+        categories: deriveCategories(mergedGames),
         status: 'ready',
         source: 'network',
         error: null,
@@ -111,7 +113,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       writeJson(STORAGE_KEYS.catalog, {
         version: result.version,
         updatedAt: result.updatedAt,
-        games: result.games,
+        games: mergedGames,
         fetchedAt,
       } satisfies PersistedCatalog);
     } catch (error) {

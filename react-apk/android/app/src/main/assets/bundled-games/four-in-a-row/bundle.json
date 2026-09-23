@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "gameId": "four-in-a-row",
+  "version": "1.0.0",
+  "buildId": "bfdc03aaa7f5712d3c79013528f0e336",
+  "entry": "index.html",
+  "totalBytes": 33827,
+  "files": [
+    {
+      "path": "index.html",
+      "bytes": 33326,
+      "sha256": "d9a6c794d5e3df193b503d3adb3d8aa2dc177f92f4cf8c0fcf45018445d65d39"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 482,
+      "sha256": "92781973d302199bdccb1c831827097ed5bd4124a1dbefaf83dda95fcad0969e"
+    },
+    {
+      "path": "thumbnail.webp",
+      "bytes": 19,
+      "sha256": "5c55bcedffecc464489328d2491c962467a80d770a080915313613e8938ba852"
+    }
+  ],
+  "generatedAt": "2026-09-22T12:10:31.882Z"
+}

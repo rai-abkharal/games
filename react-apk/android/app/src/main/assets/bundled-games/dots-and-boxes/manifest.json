@@ -1,0 +1,32 @@
+{
+  "id": "dots-and-boxes",
+  "gameId": "dots-and-boxes",
+  "name": "Dots and Boxes",
+  "title": "Dots and Boxes",
+  "slug": "dots-and-boxes",
+  "version": "1.0.0",
+  "type": "hyper-casual",
+  "orientation": "portrait",
+  "targetFrameRate": 60,
+  "dimensions": {
+    "width": 390,
+    "height": 844
+  },
+  "entry": "index.html",
+  "sizeBytes": 40676,
+  "sha256": "ee88560cc2438d4adc9ea70c79a41cbc15260b73301c106e47d2f2f3b6592bc7",
+  "author": "Antigravity Game Studios",
+  "description": "A fast, juicy 2-Player Dots & Boxes casual game featuring local pass & play, smart AI bot, and satisfying box completions.",
+  "categories": [
+    "puzzle",
+    "board",
+    "arcade",
+    "casual"
+  ],
+  "features": [
+    "offline-capable",
+    "touch-support",
+    "procedural-audio",
+    "responsive"
+  ]
+}

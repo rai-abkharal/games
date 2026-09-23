@@ -1,0 +1,29 @@
+{
+  "id": "gun-simulator",
+  "title": "Gun Simulator",
+  "version": "1.0.0",
+  "sdkVersion": 1,
+  "entry": "index.html",
+  "orientation": "portrait",
+  "controls": [
+    "TAP"
+  ],
+  "sizeBytes": 2096993,
+  "sha256": "84a10f8d0d23fb18ee6bec7c0bd211a4b495bcaa45a77aacf00b35bd3cd9eff4",
+  "ageRating": "everyone",
+  "minAppVersion": "1.0.0",
+  "hasReward": false,
+  "thumbnail": "gun-simulator.svg",
+  "tags": [
+    "arcade",
+    "hypercasual",
+    "casual",
+    "reflex"
+  ],
+  "description": "Sixteen realistic guns to fire single, burst or full-auto with real reload sounds and haptics.",
+  "features": {
+    "sound": true,
+    "vibration": false,
+    "hint": false
+  }
+}

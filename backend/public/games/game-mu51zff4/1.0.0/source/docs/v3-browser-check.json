@@ -1,0 +1,21 @@
+{
+  "queueClearances": [
+    {
+      "level": 1,
+      "minimumCenterGapInDesignPixels": 70.56787471469076
+    },
+    {
+      "level": 4,
+      "minimumCenterGapInDesignPixels": 70.56787471469076
+    }
+  ],
+  "VIP": "two successful UI uses, third rejected",
+  "passengerShuffle": "one exchange, second rejected",
+  "busChanger": "all yard vehicles moved, second rejected",
+  "masterGain": 0.800000011920929,
+  "continuousFlow": {
+    "running": 12,
+    "reserved": 12
+  },
+  "errors": []
+}

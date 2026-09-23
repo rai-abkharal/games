@@ -1,0 +1,16 @@
+{
+  "id": "four-in-a-row",
+  "title": "4 In A Row",
+  "version": "1.0.0",
+  "description": "Classic 4 In A Row challenge against smart AI. Drop your discs, connect four in a line horizontally, vertically, or diagonally, and outsmart the bot across Easy, Medium, and Hard tiers!",
+  "orientation": "portrait",
+  "engine": "canvas2d",
+  "category": "Board",
+  "feedOrder": 48,
+  "status": "published",
+  "touchZones": [],
+  "features": {
+    "sound": true,
+    "vibration": true
+  }
+}

@@ -193,6 +193,7 @@ class GameBundleStore(context: Context) {
       for (child in children) {
         if (!child.isDirectory) continue
         val gameId = child.name
+        if (BUNDLED_GAME_IDS.contains(gameId)) continue
         val keepActive = active[gameId]
         val keepWanted = wantedBuilds[gameId]
         for (buildDir in child.listFiles() ?: emptyArray()) {
@@ -219,14 +220,14 @@ class GameBundleStore(context: Context) {
 
   /**
    * Frees space down to [budgetBytes] by dropping whole games, least recently
-   * played first. Never touches anything in [pinned].
+   * played first. Never touches anything in [pinned] or native bundled games.
    */
   fun evictTo(budgetBytes: Long, pinned: Set<String>) {
     synchronized(lock) {
       var used = usedBytes()
       if (used <= budgetBytes) return
       val candidates = active.keys
-        .filter { !pinned.contains(it) }
+        .filter { !pinned.contains(it) && !BUNDLED_GAME_IDS.contains(it) }
         .sortedBy { lastPlayed[it] ?: 0L }
       var indexChanged = false
       for (gameId in candidates) {
@@ -309,6 +310,13 @@ class GameBundleStore(context: Context) {
   }
 
   companion object {
+    val BUNDLED_GAME_IDS = setOf(
+      "game-mudsy3a8", "game-mucbfekb", "knife-hit", "maze-paint", "game-mtworlmu",
+      "game-mtvj5sds", "number-drop", "snake-classic", "gun-simulator", "ludo-race",
+      "fruit-merge", "bubble-shooter", "game-mu51zff4", "deadzone-40", "dots-and-boxes",
+      "takeoff-bolts", "four-in-a-row", "ball-breaker", "sudoku-pro", "color-match"
+    )
+
     private const val TOKEN_LENGTH = 24
     private const val MAX_WARM_FILE_BYTES = 16L * 1024 * 1024
 

@@ -215,6 +215,19 @@ class LocalGameServer(private val store: GameBundleStore, private val tutorialRo
       return false
     }
 
+    if (rawTarget.contains("preview-adapter.js")) {
+      val payload = "/* no-op adapter */".toByteArray(Charsets.UTF_8)
+      val headers = linkedMapOf(
+        "Content-Type" to "text/javascript; charset=utf-8",
+        "Content-Length" to payload.size.toString(),
+        "Access-Control-Allow-Origin" to "*",
+        "Connection" to if (keepAlive) "keep-alive" else "close",
+      )
+      writeHeaders(output, 200, "OK", headers)
+      if (method != "HEAD") output.write(payload)
+      return keepAlive
+    }
+
     val file = resolve(rawTarget)
     if (file == null) {
       writeStatus(output, 404, "Not Found")

@@ -1,0 +1,1435 @@
+{
+  "version": 31,
+  "updatedAt": "2026-09-18T13:13:22.162Z",
+  "games": [
+    {
+      "id": "game-mtmsq289",
+      "title": "New Custom Game",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/game-mtmsq289/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/game-mtmsq289.svg",
+      "sizeBytes": 6272883,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/game-mtmsq289/1.0.0/manifest.json",
+      "feedOrder": 1,
+      "category": "ARCADE",
+      "description": "Fast, responsive instant 2D mini-game.",
+      "sha256": "61a387cda3c76ad85a8513c0c6c7a519eec81172710e63d66d970a2bc2416cf4",
+      "controls": [
+        "TAP"
+      ],
+      "tags": [
+        "arcade",
+        "casual"
+      ],
+      "ageRating": "everyone",
+      "status": "published",
+      "touchZones": [
+        {
+          "name": "Zone 1",
+          "x": 0.13,
+          "y": 0.66,
+          "width": 0.74,
+          "height": 0.32
+        }
+      ],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "createdAt": "2026-09-04T10:13:18.973Z",
+      "updatedAt": "2026-09-04T10:13:18.973Z"
+    },
+    {
+      "id": "tap-cannon",
+      "title": "Tap Cannon",
+      "sourceTitle": "Tap Cannon",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/tap-cannon/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/tap-cannon.webp",
+      "sizeBytes": 9667,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/tap-cannon/1.1.0/manifest.json",
+      "feedOrder": 1,
+      "category": "Arcade",
+      "description": "Tap to blast moving targets in a fast 30-second score chase!",
+      "sha256": "668ce2c270525bfb1da98a738ae1f6e43ce630500472424a4364ac688db231b7",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "color-connect",
+      "title": "Color Connect",
+      "sourceTitle": "Color Connect",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/color-connect/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/color-connect.webp",
+      "sizeBytes": 1076923,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/color-connect/1.0.0/manifest.json",
+      "feedOrder": 1,
+      "category": "Puzzle",
+      "description": "Connect matching color dots with smooth continuous paths. Features Sudoku Pro style difficulty selection, clean top bar, tactile floating gesture guides, and 90 shortcut-free puzzle levels.",
+      "sha256": "26b28a686f183876f5176ec529f938d00f034fb28c71daeb578bcfdffea7e292",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "takeoff-bolts",
+      "title": "TakeOff Bolts — Screw Puzzle",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/takeoff-bolts/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/takeoff-bolts.svg",
+      "sizeBytes": 120877,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/takeoff-bolts/1.0.0/manifest.json",
+      "feedOrder": 2,
+      "category": "ARCADE",
+      "description": "TakeOff Bolts is a mobile casual screw puzzle game. Tap screws to move them into empty holes, freeing puzzle pieces that fall away with satisfying physics.",
+      "sha256": "6b74e32ecda708516253035c5397726751e1d4b8cae4871652d80427924093d5",
+      "controls": [
+        "TAP"
+      ],
+      "tags": [
+        "arcade",
+        "casual"
+      ],
+      "ageRating": "everyone",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "createdAt": "2026-09-04T06:03:29.969Z",
+      "updatedAt": "2026-09-04T09:13:21.851Z"
+    },
+    {
+      "id": "color-match",
+      "title": "Color Match",
+      "sourceTitle": "Color Match",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/color-match/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/color-match.webp",
+      "sizeBytes": 8772,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/color-match/1.1.0/manifest.json",
+      "feedOrder": 2,
+      "category": "Puzzle",
+      "description": "Match falling & appearing colors before time runs out!",
+      "sha256": "8e393f487ac7091c14752baf2d130e5dfe97787e8b482f14ddfada75d1462cf1",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "water-sort-3d",
+      "title": "water-sort-3d",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/water-sort-3d/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/water-sort-3d.svg",
+      "sizeBytes": 372684,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/water-sort-3d/1.0.0/manifest.json",
+      "feedOrder": 3,
+      "category": "Arcade",
+      "description": "AAA luxury 3D Liquid Sorting Puzzle with realistic fluid physics, procedural audio synthesis, cold drink bottle morphs, and mystery ghost levels.",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "2b7581ecd169b6529a338b6fc4831924592b08c83b2424ebee4c851248a9e734",
+      "updatedAt": "2026-09-10T06:33:19.995Z"
+    },
+    {
+      "id": "stack-tower",
+      "title": "Stack Tower",
+      "sourceTitle": "Stack Tower",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/stack-tower/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/stack-tower.webp",
+      "sizeBytes": 8216,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/stack-tower/1.1.0/manifest.json",
+      "feedOrder": 3,
+      "category": "Casual",
+      "description": "Precision tap to stack moving blocks into the stratosphere.",
+      "sha256": "31f04475b803bdce455d08e8d994ff466bc8c8558bbce76b06d2ca31a3ff72e0",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "block-blast",
+      "title": "Block Blast! - Jewel Puzzle",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/block-blast/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/block-blast.svg",
+      "sizeBytes": 76001,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/block-blast/1.0.0/manifest.json",
+      "feedOrder": 4,
+      "category": "Arcade",
+      "description": "Block Blast! (Block Juggle) - Strategic mobile 8x8 block puzzle game featuring 3D jewel blocks, neon rainbow line clears, dynamic combo multipliers, and satisfying procedural sound effects.",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "8cba327a57d28725692bad673b161f2e8b4d21fb54237bcfa76240ceb75b6f82"
+    },
+    {
+      "id": "lane-dodge",
+      "title": "Lane Dodge",
+      "sourceTitle": "Lane Dodge",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/lane-dodge/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/lane-dodge.webp",
+      "sizeBytes": 9975,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/lane-dodge/1.1.0/manifest.json",
+      "feedOrder": 4,
+      "category": "Arcade",
+      "description": "Swipe and tap across 3 vertical lanes to dodge oncoming hazards.",
+      "sha256": "70278a0b7f16204ab41a021f13cf40d699de66ee5fe10c1f064a2a6a22d6ec9b",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "dots-and-boxes",
+      "title": "Dots and Boxes",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/dots-and-boxes/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/dots-and-boxes.svg",
+      "sizeBytes": 40676,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/dots-and-boxes/1.0.0/manifest.json",
+      "feedOrder": 5,
+      "category": "Arcade",
+      "description": "A fast, juicy 2-Player Dots & Boxes casual game featuring local pass & play, smart AI bot, and satisfying box completions.",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "a3fb20496095e23628795b41ec908b3f17d7af1641c4085d0317cd9ea7762c36"
+    },
+    {
+      "id": "memory-flip",
+      "title": "Memory Flip",
+      "sourceTitle": "Memory Flip",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/memory-flip/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/memory-flip.webp",
+      "sizeBytes": 9586,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/memory-flip/1.1.0/manifest.json",
+      "feedOrder": 5,
+      "category": "Puzzle",
+      "description": "Flip cards, find matching pairs, and test your recall speed.",
+      "sha256": "c0e891a24d530ecef93bb17c41a75096815c6938c5a59b30cdde89f8db5da916",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "ludo-race",
+      "title": "Ludo Race",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/ludo-race/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/ludo-race.svg",
+      "sizeBytes": 57503,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/ludo-race/1.0.0/manifest.json",
+      "feedOrder": 6,
+      "category": "Arcade",
+      "description": "A fast 2-player Ludo-style race game played on a compact cross-shaped board with 3D wooden pawns, animated dice rolls, captures, and smart AI.",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "231bb370e6f4a7b8757e87be0d319881192f58cf019d37a25299d8de836a16fe"
+    },
+    {
+      "id": "fruit-catch",
+      "title": "Fruit Catch",
+      "sourceTitle": "Fruit Catch",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/fruit-catch/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/fruit-catch.webp",
+      "sizeBytes": 9131,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/fruit-catch/1.1.0/manifest.json",
+      "feedOrder": 6,
+      "category": "Arcade",
+      "description": "Slide your basket to catch ripe fruits and avoid explosive bombs.",
+      "sha256": "4abea9892d19bc7626e035320ad9a5046d3999001bfd7fe04dcfc1af60b9483e",
+      "status": "published",
+      "touchZones": [
+        {
+          "name": "Basket Slider",
+          "x": 0,
+          "y": 0.65,
+          "width": 1,
+          "height": 0.35
+        }
+      ],
+      "features": {
+        "sound": true,
+        "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "ball-breaker",
+      "title": "Ball Breaker",
+      "version": "1.2.0",
+      "entryUrl": "http://localhost:8080/games/ball-breaker/1.2.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/ball-breaker.svg",
+      "sizeBytes": 77807,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/ball-breaker/1.2.0/manifest.json",
+      "feedOrder": 7,
+      "category": "Arcade",
+      "description": "Aim a glowing stream of balls and smash the numbered neon blocks before they reach you.",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "5e2b19b2055f3a90e116998f5ee6e52070705ebdd20b66573d01d3d808d9dd98"
+    },
+    {
+      "id": "tiny-archer",
+      "title": "Tiny Archer",
+      "sourceTitle": "Tiny Archer",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/tiny-archer/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/tiny-archer.webp",
+      "sizeBytes": 11314,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/tiny-archer/1.1.0/manifest.json",
+      "feedOrder": 7,
+      "category": "Action",
+      "description": "Pull back, aim trajectory, and loose arrows at moving targets.",
+      "sha256": "7b9aecd06943d1977bd662482f80914d7cae3a438ea5db0ff350d29d62a57061",
+      "status": "published",
+      "touchZones": [
+        {
+          "name": "Bow & Arrow Pull",
+          "x": 0,
+          "y": 0.4,
+          "width": 0.45,
+          "height": 0.4
+        }
+      ],
+      "features": {
+        "sound": true,
+        "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "pipe-connect",
+      "title": "Pipe Connect",
+      "sourceTitle": "Pipe Connect",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/pipe-connect/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/pipe-connect.webp",
+      "sizeBytes": 11095,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/pipe-connect/1.1.0/manifest.json",
+      "feedOrder": 8,
+      "category": "Puzzle",
+      "description": "Rotate pipe tiles to establish clean flow from source to drain.",
+      "sha256": "2df315784c5d7e607a793042f986182634de95a1a4d77af5c4886343d2fa92ea",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "sea-battle",
+      "title": "Sea Battle - Naval War",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/sea-battle/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/sea-battle.svg",
+      "sizeBytes": 183673,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/sea-battle/1.0.0/manifest.json",
+      "feedOrder": 9,
+      "category": "Arcade",
+      "description": "Sea Battle (Battleship Strategy Game) - Turn-based naval tactical battle game featuring 5 distinct warships, split-screen dual grid views, 3D rotating cannon turret, animated projectile trajectories, and intelligent AI modes (Easy, Medium, Hard).",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "034505e43441b67c3b9dae98fb5a5fd22f3d7cd1a019436e6bb3b5e6f997d618"
+    },
+    {
+      "id": "one-tap-runner",
+      "title": "One-Tap Runner",
+      "sourceTitle": "One-Tap Runner",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/one-tap-runner/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/one-tap-runner.webp",
+      "sizeBytes": 9509,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/one-tap-runner/1.1.0/manifest.json",
+      "feedOrder": 9,
+      "category": "Runner",
+      "description": "Auto-runner with responsive tap-jump and double-jump mechanics.",
+      "sha256": "74a6ac396d728d49af71fce37f4eb1af7a2f9c85f3d4482122e80e1fd51b624e",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "merge-dots",
+      "title": "Merge Dots",
+      "sourceTitle": "Merge Dots",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/merge-dots/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/merge-dots.webp",
+      "sizeBytes": 11851,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/merge-dots/1.1.0/manifest.json",
+      "feedOrder": 10,
+      "category": "Puzzle",
+      "description": "Merge matching number dots on a 4x4 board to reach the highest dot!",
+      "sha256": "fd1b050109b0c8fdebb025e793fbdb61ea44122d8b2873c49862a666f1cb69dc",
+      "status": "published",
+      "touchZones": [
+        {
+          "name": "4x4 Grid Board",
+          "x": 0.08,
+          "y": 0.2,
+          "width": 0.84,
+          "height": 0.54
+        }
+      ],
+      "features": {
+        "sound": true,
+        "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "snake-arena",
+      "title": "Snake Arena - Worm Survival",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/snake-arena/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/snake-arena.svg",
+      "sizeBytes": 93932,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/snake-arena/1.0.0/manifest.json",
+      "feedOrder": 13,
+      "category": "Hyper-Casual",
+      "description": "Control a stylish matte snake in a giant survival arena with 120 snakes! Eat glowing pellets, boost to cut off enemies, climb the live top 10 leaderboard to claim the Golden Crown, and survive!",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "77103c7af0f48dab00bc68ec065fad251fa8f666e2a51f7ff294d0f3281657a0"
+    },
+    {
+      "id": "arrow-puzzle",
+      "title": "Arrow Puzzle",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/arrow-puzzle/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/arrow-puzzle.svg",
+      "sizeBytes": 39252,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/arrow-puzzle/1.0.0/manifest.json",
+      "feedOrder": 14,
+      "category": "Arcade",
+      "description": "Arrow Puzzle - Highly addictive directional logic brain puzzle. Tap unblocked arrows to guide them out of the intricate grid. Features 1000 procedural levels with guaranteed solvability, procedural audio synthesis, multi-touch pan and zoom, and progressive challenge shapes.",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "beeb7703bd5cdb073f36f60b0df6320af3edd18a9489608bebad8ef253d41b28"
+    },
+    {
+      "id": "bubble-shooter",
+      "title": "Bubble Shooter - Match 3 Puzzle",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/bubble-shooter/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/bubble-shooter.svg",
+      "sizeBytes": 81416,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/bubble-shooter/1.0.0/manifest.json",
+      "feedOrder": 15,
+      "category": "Arcade",
+      "description": "Bubble Shooter casual mobile Match-3 puzzle featuring dual-colored split bubbles, 100 progressive levels, top star progress bar, tight trajectory prediction, and 3 power-ups.",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "f4c0d6771dac6b9890579914fff211386755fd231554460f44936df88fb57777"
+    },
+    {
+      "id": "chroma-breaker",
+      "title": "Chroma Breaker",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/chroma-breaker/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/chroma-breaker.svg",
+      "sizeBytes": 77668,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/chroma-breaker/1.1.0/manifest.json",
+      "feedOrder": 16,
+      "category": "Arcade",
+      "description": "Match the ball colour to the block, chain the breaks, and hold the wall back.",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "782582e6f46865de818b60b8e44ef8a1cf46607f74f27423ddba672cd37ac832"
+    },
+    {
+      "id": "fruit-merge",
+      "title": "Fruit Merge - Watermelon Puzzle",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/fruit-merge/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/fruit-merge.svg",
+      "sizeBytes": 76302,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/fruit-merge/1.0.0/manifest.json",
+      "feedOrder": 17,
+      "category": "Arcade",
+      "description": "Fruit Merge (Watermelon Puzzle) - 2D physics-based fruit-merging puzzle game featuring 11 kawaii fruit tiers, trajectory aiming guide, merge chain reactions, power-ups, and save/load state.",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "ee048762257a9cb512d095769bc15269115450fb98bed1cf3467b387288fb875"
+    },
+    {
+      "id": "goods-sort",
+      "title": "goods-sort",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/goods-sort/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/goods-sort.svg",
+      "sizeBytes": 79351,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/goods-sort/1.0.0/manifest.json",
+      "feedOrder": 18,
+      "category": "Arcade",
+      "description": "Juicy 2.5D supermarket goods organizing and Match-3 puzzle game with 12 distinct 3D items, procedural sound synthesis, and guaranteed solvable levels.",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "e5572e130515794088852e8be5c44102dc09398e86247372766a49c3e8a589b1"
+    },
+    {
+      "id": "mahjong-imperial-solitaire",
+      "title": "mahjong-imperial-solitaire",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/mahjong-imperial-solitaire/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/mahjong-imperial-solitaire.svg",
+      "sizeBytes": 65155,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/mahjong-imperial-solitaire/1.0.0/manifest.json",
+      "feedOrder": 19,
+      "category": "Arcade",
+      "description": "AAA luxury Jade & Gold Mahjong Solitaire matching puzzle with rich procedural visual effects and realistic porcelain acoustic synthesis.",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "bf2434e902068c8d2b3853294194184d106259568eb02b4fda5c3f0a8b198fe2"
+    },
+    {
+      "id": "rope-untangle",
+      "title": "Rope Untangle - 3D Puzzle",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/rope-untangle/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/rope-untangle.svg",
+      "sizeBytes": 83040,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/rope-untangle/1.0.0/manifest.json",
+      "feedOrder": 20,
+      "category": "Arcade",
+      "description": "Rope Untangle (3D Rope Puzzle) - Highly addictive line and rope untangling brain puzzle. Move colored endpoint pins across the grid so that no ropes intersect or cross over each other. Features realistic 3D braided ropes, spring snap physics, metallic anchor obstacles, and progressive difficulty.",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "8cfed0ea0959b76c0e8c98f9b3d2bb39224d9836c3d0dec352f2f9866f2d1ff0"
+    },
+    {
+      "id": "nut-bolt-sort",
+      "title": "Nut & Bolt Sort",
+      "sourceTitle": "Nut & Bolt Sort",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/nut-bolt-sort/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/nut-bolt-sort.webp",
+      "sizeBytes": 139769,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/nut-bolt-sort/1.0.0/manifest.json",
+      "feedOrder": 20,
+      "category": "Puzzle",
+      "description": "Unscrew, spin and stack colour-matched hex nuts across threaded bolts. Guided tutorial, hidden question-mark nuts, spare-bolt boosters and 3-nut special levels.",
+      "sha256": "0ad37cad86f699ffbf41bb094c5f49324a288b3626387162bc0fe59e0932357f",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "sudoku-pro",
+      "title": "Sudoku Pro",
+      "sourceTitle": "Sudoku Pro",
+      "version": "1.0.1",
+      "entryUrl": "http://localhost:8080/games/sudoku-pro/1.0.1/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/sudoku-pro.webp",
+      "sizeBytes": 88509,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/sudoku-pro/1.0.1/manifest.json",
+      "feedOrder": 21,
+      "category": "Puzzle",
+      "description": "Master classic 9x9 Sudoku in a clean, modern light editorial aesthetic. Features 4 difficulty tiers, pencil candidate notes, smart pedagogical hints, musical number audio, and auto-save.",
+      "sha256": "d6052aa74bf7478e7352a1dacfb9f03e634eb46de13a12bce52e4d313d830886",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "royal-chess",
+      "title": "royal-chess",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/royal-chess/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/royal-chess.svg",
+      "sizeBytes": 79857,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/royal-chess/1.0.0/manifest.json",
+      "feedOrder": 21,
+      "category": "Arcade",
+      "description": "Hyper-Casual AAA 3D Chess vs AI with realistic sounds, piece animations, and cheering effects",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "8dedba4266f7f7c4d87ac2cf66e5e94e732af8c9b55430ba56cdded631f2ae5a"
+    },
+    {
+      "id": "number-chain",
+      "title": "Number Chain",
+      "sourceTitle": "Number Chain",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/number-chain/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/number-chain.webp",
+      "sizeBytes": 58084,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/number-chain/1.0.0/manifest.json",
+      "feedOrder": 21,
+      "category": "Puzzle",
+      "description": "Connect matching and doubling power-of-two number tiles with full 8-way diagonal and orthogonal movement. Features true column gravity drops, top-spawning new numbers, diverse distributions up to 128, left-side undo, and crisp tile rendering.",
+      "sha256": "28601b01291f51244781572e36ca798d2dcd1c0e722dffebcfaa1eb9b62f770f",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "undo": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "number-drop",
+      "title": "Number Drop",
+      "sourceTitle": "Number Drop",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/number-drop/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/number-drop.webp",
+      "sizeBytes": 66345,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/number-drop/1.1.0/manifest.json",
+      "feedOrder": 22,
+      "category": "Puzzle",
+      "description": "Drop and merge falling number blocks across a 5-column grid. Features 3 grid height modes (Easy, Medium, Hard), dynamic top ambient glow matching active piece, 'slide-under' merge absorption animations, spacious top-right diagonal preview, and pure soft radiant glow trails.",
+      "sha256": "0f4b26eeb77bbb4e4967d324a4bc17583d4050a78a77b9663b1fbaa837ce9095",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "undo": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "save-the-doges",
+      "title": "Save The Doges",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/save-the-doges/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/save-the-doges.svg",
+      "sizeBytes": 146104,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/save-the-doges/1.0.0/manifest.json",
+      "feedOrder": 22,
+      "category": "Arcade",
+      "description": "Draw ink shields to keep the pups safe from the swarm across fifty levels.",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "245ae8239aef779ac069871f693185e5729dd82743588b6d5d336b3d9bd8bcb3"
+    },
+    {
+      "id": "tic-tac-toe",
+      "title": "Tic Tac Toe",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/tic-tac-toe/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/tic-tac-toe.svg",
+      "sizeBytes": 6572,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/tic-tac-toe/1.0.0/manifest.json",
+      "feedOrder": 23,
+      "category": "Arcade",
+      "description": "A polished portrait Tic Tac Toe game with responsive tap controls, smart AI opponent, score tracking and animated win effects.",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": false
+      },
+      "sha256": "0f4df0d67bd3ab40f82c243daa00687613cfa87ddc25d0e6b9fdad1cacfeb464"
+    },
+    {
+      "id": "word-travel",
+      "title": "Word Travel",
+      "sourceTitle": "Word Travel",
+      "version": "2.1.0",
+      "entryUrl": "http://localhost:8080/games/word-travel/2.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/word-travel.webp",
+      "sizeBytes": 57705,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/word-travel/2.1.0/manifest.json",
+      "feedOrder": 23,
+      "category": "Word Puzzle",
+      "description": "Continuous travel-themed word search puzzle journey. Features pure crystal-clear white letter board, living atmospheric environments, vibrant colorful swipe capsules, and passport milestones.",
+      "sha256": "d634cc8dfd7cc7591924b9e92d5895da9f6af8d4e0d6781832663bd5fa26ddee",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hints": true,
+        "powerups": true,
+        "particles": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "maze-paint",
+      "title": "Color Maze Paint",
+      "sourceTitle": "Color Maze Paint",
+      "version": "1.14.0",
+      "entryUrl": "http://localhost:8080/games/maze-paint/1.14.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/maze-paint.webp",
+      "sizeBytes": 131307,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/maze-paint/1.14.0/manifest.json",
+      "feedOrder": 24,
+      "category": "Puzzle",
+      "description": "Masterwork 3D underground sunken roller paint puzzle game. Features ultra-elegant soft marimba acoustic wall audio, single-stream touch deduplication, instant-opening Sudoku Pro-style difficulty modal, equal-sized bottom controls, and AAA victory celebration.",
+      "sha256": "1b74af60aa85a62d112e489a5fc41211685e3d2e2006fd2aafee8d7684d9c1a8",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "modes": true,
+        "hints": true,
+        "particles": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "real-drive",
+      "title": "Real Drive: 3D Bus Simulator",
+      "sourceTitle": "Real Drive: 3D Bus Simulator",
+      "version": "1.0.9",
+      "entryUrl": "http://localhost:8080/games/real-drive/1.0.9/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/real-drive.webp",
+      "sizeBytes": 118938,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/real-drive/1.0.9/manifest.json",
+      "feedOrder": 25,
+      "category": "Simulation",
+      "description": "Polished 3D transit bus simulator with responsive curve driving, screen-accurate collision reporting, traffic lights, and reliable passenger exchanges across three stations.",
+      "sha256": "1228fdc826ae34bfc844d014f5759c587df8abb5e88366f7c91d98c5e6e2ec24",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "cockpit": true,
+        "busStops": true,
+        "passengers": true,
+        "trafficAI": true,
+        "trafficLights": true,
+        "multiCamera": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "moto-balance",
+      "title": "Moto Balance: Wheelie Run",
+      "sourceTitle": "Moto Balance: Wheelie Run",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/moto-balance/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/moto-balance.webp",
+      "sizeBytes": 4554833,
+      "orientation": "portrait",
+      "engine": "phaser-matter",
+      "manifestUrl": "http://localhost:8080/games/moto-balance/1.1.0/manifest.json",
+      "feedOrder": 26,
+      "category": "Arcade",
+      "description": "A physics-driven 2D motorcycle balance challenge with an authentic rider-and-tyre sprite rig, progressive acceleration, and a smooth mountain highway.",
+      "sha256": "98402232e8dfad328b6df378ba5a12e662239d4434eeb42def1d8c08f7904692",
+      "status": "published",
+      "touchZones": [
+        {
+          "name": "Balance controls",
+          "x": 0,
+          "y": 0.66,
+          "width": 1,
+          "height": 0.34
+        }
+      ],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "modes": true,
+        "physics": true,
+        "particles": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "tap-the-bottle",
+      "title": "Tap the Bottle",
+      "sourceTitle": "Tap the Bottle",
+      "version": "1.0.3",
+      "entryUrl": "http://localhost:8080/games/tap-the-bottle/1.0.3/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/tap-the-bottle.webp",
+      "sizeBytes": 1550472,
+      "orientation": "portrait",
+      "engine": "phaser-matter",
+      "manifestUrl": "http://localhost:8080/games/tap-the-bottle/1.0.3/manifest.json",
+      "feedOrder": 27,
+      "category": "Puzzle",
+      "description": "Tap bottles and cans to launch caps and tabs, collecting stars through physics puzzles.",
+      "sha256": "e65ac05908b385ca4087cc39f49517d72e4e8fbecb1d54d889b19120e85d5bce",
+      "status": "published",
+      "touchZones": [
+        {
+          "name": "Bottle controls",
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        }
+      ],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "physics": true,
+        "levels": true,
+        "offline": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "darts-duel",
+      "title": "Darts Duel",
+      "sourceTitle": "Darts Duel",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/darts-duel/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/darts-duel.webp",
+      "sizeBytes": 118206,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/darts-duel/1.0.0/manifest.json",
+      "feedOrder": 32,
+      "category": "Sports",
+      "description": "A colorful 301 darts duel. Tap to lock each aim axis, land exact scoring hits, and beat the bot across three difficulty levels.",
+      "sha256": "0925c4c5516d3fe3dd85a3dcf7f5b9a247ca7e9c9125afb00fe89bcf59a80bd6",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "endless-racer",
+      "title": "Endless Racer",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/endless-racer/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/endless-racer.svg",
+      "sizeBytes": 85791,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/endless-racer/1.0.0/manifest.json",
+      "feedOrder": 34,
+      "category": "Arcade",
+      "description": "Weave through three lanes of traffic, scoop up coins and push your speed as far as the road lets you.",
+      "sha256": "bdc893edf4e378a4b7f314bc352a95ceb8ca695c22b07ecd450a8621c9bda74a",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": false,
+        "hint": false
+      }
+    },
+    {
+      "id": "four-in-a-row",
+      "title": "4 In A Row",
+      "sourceTitle": "4 In A Row",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/four-in-a-row/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/four-in-a-row.webp",
+      "sizeBytes": 33345,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/four-in-a-row/1.0.0/manifest.json",
+      "feedOrder": 48,
+      "category": "Board",
+      "description": "Classic 4 In A Row challenge against smart AI. Drop your discs, connect four in a line horizontally, vertically, or diagonally, and outsmart the bot across Easy, Medium, and Hard tiers!",
+      "sha256": "611036165ffdd7e94d019b9d9501e40b6291002c7b6c4f1c8c1c561c60dee843",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "water-sort",
+      "title": "Water Sort 3D",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/water-sort/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/water-sort.webp",
+      "sizeBytes": 372684,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/water-sort/1.0.0/manifest.json",
+      "feedOrder": 49,
+      "category": "Puzzle",
+      "description": "AAA luxury 3D Liquid Sorting Puzzle with realistic fluid physics, procedural audio synthesis, and guaranteed solvable levels.",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true
+      },
+      "sha256": "2b7581ecd169b6529a338b6fc4831924592b08c83b2424ebee4c851248a9e734",
+      "updatedAt": "2026-09-10T06:33:20.002Z"
+    },
+    {
+      "id": "snake-classic",
+      "title": "Cute Snake",
+      "sourceTitle": "Cute Snake",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/snake-classic/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/snake-classic.webp",
+      "sizeBytes": 48853,
+      "orientation": "portrait",
+      "engine": "canvas2d",
+      "manifestUrl": "http://localhost:8080/games/snake-classic/1.0.0/manifest.json",
+      "feedOrder": 49,
+      "category": "Arcade",
+      "description": "Cute cartoon snake arcade adventure! Slither across the 13x21 checkerboard arena, gobble tasty berries, grow your tail, and smash all-time high scores across Easy, Medium, and Hard tiers!",
+      "sha256": "f98c2ec368284225ba27ce349af43328e72da466befa70aca8a3a0c895d3df0f",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "quantum-maze",
+      "title": "Quantum Maze",
+      "sourceTitle": "Quantum Maze",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/quantum-maze/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/quantum-maze.webp",
+      "sizeBytes": 15356,
+      "orientation": "portrait",
+      "engine": "canvas",
+      "manifestUrl": "http://localhost:8080/games/quantum-maze/1.0.0/manifest.json",
+      "feedOrder": 99,
+      "category": "Puzzle",
+      "description": "Multi-level cyber maze quest! Navigate quantum portals, solve path puzzles, and unlock in-game hints.",
+      "sha256": "6aef7c5be74f8b067694334b763223fabbe5988c267c2ee4885cd13858c4d19c",
+      "status": "published",
+      "touchZones": [
+        {
+          "name": "gameplay",
+          "x": 0,
+          "y": 0.15,
+          "width": 1,
+          "height": 0.7
+        }
+      ],
+      "features": {
+        "sound": true,
+        "vibration": true,
+        "hint": true
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "jetpack-surge",
+      "title": "Jetpack Surge",
+      "sourceTitle": "Jetpack Surge",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/jetpack-surge/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/jetpack-surge.webp",
+      "sizeBytes": 10886,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/jetpack-surge/1.0.0/manifest.json",
+      "feedOrder": 99,
+      "category": "Arcade",
+      "description": "High-velocity jetpack booster through electric sky barriers.",
+      "sha256": "912b4e2255354e237394c9686a369cdcd2b502de1541b884b119bac3d73154dc",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "cyber-blade",
+      "title": "Cyber Blade",
+      "sourceTitle": "Cyber Blade",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/cyber-blade/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/cyber-blade.webp",
+      "sizeBytes": 12007,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/cyber-blade/1.0.0/manifest.json",
+      "feedOrder": 99,
+      "category": "Action",
+      "description": "High-speed neon blade slicing and precision reflex challenge.",
+      "sha256": "5b02a5c7d6e45cc84f68a556bcc994fd80065e5a6a1ec54ec5af56868257e54b",
+      "status": "published",
+      "touchZones": [
+        {
+          "name": "Blade Slicing Arena",
+          "x": 0,
+          "y": 0.15,
+          "width": 1,
+          "height": 0.75
+        }
+      ],
+      "features": {
+        "sound": true,
+        "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "crown-arena",
+      "title": "Crown Arena",
+      "sourceTitle": "Crown Arena",
+      "version": "1.1.0",
+      "entryUrl": "http://localhost:8080/games/crown-arena/1.1.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/crown-arena.webp",
+      "sizeBytes": 51332,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/crown-arena/1.1.0/manifest.json",
+      "feedOrder": 99,
+      "category": "Arcade",
+      "description": "Battle smart AI opponents in a dynamic 2D arena. Capture and hold the golden crown to win!",
+      "sha256": "4a595ac65afe870f899ec90750a3c3b1c014f7abc31ac186407c548d952c2735",
+      "status": "published",
+      "touchZones": [
+        {
+          "name": "Virtual Joystick",
+          "x": 0,
+          "y": 0.5,
+          "width": 0.55,
+          "height": 0.5
+        },
+        {
+          "name": "Attack & Dash Buttons",
+          "x": 0.65,
+          "y": 0.55,
+          "width": 0.35,
+          "height": 0.45
+        }
+      ],
+      "features": {
+        "sound": true,
+        "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "sky-pop",
+      "title": "Sky Pop",
+      "sourceTitle": "Sky Pop",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/sky-pop/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/sky-pop.webp",
+      "sizeBytes": 8161,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/sky-pop/1.0.0/manifest.json",
+      "feedOrder": 99,
+      "category": "Arcade",
+      "description": "Tap to fly through sky gates, survive the gaps, and build the highest score.",
+      "sha256": "662400fd5e2b7917c708febd5871b1a71e5ffe7c0fee626e48091276c2ecf6ef",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "neon-switch",
+      "title": "Neon Switch",
+      "sourceTitle": "Neon Switch",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/neon-switch/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/neon-switch.webp",
+      "sizeBytes": 8749,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/neon-switch/1.0.0/manifest.json",
+      "feedOrder": 99,
+      "category": "Arcade",
+      "description": "Tap to switch lanes, dodge neon orbs, build combos, and survive as long as possible.",
+      "sha256": "79591aea6be7258e9c875a1d41d775c8bb8b6ada674dbaed7e2e10538f3300bf",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "fruit-frenzy",
+      "title": "Fruit Frenzy",
+      "sourceTitle": "Fruit Frenzy",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/fruit-frenzy/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/fruit-frenzy.webp",
+      "sizeBytes": 11072,
+      "orientation": "portrait",
+      "engine": "phaser",
+      "manifestUrl": "http://localhost:8080/games/fruit-frenzy/1.0.0/manifest.json",
+      "feedOrder": 99,
+      "category": "Arcade",
+      "description": "Tap to launch into a playful fruit-catching frenzy, build combos, and chase your best score.",
+      "sha256": "96f751cadd0f6fe96a215fefd6b4616192ea71c89bfbd2d236411995209c1ff3",
+      "status": "published",
+      "touchZones": [],
+      "features": {
+        "sound": true,
+        "vibration": false
+      },
+      "ads": {
+        "enabled": true,
+        "useCustomInterval": false,
+        "intervalMinutes": 5
+      }
+    },
+    {
+      "id": "farmer-pedro",
+      "title": "Farmer Pedro",
+      "sourceTitle": "Farmer Pedro",
+      "version": "1.0.0",
+      "entryUrl": "http://localhost:8080/games/farmer-pedro/1.0.0/index.html",
+      "thumbnailUrl": "http://localhost:8080/thumbnails/farmer-pedro.svg",
+      "sizeBytes": 23708761,
+      "orientation": "landscape",
+      "engine": "babylon",
+      "manifestUrl": "http://localhost:8080/games/farmer-pedro/1.0.0/manifest.json",
+      "feedOrder": 52,
+      "category": "SIMULATION",
+      "description": "Grow crops, manage your farm, and become the ultimate farmer in this fun 3D farming game!",
+      "sha256": "b70e14b85742b8e369bd1e2b62870e6408d2db47be32f93e99feb8cfffab788d",
+      "controls": [
+        "TAP",
+        "SWIPE"
+      ],
+      "tags": [
+        "simulation",
+        "farming",
+        "3d"
+      ],
+      "ageRating": "everyone",
+      "status": "published",
+      "features": {
+        "sound": true,
+        "vibration": false,
+        "hint": false
+      },
+      "createdAt": "2026-09-18T13:13:22.162Z",
+      "updatedAt": "2026-09-18T13:13:22.162Z"
+    }
+  ]
+}

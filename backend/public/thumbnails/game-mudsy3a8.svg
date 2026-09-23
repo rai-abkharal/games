@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F7F8FE"/>
+      <stop offset="100%" stop-color="#E5ECFB"/>
+    </linearGradient>
+
+    <linearGradient id="greenArrow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4EEDB0"/>
+      <stop offset="50%" stop-color="#33B679"/>
+      <stop offset="100%" stop-color="#1E8252"/>
+    </linearGradient>
+
+    <linearGradient id="blueArrow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#72B4FF"/>
+      <stop offset="50%" stop-color="#4D7CFE"/>
+      <stop offset="100%" stop-color="#244BB8"/>
+    </linearGradient>
+
+    <linearGradient id="redArrow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFA1A1"/>
+      <stop offset="50%" stop-color="#EF5B5B"/>
+      <stop offset="100%" stop-color="#C22828"/>
+    </linearGradient>
+
+    <linearGradient id="yellowArrow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE79A"/>
+      <stop offset="50%" stop-color="#F0A93B"/>
+      <stop offset="100%" stop-color="#BF7407"/>
+    </linearGradient>
+
+    <linearGradient id="purpleArrow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D696FF"/>
+      <stop offset="50%" stop-color="#9B51E0"/>
+      <stop offset="100%" stop-color="#6720A8"/>
+    </linearGradient>
+
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#1E272E" flood-opacity="0.18"/>
+    </filter>
+    <filter id="subtleGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#33B679" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Card Background -->
+  <rect width="512" height="512" rx="48" fill="url(#bgGrad)"/>
+
+  <!-- Grid Socket Dots -->
+  <g fill="#CBD2E3">
+    <circle cx="106" cy="140" r="7"/>
+    <circle cx="181" cy="140" r="7"/>
+    <circle cx="256" cy="140" r="7"/>
+    <circle cx="331" cy="140" r="7"/>
+    <circle cx="406" cy="140" r="7"/>
+
+    <circle cx="106" cy="215" r="7"/>
+    <circle cx="181" cy="215" r="7"/>
+    <circle cx="256" cy="215" r="7"/>
+    <circle cx="331" cy="215" r="7"/>
+    <circle cx="406" cy="215" r="7"/>
+
+    <circle cx="106" cy="290" r="7"/>
+    <circle cx="181" cy="290" r="7"/>
+    <circle cx="256" cy="290" r="7"/>
+    <circle cx="331" cy="290" r="7"/>
+    <circle cx="406" cy="290" r="7"/>
+
+    <circle cx="106" cy="365" r="7"/>
+    <circle cx="181" cy="365" r="7"/>
+    <circle cx="256" cy="365" r="7"/>
+    <circle cx="331" cy="365" r="7"/>
+    <circle cx="406" cy="365" r="7"/>
+
+    <circle cx="106" cy="440" r="7"/>
+    <circle cx="181" cy="440" r="7"/>
+    <circle cx="256" cy="440" r="7"/>
+    <circle cx="331" cy="440" r="7"/>
+    <circle cx="406" cy="440" r="7"/>
+  </g>
+
+  <!-- 1. Purple Arrow (L-shape going right) -->
+  <g filter="url(#shadow)">
+    <path d="M 106 365 L 106 215 L 256 215" fill="none" stroke="url(#purpleArrow)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+    <polygon points="292,215 244,191 244,239" fill="url(#purpleArrow)"/>
+    <circle cx="106" cy="365" r="14" fill="#6720A8"/>
+  </g>
+
+  <!-- 2. Yellow Arrow (L-shape going down) -->
+  <g filter="url(#shadow)">
+    <path d="M 181 140 L 331 140 L 331 290" fill="none" stroke="url(#yellowArrow)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+    <polygon points="331,326 307,278 355,278" fill="url(#yellowArrow)"/>
+    <circle cx="181" cy="140" r="14" fill="#BF7407"/>
+  </g>
+
+  <!-- 3. Red Arrow (Straight Left) -->
+  <g filter="url(#shadow)">
+    <path d="M 406 290 L 181 290" fill="none" stroke="url(#redArrow)" stroke-width="26" stroke-linecap="round"/>
+    <polygon points="145,290 193,266 193,314" fill="url(#redArrow)"/>
+    <circle cx="406" cy="290" r="14" fill="#C22828"/>
+  </g>
+
+  <!-- 4. Blue Arrow (Straight Up) -->
+  <g filter="url(#shadow)">
+    <path d="M 256 440 L 256 290" fill="none" stroke="url(#blueArrow)" stroke-width="26" stroke-linecap="round"/>
+    <polygon points="256,254 232,302 280,302" fill="url(#blueArrow)"/>
+    <circle cx="256" cy="440" r="14" fill="#244BB8"/>
+  </g>
+
+  <!-- 5. Green Hero Arrow (Escaping Straight Right) -->
+  <g filter="url(#shadow)">
+    <path d="M 181 365 L 406 365" fill="none" stroke="url(#greenArrow)" stroke-width="28" stroke-linecap="round"/>
+    <polygon points="446,365 394,339 394,391" fill="url(#greenArrow)"/>
+    <circle cx="181" cy="365" r="15" fill="#1E8252"/>
+  </g>
+
+  <!-- Sparkle stars -->
+  <g fill="#F0A93B" opacity="0.9">
+    <path d="M 430 150 Q 430 165 445 165 Q 430 165 430 180 Q 430 165 415 165 Q 430 165 430 150 Z"/>
+    <path d="M 90 280 Q 90 290 100 290 Q 90 290 90 300 Q 90 290 80 290 Q 90 290 90 280 Z"/>
+    <path d="M 370 420 Q 370 432 382 432 Q 370 432 370 444 Q 370 432 358 432 Q 370 432 370 420 Z"/>
+  </g>
+
+  <!-- Floating Title Badge -->
+  <g filter="url(#shadow)">
+    <rect x="56" y="26" width="400" height="64" rx="32" fill="#FFFFFF" stroke="#DDE3FB" stroke-width="3"/>
+    <text x="256" y="68" font-family="'Outfit', 'Segoe UI', sans-serif" font-weight="900" font-size="28" fill="#23283B" text-anchor="middle" letter-spacing="3">ARROW PUZZLE</text>
+  </g>
+</svg>

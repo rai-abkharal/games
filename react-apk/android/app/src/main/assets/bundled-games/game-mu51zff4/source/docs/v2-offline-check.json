@@ -1,0 +1,9 @@
+{
+  "offline": true,
+  "protocol": "file:",
+  "loadingDismissed": true,
+  "uiInteractive": true,
+  "tapDispatched": true,
+  "networkRequests": [],
+  "errors": []
+}

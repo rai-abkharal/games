@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "gameId": "snake-classic",
+  "version": "1.0.0",
+  "buildId": "0f0033fb6589f4800c04abe84782478e",
+  "entry": "index.html",
+  "totalBytes": 46774,
+  "files": [
+    {
+      "path": "index.html",
+      "bytes": 46289,
+      "sha256": "490d92714d6139fd99c8f7470593eaf83411cf200eb0b9a3a4677acea6c75e51"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 485,
+      "sha256": "91ab046a2befce1ded2e5eacfdd8df1989fcbdb615a4000e03890f3d856752c3"
+    }
+  ],
+  "generatedAt": "2026-09-22T12:10:32.168Z"
+}

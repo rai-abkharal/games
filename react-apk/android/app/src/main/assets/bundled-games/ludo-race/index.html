@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Ludo Race</title>
+  <meta name="application-name" content="Ludo Race">
+  <meta name="apple-mobile-web-app-title" content="Ludo Race">
+  <meta name="game-title" content="Ludo Race">
+  <meta name="game-id" content="ludo-race">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700;800;900&family=Nunito:wght@700;800;900&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #CFA08D;
+      font-family: 'Fredoka', 'Outfit', 'Nunito', -apple-system, sans-serif;
+      touch-action: none;
+    }
+    #gameCanvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+(function() {
+  'use strict';
+  var exports = typeof exports !== 'undefined' ? exports : {};
+
+const CONFIG = {
+    CANVAS_WIDTH: 390,
+    CANVAS_HEIGHT: 844,
+    TOTAL_PAWNS_PER_PLAYER: 4,
+    COLORS: {
+        bgP1: '#CFA08D',
+        bgP2: '#5EA7C9',
+        boardFrame: '#262B34',
+        emptyQuad: '#363B44',
+        tileWhite: '#FFFFFF',
+        tileBorder: '#CBD5E1',
+        redPrimary: '#FA5252',
+        redLight: '#FF7676',
+        redDark: '#C92A2A',
+        redNest: '#FFD7D7',
+        redStar: '#FA5252',
+        cyanPrimary: '#00B0FF',
+        cyanLight: '#40C4FF',
+        cyanDark: '#0088CC',
+        cyanNest: '#D0F2FC',
+        cyanStar: '#00B0FF',
+        goalGreen: '#4CAF50',
+        goalYellow: '#FFC107',
+        goalCyan: '#00B0FF',
+        goalRed: '#FA5252',
+        goalBorder: '#262B34',
+        diceBody: '#FFFFFF',
+        dicePips: '#1E293B',
+        diceStand: '#64748B',
+        diceShadow: 'rgba(0, 0, 0, 0.28)',
+        cornerCircleRed: '#FA5252',
+        cornerCircleCyan: '#00B0FF',
+        cornerBorder: '#FFFFFF',
+        closeBtnBg: '#FFFFFF',
+        closeBtnIcon: '#94A3B8'
+    }
+};
+class SoundSynth {
+    constructor() {
+        this.ctx = null;
+        this.isMuted = false;
+    }
+    init() {
+        if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+                this.ctx = new AudioCtx();
+            }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => { });
+        }
+    }
+    playDiceRattle() {
+        if (this.isMuted || !this.ctx)
+            return;
+        const now = this.ctx.currentTime;
+        for (let i = 0; i < 4; i++) {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(320 + Math.random() * 240, now + i * 0.045);
+            gain.gain.setValueAtTime(0.14, now + i * 0.045);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.045 + 0.04);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + i * 0.045);
+            osc.stop(now + i * 0.045 + 0.05);
+        }
+    }
+    playDiceLand() {
+        if (this.isMuted || !this.ctx)
+            return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(50, now + 0.12);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.13);
+    }
+    playPawnHop(pitchMult = 1.0) {
+        if (this.isMuted || !this.ctx)
+            return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(380 * pitchMult, now);
+        osc.frequency.exponentialRampToValueAtTime(580 * pitchMult, now + 0.07);
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.09);
+    }
+    playSpawnPop() {
+        if (this.isMuted || !this.ctx)
+            return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(260, now);
+        osc.frequency.exponentialRampToValueAtTime(620, now + 0.14);
+        gain.gain.setValueAtTime(0.26, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.16);
+    }
+    playCaptureBonk() {
+        if (this.isMuted || !this.ctx)
+            return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(340, now);
+        osc.frequency.exponentialRampToValueAtTime(80, now + 0.22);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.24);
+        const osc2 = this.ctx.createOscillator();
+        const gain2 = this.ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(600, now + 0.08);
+        osc2.frequency.exponentialRampToValueAtTime(220, now + 0.28);
+        gain2.gain.setValueAtTime(0.2, now + 0.08);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+        osc2.connect(gain2);
+        gain2.connect(this.ctx.destination);
+        osc2.start(now + 0.08);
+        osc2.stop(now + 0.3);
+    }
+    playGoalChime() {
+        if (this.isMuted || !this.ctx)
+            return;
+        const now = this.ctx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((freq, i) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + i * 0.06);
+            gain.gain.setValueAtTime(0.24, now + i * 0.06);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.18);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + i * 0.06);
+            osc.stop(now + i * 0.06 + 0.2);
+        });
+    }
+    playVictoryFanfare() {
+        if (this.isMuted || !this.ctx)
+            return;
+        const now = this.ctx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5];
+        notes.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.11);
+            gain.gain.setValueAtTime(0.3, now + idx * 0.11);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.11 + 0.45);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + idx * 0.11);
+            osc.stop(now + idx * 0.11 + 0.5);
+        });
+    }
+    playTurnWhoosh() {
+        if (this.isMuted || !this.ctx)
+            return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(260, now);
+        osc.frequency.exponentialRampToValueAtTime(420, now + 0.12);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.13);
+    }
+    playButtonClick() {
+        if (this.isMuted || !this.ctx)
+            return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(220, now + 0.06);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.07);
+    }
+}
+class GameBridge {
+    static sendReady() {
+        try {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'GAME_READY',
+                    id: 'ludo-race',
+                    gameId: 'ludo-race',
+                    title: 'Ludo Race',
+                    name: 'Ludo Race'
+                }, '*');
+                window.parent.postMessage({
+                    type: 'ready',
+                    id: 'ludo-race',
+                    gameId: 'ludo-race',
+                    title: 'Ludo Race',
+                    name: 'Ludo Race'
+                }, '*');
+            }
+        }
+        catch { }
+    }
+    static sendGameStart() {
+        try {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'GAME_START', id: 'ludo-race' }, '*');
+                window.parent.postMessage({ type: 'game_start', id: 'ludo-race' }, '*');
+            }
+        }
+        catch { }
+    }
+    static sendGameOver(score) {
+        try {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'GAME_OVER', id: 'ludo-race', score }, '*');
+                window.parent.postMessage({ type: 'game_over', id: 'ludo-race', score }, '*');
+            }
+        }
+        catch { }
+    }
+}
+class BoardModel {
+    constructor() {
+        this.pawns = [];
+        this.p1HasCaptured = false;
+        this.p2HasCaptured = false;
+        this.initPawns();
+    }
+    initPawns() {
+        this.pawns = [];
+        this.p1HasCaptured = false;
+        this.p2HasCaptured = false;
+        for (let i = 0; i < 4; i++) {
+            this.pawns.push({
+                id: i,
+                player: 1,
+                indexInPlayer: i,
+                step: -1,
+                lapCount: 0,
+                isGoal: false,
+                x: 0,
+                y: 0,
+                hopOffset: 0,
+                pulseAnim: 0
+            });
+        }
+        for (let i = 0; i < 4; i++) {
+            this.pawns.push({
+                id: i + 4,
+                player: 2,
+                indexInPlayer: i,
+                step: -1,
+                lapCount: 0,
+                isGoal: false,
+                x: 0,
+                y: 0,
+                hopOffset: 0,
+                pulseAnim: 0
+            });
+        }
+    }
+    hasPlayerCaptured(player) {
+        return player === 1 ? this.p1HasCaptured : this.p2HasCaptured;
+    }
+    recordCapture(player) {
+        if (player === 1)
+            this.p1HasCaptured = true;
+        else
+            this.p2HasCaptured = true;
+    }
+    getPath(player) {
+        return player === 1 ? BoardModel.RED_PATH : BoardModel.CYAN_PATH;
+    }
+    getNestSlots(player) {
+        return player === 1 ? BoardModel.RED_NEST_SLOTS : BoardModel.CYAN_NEST_SLOTS;
+    }
+    getPawnGridPos(pawn) {
+        if (pawn.step === -1) {
+            const nest = this.getNestSlots(pawn.player);
+            return nest[pawn.indexInPlayer];
+        }
+        const path = this.getPath(pawn.player);
+        const step = Math.min(pawn.step, BoardModel.PATH_LENGTH);
+        return path[step];
+    }
+    isSafeTile(player, step) {
+        if (step === 0)
+            return true;
+        if (step === 13)
+            return true;
+        if (step >= 24)
+            return true;
+        return false;
+    }
+    calculateMoveTarget(pawn, roll) {
+        if (pawn.isGoal) {
+            return null;
+        }
+        if (pawn.step === -1) {
+            if (roll === 6) {
+                return { targetStep: 0, waypoints: [this.getPath(pawn.player)[0]] };
+            }
+            return null;
+        }
+        const path = this.getPath(pawn.player);
+        const hasCaptured = this.hasPlayerCaptured(pawn.player);
+        if (hasCaptured && pawn.step >= 24) {
+            const remainingSteps = BoardModel.PATH_LENGTH - pawn.step;
+            if (roll > remainingSteps) {
+                return null;
+            }
+        }
+        const waypoints = [];
+        let curr = pawn.step;
+        for (let i = 1; i <= roll; i++) {
+            if (curr < 24) {
+                curr++;
+            }
+            else if (curr === 24) {
+                if (hasCaptured) {
+                    curr = 25;
+                }
+                else {
+                    curr = 0;
+                }
+            }
+            else if (curr >= 25 && curr < BoardModel.PATH_LENGTH) {
+                curr++;
+            }
+            waypoints.push(path[curr]);
+        }
+        return { targetStep: curr, waypoints };
+    }
+    getValidMoves(player, roll) {
+        const playerPawns = this.pawns.filter(p => p.player === player && !p.isGoal);
+        const valid = [];
+        for (const pawn of playerPawns) {
+            const move = this.calculateMoveTarget(pawn, roll);
+            if (move) {
+                valid.push(pawn);
+            }
+        }
+        return valid;
+    }
+    findOpponentOnTile(player, targetStep) {
+        if (this.isSafeTile(player, targetStep))
+            return null;
+        const myPath = this.getPath(player);
+        const targetGrid = myPath[targetStep];
+        const opponentPlayer = player === 1 ? 2 : 1;
+        const opponentPawns = this.pawns.filter(p => p.player === opponentPlayer && p.step >= 0 && !p.isGoal);
+        for (const opp of opponentPawns) {
+            if (this.isSafeTile(opponentPlayer, opp.step))
+                continue;
+            const oppGrid = this.getPath(opponentPlayer)[opp.step];
+            if (oppGrid.x === targetGrid.x && oppGrid.y === targetGrid.y) {
+                return opp;
+            }
+        }
+        return null;
+    }
+    getPlayerGoalCount(player) {
+        return this.pawns.filter(p => p.player === player && p.isGoal).length;
+    }
+    isPlayerWon(player) {
+        return this.getPlayerGoalCount(player) >= 1;
+    }
+}
+BoardModel.GRID_COLS = 15;
+BoardModel.GRID_ROWS = 15;
+BoardModel.PATH_LENGTH = 30;
+BoardModel.OUTER_LOOP_LENGTH = 24;
+BoardModel.RED_PATH = [
+    { x: 13, y: 8 },
+    { x: 12, y: 8 },
+    { x: 11, y: 8 },
+    { x: 10, y: 8 },
+    { x: 9, y: 8 },
+    { x: 5, y: 8 },
+    { x: 4, y: 8 },
+    { x: 3, y: 8 },
+    { x: 2, y: 8 },
+    { x: 1, y: 8 },
+    { x: 0, y: 8 },
+    { x: 0, y: 7 },
+    { x: 0, y: 6 },
+    { x: 1, y: 6 },
+    { x: 2, y: 6 },
+    { x: 3, y: 6 },
+    { x: 4, y: 6 },
+    { x: 5, y: 6 },
+    { x: 9, y: 6 },
+    { x: 10, y: 6 },
+    { x: 11, y: 6 },
+    { x: 12, y: 6 },
+    { x: 13, y: 6 },
+    { x: 14, y: 6 },
+    { x: 14, y: 7 },
+    { x: 13, y: 7 },
+    { x: 12, y: 7 },
+    { x: 11, y: 7 },
+    { x: 10, y: 7 },
+    { x: 9, y: 7 },
+    { x: 7.5, y: 7.0 }
+];
+BoardModel.CYAN_PATH = [
+    { x: 1, y: 6 },
+    { x: 2, y: 6 },
+    { x: 3, y: 6 },
+    { x: 4, y: 6 },
+    { x: 5, y: 6 },
+    { x: 9, y: 6 },
+    { x: 10, y: 6 },
+    { x: 11, y: 6 },
+    { x: 12, y: 6 },
+    { x: 13, y: 6 },
+    { x: 14, y: 6 },
+    { x: 14, y: 7 },
+    { x: 14, y: 8 },
+    { x: 13, y: 8 },
+    { x: 12, y: 8 },
+    { x: 11, y: 8 },
+    { x: 10, y: 8 },
+    { x: 9, y: 8 },
+    { x: 5, y: 8 },
+    { x: 4, y: 8 },
+    { x: 3, y: 8 },
+    { x: 2, y: 8 },
+    { x: 1, y: 8 },
+    { x: 0, y: 8 },
+    { x: 0, y: 7 },
+    { x: 1, y: 7 },
+    { x: 2, y: 7 },
+    { x: 3, y: 7 },
+    { x: 4, y: 7 },
+    { x: 5, y: 7 },
+    { x: 6.5, y: 7.0 }
+];
+BoardModel.RED_NEST_SLOTS = [
+    { x: 10.5, y: 10.5 },
+    { x: 12.5, y: 10.5 },
+    { x: 10.5, y: 12.5 },
+    { x: 12.5, y: 12.5 }
+];
+BoardModel.CYAN_NEST_SLOTS = [
+    { x: 2.0, y: 2.0 },
+    { x: 4.0, y: 2.0 },
+    { x: 2.0, y: 4.0 },
+    { x: 4.0, y: 4.0 }
+];
+class LudoAI {
+    static selectBestMove(board, roll) {
+        const validPawns = board.getValidMoves(2, roll);
+        if (validPawns.length === 0)
+            return null;
+        if (validPawns.length === 1)
+            return validPawns[0];
+        let bestPawn = validPawns[0];
+        let highestScore = -Infinity;
+        const pawnsOnTrack = board.pawns.filter(p => p.player === 2 && p.step >= 0 && !p.isGoal).length;
+        for (const pawn of validPawns) {
+            let score = 0;
+            const move = board.calculateMoveTarget(pawn, roll);
+            if (!move)
+                continue;
+            const targetStep = move.targetStep;
+            if (pawn.step === -1) {
+                if (pawnsOnTrack === 0) {
+                    score += 450;
+                }
+                else if (pawnsOnTrack === 1) {
+                    score += 150;
+                }
+                else if (pawnsOnTrack === 2) {
+                    score += 80;
+                }
+                else {
+                    score += 40;
+                }
+            }
+            else {
+                if (targetStep === BoardModel.PATH_LENGTH) {
+                    score += 500;
+                }
+                const victim = board.findOpponentOnTile(2, targetStep);
+                if (victim) {
+                    score += 350 + victim.step * 2;
+                }
+                if (targetStep >= 25 && pawn.step < 25) {
+                    score += 180;
+                }
+                if (board.isSafeTile(2, targetStep)) {
+                    score += 60;
+                }
+                score += targetStep * 2;
+                const opponentPawns = board.pawns.filter(p => p.player === 1 && p.step >= 0 && !p.isGoal);
+                for (const opp of opponentPawns) {
+                    const dist = pawn.step - opp.step;
+                    if (dist >= 1 && dist <= 6) {
+                        score += 70;
+                    }
+                }
+            }
+            if (score > highestScore) {
+                highestScore = score;
+                bestPawn = pawn;
+            }
+        }
+        return bestPawn;
+    }
+}
+class EntityRenderer {
+    static renderBoard(ctx, bx, by, bSize, board, time) {
+        const cornerRadius = 14;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+        ctx.shadowBlur = 16;
+        ctx.shadowOffsetY = 6;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, bSize, bSize, cornerRadius);
+        ctx.fillStyle = CONFIG.COLORS.boardFrame;
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        const innerPad = 4;
+        const innerX = bx + innerPad;
+        const innerY = by + innerPad;
+        const innerSize = bSize - innerPad * 2;
+        const cellW = innerSize / BoardModel.GRID_COLS;
+        const quadSize = cellW * 6;
+        ctx.fillStyle = CONFIG.COLORS.cyanPrimary;
+        ctx.fillRect(innerX, innerY, quadSize, quadSize);
+        ctx.fillStyle = CONFIG.COLORS.redPrimary;
+        ctx.fillRect(innerX + innerSize - quadSize, innerY + innerSize - quadSize, quadSize, quadSize);
+        ctx.fillStyle = CONFIG.COLORS.emptyQuad;
+        ctx.fillRect(innerX + innerSize - quadSize, innerY, quadSize, quadSize);
+        ctx.fillRect(innerX, innerY + innerSize - quadSize, quadSize, quadSize);
+        const nestPad = cellW * 0.8;
+        const nestSize = quadSize - nestPad * 2;
+        const nestRadius = 16;
+        ctx.beginPath();
+        ctx.roundRect(innerX + nestPad, innerY + nestPad, nestSize, nestSize, nestRadius);
+        ctx.fillStyle = CONFIG.COLORS.cyanNest;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.roundRect(innerX + innerSize - quadSize + nestPad, innerY + innerSize - quadSize + nestPad, nestSize, nestSize, nestRadius);
+        ctx.fillStyle = CONFIG.COLORS.redNest;
+        ctx.fill();
+        for (const slot of BoardModel.CYAN_NEST_SLOTS) {
+            const cx = innerX + slot.x * cellW;
+            const cy = innerY + slot.y * cellW;
+            ctx.beginPath();
+            ctx.arc(cx, cy, cellW * 0.42, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.fill();
+        }
+        for (const slot of BoardModel.RED_NEST_SLOTS) {
+            const cx = innerX + slot.x * cellW;
+            const cy = innerY + slot.y * cellW;
+            ctx.beginPath();
+            ctx.arc(cx, cy, cellW * 0.42, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.fill();
+        }
+        for (let c = 0; c < BoardModel.GRID_COLS; c++) {
+            for (let r = 6; r <= 8; r++) {
+                if (c >= 6 && c <= 8 && r >= 6 && r <= 8)
+                    continue;
+                const tileX = innerX + c * cellW;
+                const tileY = innerY + r * cellW;
+                let tileBg = CONFIG.COLORS.tileWhite;
+                if (r === 7 && c >= 1 && c <= 5) {
+                    tileBg = CONFIG.COLORS.cyanPrimary;
+                }
+                if (r === 7 && c >= 9 && c <= 13) {
+                    tileBg = CONFIG.COLORS.redPrimary;
+                }
+                if (r === 7 && c === 0) {
+                    tileBg = CONFIG.COLORS.cyanPrimary;
+                }
+                if (r === 7 && c === 14) {
+                    tileBg = CONFIG.COLORS.redPrimary;
+                }
+                ctx.fillStyle = tileBg;
+                ctx.fillRect(tileX, tileY, cellW, cellW);
+                ctx.strokeStyle = CONFIG.COLORS.tileBorder;
+                ctx.lineWidth = 1.0;
+                ctx.strokeRect(tileX, tileY, cellW, cellW);
+                if (c === 1 && r === 6) {
+                    this.drawStarIcon(ctx, tileX + cellW * 0.5, tileY + cellW * 0.5, cellW * 0.38, CONFIG.COLORS.cyanPrimary);
+                }
+                if (c === 13 && r === 8) {
+                    this.drawStarIcon(ctx, tileX + cellW * 0.5, tileY + cellW * 0.5, cellW * 0.38, CONFIG.COLORS.redPrimary);
+                }
+                if (c === 0 && r === 7) {
+                    const isUnlocked = board.hasPlayerCaptured(2);
+                    this.drawLockIcon(ctx, tileX + cellW * 0.5, tileY + cellW * 0.5, cellW * 0.36, isUnlocked ? '#22C55E' : '#1E293B', isUnlocked);
+                }
+                if (c === 14 && r === 7) {
+                    const isUnlocked = board.hasPlayerCaptured(1);
+                    this.drawLockIcon(ctx, tileX + cellW * 0.5, tileY + cellW * 0.5, cellW * 0.36, isUnlocked ? '#22C55E' : '#1E293B', isUnlocked);
+                }
+            }
+        }
+        const hubX = innerX + 6 * cellW;
+        const hubY = innerY + 6 * cellW;
+        const hubSize = cellW * 3;
+        const hubCenter = { x: hubX + hubSize * 0.5, y: hubY + hubSize * 0.5 };
+        ctx.beginPath();
+        ctx.moveTo(hubX, hubY);
+        ctx.lineTo(hubX + hubSize, hubY);
+        ctx.lineTo(hubCenter.x, hubCenter.y);
+        ctx.closePath();
+        ctx.fillStyle = CONFIG.COLORS.goalGreen;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(hubX, hubY + hubSize);
+        ctx.lineTo(hubX + hubSize, hubY + hubSize);
+        ctx.lineTo(hubCenter.x, hubCenter.y);
+        ctx.closePath();
+        ctx.fillStyle = CONFIG.COLORS.goalYellow;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(hubX, hubY);
+        ctx.lineTo(hubX, hubY + hubSize);
+        ctx.lineTo(hubCenter.x, hubCenter.y);
+        ctx.closePath();
+        ctx.fillStyle = CONFIG.COLORS.goalCyan;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(hubX + hubSize, hubY);
+        ctx.lineTo(hubX + hubSize, hubY + hubSize);
+        ctx.lineTo(hubCenter.x, hubCenter.y);
+        ctx.closePath();
+        ctx.fillStyle = CONFIG.COLORS.goalRed;
+        ctx.fill();
+        ctx.strokeStyle = CONFIG.COLORS.boardFrame;
+        ctx.lineWidth = 2.0;
+        ctx.strokeRect(hubX, hubY, hubSize, hubSize);
+        ctx.beginPath();
+        ctx.moveTo(hubX, hubY);
+        ctx.lineTo(hubX + hubSize, hubY + hubSize);
+        ctx.moveTo(hubX + hubSize, hubY);
+        ctx.lineTo(hubX, hubY + hubSize);
+        ctx.stroke();
+        ctx.restore();
+    }
+    static drawStarIcon(ctx, cx, cy, r, color) {
+        ctx.save();
+        ctx.beginPath();
+        const spikes = 5;
+        const outerR = r;
+        const innerR = r * 0.48;
+        let rot = (Math.PI / 2) * 3;
+        const step = Math.PI / spikes;
+        ctx.moveTo(cx, cy - outerR);
+        for (let i = 0; i < spikes; i++) {
+            let x = cx + Math.cos(rot) * outerR;
+            let y = cy + Math.sin(rot) * outerR;
+            ctx.lineTo(x, y);
+            rot += step;
+            x = cx + Math.cos(rot) * innerR;
+            y = cy + Math.sin(rot) * innerR;
+            ctx.lineTo(x, y);
+            rot += step;
+        }
+        ctx.lineTo(cx, cy - outerR);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.restore();
+    }
+    static drawLockIcon(ctx, cx, cy, size, color, isUnlocked = false) {
+        ctx.save();
+        const w = size * 1.1;
+        const h = size * 0.9;
+        const bodyY = cy - h * 0.1;
+        const shackleR = w * 0.34;
+        if (isUnlocked) {
+            ctx.beginPath();
+            ctx.arc(cx - 3, bodyY - 5, shackleR, Math.PI * 0.8, -Math.PI * 0.2);
+            ctx.lineWidth = size * 0.22;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = color;
+            ctx.stroke();
+        }
+        else {
+            ctx.beginPath();
+            ctx.arc(cx, bodyY - 1, shackleR, Math.PI, 0);
+            ctx.lineWidth = size * 0.22;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = color;
+            ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.roundRect(cx - w * 0.5, bodyY, w, h, 4);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx, bodyY + h * 0.4, size * 0.12, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.restore();
+    }
+    static renderPawn(ctx, px, py, pawnRadius, player, isSelected, pulseTime, hopY = 0) {
+        ctx.save();
+        const isP1 = player === 1;
+        const baseColor = isP1 ? CONFIG.COLORS.redPrimary : CONFIG.COLORS.cyanPrimary;
+        const topHighlight = isP1 ? CONFIG.COLORS.redLight : CONFIG.COLORS.cyanLight;
+        const darkShade = isP1 ? CONFIG.COLORS.redDark : CONFIG.COLORS.cyanDark;
+        const renderY = py - hopY;
+        if (isSelected) {
+            const pulse = 1.0 + Math.sin(pulseTime * 8) * 0.16;
+            ctx.beginPath();
+            ctx.arc(px, py, pawnRadius * 1.55 * pulse, 0, Math.PI * 2);
+            ctx.strokeStyle = isP1 ? 'rgba(250, 82, 82, 0.85)' : 'rgba(0, 176, 255, 0.85)';
+            ctx.lineWidth = 3.5;
+            ctx.setLineDash([5, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        ctx.beginPath();
+        const shadowR = pawnRadius * (1.0 - Math.min(0.4, hopY * 0.02));
+        ctx.ellipse(px, py + 3, shadowR * 0.95, shadowR * 0.45, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.38)';
+        ctx.fill();
+        const baseDiskR = pawnRadius * 0.9;
+        const baseDiskH = pawnRadius * 0.35;
+        ctx.beginPath();
+        ctx.ellipse(px, renderY, baseDiskR, baseDiskH, 0, 0, Math.PI * 2);
+        ctx.fillStyle = darkShade;
+        ctx.fill();
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = '#000000';
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(px - baseDiskR * 0.65, renderY);
+        ctx.quadraticCurveTo(px - baseDiskR * 0.25, renderY - pawnRadius * 0.7, px - baseDiskR * 0.35, renderY - pawnRadius * 1.0);
+        ctx.lineTo(px + baseDiskR * 0.35, renderY - pawnRadius * 1.0);
+        ctx.quadraticCurveTo(px + baseDiskR * 0.25, renderY - pawnRadius * 0.7, px + baseDiskR * 0.65, renderY);
+        ctx.closePath();
+        ctx.fillStyle = baseColor;
+        ctx.fill();
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = '#000000';
+        ctx.stroke();
+        const topKnobR = pawnRadius * 0.58;
+        const knobCy = renderY - pawnRadius * 1.15;
+        ctx.beginPath();
+        ctx.arc(px, knobCy, topKnobR, 0, Math.PI * 2);
+        ctx.fillStyle = baseColor;
+        ctx.fill();
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = '#000000';
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(px - topKnobR * 0.28, knobCy - topKnobR * 0.32, topKnobR * 0.35, topKnobR * 0.22, -Math.PI * 0.25, 0, Math.PI * 2);
+        ctx.fillStyle = topHighlight;
+        ctx.fill();
+        ctx.restore();
+    }
+    static renderDice(ctx, cx, cy, size, value, isRolling, rollProgress, pressProgress) {
+        ctx.save();
+        const squish = pressProgress * 3;
+        const diceY = cy + squish;
+        const half = size * 0.5;
+        const standW = size * 1.15;
+        const standH = size * 1.15;
+        const standR = 10;
+        ctx.beginPath();
+        ctx.roundRect(cx - standW * 0.5, cy - standH * 0.5 + 4, standW, standH, standR);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.roundRect(cx - standW * 0.5, cy - standH * 0.5, standW, standH, standR);
+        ctx.fillStyle = CONFIG.COLORS.diceStand;
+        ctx.fill();
+        ctx.lineWidth = 2.0;
+        ctx.strokeStyle = '#1E293B';
+        ctx.stroke();
+        if (isRolling) {
+            const wobble = Math.sin(rollProgress * Math.PI * 8) * 0.35;
+            const jump = Math.sin(rollProgress * Math.PI) * 22;
+            ctx.translate(cx, diceY - jump);
+            ctx.rotate(wobble);
+            ctx.translate(-cx, -diceY);
+        }
+        else {
+            ctx.translate(cx, diceY);
+            ctx.translate(-cx, -diceY);
+        }
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 4;
+        ctx.beginPath();
+        ctx.roundRect(cx - half, diceY - half, size, size, 8);
+        ctx.fillStyle = CONFIG.COLORS.diceBody;
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = '#1E293B';
+        ctx.stroke();
+        const dotR = size * 0.085;
+        const offset = size * 0.26;
+        const pipColor = CONFIG.COLORS.dicePips;
+        const displayVal = isRolling ? (1 + Math.floor(Math.random() * 6)) : value;
+        ctx.fillStyle = pipColor;
+        const drawDot = (dx, dy) => {
+            ctx.beginPath();
+            ctx.arc(cx + dx, diceY + dy, dotR, 0, Math.PI * 2);
+            ctx.fill();
+        };
+        if (displayVal === 1) {
+            drawDot(0, 0);
+        }
+        else if (displayVal === 2) {
+            drawDot(-offset, -offset);
+            drawDot(offset, offset);
+        }
+        else if (displayVal === 3) {
+            drawDot(-offset, -offset);
+            drawDot(0, 0);
+            drawDot(offset, offset);
+        }
+        else if (displayVal === 4) {
+            drawDot(-offset, -offset);
+            drawDot(offset, -offset);
+            drawDot(-offset, offset);
+            drawDot(offset, offset);
+        }
+        else if (displayVal === 5) {
+            drawDot(-offset, -offset);
+            drawDot(offset, -offset);
+            drawDot(0, 0);
+            drawDot(-offset, offset);
+            drawDot(offset, offset);
+        }
+        else if (displayVal === 6) {
+            drawDot(-offset, -offset);
+            drawDot(offset, -offset);
+            drawDot(-offset, 0);
+            drawDot(offset, 0);
+            drawDot(-offset, offset);
+            drawDot(offset, offset);
+        }
+        ctx.restore();
+    }
+    static renderTurnCorner(ctx, w, h, player, dicePos, time) {
+        ctx.save();
+        const isP1 = player === 1;
+        if (isP1) {
+            const cornerR = Math.min(w * 0.62, 240);
+            const cx = w * 0.95;
+            const cy = h * 0.95;
+            ctx.beginPath();
+            ctx.arc(cx, cy, cornerR, 0, Math.PI * 2);
+            ctx.fillStyle = CONFIG.COLORS.cornerCircleRed;
+            ctx.fill();
+            ctx.lineWidth = 14;
+            ctx.strokeStyle = CONFIG.COLORS.cornerBorder;
+            ctx.stroke();
+            ctx.font = '900 24px "Fredoka", "Outfit", "Nunito", sans-serif';
+            ctx.fillStyle = '#FFFFFF';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+            ctx.shadowBlur = 6;
+            ctx.shadowOffsetY = 2;
+            const textX = Math.min(w - 85, Math.max(w * 0.55, dicePos.x + 20));
+            const textY = dicePos.y + 54;
+            ctx.fillText('Your turn!', textX, textY);
+            ctx.shadowColor = 'transparent';
+        }
+        else {
+            const cornerR = Math.min(w * 0.62, 240);
+            const cx = w * 0.05;
+            const cy = h * 0.05;
+            ctx.beginPath();
+            ctx.arc(cx, cy, cornerR, 0, Math.PI * 2);
+            ctx.fillStyle = CONFIG.COLORS.cornerCircleCyan;
+            ctx.fill();
+            ctx.lineWidth = 14;
+            ctx.strokeStyle = CONFIG.COLORS.cornerBorder;
+            ctx.stroke();
+            ctx.font = '900 24px "Fredoka", "Outfit", "Nunito", sans-serif';
+            ctx.fillStyle = '#FFFFFF';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+            ctx.shadowBlur = 6;
+            ctx.shadowOffsetY = 2;
+            const textX = Math.max(85, Math.min(w * 0.45, dicePos.x - 20));
+            const textY = Math.max(45, dicePos.y - 54);
+            ctx.fillText("Your turn!", textX, textY);
+            ctx.shadowColor = 'transparent';
+        }
+        ctx.restore();
+    }
+    static renderConfetti(ctx, particles) {
+        ctx.save();
+        for (const p of particles) {
+            const alpha = Math.max(0, p.life / p.maxLife);
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = p.color;
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot);
+            ctx.fillRect(-p.size * 0.5, -p.size * 0.5, p.size, p.size * 0.6);
+            ctx.restore();
+        }
+        ctx.restore();
+    }
+    static renderPopups(ctx, popups) {
+        ctx.save();
+        for (const p of popups) {
+            const alpha = Math.max(0, p.life / p.maxLife);
+            const scale = 1.0 + (1.0 - alpha) * 0.3;
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.scale(scale, scale);
+            ctx.globalAlpha = alpha;
+            ctx.font = '900 22px "Fredoka", "Outfit", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+            ctx.fillText(p.text, 2, 2);
+            ctx.fillStyle = p.color;
+            ctx.fillText(p.text, 0, 0);
+            ctx.restore();
+        }
+        ctx.restore();
+    }
+}
+class GameEngine {
+    constructor(canvas) {
+        this.width = 390;
+        this.height = 844;
+        this.dpr = 1.0;
+        this.gameTime = 0;
+        this.boardX = 0;
+        this.boardY = 0;
+        this.boardSize = 360;
+        this.cellSize = 24;
+        this.state = 'IDLE_WAIT_ROLL';
+        this.currentPlayer = 1;
+        this.diceValue = 6;
+        this.isRolling = false;
+        this.rollProgress = 0;
+        this.activeMovingPawn = null;
+        this.movePath = [];
+        this.currentPathIndex = 0;
+        this.stepTimer = 0;
+        this.STEP_DURATION = 0.16;
+        this.selectablePawns = [];
+        this.aiTimer = 0;
+        this.turnPauseTimer = 0;
+        this.p1DicePos = { x: 0, y: 0 };
+        this.p2DicePos = { x: 0, y: 0 };
+        this.particles = [];
+        this.popups = [];
+        this.playAgainBtn = { x: 0, y: 0, w: 220, h: 54, pressProgress: 0 };
+        this.actionDelayTimer = 0;
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d', { alpha: true });
+        this.synth = new SoundSynth();
+        this.board = new BoardModel();
+        this.startNewGame();
+        GameBridge.sendReady();
+    }
+    startNewGame() {
+        this.board.initPawns();
+        this.currentPlayer = 1;
+        this.diceValue = 6;
+        this.isRolling = false;
+        this.activeMovingPawn = null;
+        this.selectablePawns = [];
+        this.particles = [];
+        this.popups = [];
+        this.state = 'IDLE_WAIT_ROLL';
+        this.synth.playTurnWhoosh();
+    }
+    setSize(w, h, dpr) {
+        this.width = w;
+        this.height = h;
+        this.dpr = dpr;
+        this.layoutBoard();
+    }
+    layoutBoard() {
+        const availW = this.width - 24;
+        const availH = this.height - 240;
+        this.boardSize = Math.min(availW, availH, 368);
+        this.cellSize = this.boardSize / BoardModel.GRID_COLS;
+        this.boardX = (this.width - this.boardSize) / 2;
+        this.boardY = (this.height - this.boardSize) / 2;
+        this.p1DicePos = {
+            x: this.boardX + this.boardSize * 0.72,
+            y: this.boardY + this.boardSize + 38
+        };
+        this.p2DicePos = {
+            x: this.boardX + this.boardSize * 0.28,
+            y: this.boardY - 38
+        };
+        this.playAgainBtn = {
+            x: (this.width - 220) / 2,
+            y: this.height * 0.65,
+            w: 220,
+            h: 54,
+            pressProgress: 0
+        };
+    }
+    onPointerDown(clientX, clientY) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = (clientX - rect.left) * (this.width / rect.width);
+        const y = (clientY - rect.top) * (this.height / rect.height);
+        this.synth.init();
+        if (this.state === 'VICTORY') {
+            const btn = this.playAgainBtn;
+            if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
+                btn.pressProgress = 1.0;
+                this.synth.playButtonClick();
+                this.startNewGame();
+            }
+            return;
+        }
+        if (this.currentPlayer === 1 && this.state === 'IDLE_WAIT_ROLL') {
+            const dice = this.p1DicePos;
+            const distSq = (x - dice.x) * (x - dice.x) + (y - dice.y) * (y - dice.y);
+            const inDiceSector = (y >= this.boardY + this.boardSize - 10 && x >= this.width * 0.40);
+            if (distSq <= 52 * 52 || inDiceSector) {
+                this.triggerDiceRoll();
+                return;
+            }
+        }
+        if (this.currentPlayer === 1 && this.state === 'WAITING_FOR_MOVE') {
+            const clickedPawn = this.findClickedPawn(x, y, 1);
+            if (clickedPawn && this.selectablePawns.includes(clickedPawn)) {
+                this.executePawnMove(clickedPawn);
+                return;
+            }
+        }
+    }
+    onPointerUp() {
+        this.playAgainBtn.pressProgress = 0;
+    }
+    triggerDiceRoll() {
+        if (this.state !== 'IDLE_WAIT_ROLL')
+            return;
+        this.state = 'ROLLING';
+        this.isRolling = true;
+        this.rollProgress = 0;
+        this.synth.playDiceRattle();
+        this.diceValue = 1 + Math.floor(Math.random() * 6);
+    }
+    onDiceRollComplete() {
+        this.isRolling = false;
+        this.synth.playDiceLand();
+        const validPawns = this.board.getValidMoves(this.currentPlayer, this.diceValue);
+        if (validPawns.length === 0) {
+            this.spawnPopup(this.width / 2, this.height / 2, 'NO MOVES!', '#FFFFFF');
+            this.state = 'NO_MOVE_PAUSE';
+            this.turnPauseTimer = 0.85;
+            return;
+        }
+        this.selectablePawns = validPawns;
+        if (this.currentPlayer === 1) {
+            this.state = 'WAITING_FOR_MOVE';
+            this.actionDelayTimer = 0;
+        }
+        else {
+            this.state = 'WAITING_FOR_MOVE';
+            this.actionDelayTimer = 0.45;
+        }
+    }
+    executePawnMove(pawn) {
+        this.selectablePawns = [];
+        this.state = 'MOVING_PAWN';
+        this.activeMovingPawn = pawn;
+        const move = this.board.calculateMoveTarget(pawn, this.diceValue);
+        if (!move) {
+            this.state = 'IDLE_WAIT_ROLL';
+            return;
+        }
+        if (pawn.step === -1) {
+            this.synth.playSpawnPop();
+        }
+        pawn.step = move.targetStep;
+        this.movePath = move.waypoints;
+        this.currentPathIndex = 0;
+        this.stepTimer = 0;
+    }
+    onPawnMoveFinished(pawn) {
+        this.activeMovingPawn = null;
+        this.movePath = [];
+        let earnedBonusRoll = (this.diceValue === 6);
+        if (pawn.step === BoardModel.PATH_LENGTH) {
+            pawn.isGoal = true;
+            earnedBonusRoll = true;
+            this.synth.playGoalChime();
+            this.spawnBoxConfetti(this.width / 2, this.height / 2, pawn.player === 1 ? '#FA5252' : '#00B0FF');
+            this.spawnPopup(this.width / 2, this.height * 0.42, 'HOME! 👑', '#FFD700');
+            if (this.board.isPlayerWon(pawn.player)) {
+                this.triggerVictory(pawn.player);
+                return;
+            }
+        }
+        else {
+            const victim = this.board.findOpponentOnTile(pawn.player, pawn.step);
+            if (victim) {
+                victim.step = -1;
+                this.board.recordCapture(pawn.player);
+                earnedBonusRoll = true;
+                this.synth.playCaptureBonk();
+                const pawnPixel = this.getPawnPixelPos(pawn);
+                this.spawnBoxConfetti(pawnPixel.x, pawnPixel.y, '#FF4757');
+                this.spawnPopup(pawnPixel.x, pawnPixel.y - 30, 'CAPTURED! 💥', '#FF4757');
+                this.spawnPopup(this.width / 2, this.height * 0.48, 'HOME UNLOCKED! 🔓', '#22C55E');
+            }
+        }
+        if (earnedBonusRoll) {
+            const bonusText = this.diceValue === 6 ? 'BONUS ROLL (6)! 🎲' : 'BONUS ROLL! 🎲';
+            this.spawnPopup(this.width / 2, this.height * 0.55, bonusText, '#FFFFFF');
+            this.state = 'IDLE_WAIT_ROLL';
+            if (this.currentPlayer === 2) {
+                this.aiTimer = 0.65;
+            }
+            else {
+                this.aiTimer = 0;
+            }
+        }
+        else {
+            this.switchTurn();
+        }
+    }
+    switchTurn() {
+        this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
+        this.synth.playTurnWhoosh();
+        this.state = 'IDLE_WAIT_ROLL';
+        this.activeMovingPawn = null;
+        this.selectablePawns = [];
+        this.turnPauseTimer = 0;
+        if (this.currentPlayer === 2) {
+            this.aiTimer = 0.60 + Math.random() * 0.20;
+        }
+        else {
+            this.aiTimer = 0;
+        }
+    }
+    triggerVictory(winner) {
+        this.state = 'VICTORY';
+        this.synth.playVictoryFanfare();
+        GameBridge.sendGameOver(100);
+        const colors = ['#FA5252', '#00B0FF', '#FFD700', '#FFFFFF', '#4CAF50', '#FF9800'];
+        for (let i = 0; i < 110; i++) {
+            this.particles.push({
+                x: this.width * 0.5 + (Math.random() - 0.5) * 180,
+                y: this.height * 0.45 + (Math.random() - 0.5) * 120,
+                vx: (Math.random() - 0.5) * 360,
+                vy: -260 - Math.random() * 340,
+                rot: Math.random() * Math.PI * 2,
+                vRot: (Math.random() - 0.5) * 10,
+                size: 6 + Math.random() * 7,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                life: 3.2,
+                maxLife: 3.2
+            });
+        }
+    }
+    update(dt) {
+        this.gameTime += dt;
+        if (this.state === 'NO_MOVE_PAUSE') {
+            this.turnPauseTimer -= dt;
+            if (this.turnPauseTimer <= 0) {
+                this.switchTurn();
+            }
+        }
+        if (this.state === 'ROLLING') {
+            this.rollProgress += dt * 2.4;
+            if (this.rollProgress >= 1.0) {
+                this.rollProgress = 1.0;
+                this.onDiceRollComplete();
+            }
+        }
+        if (this.currentPlayer === 2 && this.state === 'WAITING_FOR_MOVE' && this.actionDelayTimer > 0) {
+            this.actionDelayTimer -= dt;
+            if (this.actionDelayTimer <= 0) {
+                const bestPawn = LudoAI.selectBestMove(this.board, this.diceValue);
+                if (bestPawn) {
+                    this.executePawnMove(bestPawn);
+                }
+            }
+        }
+        if (this.state === 'MOVING_PAWN' && this.activeMovingPawn && this.movePath.length > 0) {
+            this.stepTimer += dt;
+            const progress = Math.min(1.0, this.stepTimer / this.STEP_DURATION);
+            this.activeMovingPawn.hopOffset = Math.sin(progress * Math.PI) * 22;
+            if (progress >= 1.0) {
+                this.stepTimer = 0;
+                this.synth.playPawnHop(1.0 + this.currentPathIndex * 0.05);
+                this.currentPathIndex++;
+                if (this.currentPathIndex >= this.movePath.length) {
+                    this.activeMovingPawn.hopOffset = 0;
+                    this.onPawnMoveFinished(this.activeMovingPawn);
+                }
+            }
+        }
+        if (this.currentPlayer === 2 && this.state === 'IDLE_WAIT_ROLL') {
+            this.aiTimer -= dt;
+            if (this.aiTimer <= 0) {
+                this.triggerDiceRoll();
+            }
+        }
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.life -= dt;
+            if (p.life <= 0) {
+                this.particles.splice(i, 1);
+                continue;
+            }
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.vy += 220 * dt;
+            p.rot += p.vRot * dt;
+        }
+        for (let i = this.popups.length - 1; i >= 0; i--) {
+            const pop = this.popups[i];
+            pop.life -= dt;
+            pop.y -= 35 * dt;
+            if (pop.life <= 0) {
+                this.popups.splice(i, 1);
+            }
+        }
+    }
+    render() {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        const isP1 = (this.currentPlayer === 1);
+        ctx.fillStyle = isP1 ? CONFIG.COLORS.bgP1 : CONFIG.COLORS.bgP2;
+        ctx.fillRect(0, 0, this.width, this.height);
+        const activeDicePos = isP1 ? this.p1DicePos : this.p2DicePos;
+        EntityRenderer.renderTurnCorner(ctx, this.width, this.height, this.currentPlayer, activeDicePos, this.gameTime);
+        EntityRenderer.renderBoard(ctx, this.boardX, this.boardY, this.boardSize, this.board, this.gameTime);
+        const diceSize = 36;
+        if (isP1) {
+            EntityRenderer.renderDice(ctx, this.p1DicePos.x, this.p1DicePos.y, diceSize, this.diceValue, this.isRolling, this.rollProgress, 0);
+        }
+        else {
+            EntityRenderer.renderDice(ctx, this.p2DicePos.x, this.p2DicePos.y, diceSize, this.diceValue, this.isRolling, this.rollProgress, 0);
+        }
+        this.renderAllPawns(ctx);
+        EntityRenderer.renderConfetti(ctx, this.particles);
+        EntityRenderer.renderPopups(ctx, this.popups);
+        if (this.state === 'VICTORY') {
+            this.renderVictoryModal(ctx);
+        }
+        ctx.restore();
+    }
+    getPawnPixelPos(pawn) {
+        const innerPad = 4;
+        const innerSize = this.boardSize - innerPad * 2;
+        const cellW = innerSize / BoardModel.GRID_COLS;
+        const bx = this.boardX + innerPad;
+        const by = this.boardY + innerPad;
+        if (pawn.isGoal) {
+            const isRed = (pawn.player === 1);
+            const slot = pawn.indexInPlayer;
+            const baseGridX = isRed ? 8.0 : 7.0;
+            const baseGridY = 7.5;
+            const offsets = [
+                { dx: 0, dy: -0.45 },
+                { dx: isRed ? 0.35 : -0.35, dy: 0 },
+                { dx: 0, dy: 0.45 },
+                { dx: isRed ? -0.35 : 0.35, dy: 0 }
+            ];
+            const off = offsets[slot % 4];
+            return {
+                x: bx + (baseGridX + off.dx) * cellW,
+                y: by + (baseGridY + off.dy) * cellW
+            };
+        }
+        if (pawn === this.activeMovingPawn && this.movePath.length > 0) {
+            const prevIdx = Math.max(0, this.currentPathIndex - 1);
+            const currIdx = Math.min(this.movePath.length - 1, this.currentPathIndex);
+            const p0 = prevIdx === currIdx
+                ? (pawn.step === 0 ? this.board.getNestSlots(pawn.player)[pawn.indexInPlayer] : this.board.getPath(pawn.player)[Math.max(0, pawn.step - this.movePath.length)])
+                : this.movePath[prevIdx];
+            const p1 = this.movePath[currIdx];
+            const t = Math.min(1.0, this.stepTimer / this.STEP_DURATION);
+            let gridX = p0.x + (p1.x - p0.x) * t;
+            let gridY = p0.y + (p1.y - p0.y) * t;
+            if (Math.abs(p0.x - p1.x) >= 3.5) {
+                if (p0.y <= 6.5) {
+                    gridY = 6.0 - Math.sin(t * Math.PI) * 1.4;
+                }
+                else {
+                    gridY = 8.0 + Math.sin(t * Math.PI) * 1.4;
+                }
+            }
+            return {
+                x: bx + (gridX + 0.5) * cellW,
+                y: by + (gridY + 0.5) * cellW
+            };
+        }
+        const grid = this.board.getPawnGridPos(pawn);
+        let offsetX = 0;
+        let offsetY = 0;
+        if (pawn.step >= 0 && !pawn.isGoal) {
+            const sameTilePawns = this.board.pawns.filter(p => {
+                if (p.step < 0 || p.isGoal)
+                    return false;
+                const g = this.board.getPawnGridPos(p);
+                return Math.abs(g.x - grid.x) < 0.05 && Math.abs(g.y - grid.y) < 0.05;
+            });
+            if (sameTilePawns.length > 1) {
+                sameTilePawns.sort((a, b) => a.id - b.id);
+                const idx = sameTilePawns.findIndex(p => p.id === pawn.id);
+                const count = sameTilePawns.length;
+                if (count === 2) {
+                    offsetX = (idx === 0 ? -0.22 : 0.22) * cellW;
+                    offsetY = (idx === 0 ? -0.12 : 0.12) * cellW;
+                }
+                else if (count === 3) {
+                    if (idx === 0) {
+                        offsetX = -0.22 * cellW;
+                        offsetY = -0.16 * cellW;
+                    }
+                    else if (idx === 1) {
+                        offsetX = 0.22 * cellW;
+                        offsetY = -0.16 * cellW;
+                    }
+                    else {
+                        offsetX = 0;
+                        offsetY = 0.20 * cellW;
+                    }
+                }
+                else if (count >= 4) {
+                    if (idx === 0) {
+                        offsetX = -0.20 * cellW;
+                        offsetY = -0.20 * cellW;
+                    }
+                    else if (idx === 1) {
+                        offsetX = 0.20 * cellW;
+                        offsetY = -0.20 * cellW;
+                    }
+                    else if (idx === 2) {
+                        offsetX = -0.20 * cellW;
+                        offsetY = 0.20 * cellW;
+                    }
+                    else {
+                        offsetX = 0.20 * cellW;
+                        offsetY = 0.20 * cellW;
+                    }
+                }
+            }
+        }
+        return {
+            x: bx + (grid.x + 0.5) * cellW + offsetX,
+            y: by + (grid.y + 0.5) * cellW + offsetY
+        };
+    }
+    renderAllPawns(ctx) {
+        const pawnRadius = this.cellSize * 0.44;
+        for (const pawn of this.board.pawns) {
+            if (pawn === this.activeMovingPawn)
+                continue;
+            const pos = this.getPawnPixelPos(pawn);
+            const isSelectable = this.selectablePawns.includes(pawn);
+            EntityRenderer.renderPawn(ctx, pos.x, pos.y, pawnRadius, pawn.player, isSelectable, this.gameTime, 0);
+        }
+        if (this.activeMovingPawn) {
+            const pos = this.getPawnPixelPos(this.activeMovingPawn);
+            EntityRenderer.renderPawn(ctx, pos.x, pos.y, pawnRadius, this.activeMovingPawn.player, false, this.gameTime, this.activeMovingPawn.hopOffset);
+        }
+    }
+    findClickedPawn(clickX, clickY, player) {
+        const hitRadius = this.cellSize * 0.95;
+        const pawns = this.board.pawns.filter(p => p.player === player && !p.isGoal);
+        for (const p of pawns) {
+            const pos = this.getPawnPixelPos(p);
+            const dx = clickX - pos.x;
+            const dy = clickY - pos.y;
+            if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+                return p;
+            }
+        }
+        return null;
+    }
+    spawnPopup(x, y, text, color) {
+        this.popups.push({
+            x,
+            y,
+            text,
+            color,
+            life: 0.9,
+            maxLife: 0.9
+        });
+    }
+    spawnBoxConfetti(cx, cy, color) {
+        const colors = [color, '#FFFFFF', '#FFD700'];
+        for (let i = 0; i < 22; i++) {
+            this.particles.push({
+                x: cx,
+                y: cy,
+                vx: (Math.random() - 0.5) * 180,
+                vy: -80 - Math.random() * 140,
+                rot: Math.random() * Math.PI * 2,
+                vRot: (Math.random() - 0.5) * 12,
+                size: 5 + Math.random() * 5,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                life: 0.85,
+                maxLife: 0.85
+            });
+        }
+    }
+    renderVictoryModal(ctx) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(8, 12, 16, 0.78)';
+        ctx.fillRect(0, 0, this.width, this.height);
+        const cardW = Math.min(330, this.width - 40);
+        const cardH = 340;
+        const cardX = (this.width - cardW) / 2;
+        const cardY = (this.height - cardH) / 2;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
+        ctx.fillStyle = '#1E293B';
+        ctx.fill();
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = '#38BDF8';
+        ctx.stroke();
+        const isP1Win = this.board.isPlayerWon(1);
+        ctx.font = '900 36px "Fredoka", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = isP1Win ? '#FA5252' : '#00B0FF';
+        ctx.fillText(isP1Win ? 'YOU WON! 👑' : 'BOT WON! 🤖', this.width / 2, cardY + 70);
+        ctx.font = '700 18px "Fredoka", sans-serif';
+        ctx.fillStyle = '#CBD5E1';
+        ctx.fillText(isP1Win ? 'Pawn reached Home safely!' : 'Better luck next race!', this.width / 2, cardY + 125);
+        const btn = this.playAgainBtn;
+        btn.x = (this.width - 220) / 2;
+        btn.y = cardY + 220;
+        const squish = btn.pressProgress * 3;
+        ctx.beginPath();
+        ctx.roundRect(btn.x, btn.y + squish, btn.w, btn.h - squish, 18);
+        ctx.fillStyle = '#22C55E';
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.stroke();
+        ctx.font = '900 22px "Fredoka", sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('PLAY AGAIN 🎲', this.width / 2, btn.y + btn.h * 0.5 + 2);
+        ctx.restore();
+    }
+}
+function initGame() {
+    const canvas = document.getElementById('gameCanvas');
+    if (!canvas) {
+        console.error('Canvas #gameCanvas not found!');
+        return;
+    }
+    const engine = new GameEngine(canvas);
+    function resize() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        engine.setSize(width, height, dpr);
+    }
+    window.addEventListener('resize', resize);
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', resize);
+    }
+    resize();
+    canvas.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        engine.onPointerDown(e.clientX, e.clientY);
+    });
+    window.addEventListener('pointerup', () => {
+        engine.onPointerUp();
+    });
+    let lastTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    function frame(now) {
+        const dt = Math.min((now - lastTime) / 1000, 0.1);
+        lastTime = now;
+        engine.update(dt);
+        engine.render();
+        window.requestAnimationFrame(frame);
+    }
+    window.requestAnimationFrame(frame);
+}
+if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => {
+        initGame();
+    });
+}
+else {
+    window.addEventListener('DOMContentLoaded', initGame);
+}
+})();
+  </script>
+</body>
+</html>
