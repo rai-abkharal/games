@@ -1,5 +1,5 @@
 import React from 'react';
-import { Animated, Text } from 'react-native';
+import { Animated, PanResponder, Text } from 'react-native';
 import TestRenderer, { act } from 'react-test-renderer';
 import { PreGameTutorial } from '../src/components/tutorial/PreGameTutorial';
 import { SwipeUpPrompt } from '../src/components/tutorial/SwipeUpPrompt';
@@ -30,6 +30,42 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     }
     jest.clearAllTimers();
     jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  test('a rejected Knife -> Water navigation leaves the prompt available for another swipe', async () => {
+    const onSwipeUp = jest.fn().mockReturnValueOnce(false).mockReturnValue(true);
+    await act(async () => {
+      activeRenderer = TestRenderer.create(<PreGameTutorial visible step="knife_hit_completed"
+        onSwipeUp={onSwipeUp} onComplete={jest.fn()} />);
+    });
+    const swipe = async () => act(async () => {
+      activeRenderer!.root.findByProps({ testID: 'swipe_up_prompt_overlay' })
+        .props.onAccessibilityAction({ nativeEvent: { actionName: 'activate' } });
+    });
+    await swipe();
+    expect(activeRenderer!.root.findAllByProps({ testID: 'swipe_up_prompt_overlay' }).length).toBeGreaterThan(0);
+    await swipe();
+    expect(onSwipeUp).toHaveBeenCalledTimes(2);
+    expect(activeRenderer!.root.findAllByProps({ testID: 'swipe_up_prompt_overlay' })).toHaveLength(0);
+  });
+
+  test('a finger swipe uses the latest navigation callback after rerender', async () => {
+    const create = jest.spyOn(PanResponder, 'create');
+    const oldCallback = jest.fn();
+    const latestCallback = jest.fn();
+    await act(async () => {
+      activeRenderer = TestRenderer.create(<SwipeUpPrompt visible onSwipeUp={oldCallback} />);
+    });
+    const initialResponder = create.mock.calls[0][0];
+    await act(async () => {
+      activeRenderer!.update(<SwipeUpPrompt visible onSwipeUp={latestCallback} />);
+    });
+    await act(async () => {
+      initialResponder.onPanResponderRelease!({} as any, { dy: -60, vy: -0.5 } as any);
+    });
+    expect(latestCallback).toHaveBeenCalledTimes(1);
+    expect(oldCallback).not.toHaveBeenCalled();
   });
 
   test('step "arrow_completed" renders "Swipe up for more" hand prompt and triggers onSwipeUp', async () => {

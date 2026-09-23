@@ -3,6 +3,7 @@ import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { FEED, NETWORK } from '../../config/env';
 import type { PageSlot } from '../../feed/preloadPlanner';
+import { canPreloadTutorial } from '../../feed/tutorialFlow';
 import {
   BRIDGE_BOOTSTRAP_SCRIPT,
   DESTROY_SCRIPT,
@@ -88,7 +89,7 @@ const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
  */
 export const GamePage = memo(
   forwardRef<GamePageHandle, Props>(function GamePageInner({ game, slot, mayLoad, preloadTutorial = false, near, suspended, onPhase, onMessage }, ref) {
-    const canPreload = Boolean(game.tutorial && preloadTutorial && slot === 'ahead');
+    const canPreload = Boolean(canPreloadTutorial(game) && preloadTutorial && slot === 'ahead');
     const webviewRef = useRef<WebView<object>>(null);
     // The selected page can create its view in the first commit. Only an
     // explicitly opted-in bundled tutorial may initialize as a neighbor.
@@ -366,6 +367,10 @@ export const GamePage = memo(
       if (phase !== 'ready') return;
       const fresh = justLoaded.current;
       justLoaded.current = false;
+      if (__DEV__ && game.tutorial) {
+        console.info('[tutorial.lifecycle]', { gameId: game.id, slot, suspended,
+          action: slot === 'active' && !suspended ? 'resume' : 'pause' });
+      }
       if (slot === 'active' && !suspended) {
         // A cancelled swipe resumes the same session; replaying saved state
         // here could reset gameplay and repeats bridge work on every drag.
@@ -373,12 +378,13 @@ export const GamePage = memo(
         activePrimed.current = true;
         resume();
       } else if (fresh && slot !== 'active' && !suspended) {
+        isResumedRef.current = false;
         injectSavedState();
         inject(buildPauseScript(FEED.preloadGraceFrames));
       } else {
         pause();
       }
-    }, [slot, phase, suspended, injectSavedState, resume, pause, inject]);
+    }, [slot, phase, suspended, injectSavedState, resume, pause, inject, game.id, game.tutorial]);
 
     // Safety fallback: once the page is ready, ensure placeholder cannot linger
     useEffect(() => {

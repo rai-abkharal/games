@@ -1667,12 +1667,9 @@ Object.defineProperty(window, 'localStorage', { value: (() => {
       }
       this.knivesLeft = lv.knives;
       this.buildHud();
-      this.tweens.add({ targets: this.board, y: this.BY, duration: 620, ease: "Back.easeOut" });
-      this.time.delayedCall(420, () => this.spawnHand());
-      this.time.delayedCall(560, () => {
-        if (this.state === "INTRO") this.state = "PLAY";
-      });
-      this.cameras.main.fadeIn(260, 0, 0, 0);
+      this.board.y = this.BY;
+      this.spawnHand();
+      this.state = "PLAY";
       if (lv.boss) this.bossIntro(bd.name);
       this.input.on("pointerdown", (p) => {
         sfx.unlock();
@@ -2097,7 +2094,7 @@ Object.defineProperty(window, 'localStorage', { value: (() => {
   var game = new Phaser.Game(config);
   var m = /stage=(\d+)/.exec(location.hash);
   if (m) game.registry.set("startStage", Number(m[1]));
-  window.__kh = game;
+  window.__kh = game; window.__PHASER_GAME__ = game;
   game.scale.on("resize", () => {
     computeView();
     const active = game.scene.getScenes(true);

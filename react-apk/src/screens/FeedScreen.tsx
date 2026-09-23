@@ -31,7 +31,7 @@ import {
 } from '../components/feed/GamePage';
 import { GamePager } from '../components/feed/GamePager';
 import { MessageView } from '../components/StateViews';
-import { bundledTutorialGames, nextTutorialGame, orderTutorialGames, tutorialGameStep } from '../feed/tutorialFlow';
+import { bundledTutorialGames, nextTutorialGame, orderTutorialGames, tutorialGameStep, tutorialPageLoadPolicy } from '../feed/tutorialFlow';
 import { FEED, GAMEPLAY } from '../config/env';
 import {
   clampIndex,
@@ -367,17 +367,16 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   /* ---------------- first-run tutorial flow --------------------------------- */
   const onTutorialSwipeUp = useCallback(() => {
     const target = nextTutorialGame(listRef.current, tutorialStep);
-    if (!target) return;
-    const targetPhase = phasesRef.current.get(target.game.id);
-    if (target.game.tutorial && targetPhase !== 'ready' && targetPhase !== 'error') return;
+    if (!target) return false;
     useTutorialStore.getState().markSwipeSeen();
     setTutorialStep(target.step);
     setSwipeEnabled(false);
     currentIdRef.current = target.game.id;
-    // A bundled target is already prepared; resume it only after the snap.
+    // Knife boots locally on selection; other bundled targets are prepared.
     setPosition({ index: target.index, direction: 1, settling: true });
     analytics.onGameAction('global', 'Feed',
       target.step === 'water_sort_playing' ? 'tutorial_swipe_to_water_sort' : 'tutorial_swipe_to_knife_hit');
+    return true;
   }, [tutorialStep]);
 
   const onCompleteTutorial = useCallback(() => {
@@ -816,7 +815,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   // frames), and never for pages a rapid flick flies past. Derived rather
   // than kept in state, which cost two extra feed renders per swipe.
   const { index, direction, settling } = position;
-  const rested = !settling;
   const onAllGames = useCallback(() => {
     resetDockTimer();
     setTab('all');
@@ -856,19 +854,18 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       }
       // Normal cold games initialize only when selected. The next bundled
       // tutorial may prepare once the current game has finished booting.
-      const preloadTutorial = Boolean(isTutorialActive && game.tutorial && slot === 'ahead'
-        && pagePhases[list[index]?.id] === 'ready');
-      const mayLoad = !suspended && rested && (slot === 'active' || preloadTutorial);
+      const loadPolicy = tutorialPageLoadPolicy(game, slot, suspended, settling,
+        isTutorialActive && pagePhases[list[index]?.id] === 'ready');
       return (
         <GamePage
           key={game.id}
           ref={refFor(game.id)}
           game={game}
           slot={slot}
-          mayLoad={mayLoad}
-          preloadTutorial={preloadTutorial}
+          mayLoad={loadPolicy.mayLoad}
+          preloadTutorial={loadPolicy.preloadTutorial}
           near={true}
-          suspended={suspended || settling}
+          suspended={loadPolicy.suspended}
           onPhase={onPhase}
           onMessage={onMessage}
         />
@@ -880,7 +877,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       direction,
       loop,
       settling,
-      rested,
       suspended,
       refFor,
       onPhase,
@@ -933,12 +929,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   }, []);
 
   /* ---------------- render --------------------------------------------------- */
-  const nextTutorialTarget = isTutorialActive ? nextTutorialGame(list, tutorialStep) : null;
-  // Keep the completed game visible until the next local page is ready. Errors
-  // remain reachable so its normal Retry control can recover the page.
-  const nextTutorialAvailable = !nextTutorialTarget?.game.tutorial ||
-    pagePhases[nextTutorialTarget.game.id] === 'ready' ||
-    pagePhases[nextTutorialTarget.game.id] === 'error';
   const isFavorite = current ? favorites.includes(current.id) : false;
 
   const isFavoritesTab = tab === 'favorites';
@@ -954,7 +944,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         width={stage.width}
         swipeEnabled={
           swipeEnabled &&
-          nextTutorialAvailable &&
           !fullScreenAdShowing &&
           (!isTutorialActive ||
             tutorialStep === 'arrow_completed' ||
@@ -1028,19 +1017,24 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           onLayout={onStageLayout}
           onTouchStart={onStageTouch}
         >
-          {/* Revealed backdrop when swipe gesture lifts the stage: Pure white with App Logo */}
+          {/* Only the home swipe hint reveals black; pre-tutorial keeps its branding. */}
           <View
-            style={styles.tutorialRevealBackdrop}
+            style={[
+              styles.tutorialRevealBackdrop,
+              !isTutorialActive && homeSwipeVisible && styles.homeSwipeBackdrop,
+            ]}
             pointerEvents="none"
           >
-            <View style={styles.revealLogoCard}>
-              <Image
-                source={APP_LOGO_IMAGE}
-                style={styles.revealLogo}
-                resizeMode="contain"
-              />
-              <Text style={styles.revealBrandTitle}>EiBi Games</Text>
-            </View>
+            {!isTutorialActive && homeSwipeVisible ? null : (
+              <View style={styles.revealLogoCard}>
+                <Image
+                  source={APP_LOGO_IMAGE}
+                  style={styles.revealLogo}
+                  resizeMode="contain"
+                />
+                <Text style={styles.revealBrandTitle}>EiBi Games</Text>
+              </View>
+            )}
           </View>
           <Animated.View
             style={[
@@ -1109,6 +1103,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  homeSwipeBackdrop: { backgroundColor: '#000000' },
   revealLogo: {
     width: 60,
     height: 60,

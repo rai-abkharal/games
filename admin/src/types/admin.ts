@@ -10,6 +10,9 @@ export interface GameVersion {
   id: string;
   version: string;
   sizeBytes: number;
+  installedBytes?: number;
+  diskBytes?: number;
+  fileCount?: number;
   sha256: string;
   status: string;
   rolloutPercent: number;

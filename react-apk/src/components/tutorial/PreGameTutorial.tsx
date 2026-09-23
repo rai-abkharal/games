@@ -21,7 +21,7 @@ export type TutorialFlowStep =
 export interface PreGameTutorialProps {
   visible: boolean;
   step?: TutorialFlowStep;
-  onSwipeUp?: () => void;
+  onSwipeUp?: () => boolean | void;
   onComplete: () => void;
   gestureProgress?: Animated.Value;
 }
@@ -63,7 +63,7 @@ export const PreGameTutorial = memo(function PreGameTutorialInner({
   }, [visible, fadeAnim]);
 
   const handleSwipeUp = useCallback(() => {
-    onSwipeUp?.();
+    return onSwipeUp ? onSwipeUp() : false;
   }, [onSwipeUp]);
 
   const handleFinish = useCallback(() => {

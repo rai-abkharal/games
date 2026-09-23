@@ -103,44 +103,67 @@ export function createAdminRouter(
       const catalog = catalogService.loadAndValidateCatalog();
       const adminGames = catalog.games
         .filter((g) => store.scope(principal(res), g.id))
-        .map((g, idx) => ({
-          id: g.id,
-          slug: g.id,
-          title: g.title,
-          sourceTitle: (g as any).sourceTitle || g.title,
-          titleOverride: (g as any).titleOverride || null,
-          description: g.description,
-          thumbnailUrl: g.thumbnailUrl,
-          orientation: g.orientation || "portrait",
-          controls: g.controls || ["TAP"],
-          tags: g.tags || ["arcade"],
-          status: (g as any).status || "published",
-          sortWeight: g.feedOrder ?? idx + 1,
-          ageRating: g.ageRating || "everyone",
-          totalPlays: 1240 + idx * 315,
-          totalReports: 0,
-          touchZones: (g as any).touchZones || [],
-          features: g.features,
-          ads: (g as any).ads || {
-            enabled: true,
-            useCustomInterval: false,
-            intervalMinutes: 5,
-          },
-          versions: [
-            {
-              id: `${g.id}-${g.version}`,
-              version: g.version,
-              sizeBytes: g.sizeBytes,
-              sha256: g.sha256 || "",
-              status:
-                (g as any).status === "archived" ||
-                (g as any).status === "deactivated"
-                  ? "inactive"
-                  : "active",
-              rolloutPercent: 100,
+        .map((g, idx) => {
+          let installedBytes = g.sizeBytes;
+          let fileCount = 1;
+          let diskBytes = g.sizeBytes;
+          try {
+            const manifest = ensureManifest(gamesDir, g.id, g.version);
+            if (manifest) {
+              installedBytes = manifest.totalBytes;
+              fileCount = manifest.files.length;
+              diskBytes = manifest.files.reduce(
+                (sum, f) =>
+                  sum + Math.max(4096, Math.ceil(f.bytes / 4096) * 4096),
+                0,
+              );
+            }
+          } catch {
+            // fallback to sizeBytes
+          }
+
+          return {
+            id: g.id,
+            slug: g.id,
+            title: g.title,
+            sourceTitle: (g as any).sourceTitle || g.title,
+            titleOverride: (g as any).titleOverride || null,
+            description: g.description,
+            thumbnailUrl: g.thumbnailUrl,
+            orientation: g.orientation || "portrait",
+            controls: g.controls || ["TAP"],
+            tags: g.tags || ["arcade"],
+            status: (g as any).status || "published",
+            sortWeight: g.feedOrder ?? idx + 1,
+            ageRating: g.ageRating || "everyone",
+            totalPlays: 1240 + idx * 315,
+            totalReports: 0,
+            touchZones: (g as any).touchZones || [],
+            features: g.features,
+            ads: (g as any).ads || {
+              enabled: true,
+              useCustomInterval: false,
+              intervalMinutes: 5,
             },
-          ],
-        }));
+            versions: [
+              {
+                id: `${g.id}-${g.version}`,
+                version: g.version,
+                sizeBytes: g.sizeBytes,
+                installedBytes,
+                diskBytes,
+                fileCount,
+                sha256: g.sha256 || "",
+                status:
+                  (g as any).status === "archived" ||
+                  (g as any).status === "deactivated"
+                    ? "inactive"
+                    : "active",
+                rolloutPercent: 100,
+              },
+            ],
+          };
+        });
 
       res.json({
         success: true,

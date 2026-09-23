@@ -1,10 +1,35 @@
-import { bundledTutorialGames, nextTutorialGame, orderTutorialGames, tutorialGameStep } from '../src/feed/tutorialFlow';
+import { bundledTutorialGames, nextTutorialGame, orderTutorialGames, tutorialGameStep, tutorialPageLoadPolicy } from '../src/feed/tutorialFlow';
 import type { GameItem } from '../src/types/game';
 
 const game = (id: string): GameItem => ({
   id, title: id, version: '1.0.0', entryUrl: 'https://games.test/' + id,
   thumbnailUrl: '', manifestUrl: '', sizeBytes: 100, orientation: 'portrait',
   engine: 'canvas', category: 'Puzzle', description: '', feedOrder: 0,
+});
+
+test('Knife completion selects Water without requiring an offscreen ready signal', () => {
+  const water = { ...game('water-sort-3d'), tutorial: true };
+  const target = nextTutorialGame([game('arrow-puzzle'), game('knife-hit'), water], 'knife_hit_completed');
+  expect(target).toEqual({ index: 2, step: 'water_sort_playing', game: water });
+  expect(tutorialPageLoadPolicy(water, 'active', false, false, false)).toMatchObject({
+    mayLoad: true, suspended: false,
+  });
+});
+
+test.each(['knife-hit', 'water-sort-3d', 'water-sort'])('%s selection bypasses only pager settling, never actual host suspension', id => {
+  const knife = { ...game(id), tutorial: true };
+  expect(tutorialPageLoadPolicy(knife, 'ahead', false, false, true)).toEqual({
+    preloadTutorial: false, mayLoad: false, suspended: false,
+  });
+  expect(tutorialPageLoadPolicy(knife, 'active', false, true, true)).toEqual({
+    preloadTutorial: false, mayLoad: true, suspended: false,
+  });
+  expect(tutorialPageLoadPolicy(knife, 'active', true, true, true)).toMatchObject({
+    mayLoad: false, suspended: true,
+  });
+  expect(tutorialPageLoadPolicy(game('knife-hit'), 'active', false, true, true)).toMatchObject({
+    mayLoad: false, suspended: true,
+  });
 });
 
 test('bundled onboarding works without a catalogue and cannot queue remote downloads', () => {

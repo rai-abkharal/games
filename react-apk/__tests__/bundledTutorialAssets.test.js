@@ -31,3 +31,11 @@ test('Knife retains its difficulty denominator and starts only stage one', () =>
   expect(html).not.toContain('var TOTAL_LEVELS = 1;');
   expect(html).toContain('// Wait for the host tutorial swipe; do not auto-advance.');
 });
+
+test('Knife is registered for host lifecycle and does not preload behind a locked intro fade', () => {
+  const html = readFileSync(resolve(assets, 'knife-hit.html'), 'utf8');
+  expect(html).toContain('window.__kh = game; window.__PHASER_GAME__ = game;');
+  expect(html).toContain('this.board.y = this.BY;\n      this.spawnHand();\n      this.state = "PLAY";');
+  expect(html).not.toContain('if (this.state === "INTRO") this.state = "PLAY";');
+  expect(html).not.toContain('this.cameras.main.fadeIn(260, 0, 0, 0);');
+});

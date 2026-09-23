@@ -14,10 +14,24 @@ directory and serves them over the existing loopback HTTP origin. They are not
 downloaded or subject to catalogue cache eviction. The tutorial works without a
 catalogue response, and normal game saves are neither restored nor overwritten.
 
-The first game initializes behind the existing app splash. Only the next bundled
-tutorial is allowed to initialize offscreen, after the active game is ready; it
-is paused until selected. Normal feed games retain their existing loading policy.
-An early swipe waits on the completed game until the next page is ready, rather
-than exposing its loading placeholder. The existing app splash is unchanged.
+The first game initializes behind the existing app splash. Knife Hit and Water
+Sort do **not** boot offscreen: their local WebViews start when selected, without
+waiting for the pager's settle callback. This avoids reusing a frozen engine or
+a canvas cleared by a layout resize while its render loop was parked.
+Background/navigation/ad suspension still pauses it normally. Normal feed games
+retain their existing loading policy. The existing app splash is unchanged.
+A completed-level swipe always selects the next game, even if preparation is
+unfinished. A cold target can finish loading as the selected page. The prompt
+only dismisses after navigation is accepted and always uses the latest callback.
 There is still real WebView initialization time; this removes network loading,
 not the device's rendering cost. Errors retain the existing retry UI.
+
+Knife's tutorial skips the normal entrance fade/input-locked intro and exposes
+`__PHASER_GAME__` as well as `__kh`, so the host can explicitly wake its loop,
+scene clocks and input after preloading. To inspect the actual host lifecycle,
+run `node scripts/check-knife-lifecycle.cjs`, open the printed URL, then call
+`__knifeCheck.state()`, `.resume()` and `.pause()` in the browser console.
+The harness initially pauses after load to reproduce the old standby path. Add
+`--selected` for the new path: load followed immediately by the host resume script.
+Add `--water --selected` to check Water Sort with the same host bootstrap/resume.
+Development builds log host decisions as `[tutorial.lifecycle]` for device diagnosis.

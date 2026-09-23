@@ -44,6 +44,13 @@ export interface CatalogTabProps {
   deleteGame: (gameId: string, title: string) => void;
 }
 
+function formatBytes(bytes?: number): string {
+  if (!bytes || isNaN(bytes) || bytes <= 0) return "0 KB";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 export const CatalogTab: React.FC<CatalogTabProps> = ({
   games,
   can,
@@ -171,7 +178,12 @@ export const CatalogTab: React.FC<CatalogTabProps> = ({
             <th style={{ padding: "12px 16px" }}>STATUS</th>
             <th style={{ padding: "12px 16px" }}>ROLLOUT</th>
             <th style={{ padding: "12px 16px" }}>FEED POSITION</th>
-            <th style={{ padding: "12px 16px" }}>PACKAGE SIZE</th>
+            <th
+              style={{ padding: "12px 16px" }}
+              title="Download size (ZIP package) vs. actual uncompressed storage footprint installed on the phone"
+            >
+              SIZE & STORAGE
+            </th>
             <th style={{ padding: "12px 16px" }}>UPDATED</th>
             <th style={{ padding: "12px 16px" }}>ACTIONS</th>
           </tr>
@@ -500,14 +512,101 @@ export const CatalogTab: React.FC<CatalogTabProps> = ({
 
                   <td
                     style={{
-                      padding: "16px",
+                      padding: "14px 16px",
                       fontFamily: "var(--font-mono)",
-                      color: "var(--text-muted)",
                     }}
                   >
-                    {latest
-                      ? `${(latest.sizeBytes / 1024).toFixed(1)} KB`
-                      : "N/A"}
+                    {latest ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "5px",
+                          minWidth: "140px",
+                        }}
+                      >
+                        {/* Download / ZIP Package Size */}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            fontSize: "12px",
+                            color: "var(--accent-cyan)",
+                          }}
+                          title="Compressed package size downloaded by the phone over the network"
+                        >
+                          <Download
+                            size={13}
+                            style={{ flexShrink: 0, opacity: 0.85 }}
+                          />
+                          <span style={{ fontWeight: 700 }}>
+                            {formatBytes(latest.sizeBytes)}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              color: "var(--text-dim)",
+                              fontWeight: 500,
+                              background: "rgba(6, 182, 212, 0.12)",
+                              padding: "1px 5px",
+                              borderRadius: "4px",
+                            }}
+                          >
+                            ZIP
+                          </span>
+                        </div>
+
+                        {/* On-Device Installed Storage */}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            fontSize: "12px",
+                            color: "#34d399",
+                          }}
+                          title={`Uncompressed files stored on phone: ${formatBytes(latest.installedBytes || latest.sizeBytes)}${latest.diskBytes ? ` (~${formatBytes(latest.diskBytes)} with filesystem blocks)` : ""}${latest.fileCount ? ` across ${latest.fileCount} file${latest.fileCount > 1 ? "s" : ""}` : ""}`}
+                        >
+                          <Smartphone
+                            size={13}
+                            style={{ flexShrink: 0, opacity: 0.85 }}
+                          />
+                          <span style={{ fontWeight: 700 }}>
+                            {formatBytes(
+                              latest.installedBytes || latest.sizeBytes,
+                            )}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              color: "var(--text-dim)",
+                              fontWeight: 500,
+                              background: "rgba(16, 185, 129, 0.12)",
+                              padding: "1px 5px",
+                              borderRadius: "4px",
+                            }}
+                          >
+                            Phone
+                          </span>
+                        </div>
+
+                        {/* File count subtitle */}
+                        {latest.fileCount && latest.fileCount > 1 ? (
+                          <div
+                            style={{
+                              fontSize: "10px",
+                              color: "var(--text-dim)",
+                              paddingLeft: "19px",
+                            }}
+                          >
+                            {latest.fileCount} files
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span style={{ color: "var(--text-muted)" }}>N/A</span>
+                    )}
                   </td>
 
                   <td

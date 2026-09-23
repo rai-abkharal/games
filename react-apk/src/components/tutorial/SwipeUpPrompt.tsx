@@ -27,7 +27,7 @@ const GUIDE_DIAMETER = GUIDE_RADIUS * 2 + GUIDE_WIDTH;
 
 export interface SwipeUpPromptProps {
   visible: boolean;
-  onSwipeUp: () => void;
+  onSwipeUp: () => boolean | void;
   /** Lets the feed follow the demonstrated finger without changing page. */
   gestureProgress?: Animated.Value;
 }
@@ -121,11 +121,17 @@ export const SwipeUpPrompt = memo(function SwipeUpPromptInner({
   const handleTrigger = useCallback(() => {
     if (hasTriggeredRef.current) return;
     hasTriggeredRef.current = true;
+    // A rejected transition must not consume the lesson or hide its gesture.
+    if (onSwipeUp() === false) {
+      hasTriggeredRef.current = false;
+      return;
+    }
     cycleRef.current?.stop();
     progress.setValue(0);
     setMounted(false);
-    onSwipeUp();
   }, [onSwipeUp, progress]);
+  const triggerRef = useRef(handleTrigger);
+  triggerRef.current = handleTrigger;
 
   useEffect(() => {
     if (!visible) {
@@ -174,7 +180,7 @@ export const SwipeUpPrompt = memo(function SwipeUpPromptInner({
       onPanResponderRelease: (_, gestureState) => {
         // Genuine upward swipe required (no taps/clicks)
         if (gestureState.dy < -20 || gestureState.vy < -0.25) {
-          handleTrigger();
+          triggerRef.current();
         }
       },
     }),

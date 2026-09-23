@@ -2,14 +2,17 @@ import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 import { GamePage, statusLabel } from '../src/components/feed/GamePage';
 import type { GameItem } from '../src/types/game';
+import { tutorialPageLoadPolicy } from '../src/feed/tutorialFlow';
+import { PAUSE_SCRIPT, buildResumeScript } from '../src/services/gameBridge';
 
 const mockStopLoading = jest.fn();
+const mockInjectJavaScript = jest.fn();
 jest.mock('react-native-webview', () => {
   const ReactModule = require('react');
   return {
     WebView: ReactModule.forwardRef((props: object, ref: unknown) => {
       ReactModule.useImperativeHandle(ref, () => ({
-        injectJavaScript: jest.fn(),
+        injectJavaScript: mockInjectJavaScript,
         stopLoading: mockStopLoading,
       }));
       return ReactModule.createElement('MockGameWebView', props);
@@ -76,6 +79,7 @@ const webviews = () =>
 beforeEach(() => {
   jest.useFakeTimers();
   mockStopLoading.mockClear();
+  mockInjectJavaScript.mockClear();
   mockLocalUrl.value = null;
   mockLoadEvents.length = 0;
 });
@@ -122,6 +126,37 @@ test('the tutorial preload opt-in never starts a normal feed neighbor', async ()
     tree = TestRenderer.create(<GamePage {...props} slot="ahead" preloadTutorial />);
   });
   expect(webviews()).toHaveLength(0);
+});
+
+test.each(['knife-hit', 'water-sort-3d', 'water-sort'])('%s boots only on selection and is not frozen by the settling flag', async id => {
+  const selectedGame = { ...game, id, tutorial: true,
+    entryUrl: `http://127.0.0.1/tutorial/${id}/index.html` };
+  const page = (slot: 'ahead' | 'active', settling: boolean, hostSuspended = false) => (
+    <GamePage {...props} game={selectedGame} slot={slot}
+      {...tutorialPageLoadPolicy(selectedGame, slot, hostSuspended, settling, true)} />
+  );
+  await act(async () => { tree = TestRenderer.create(page('ahead', false)); });
+  expect(webviews()).toHaveLength(0);
+  // Even a caller accidentally opting into preloading must not park this game.
+  await act(async () => {
+    tree.update(<GamePage {...props} game={selectedGame} slot="ahead" preloadTutorial />);
+  });
+  expect(webviews()).toHaveLength(0);
+  await act(async () => { tree.update(page('active', true)); });
+  expect(webviews()).toHaveLength(1);
+  expect(webviews()[0].props.source.uri).toContain('http://127.0.0.1/');
+  await act(async () => { webviews()[0].props.onLoad(); });
+  expect(mockInjectJavaScript).toHaveBeenCalledWith(buildResumeScript(false));
+  expect(mockInjectJavaScript).not.toHaveBeenCalledWith(PAUSE_SCRIPT);
+  // No dependence on the animation callback: loading finished while settling.
+  await act(async () => { jest.advanceTimersByTime(1500); });
+  expect(mockInjectJavaScript).not.toHaveBeenCalledWith(PAUSE_SCRIPT);
+  await act(async () => { tree.update(page('active', false)); });
+  expect(webviews()).toHaveLength(1);
+  await act(async () => { tree.update(page('active', false, true)); });
+  expect(mockInjectJavaScript).toHaveBeenLastCalledWith(PAUSE_SCRIPT);
+  await act(async () => { tree.update(page('active', false)); });
+  expect(mockInjectJavaScript).toHaveBeenLastCalledWith(buildResumeScript(false));
 });
 
 test('tutorial Water Sort stays cold during the page transition and loads after settling', async () => {

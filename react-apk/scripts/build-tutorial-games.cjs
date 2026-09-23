@@ -40,6 +40,19 @@ const manifest = sources.map(([id, source]) => {
     html = replaceOnce(html, 'showGame(t){', 'showGame(t){t=1;');
   } else if (id === 'knife-hit') {
     html = replaceOnce(html, 'const jump = this.registry.get("startStage");', 'const jump = 1;');
+    // Register the engine with the host's explicit lifecycle controls. __kh
+    // alone is used by the win detector, not by pause/resume or cleanup.
+    html = replaceOnce(html, 'window.__kh = game;', 'window.__kh = game; window.__PHASER_GAME__ = game;');
+    // A standby is frozen after two frames. Do not park the tutorial behind
+    // the normal game's black fade with its input still locked in INTRO.
+    html = replaceOnce(html, `      this.tweens.add({ targets: this.board, y: this.BY, duration: 620, ease: "Back.easeOut" });
+      this.time.delayedCall(420, () => this.spawnHand());
+      this.time.delayedCall(560, () => {
+        if (this.state === "INTRO") this.state = "PLAY";
+      });
+      this.cameras.main.fadeIn(260, 0, 0, 0);`, `      this.board.y = this.BY;
+      this.spawnHand();
+      this.state = "PLAY";`);
     // The normal game offers progression after its win animation. In tutorial
     // mode restart always means replaying this one stage.
     html = replaceOnce(html, 'const lv = Math.max(1, Math.min(TOTAL_LEVELS, d.level ?? data().level));', 'const lv = 1;');

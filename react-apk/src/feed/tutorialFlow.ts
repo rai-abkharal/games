@@ -1,5 +1,30 @@
 import type { GameItem } from '../types/game';
 import type { ReadyBundle } from '../services/gameBundles';
+import type { PageSlot } from './preloadPlanner';
+
+/** Later tutorial games boot on selection, never from a parked offscreen canvas. */
+export function tutorialStartsOnSelection(game: GameItem): boolean {
+  const step = tutorialGameStep(game);
+  return Boolean(game.tutorial && (step === 'knife_hit_playing' || step === 'water_sort_playing'));
+}
+
+export function canPreloadTutorial(game: GameItem): boolean {
+  return Boolean(game.tutorial && !tutorialStartsOnSelection(game));
+}
+
+export function tutorialPageLoadPolicy(
+  game: GameItem, slot: PageSlot, hostSuspended: boolean, settling: boolean, currentReady: boolean,
+) {
+  const startNow = slot === 'active' && tutorialStartsOnSelection(game);
+  const preloadTutorial = slot === 'ahead' && canPreloadTutorial(game) && currentReady;
+  return {
+    preloadTutorial,
+    mayLoad: !hostSuspended && (!settling || startNow) && (slot === 'active' || preloadTutorial),
+    // A selected tutorial game starts even while the pager finishes its slide.
+    // Real suspension (background, navigation, ad) still always wins.
+    suspended: hostSuspended || (settling && !startNow),
+  };
+}
 
 export function bundledTutorialGames(bundles: ReadyBundle[]): GameItem[] {
   const titles: Record<string, string> = {
