@@ -129,6 +129,26 @@ afterEach(() => {
   fs.rmSync(directory, { recursive: true, force: true });
 });
 describe("Admin security boundaries", () => {
+  it("serves games on the configured legacy preview host without redirecting back to Admin", async () => {
+    config.origin = "https://games.raiabdullah.tech";
+    config.previewOrigin = "http://preview.187.77.147.226.sslip.io:3000";
+    const gameDir = path.join(directory, "public/games/owned-game/1.0.0");
+    fs.mkdirSync(gameDir, { recursive: true });
+    fs.writeFileSync(path.join(gameDir, "index.html"), "<html><head></head><body>Playable game</body></html>");
+    const gamePath = "/games/owned-game/1.0.0/index.html?v=1";
+    const adminResponse = await request(app).get(gamePath).set("Host", "games.raiabdullah.tech");
+    expect(adminResponse.status).toBe(307);
+    expect(adminResponse.headers.location).toBe(config.previewOrigin + gamePath);
+    const previewResponse = await request(app).get(gamePath).set("Host", new URL(config.previewOrigin).host);
+    expect(previewResponse.status).toBe(200);
+    expect(previewResponse.headers.location).toBeUndefined();
+    expect(previewResponse.text).toContain("Playable game");
+    expect((await request(app).get("/v1/admin/games").set("Host", new URL(config.previewOrigin).host)).status).toBe(404);
+    const legacyResponse = await request(app).get(gamePath).set("Host", "187.77.147.226:3000");
+    expect(legacyResponse.status).toBe(301);
+    expect(legacyResponse.headers.location).toBe(config.origin + gamePath);
+  });
+
   it("serves stored analytics through both authenticated aliases before the game-only policy", async () => {
     const root = await login();
     const dev = await login("developer");

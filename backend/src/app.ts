@@ -79,6 +79,10 @@ export function createApp(
 
   // Enforce Canonical Domain & Permanently redirect any legacy sslip.io host or raw IP
   app.use((req, res, next) => {
+    // The configured preview origin is deliberately separate from Admin.
+    // It may itself use a legacy hostname: redirecting it back to Admin
+    // would loop with the game-asset redirect below (Admin -> preview -> Admin).
+    if (req.get("host") === new URL(config.previewOrigin).host) return next();
     const host = (req.get("host") || "").split(":")[0];
     if (host.includes("sslip.io") || host === "187.77.147.226" || host === "162.243.197.241") {
       return res.redirect(301, `https://games.raiabdullah.tech${req.originalUrl}`);
