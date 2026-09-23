@@ -623,19 +623,38 @@ export function createAdminRouter(
       z.string()
         .regex(/^[a-z0-9-]{1,80}$/)
         .parse(gameId);
-      z.string()
-        .regex(/^\d{1,6}\.\d{1,6}\.\d{1,6}$/)
-        .parse(manifest.version);
-      if (targetGameId && manifest.id !== targetGameId)
-        throw new SecurityError(
-          400,
-          "Package game ID does not match the target game",
-        );
       const existingIndex = catalogData.games.findIndex(
         (g: any) => g.id === gameId,
       );
       const existingGame =
         existingIndex >= 0 ? catalogData.games[existingIndex] : null;
+      // Update targets come from the authenticated route, never from ZIP metadata.
+      // Keep published asset URLs immutable so cached clients cannot mix builds.
+      const nextUpdateVersion = () => {
+        const parts = /^(\d{1,6})\.(\d{1,6})\.(\d{1,6})$/.exec(existingGame?.version || "1.0.0");
+        let [major, minor, patch] = parts ? parts.slice(1).map(Number) : [1, 0, 0];
+        let candidate: string;
+        do {
+          if (++patch > 999999) { patch = 0; minor++; }
+          if (minor > 999999) { minor = 0; major++; }
+          if (major > 999999) throw new SecurityError(409, "Game version space exhausted");
+          candidate = `${major}.${minor}.${patch}`;
+        } while (fs.existsSync(path.join(gamesDir, gameId, candidate)));
+        return candidate;
+      };
+      if (targetGameId) {
+        manifest.id = gameId;
+        if (!res.locals.publishing) manifest.version = nextUpdateVersion();
+      }
+      z.string().regex(/^\d{1,6}\.\d{1,6}\.\d{1,6}$/).parse(manifest.version);
+      // Two pending updates may have reserved the same version; resolve on publish.
+      if (targetGameId && existingGame && res.locals.publishing &&
+          fs.existsSync(path.join(gamesDir, gameId, manifest.version))) {
+        manifest.version = nextUpdateVersion();
+      }
+      validation.gameId = gameId;
+      validation.slug = gameId;
+      validation.version = manifest.version;
       const actor = principal(res);
       const reserved = store.get(
         "SELECT owner FROM uploads WHERE game=? LIMIT 1",
@@ -652,6 +671,7 @@ export function createAdminRouter(
       if (
         targetGameId &&
         !existingGame &&
+        !res.locals.publishing &&
         !store.get(
           "SELECT id FROM uploads WHERE game=? AND owner=?",
           gameId,
@@ -675,6 +695,9 @@ export function createAdminRouter(
         if (!actor.permissions.includes("games.configure")) {
           delete manifest.features;
           delete manifest.touchZones;
+        }
+        {
+          // Persist the selected identity/version for preview and later publication.
           const sourceManifest = entries
             .filter(
               (e) =>
@@ -1060,7 +1083,8 @@ export function createAdminRouter(
         size: fs.statSync(item.filename).size,
       } as Express.Multer.File;
       res.locals.publishing = true;
-      handleGameZipUpload(req, res);
+      const updatingPublishedGame = catalogService.getCatalog().games.some((game) => game.id === item.game);
+      handleGameZipUpload(req, res, updatingPublishedGame ? item.game : undefined);
       if (res.statusCode < 400) {
         store.run("DELETE FROM uploads WHERE id=?", item.id);
         fs.unlinkSync(item.filename);

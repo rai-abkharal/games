@@ -69,8 +69,9 @@ export const UpdateGameTab: React.FC<UpdateGameTabProps> = ({
             marginBottom: "20px",
           }}
         >
-          Replace game code or release a new version for an existing game
-          without deleting its stats, ratings, or ID.
+          Select a game and upload its replacement ZIP. The selected game ID,
+          stats and ratings are preserved; ZIP ID/version changes are not required.
+          A fresh version is assigned automatically when needed.
         </p>
 
         {/* Game Selector Dropdown */}

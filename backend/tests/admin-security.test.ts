@@ -943,7 +943,7 @@ describe("Admin security boundaries", () => {
     ]);
     expect(results.map((r) => r.status).sort()).toEqual([200, 400]);
   });
-  it("prevents overwriting an immutable live version", async () => {
+  it("replaces selected game code without ZIP ID/version matching while retaining the old build", async () => {
     const root = await login();
     const one = await call(root, "post", "/v1/admin/games/upload").attach(
       "file",
@@ -958,22 +958,53 @@ describe("Admin security boundaries", () => {
     );
     const file = path.join(directory, "public/games/new-game/1.0.0/index.html"),
       before = fs.readFileSync(file, "utf8");
+    const replacement = new AdmZip(zip("different-game", "not-a-version"));
+    replacement.updateFile("index.html", Buffer.from("<html><head></head><body>Replacement code</body></html>"));
     const two = await call(
       root,
       "post",
       "/v1/admin/games/new-game/upload",
-    ).attach("file", zip(), "two.zip");
-    expect(
-      (
-        await call(
+    ).attach("file", replacement.toBuffer(), "two.zip");
+    expect(two.status, two.text).toBe(201);
+    const updated = await call(
           root,
           "post",
           `/v1/admin/uploads/${two.body.uploadId}/publish`,
           {},
-        )
-      ).status,
-    ).toBe(409);
+        );
+    expect(updated.status, updated.text).toBe(200);
+    expect(updated.body.game.id).toBe("new-game");
+    expect(updated.body.game.version).toBe("1.0.1");
+    expect(fs.existsSync(path.join(directory, "public/games/different-game"))).toBe(false);
+    const stored = JSON.parse(fs.readFileSync(path.join(directory, "public/games/new-game/1.0.1/manifest.json"), "utf8"));
+    expect(stored.id).toBe("new-game");
+    expect(stored.version).toBe("1.0.1");
+    expect(fs.readFileSync(path.join(directory, "public/games/new-game/1.0.1/index.html"), "utf8")).toContain("Replacement code");
     expect(fs.readFileSync(file, "utf8")).toBe(before);
+  });
+  it("accepts manifest-free selected updates and resolves pending version collisions", async () => {
+    const root = await login();
+    const replacement = new AdmZip();
+    replacement.addFile("index.html", Buffer.from("<html><head></head><body>New code</body></html>"));
+    const pending = [];
+    for (let index = 0; index < 2; index++) {
+      const staged = await call(root, "post", "/v1/admin/games/owned-game/upload")
+        .attach("file", replacement.toBuffer(), "replacement.zip");
+      expect(staged.status, staged.text).toBe(201);
+      pending.push(staged.body.uploadId);
+    }
+    const versions = [];
+    for (const id of pending) {
+      const published = await call(root, "post", `/v1/admin/uploads/${id}/publish`, {});
+      expect(published.status, published.text).toBe(200);
+      expect(published.body.game.id).toBe("owned-game");
+      versions.push(published.body.game.version);
+    }
+    expect(versions).toEqual(["1.0.1", "1.0.2"]);
+    const dev = await login("developer");
+    const denied = await call(dev, "post", "/v1/admin/games/other-game/upload")
+      .attach("file", zip("owned-game"), "replacement.zip");
+    expect(denied.status).toBe(403);
   });
   it("rejects archive traversal and out-of-scope staged claims", async () => {
     const root = await login(),
