@@ -52,13 +52,16 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     const texts = root.findAllByType(Text).map(t => t.props.children);
     expect(texts).toContain('Swipe up for more');
 
-    const pressable = root.findByProps({
+    const promptElement = root.findByProps({
       accessibilityLabel: 'Swipe up for more',
     });
-    expect(pressable).toBeTruthy();
+    expect(promptElement).toBeTruthy();
+    // Clicks/taps should not trigger swipe
+    expect(promptElement.props.onPress).toBeUndefined();
 
+    const overlay = root.findByProps({ testID: 'swipe_up_prompt_overlay' });
     await act(async () => {
-      pressable.props.onPress();
+      overlay.props.onAccessibilityAction({ nativeEvent: { actionName: 'activate' } });
     });
 
     await act(async () => {
@@ -88,13 +91,15 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     const texts = root.findAllByType(Text).map(t => t.props.children);
     expect(texts).toContain('Swipe up for more');
 
-    const pressable = root.findByProps({
+    const promptElement = root.findByProps({
       accessibilityLabel: 'Swipe up for more',
     });
-    expect(pressable).toBeTruthy();
+    expect(promptElement).toBeTruthy();
+    expect(promptElement.props.onPress).toBeUndefined();
 
+    const overlay = root.findByProps({ testID: 'swipe_up_prompt_overlay' });
     await act(async () => {
-      pressable.props.onPress();
+      overlay.props.onAccessibilityAction({ nativeEvent: { actionName: 'activate' } });
     });
 
     await act(async () => {
@@ -208,13 +213,15 @@ describe('First-Time Tutorial Flow (PreGameTutorial)', () => {
     const texts = root.findAllByType(Text).map(t => t.props.children);
     expect(texts).toContain('Swipe up for more');
 
-    const pressable = root.findByProps({
+    const promptElement = root.findByProps({
       accessibilityLabel: 'Swipe up for more',
     });
-    expect(pressable).toBeTruthy();
+    expect(promptElement).toBeTruthy();
+    expect(promptElement.props.onPress).toBeUndefined();
 
+    const overlay = root.findByProps({ testID: 'swipe_up_prompt_overlay' });
     await act(async () => {
-      pressable.props.onPress();
+      overlay.props.onAccessibilityAction({ nativeEvent: { actionName: 'activate' } });
     });
 
     await act(async () => {

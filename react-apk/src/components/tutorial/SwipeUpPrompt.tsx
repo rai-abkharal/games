@@ -168,15 +168,12 @@ export const SwipeUpPrompt = memo(function SwipeUpPromptInner({
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) =>
-        Math.abs(gestureState.dy) > 10 || Math.abs(gestureState.dx) > 10,
+        gestureState.dy < -8 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
       onPanResponderRelease: (_, gestureState) => {
-        if (
-          gestureState.dy < -18 ||
-          gestureState.vy < -0.25 ||
-          (Math.abs(gestureState.dy) < 15 && Math.abs(gestureState.dx) < 15)
-        ) {
+        // Genuine upward swipe required (no taps/clicks)
+        if (gestureState.dy < -20 || gestureState.vy < -0.25) {
           handleTrigger();
         }
       },
@@ -187,18 +184,19 @@ export const SwipeUpPrompt = memo(function SwipeUpPromptInner({
 
   return (
     <Animated.View
+      testID="swipe_up_prompt_overlay"
       style={[styles.overlay, { opacity: fadeAnim }]}
+      accessibilityActions={[{ name: 'activate', label: 'swipeUp' }]}
+      onAccessibilityAction={() => handleTrigger()}
       {...panResponder.panHandlers}
     >
-      <Pressable
+      <View
         style={styles.pressableArea}
-        onPress={handleTrigger}
-        accessibilityRole="button"
         accessibilityLabel="Swipe up for more"
       >
         <SwipeGesture progress={progress} />
         <Text style={styles.promptText}>Swipe up for more</Text>
-      </Pressable>
+      </View>
     </Animated.View>
   );
 });

@@ -702,18 +702,8 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           store.addCoins(earned);
 
           if (isTutorialActive) {
-            if (
-              positionRef.current.index === 1 ||
-              tutorialStep === 'knife_hit_playing' ||
-              game.id === 'knife-hit' ||
-              game.id === 'knife_hit' ||
-              game.id.includes('knife') ||
-              game.title?.toLowerCase().includes('knife')
-            ) {
-              setTutorialStep('knife_hit_completed');
-              setSwipeEnabled(true);
-              return;
-            }
+            // In tutorial, game over means player failed the stage; stay on game so they can restart & clear it
+            return;
           }
 
           toast(`+${earned} 🪙 Coins Earned for ${message.score} PTS!`);
@@ -778,14 +768,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
             message.amount,
           );
           if (
-            isTutorialActive &&
-            (positionRef.current.index === 1 || tutorialStep === 'knife_hit_playing')
-          ) {
-            setTutorialStep('knife_hit_completed');
-            setSwipeEnabled(true);
-            return;
-          }
-          if (
             !isTutorialActive ||
             (game.id !== 'water-sort' && game.id !== 'water-sort-3d')
           ) {
@@ -813,14 +795,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         case 'saveLevelState':
           store.saveLevel(game.id, message.level);
           analytics.onLevelStart(game.id, game.title, message.level);
-          if (
-            isTutorialActive &&
-            (positionRef.current.index === 1 || tutorialStep === 'knife_hit_playing')
-          ) {
-            setTutorialStep('knife_hit_completed');
-            setSwipeEnabled(true);
-            return;
-          }
           break;
         case 'setSwipeEnabled':
           setSwipeEnabled(message.enabled);

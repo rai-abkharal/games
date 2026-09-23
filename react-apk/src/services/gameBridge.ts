@@ -79,26 +79,55 @@ export const BRIDGE_BOOTSTRAP_SCRIPT = `
     } catch (_) {}
   });
 
-  // Stage-1 tap detector for Knife Hit & tap-based mini games
+  // Stage-1 win / completion detector for Knife Hit (ONLY triggers on genuine WIN, never on failure/restart)
   try {
-    var isKnife = window.__IS_KNIFE_GAME__ || /knife/i.test(window.location.href) || /knife/i.test(document.title);
-    var knifeThrows = 0;
-    var knifeTriggered = false;
-    window.addEventListener('pointerdown', function () {
-      if (!isKnife && !window.__IS_KNIFE_GAME__) {
-        isKnife = /knife/i.test(window.location.href) || /knife/i.test(document.title);
+    var isKnife = Boolean(window.__IS_KNIFE_GAME__ || /knife/i.test(window.location.href) || /knife/i.test(document.title));
+    if (isKnife) {
+      var knifeCompleted = false;
+
+      // 1. Hook localStorage save event: Knife Hit increments data().level to 2 on stage 1 win!
+      if (typeof localStorage !== 'undefined' && localStorage.setItem) {
+        var origStorageSetItem = localStorage.setItem.bind(localStorage);
+        localStorage.setItem = function (key, val) {
+          try {
+            if (key === 'knifehit.save.v1' && !knifeCompleted) {
+              var mem = JSON.parse(val);
+              if (mem && mem.level > 1) {
+                knifeCompleted = true;
+                setTimeout(function () {
+                  send('completed', { score: mem.best || 70, level: 1 });
+                }, 300);
+              }
+            }
+          } catch (_) {}
+          return origStorageSetItem(key, val);
+        };
       }
-      if (isKnife && !knifeTriggered) {
-        knifeThrows++;
-        // Standard Knife Hit stage 1 has 7 knives. After 7 throws, stage 1 is cleared!
-        if (knifeThrows >= 7) {
-          knifeTriggered = true;
-          setTimeout(function () {
-            send('completed', { score: 70, level: 1 });
-          }, 350);
+
+      // 2. Monitor Phaser 3 Game instance (window.__kh): detects active scene 'WIN' state
+      var knifeSceneInterval = setInterval(function () {
+        if (knifeCompleted) {
+          clearInterval(knifeSceneInterval);
+          return;
         }
-      }
-    }, true);
+        try {
+          if (window.__kh && window.__kh.scene && typeof window.__kh.scene.getScenes === 'function') {
+            var scenes = window.__kh.scene.getScenes(true);
+            for (var si = 0; si < scenes.length; si++) {
+              var sc = scenes[si];
+              if (sc && sc.state === 'WIN' && !knifeCompleted) {
+                knifeCompleted = true;
+                clearInterval(knifeSceneInterval);
+                setTimeout(function () {
+                  send('completed', { score: sc.runScore || 70, level: 1 });
+                }, 300);
+                return;
+              }
+            }
+          }
+        } catch (_) {}
+      }, 250);
+    }
   } catch (_) {}
 
   window.__SOUND_MUTED__ = window.__SOUND_MUTED__ || false;
