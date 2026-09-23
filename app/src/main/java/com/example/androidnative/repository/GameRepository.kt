@@ -22,7 +22,7 @@ class GameRepository(private val context: Context) {
 
     companion object {
         private const val TAG = "GameRepository"
-        const val PRIMARY_HOST = "162.243.197.241"
+        const val PRIMARY_HOST = "187.77.147.226"
         const val BASE_URL = "http://$PRIMARY_HOST:3000"
 
         val CANDIDATE_ENDPOINTS = listOf(

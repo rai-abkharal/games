@@ -9,10 +9,10 @@
  */
 
 /** Same live host the native Android app is pinned to (GameRepository.PRIMARY_HOST). */
-const PRIMARY_HOST = '162.243.197.241';
+const PRIMARY_HOST = 'games.raiabdullah.tech';
 
 /** Canonical base URL; also the fallback used for URL normalisation. */
-export const DEFAULT_BASE_URL = `http://${PRIMARY_HOST}:3000`;
+export const DEFAULT_BASE_URL = `https://${PRIMARY_HOST}`;
 
 /**
  * Ordered list of base URLs to try when the primary one is unreachable.
@@ -22,8 +22,8 @@ export const DEFAULT_BASE_URL = `http://${PRIMARY_HOST}:3000`;
  */
 export const CANDIDATE_BASE_URLS: readonly string[] = [
   DEFAULT_BASE_URL,
-  `http://${PRIMARY_HOST}`,
-  `http://${PRIMARY_HOST}:8080`,
+  'http://187.77.147.226:3000',
+  'http://162.243.197.241:3000',
   ...(__DEV__ ? ['http://10.0.2.2:3000', 'http://10.0.2.2:8080'] : []),
 ];
 

@@ -77,6 +77,15 @@ export function createApp(
   );
   app.use(express.json({ limit: "64kb" }));
 
+  // Enforce Canonical Domain & Permanently redirect any legacy sslip.io host
+  app.use((req, res, next) => {
+    const host = req.get("host") || "";
+    if (host.includes("sslip.io")) {
+      return res.redirect(301, `https://games.raiabdullah.tech${req.originalUrl}`);
+    }
+    next();
+  });
+
   // Static Assets Hosting (CDN Simulation)
   const publicDir =
     security?.publicDir ||
