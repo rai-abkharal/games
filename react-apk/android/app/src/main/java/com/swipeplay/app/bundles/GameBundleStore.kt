@@ -311,7 +311,7 @@ class GameBundleStore(context: Context) {
 
   companion object {
     val BUNDLED_GAME_IDS = setOf(
-      "game-mudsy3a8", "game-mucbfekb", "knife-hit", "maze-paint", "game-mtworlmu",
+      "game-mudsy3a8", "game-mucbfekb", "knife-hit", "maze-paint",
       "game-mtvj5sds", "number-drop", "snake-classic", "gun-simulator", "ludo-race",
       "fruit-merge", "bubble-shooter", "game-mu51zff4", "deadzone-40", "dots-and-boxes",
       "takeoff-bolts", "four-in-a-row", "ball-breaker", "sudoku-pro", "color-match"

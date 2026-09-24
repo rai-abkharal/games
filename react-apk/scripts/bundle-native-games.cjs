@@ -16,7 +16,6 @@ const BUNDLED_GAMES_METADATA = JSON.parse(
 // 2. Car Circle (game-mucbfekb)
 // 3. Knife Hit (knife-hit)
 // 4. Color Maze (maze-paint)
-// 5. Shooter Hitman (game-mtworlmu)
 // 6. Food Hunt (game-mtvj5sds)
 // 7. Number Drop (number-drop)
 // 8. Cute Snake (snake-classic)
@@ -38,7 +37,6 @@ const TARGET_ORDER = [
   { id: 'game-mucbfekb', title: 'Car Circle' },
   { id: 'knife-hit', title: 'Knife Hit' },
   { id: 'maze-paint', title: 'Color Maze' },
-  { id: 'game-mtworlmu', title: 'Shooter Hitman' },
   { id: 'game-mtvj5sds', title: 'Food Hunt' },
   { id: 'number-drop', title: 'Number Drop' },
   { id: 'snake-classic', title: 'Cute Snake' },
@@ -99,6 +97,16 @@ function computeDirSize(dir) {
 }
 
 console.log('--- Starting Native Games Bundling ---');
+// Validate all inputs before replacing generated APK assets.
+if (path.resolve(ASSETS_DEST) !== path.join(ROOT, 'react-apk/android/app/src/main/assets/bundled-games')) {
+  throw new Error('Unexpected generated assets directory');
+}
+for (const target of TARGET_ORDER) {
+  const meta = BUNDLED_GAMES_METADATA.find(g => g.id === target.id);
+  if (!meta || !fs.existsSync(path.join(BACKEND_GAMES, meta.id, meta.version, 'index.html'))) {
+    throw new Error(`Missing source for ${target.id}; generated assets left untouched`);
+  }
+}
 if (fs.existsSync(ASSETS_DEST)) {
   fs.rmSync(ASSETS_DEST, { recursive: true, force: true });
 }
@@ -120,7 +128,7 @@ for (let i = 0; i < TARGET_ORDER.length; i++) {
   }
 
   const gameDest = path.join(ASSETS_DEST, meta.id);
-  console.log(`[${i + 1}/20] Bundling ${target.title} (${meta.id} v${meta.version})...`);
+  console.log(`[${i + 1}/${TARGET_ORDER.length}] Bundling ${target.title} (${meta.id} v${meta.version})...`);
   copyFolderSync(srcDir, gameDest);
 
   const files = listRelativeFiles(gameDest);

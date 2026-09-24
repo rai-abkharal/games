@@ -121,26 +121,12 @@
     ]
   },
   {
-    "gameId": "game-mtworlmu",
-    "version": "1.0.0",
-    "buildId": "7f22e03ee57d7f36f6a56f2cf2f9e170",
-    "entry": "index.html",
-    "bytes": 1766402,
-    "feedOrder": 4,
-    "files": [
-      "bundle.json",
-      "index.html",
-      "manifest.json",
-      "README.txt"
-    ]
-  },
-  {
     "gameId": "game-mtvj5sds",
     "version": "1.0.0",
     "buildId": "045c9b0a79763f9b44c2fa710f000f4a",
     "entry": "index.html",
     "bytes": 4257924,
-    "feedOrder": 5,
+    "feedOrder": 4,
     "files": [
       "APP-INTEGRATION.md",
       "bundle.json",
@@ -156,7 +142,7 @@
     "buildId": "0731f0823ff01775a250c08cf2f5ac7a",
     "entry": "index.html",
     "bytes": 67453,
-    "feedOrder": 6,
+    "feedOrder": 5,
     "files": [
       "bundle.json",
       "index.html",
@@ -169,7 +155,7 @@
     "buildId": "0f0033fb6589f4800c04abe84782478e",
     "entry": "index.html",
     "bytes": 47295,
-    "feedOrder": 7,
+    "feedOrder": 6,
     "files": [
       "bundle.json",
       "index.html",
@@ -182,7 +168,7 @@
     "buildId": "62997f9ce1a11c018f157c147c505826",
     "entry": "index.html",
     "bytes": 2150944,
-    "feedOrder": 8,
+    "feedOrder": 7,
     "files": [
       "bundle.json",
       "gun-simulator.svg",
@@ -201,7 +187,7 @@
     "buildId": "8e468b81ac3c8d53bed1b75abd24dc7a",
     "entry": "index.html",
     "bytes": 58798,
-    "feedOrder": 9,
+    "feedOrder": 8,
     "files": [
       "bundle.json",
       "index.html",
@@ -214,7 +200,7 @@
     "buildId": "1cb40aa3f9b02ce685124de2a03997c4",
     "entry": "index.html",
     "bytes": 77712,
-    "feedOrder": 10,
+    "feedOrder": 9,
     "files": [
       "bundle.json",
       "index.html",
@@ -227,7 +213,7 @@
     "buildId": "c81f9d5cebffb1e4227bc8129ef1fafe",
     "entry": "index.html",
     "bytes": 82823,
-    "feedOrder": 11,
+    "feedOrder": 10,
     "files": [
       "bundle.json",
       "index.html",
@@ -240,7 +226,7 @@
     "buildId": "ee31a63fc1e6fd3f639ca3356dd0a817",
     "entry": "index.html",
     "bytes": 3630803,
-    "feedOrder": 12,
+    "feedOrder": 11,
     "files": [
       "bundle.json",
       "index.html",
@@ -285,7 +271,7 @@
     "buildId": "7bc74fc6fbc1b9e7a4e7172dd9c268ef",
     "entry": "index.html",
     "bytes": 277722,
-    "feedOrder": 13,
+    "feedOrder": 12,
     "files": [
       "bundle.json",
       "deadzone-40.svg",
@@ -305,7 +291,7 @@
     "buildId": "ccf60ed33c794b67a2f38d6e0759f99f",
     "entry": "index.html",
     "bytes": 41995,
-    "feedOrder": 14,
+    "feedOrder": 13,
     "files": [
       "bundle.json",
       "index.html",
@@ -318,7 +304,7 @@
     "buildId": "d9935706d07b4478ff26510455aa84eb",
     "entry": "index.html",
     "bytes": 122246,
-    "feedOrder": 15,
+    "feedOrder": 14,
     "files": [
       "bundle.json",
       "index.html",
@@ -331,7 +317,7 @@
     "buildId": "bfdc03aaa7f5712d3c79013528f0e336",
     "entry": "index.html",
     "bytes": 34495,
-    "feedOrder": 16,
+    "feedOrder": 15,
     "files": [
       "bundle.json",
       "index.html",
@@ -345,7 +331,7 @@
     "buildId": "019861d2f0bf863cb5d9b55f3624f969",
     "entry": "index.html",
     "bytes": 78906,
-    "feedOrder": 17,
+    "feedOrder": 16,
     "files": [
       "bundle.json",
       "index.html",
@@ -358,7 +344,7 @@
     "buildId": "642af587784748b7e2381c60d89e605a",
     "entry": "index.html",
     "bytes": 89526,
-    "feedOrder": 18,
+    "feedOrder": 17,
     "files": [
       "bundle.json",
       "index.html",
@@ -371,7 +357,7 @@
     "buildId": "f201ca0dba0d5d7a68f0ddb102565da5",
     "entry": "index.html",
     "bytes": 9647,
-    "feedOrder": 19,
+    "feedOrder": 18,
     "files": [
       "bundle.json",
       "index.html",
