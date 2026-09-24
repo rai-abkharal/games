@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import * as ReactNative from 'react-native';
 import {
   ActivityIndicator,
   Animated,
@@ -18,6 +19,15 @@ import {
   View,
   type LayoutChangeEvent,
 } from 'react-native';
+
+function runAfterInteractions(fn: () => void): void {
+  const IM = (ReactNative as any).InteractionManager;
+  if (IM && typeof IM.runAfterInteractions === 'function') {
+    IM.runAfterInteractions(fn);
+  } else {
+    requestAnimationFrame(() => setTimeout(fn, 16));
+  }
+}
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { FeedDock, type FeedTab } from '../components/feed/FeedDock';
 import { FeedHeader } from '../components/feed/FeedHeader';
@@ -47,6 +57,7 @@ import { adManager, useAdsStore } from '../services/adManager';
 import { analytics } from '../services/analytics';
 import {
   BundlePriority,
+  localUrlFor,
   markBundlePlayed,
   setBundleObserver,
   setBundlePaused,
@@ -224,6 +235,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const [focused, setFocused] = useState(true);
   const suspended = !appActive || !focused || fullScreenAdShowing;
   const loop = tab !== 'favorites' && !isTutorialActive && list.length > 2;
+  const [prewarmGameId, setPrewarmGameId] = useState<string | null>(null);
+  const prewarmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Reconcile before committing children: starting page zero then correcting
   // in an effect used to create and abandon the wrong WebView at launch.
@@ -561,62 +575,130 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     // Only while the pager is at rest: re-scoring the queue is cheap, but it
     // has no business running during a snap animation.
     if (!list.length || position.settling) return;
-    const count = list.length;
-    const at = position.index;
-    const heading = position.direction;
-    const ordered: GameItem[] = [];
-    const seen = new Set<string>();
-    const push = (game?: GameItem) => {
-      if (!game || game.tutorial || seen.has(game.id)) return;
-      seen.add(game.id);
-      ordered.push(game);
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+
+    // 120ms trailing debounce: while the user is rapidly/continuously scrolling
+    // up or down, we don't bombard the bridge on every single intermediate page.
+    // Once the scroll pauses or settles, the prioritized list is dispatched.
+    syncTimerRef.current = setTimeout(() => {
+      const count = list.length;
+      const at = position.index;
+      const heading = position.direction;
+      const ordered: GameItem[] = [];
+      const seen = new Set<string>();
+      const push = (game?: GameItem) => {
+        if (!game || game.tutorial || seen.has(game.id)) return;
+        seen.add(game.id);
+        ordered.push(game);
+      };
+
+      // Current game is always first
+      push(list[at]);
+
+      // BIDIRECTIONAL LOOKAHEAD:
+      // The user can continue scrolling in the current direction OR reverse direction at any time.
+      // We prioritize the forward next game AND the reverse previous game so both directions
+      // are instantly ready on demand without delay.
+      const aheadIdx = ((at + heading) % count + count) % count;
+      const behindIdx = ((at - heading) % count + count) % count;
+      push(list[aheadIdx]);
+      push(list[behindIdx]);
+
+      const ahead2Idx = ((at + 2 * heading) % count + count) % count;
+      const behind2Idx = ((at - 2 * heading) % count + count) % count;
+      push(list[ahead2Idx]);
+      push(list[behind2Idx]);
+
+      // Then the rest of the ring, alternating directions, then anything left.
+      for (let step = 3; step <= count; step++) {
+        push(list[(((at + heading * step) % count) + count) % count]);
+        push(list[(((at - heading * step) % count) + count) % count]);
+      }
+      for (const game of list) push(game);
+      for (const game of games) push(game);
+
+      const tiers = new Map<string, BundlePriorityValue>();
+      const currentGame = list[at];
+      if (currentGame) tiers.set(currentGame.id, BundlePriority.current);
+
+      const aheadGame = list[aheadIdx];
+      if (aheadGame && !tiers.has(aheadGame.id)) tiers.set(aheadGame.id, BundlePriority.next);
+
+      const behindGame = list[behindIdx];
+      if (behindGame && !tiers.has(behindGame.id)) tiers.set(behindGame.id, BundlePriority.next);
+
+      const ahead2Game = list[ahead2Idx];
+      if (ahead2Game && !tiers.has(ahead2Game.id)) tiers.set(ahead2Game.id, BundlePriority.near);
+
+      const behind2Game = list[behind2Idx];
+      if (behind2Game && !tiers.has(behind2Game.id)) tiers.set(behind2Game.id, BundlePriority.near);
+
+      syncBundles(ordered, game => tiers.get(game.id) ?? BundlePriority.rest);
+
+      if (aheadGame) warmBundle(aheadGame.id);
+      if (behindGame) warmBundle(behindGame.id);
+    }, 120);
+
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     };
-    // The same planner the feed uses to choose which pages own a WebView, so
-    // downloads and WebViews agree on what "next" means.
-    const lookahead = prefetchOrder(
-      at,
-      heading,
-      count,
-      FEED.prefetchAhead,
-      count > 1,
-    );
-    push(list[at]);
-    for (const i of lookahead) push(list[i]);
-    // Then the rest of the ring, alternating directions, then anything left.
-    for (let step = 1; step <= count; step++) {
-      push(list[(((at + heading * step) % count) + count) % count]);
-      push(list[(((at - heading * step) % count) + count) % count]);
-    }
-    for (const game of list) push(game);
-    // Ensure the entire catalogue is always included so switching tabs (e.g. to Favorites)
-    // or viewing a filtered subset never halts downloads for the rest of the games.
-    for (const game of games) push(game);
-
-    // Tiers as a lookup rather than a scan, so tagging the wish-list stays
-    // linear however long the catalogue gets.
-    const tiers = new Map<string, BundlePriorityValue>();
-    const currentGame = list[at];
-    if (currentGame) tiers.set(currentGame.id, BundlePriority.current);
-    lookahead.forEach((index, step) => {
-      const game = list[index];
-      if (!game || tiers.has(game.id)) return;
-      tiers.set(
-        game.id,
-        step === 0 ? BundlePriority.next : BundlePriority.near,
-      );
-    });
-
-    syncBundles(ordered, game => tiers.get(game.id) ?? BundlePriority.rest);
-
-    // The next game's bytes may already be on disk from an earlier session, in
-    // which case nothing above will touch it. Pulling them through the page
-    // cache now is the one preparation left that costs the running game
-    // nothing: no WebView, no renderer work, just a background read of files
-    // the next WebView is about to ask for.
-    const nextIndex = lookahead[0];
-    const nextGame = nextIndex === undefined ? undefined : list[nextIndex];
-    if (nextGame) warmBundle(nextGame.id);
   }, [list, games, position.index, position.direction, position.settling]);
+
+  // Ahead-page pre-warming controller:
+  // Pre-warms the next game into a frozen standby WebView ONLY when:
+  // 1. Pager is completely at rest (!settling && !suspended && focused && appActive)
+  // 2. Current active game is fully loaded and reported 'ready'
+  // 3. User has been idle on the current game for at least 1,200ms (no touches/swipes)
+  // 4. The ahead game is already stored locally on disk (0 network contention)
+  // 5. Standby view is strictly suspended/frozen (0 CPU / 0 GPU contention)
+  useEffect(() => {
+    if (position.settling || suspended || !focused || !appActive) {
+      if (prewarmTimerRef.current) clearTimeout(prewarmTimerRef.current);
+      setPrewarmGameId(null);
+      return;
+    }
+
+    const currentGame = list[position.index];
+    if (!currentGame || pagePhases[currentGame.id] !== 'ready') {
+      if (prewarmTimerRef.current) clearTimeout(prewarmTimerRef.current);
+      setPrewarmGameId(null);
+      return;
+    }
+
+    const count = list.length;
+    if (count <= 1) return;
+    const aheadIdx = ((position.index + position.direction) % count + count) % count;
+    const aheadGame = list[aheadIdx];
+    if (!aheadGame) return;
+
+    // Safety rule: Only pre-warm games that already reside on local disk.
+    // Remote downloads must never be pre-warmed to prevent network/CPU contention.
+    const isLocal = localUrlFor(aheadGame) !== null;
+    if (!isLocal) {
+      setPrewarmGameId(null);
+      return;
+    }
+
+    if (prewarmTimerRef.current) clearTimeout(prewarmTimerRef.current);
+    prewarmTimerRef.current = setTimeout(() => {
+      runAfterInteractions(() => {
+        setPrewarmGameId(aheadGame.id);
+      });
+    }, 1200);
+
+    return () => {
+      if (prewarmTimerRef.current) clearTimeout(prewarmTimerRef.current);
+    };
+  }, [
+    position.index,
+    position.direction,
+    position.settling,
+    suspended,
+    focused,
+    appActive,
+    pagePhases,
+    list,
+  ]);
 
   // Ceilings apply to speculation only, and the game one swipe away barely
   // counts as speculation: it gets several times the distant catalogue's
@@ -770,6 +852,8 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   /* ---------------- pager callbacks ------------------------------------------ */
   const onSwipeStart = useCallback(() => {
+    if (prewarmTimerRef.current) clearTimeout(prewarmTimerRef.current);
+    setPrewarmGameId(null);
     if (homeSwipeVisible) dismissHomeSwipeTutorial();
     setPlaying(true);
     setPosition(prev => ({ ...prev, settling: true }));
@@ -777,6 +861,8 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   const onIndexChange = useCallback(
     (index: number, direction: SwipeDirection) => {
+      if (prewarmTimerRef.current) clearTimeout(prewarmTimerRef.current);
+      setPrewarmGameId(null);
       // A performed swipe is the lesson itself: whoever changed the page on
       // their own never needs the swipe coach mark, shown yet or not.
       useTutorialStore.getState().markSwipeSeen();
@@ -854,18 +940,27 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       }
       // Normal cold games initialize only when selected. The next bundled
       // tutorial may prepare once the current game has finished booting.
+      // Standby pre-warming: pre-renders the next local game only after idle gating.
+      const mayPrewarm = Boolean(
+        game.id === prewarmGameId &&
+        slot === 'ahead' &&
+        localUrlFor(game) !== null,
+      );
       const loadPolicy = tutorialPageLoadPolicy(game, slot, suspended, settling,
         isTutorialActive && pagePhases[list[index]?.id] === 'ready');
+      const effectiveMayLoad = loadPolicy.mayLoad || mayPrewarm;
+      const effectiveSuspended = mayPrewarm ? true : loadPolicy.suspended;
       return (
         <GamePage
           key={game.id}
           ref={refFor(game.id)}
           game={game}
           slot={slot}
-          mayLoad={loadPolicy.mayLoad}
+          mayLoad={effectiveMayLoad}
           preloadTutorial={loadPolicy.preloadTutorial}
+          mayPrewarm={mayPrewarm}
           near={true}
-          suspended={loadPolicy.suspended}
+          suspended={effectiveSuspended}
           onPhase={onPhase}
           onMessage={onMessage}
         />
@@ -886,6 +981,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       onAllGames,
       isTutorialActive,
       pagePhases,
+      prewarmGameId,
     ],
   );
 

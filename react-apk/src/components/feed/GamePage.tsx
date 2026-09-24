@@ -54,6 +54,8 @@ interface Props {
   mayLoad: boolean;
   /** Only small, APK-bundled tutorial games may initialize before selection. */
   preloadTutorial?: boolean;
+  /** Whether this ahead page may pre-warm its local standby WebView during idle time. */
+  mayPrewarm?: boolean;
   /** Render placeholder chrome (only for pages near the current one). */
   near: boolean;
   /**
@@ -88,12 +90,31 @@ const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
  * feed down.
  */
 export const GamePage = memo(
-  forwardRef<GamePageHandle, Props>(function GamePageInner({ game, slot, mayLoad, preloadTutorial = false, near, suspended, onPhase, onMessage }, ref) {
-    const canPreload = Boolean(canPreloadTutorial(game) && preloadTutorial && slot === 'ahead');
+  forwardRef<GamePageHandle, Props>(function GamePageInner(
+    {
+      game,
+      slot,
+      mayLoad,
+      preloadTutorial = false,
+      mayPrewarm = false,
+      near,
+      suspended,
+      onPhase,
+      onMessage,
+    },
+    ref,
+  ) {
+    const isPrewarm = Boolean(mayPrewarm && slot === 'ahead');
+    const canPreload = Boolean(
+      (canPreloadTutorial(game) && preloadTutorial && slot === 'ahead') ||
+      isPrewarm,
+    );
     const webviewRef = useRef<WebView<object>>(null);
     // The selected page can create its view in the first commit. Only an
-    // explicitly opted-in bundled tutorial may initialize as a neighbor.
-    const [live, setLive] = useState(() => (slot === 'active' || canPreload) && mayLoad && !suspended);
+    // explicitly opted-in bundled tutorial or idle pre-warm candidate may initialize as a neighbor.
+    const [live, setLive] = useState(
+      () => (slot === 'active' || canPreload) && mayLoad && (!suspended || isPrewarm),
+    );
     const [attempt, setAttempt] = useState(0);
     const [phase, setPhaseState] = useState<PagePhase>('idle');
     const [errorText, setErrorText] = useState<string | null>(null);
@@ -169,7 +190,7 @@ export const GamePage = memo(
       // Normal offscreen games retain existing views only. Bundled tutorial
       // preparation is allowed to finish even if the pager starts moving.
       if (slot !== 'active') {
-        if (game.tutorial && slot === 'ahead') {
+        if ((game.tutorial || isPrewarm) && slot === 'ahead') {
           if (canPreload && mayLoad && !suspended && !live) setLive(true);
           return;
         }

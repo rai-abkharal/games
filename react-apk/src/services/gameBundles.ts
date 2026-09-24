@@ -267,6 +267,8 @@ export function stopBundleStore(): void {
   subscriptions = [];
 }
 
+let lastSyncKey = '';
+
 /**
  * Hands the native queue the games worth having on disk, most wanted first.
  *
@@ -292,6 +294,12 @@ export function syncBundles(
       priority: priorityFor(game, index),
     }));
   if (!requests.length) return;
+
+  // Deduplicate: avoid crossing the bridge if the wish-list and priorities have not changed
+  const syncKey = requests.map(r => `${r.gameId}:${r.priority}`).join('|');
+  if (syncKey === lastSyncKey) return;
+  lastSyncKey = syncKey;
+
   try {
     native.sync(requests);
   } catch {
