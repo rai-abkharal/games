@@ -112,7 +112,7 @@
     "version": "1.14.0",
     "buildId": "e556c1eae1e690a2ef361143e5a38919",
     "entry": "index.html",
-    "bytes": 132450,
+    "bytes": 133575,
     "feedOrder": 3,
     "files": [
       "bundle.json",

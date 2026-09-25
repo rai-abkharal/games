@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 import { useAdsStore } from '../services/adManager';
@@ -12,16 +12,42 @@ import { useAdsStore } from '../services/adManager';
 export function AdBanner() {
   const enabled = useAdsStore(state => state.bannerEnabled);
   const unitId = useAdsStore(state => state.bannerUnitId);
+  const sdkReady = useAdsStore(state => state.sdkReady);
+  const reloadKey = useAdsStore(state => state.bannerReloadKey);
   const [loaded, setLoaded] = useState(false);
-  if (!enabled) return null;
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setLoaded(false);
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+  }, [unitId, reloadKey, sdkReady]);
+
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    };
+  }, []);
+
+  if (!enabled || !unitId || !sdkReady) return null;
+
   return (
     <View style={[styles.wrap, !loaded && styles.hidden]} pointerEvents={loaded ? 'auto' : 'none'}>
       <BannerAd
-        key={unitId}
+        key={`${unitId}-${reloadKey}`}
         unitId={unitId}
         size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-        onAdLoaded={() => setLoaded(true)}
-        onAdFailedToLoad={() => setLoaded(false)}
+        onAdLoaded={() => {
+          if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+          setLoaded(true);
+        }}
+        onAdFailedToLoad={error => {
+          console.warn('[AdBanner] Banner failed to load:', error?.message || error);
+          setLoaded(false);
+          if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+          retryTimerRef.current = setTimeout(() => {
+            useAdsStore.setState(s => ({ bannerReloadKey: s.bannerReloadKey + 1 }));
+          }, 15_000);
+        }}
       />
     </View>
   );
@@ -37,5 +63,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  hidden: { opacity: 0, height: 0, minHeight: 0 },
+  hidden: {
+    opacity: 0,
+    height: 0,
+    minHeight: 0,
+  },
 });

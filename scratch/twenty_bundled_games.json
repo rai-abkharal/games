@@ -117,14 +117,14 @@
     "version": "1.14.0",
     "entryUrl": "http://187.77.147.226:3000/games/maze-paint/1.14.0/index.html",
     "thumbnailUrl": "http://187.77.147.226:3000/thumbnails/maze-paint.webp",
-    "sizeBytes": 131307,
+    "sizeBytes": 132432,
     "orientation": "portrait",
     "engine": "canvas2d",
     "manifestUrl": "http://187.77.147.226:3000/games/maze-paint/1.14.0/manifest.json",
     "feedOrder": 3,
     "category": "Puzzle",
     "description": "Masterwork 3D underground sunken roller paint puzzle game. Features ultra-elegant soft marimba acoustic wall audio, single-stream touch deduplication, instant-opening Sudoku Pro-style difficulty modal, equal-sized bottom controls, and AAA victory celebration.",
-    "sha256": "1b74af60aa85a62d112e489a5fc41211685e3d2e2006fd2aafee8d7684d9c1a8",
+    "sha256": "5db0f0566305fc0b0dbd0924bb1e87fccea9aa4ef9a0f080bcd82d5a948aaf11",
     "status": "published",
     "touchZones": [
       {

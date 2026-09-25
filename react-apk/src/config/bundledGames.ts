@@ -110,7 +110,7 @@ export const BUNDLED_GAMES: GameItem[] = [
     "version": "1.14.0",
     "entryUrl": "http://127.0.0.1:42731/maze-paint/e556c1eae1e690a2ef361143e5a38919/index.html",
     "thumbnailUrl": "http://187.77.147.226:3000/thumbnails/maze-paint.webp",
-    "sizeBytes": 132450,
+    "sizeBytes": 133575,
     "orientation": "portrait",
     "engine": "canvas2d",
     "manifestUrl": "http://127.0.0.1:42731/maze-paint/e556c1eae1e690a2ef361143e5a38919/manifest.json",
@@ -118,8 +118,8 @@ export const BUNDLED_GAMES: GameItem[] = [
     "category": "Puzzle",
     "description": "Masterwork 3D underground sunken roller paint puzzle game. Features ultra-elegant soft marimba acoustic wall audio, single-stream touch deduplication, instant-opening Sudoku Pro-style difficulty modal, equal-sized bottom controls, and AAA victory celebration.",
     "buildId": "e556c1eae1e690a2ef361143e5a38919",
-    "bundleBytes": 132450,
-    "sha256": "1b74af60aa85a62d112e489a5fc41211685e3d2e2006fd2aafee8d7684d9c1a8",
+    "bundleBytes": 133575,
+    "sha256": "5db0f0566305fc0b0dbd0924bb1e87fccea9aa4ef9a0f080bcd82d5a948aaf11",
     "controls": [
       "TAP"
     ],

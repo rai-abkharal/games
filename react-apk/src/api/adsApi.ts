@@ -3,7 +3,11 @@ import type { AdsRemoteConfig } from '../types/game';
 import { clamp, toInt } from '../utils/misc';
 import { requestJsonWithFallback } from './http';
 
-/** Compiled-in fallback identical to the native app's field defaults. */
+/**
+ * Default fallback configuration.
+ * Ad unit IDs start empty: ads are only requested when valid production IDs
+ * are supplied from the Admin Panel via /api/ads/config.
+ */
 export const DEFAULT_ADS_CONFIG: AdsRemoteConfig = {
   bannerEnabled: true,
   interstitialEnabled: true,
@@ -13,10 +17,10 @@ export const DEFAULT_ADS_CONFIG: AdsRemoteConfig = {
   levelWinInterval: 2,
   gameOverAdEnabled: true,
   cooldownSeconds: 60,
-  adMobAppId: ADMOB_DEFAULTS.appId,
-  bannerUnitId: ADMOB_DEFAULTS.bannerUnitId,
-  interstitialUnitId: ADMOB_DEFAULTS.interstitialUnitId,
-  rewardedUnitId: ADMOB_DEFAULTS.rewardedUnitId,
+  adMobAppId: '',
+  bannerUnitId: '',
+  interstitialUnitId: '',
+  rewardedUnitId: '',
   gaMeasurementId: 'G-SWIPEPLAY1',
 };
 

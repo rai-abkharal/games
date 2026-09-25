@@ -45,8 +45,21 @@ function deriveCategories(games: GameItem[]): string[] {
 }
 
 function mergeWithBundledGames(serverGames: GameItem[]): GameItem[] {
+  const serverMap = new Map(serverGames.map(g => [g.id, g]));
+  const updatedBundled = BUNDLED_GAMES.map(bundled => {
+    const serverGame = serverMap.get(bundled.id);
+    if (!serverGame) return bundled;
+    return {
+      ...bundled,
+      touchZones: serverGame.touchZones !== undefined ? serverGame.touchZones : bundled.touchZones,
+      title: serverGame.title || bundled.title,
+      status: serverGame.status || bundled.status,
+      features: serverGame.features || bundled.features,
+      ageRating: serverGame.ageRating || bundled.ageRating,
+    };
+  });
   const serverOnly = serverGames.filter(g => !BUNDLED_GAME_IDS.has(g.id));
-  return [...BUNDLED_GAMES, ...serverOnly];
+  return [...updatedBundled, ...serverOnly];
 }
 
 let inflight: AbortController | null = null;

@@ -265,6 +265,36 @@ class LocalGameServer(private val store: GameBundleStore, private val tutorialRo
       }
     }
 
+    if (file.name.endsWith(".html", ignoreCase = true) && !partial) {
+      val raw = file.readText(Charsets.UTF_8)
+      val processed = if (raw.contains("fonts.googleapis.com")) {
+        raw.replace(Regex("""(<link\b[^>]*\bhref=["'][^"']*fonts\.googleapis\.com[^"']*["'][^>]*>)""", RegexOption.IGNORE_CASE)) { m ->
+          val tag = m.value
+          if (!tag.contains("media=")) {
+            tag.replace(Regex("""\brel=["']stylesheet["']""", RegexOption.IGNORE_CASE), """media="print" onload="this.media='all'" rel="stylesheet"""")
+          } else {
+            tag
+          }
+        }
+      } else {
+        raw
+      }
+      val payload = processed.toByteArray(Charsets.UTF_8)
+      val htmlHeaders = linkedMapOf(
+        "Content-Type" to "text/html; charset=utf-8",
+        "Content-Length" to payload.size.toString(),
+        "Accept-Ranges" to "bytes",
+        "Cache-Control" to "public, max-age=31536000, immutable",
+        "Access-Control-Allow-Origin" to "*",
+        "Cross-Origin-Resource-Policy" to "cross-origin",
+        "X-Content-Type-Options" to "nosniff",
+        "Connection" to if (keepAlive) "keep-alive" else "close",
+      )
+      writeHeaders(output, 200, "OK", htmlHeaders)
+      if (method != "HEAD") output.write(payload)
+      return keepAlive
+    }
+
     val contentLength = end - start + 1
     val headers = linkedMapOf(
       "Content-Type" to mimeTypeOf(file.name),

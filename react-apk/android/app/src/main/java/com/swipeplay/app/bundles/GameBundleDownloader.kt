@@ -153,8 +153,8 @@ class GameBundleDownloader(
    */
   private fun open(
     url: String,
-    connectTimeoutMs: Int = 8_000,
-    readTimeoutMs: Int = 15_000,
+    connectTimeoutMs: Int = 20_000,
+    readTimeoutMs: Int = 60_000,
   ): HttpURLConnection {
     val connection = URL(url).openConnection() as HttpURLConnection
     connection.connectTimeout = connectTimeoutMs
@@ -185,12 +185,10 @@ class GameBundleDownloader(
    * Replaces the wish-list, in priority order — the caller passes the games it
    * wants most first, each tagged with how close it is to the player.
    *
-   * The job already in flight is re-scored along with everything else. It keeps
-   * running while it is still among the most urgent work; it is preempted when
-   * the swipe that produced this wish-list put something materially closer to
-   * the player at the head of the queue. Preemption only stops the transfer —
-   * the `.part` file stays exactly where it is, so coming back to that game
-   * resumes from the byte it reached rather than starting over.
+   * Sequential background download resiliency:
+   * The in-flight job is NOT cancelled when the user swipes or plays. It continues
+   * downloading to completion so games are reliably saved to local storage one by one.
+   * The remaining queue is re-ordered so the games closest to the player are downloaded next.
    */
   fun submit(jobs: List<Job>) {
     synchronized(queueLock) {
@@ -210,15 +208,15 @@ class GameBundleDownloader(
       val inFlight = currentJob
       if (inFlight != null) {
         val wanted = queued[inFlight.gameId]
-        if (wanted?.buildId != inFlight.buildId) {
-          // The build being fetched is no longer wanted (a newer one landed, or
-          // the game left the catalogue). Its .part stays for a later resume.
+        if (wanted != null && wanted.buildId != inFlight.buildId) {
+          // The build being fetched is no longer wanted (a newer build landed).
           cancelActiveConnection()
-        } else if (shouldPreempt(wanted.priority)) {
-          // Stop the transfer only. The job is already sitting in the rebuilt
-          // queue at its new rank, and its `.part` file is untouched, so this
-          // pauses the work rather than discarding it.
-          cancelActiveConnection()
+        } else if (inFlight.priority > PRIORITY_NEXT && currentFraction < NEARLY_DONE_FRACTION) {
+          // An active on-screen game urgently needs downloading before distant background queue.
+          val head = queue.peekFirst()
+          if (head != null && head.priority == PRIORITY_CURRENT && head.gameId != inFlight.gameId) {
+            cancelActiveConnection()
+          }
         }
       }
     }
@@ -302,14 +300,13 @@ class GameBundleDownloader(
    * the server cannot serve stops being hammered without ever being written off
    * — the next activation of that build clears the count entirely.
    */
-  private fun fail(gameId: String, buildId: String, reason: String, isPermanent: Boolean = false) {
+  private fun fail(gameId: String, buildId: String, reason: String) {
     val retryInMs: Long
     synchronized(queueLock) {
       val id = key(gameId, buildId)
-      val failures = if (isPermanent) 10 else ((failureCounts[id] ?: 0) + 1)
+      val failures = (failureCounts[id] ?: 0) + 1
       failureCounts[id] = failures
-      val backoff = if (isPermanent) (24 * 60 * 60 * 1000L)
-        else minOf(BASE_BACKOFF_MS shl minOf(failures - 1, BACKOFF_SHIFT_CAP), MAX_BACKOFF_MS)
+      val backoff = minOf(BASE_BACKOFF_MS shl minOf(failures - 1, BACKOFF_SHIFT_CAP), MAX_BACKOFF_MS)
       retryInMs = backoff
       failedUntil[id] = System.currentTimeMillis() + backoff
     }
@@ -492,8 +489,7 @@ class GameBundleDownloader(
         existing = 0L
         append = false
       } else if (code != HttpURLConnection.HTTP_OK && code != HttpURLConnection.HTTP_PARTIAL) {
-        val isPermanent = (code == HttpURLConnection.HTTP_NOT_FOUND || code == 410 || code == HttpURLConnection.HTTP_FORBIDDEN)
-        fail(job.gameId, buildId, "HTTP $code for ${file.path}", isPermanent)
+        fail(job.gameId, buildId, "HTTP $code for ${file.path}")
         return false
       }
 
@@ -558,13 +554,12 @@ class GameBundleDownloader(
   }
 
   private fun fetchManifest(job: Job): Manifest? {
-    val connection = open(job.bundleUrl, connectTimeoutMs = 5_000, readTimeoutMs = 8_000)
+    val connection = open(job.bundleUrl, connectTimeoutMs = 15_000, readTimeoutMs = 30_000)
     connection.setRequestProperty("Accept", "application/json")
     try {
       val code = connection.responseCode
       if (code !in 200..299) {
-        val isPermanent = (code == HttpURLConnection.HTTP_NOT_FOUND || code == 410 || code == HttpURLConnection.HTTP_FORBIDDEN)
-        fail(job.gameId, job.buildId, "manifest HTTP $code", isPermanent)
+        fail(job.gameId, job.buildId, "manifest HTTP $code")
         return null
       }
       // The manifest is metadata, not game content: kilobytes, and the one

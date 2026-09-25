@@ -1,3 +1,4 @@
+import NetInfo, { type NetInfoSubscription } from '@react-native-community/netinfo';
 import { AppState, type AppStateStatus, type NativeEventSubscription } from 'react-native';
 import mobileAds, {
   AdEventType,
@@ -7,22 +8,40 @@ import mobileAds, {
 } from 'react-native-google-mobile-ads';
 import { create } from 'zustand';
 import { DEFAULT_ADS_CONFIG, fetchAdsConfig, normalizeAdsConfig } from '../api/adsApi';
-import { ADMOB_DEFAULTS, NETWORK, STORAGE_KEYS } from '../config/env';
+import { isTestAdUnitId, NETWORK, STORAGE_KEYS } from '../config/env';
 import type { AdsRemoteConfig, GameItem } from '../types/game';
 import { isAdDue, restoredAnchor } from './adTimingPolicy';
 import { analytics } from './analytics';
 import { readJson, writeJson } from './storage';
 
+/**
+ * Resolves an Ad Unit ID directly from the Admin Panel.
+ * In release builds, test ad unit IDs are never allowed under any circumstances.
+ */
+export function sanitizeAdUnitId(unitId: string | undefined | null): string {
+  const clean = (unitId || '').trim();
+  if (!clean) return '';
+  // In release builds, test ads must never be shown under any circumstances.
+  if (!__DEV__ && isTestAdUnitId(clean)) {
+    return '';
+  }
+  return clean;
+}
+
 /** UI-facing slice; components subscribe to this, the manager owns the rest. */
 interface AdsUiState {
   bannerEnabled: boolean;
   bannerUnitId: string;
+  bannerReloadKey: number;
+  sdkReady: boolean;
   fullScreenAdShowing: boolean;
 }
 
 export const useAdsStore = create<AdsUiState>(() => ({
-  bannerEnabled: DEFAULT_ADS_CONFIG.bannerEnabled,
-  bannerUnitId: ADMOB_DEFAULTS.bannerUnitId,
+  bannerEnabled: false,
+  bannerUnitId: '',
+  bannerReloadKey: 0,
+  sdkReady: false,
   fullScreenAdShowing: false,
 }));
 
@@ -51,10 +70,10 @@ class AdManager {
   private interstitial: InterstitialAd | null = null;
   private interstitialUnsubs: Array<() => void> = [];
   private interstitialLoading = false;
-  private interstitialUnitId: string = ADMOB_DEFAULTS.interstitialUnitId;
+  private interstitialUnitId: string = '';
   private rewarded: RewardedAd | null = null;
   private rewardedUnsubs: Array<() => void> = [];
-  private rewardedUnitId: string = ADMOB_DEFAULTS.rewardedUnitId;
+  private rewardedUnitId: string = '';
   private rewardedLoading = false;
   private pendingReward: ((granted: boolean) => void) | null = null;
 
@@ -69,6 +88,9 @@ class AdManager {
   private configInflight: Promise<void> | null = null;
   private ticker: ReturnType<typeof setInterval> | null = null;
   private appStateSub: NativeEventSubscription | null = null;
+  private netInfoSub: NetInfoSubscription | null = null;
+  private wasOffline = false;
+  private lastNetworkRestoreAt = 0;
   private started = false;
   private sdkReady = false;
   /** Set by the feed: a game currently owns the WebView renderer. */
@@ -92,14 +114,26 @@ class AdManager {
     try {
       await mobileAds().initialize();
       this.sdkReady = true;
+      useAdsStore.setState(s => ({ sdkReady: true, bannerReloadKey: s.bannerReloadKey + 1 }));
     } catch {
       // The SDK failing to initialise must never block gameplay; we simply
       // won't show ads this session.
       this.sdkReady = false;
+      useAdsStore.setState({ sdkReady: false });
     }
 
     this.appStateSub = AppState.addEventListener('change', this.onAppState);
     this.appActive = AppState.currentState !== 'background';
+
+    this.netInfoSub = NetInfo.addEventListener(state => {
+      const isOnline = state.isConnected === true && state.isInternetReachable !== false;
+      const isOffline = state.isConnected === false || state.isInternetReachable === false;
+      if (isOnline && this.wasOffline) {
+        this.onNetworkRestored();
+      }
+      this.wasOffline = isOffline;
+    });
+
     void this.refreshConfig();
     this.loadInterstitial();
     this.loadRewarded();
@@ -110,6 +144,8 @@ class AdManager {
     this.stopTicker();
     this.appStateSub?.remove();
     this.appStateSub = null;
+    this.netInfoSub?.();
+    this.netInfoSub = null;
     this.disposeInterstitial();
     this.disposeRewarded();
     this.started = false;
@@ -126,12 +162,31 @@ class AdManager {
     if (active) {
       analytics.resumeAfterAd();
       void this.refreshConfig();
+      if (!this.interstitial?.loaded) this.loadInterstitial();
+      if (!this.rewarded) this.loadRewarded();
       this.startTicker();
     } else {
       if (useAdsStore.getState().fullScreenAdShowing) analytics.pauseForAd();
       this.stopTicker();
     }
   };
+
+  /**
+   * Called immediately when internet connection is restored while the app is running.
+   * Cancels any failure back-off timer, re-fetches remote config, and triggers
+   * immediate ad requests (including remounting any previously failed banner).
+   */
+  private onNetworkRestored(): void {
+    const now = Date.now();
+    if (now - this.lastNetworkRestoreAt < 2000) return;
+    this.lastNetworkRestoreAt = now;
+    this.wasOffline = false;
+    this.nextLoadAttemptAt = 0;
+    void this.refreshConfig();
+    this.loadInterstitial();
+    if (!this.rewarded) this.loadRewarded();
+    useAdsStore.setState(s => ({ bannerReloadKey: s.bannerReloadKey + 1 }));
+  }
 
   private startTicker() {
     if (this.ticker) return;
@@ -165,7 +220,8 @@ class AdManager {
         if (!this.rewarded) this.loadRewarded();
         this.check(false);
       } catch {
-        // Keep the cached/previous configuration; retried on the next tick window.
+        // Network failed (offline); mark so we react the instant connection returns
+        this.wasOffline = true;
       } finally {
         this.configInflight = null;
       }
@@ -178,18 +234,20 @@ class AdManager {
     const previousRewarded = this.rewardedUnitId;
     this.config = config;
 
-    // Debuggable builds never load production units (MainActivity.fetchRemoteAdsConfig).
-    const bannerUnitId = __DEV__ ? ADMOB_DEFAULTS.bannerUnitId : config.bannerUnitId;
-    this.interstitialUnitId = __DEV__ ? ADMOB_DEFAULTS.interstitialUnitId : config.interstitialUnitId;
-    this.rewardedUnitId = __DEV__ ? ADMOB_DEFAULTS.rewardedUnitId : config.rewardedUnitId;
+    // Directly use production IDs from the Admin Panel.
+    // In release builds, test ads are never shown under any circumstances.
+    const bannerUnitId = sanitizeAdUnitId(config.bannerUnitId);
+    this.interstitialUnitId = sanitizeAdUnitId(config.interstitialUnitId);
+    this.rewardedUnitId = sanitizeAdUnitId(config.rewardedUnitId);
 
     if (previousInterstitial !== this.interstitialUnitId) this.disposeInterstitial();
     if (previousRewarded !== this.rewardedUnitId) this.disposeRewarded();
 
-    useAdsStore.setState({
-      bannerEnabled: config.bannerEnabled,
+    useAdsStore.setState(s => ({
+      bannerEnabled: Boolean(config.bannerEnabled && bannerUnitId),
       bannerUnitId,
-    });
+      bannerReloadKey: s.bannerReloadKey + 1,
+    }));
     this.persistState();
   }
 
@@ -306,6 +364,7 @@ class AdManager {
     if (
       !this.sdkReady ||
       !this.config.interstitialEnabled ||
+      !this.interstitialUnitId ||
       this.interstitialLoading ||
       this.interstitial?.loaded ||
       useAdsStore.getState().fullScreenAdShowing ||
@@ -367,7 +426,7 @@ class AdManager {
   /* ---------------------------------------------------------------- */
 
   private loadRewarded(): void {
-    if (!this.sdkReady || this.rewardedLoading || this.rewarded?.loaded) return;
+    if (!this.sdkReady || !this.rewardedUnitId || this.rewardedLoading || this.rewarded?.loaded) return;
     if (this.playing) {
       this.rewardedDeferred = true;
       return;

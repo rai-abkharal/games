@@ -578,7 +578,7 @@ export const GamePage = memo(
             mediaPlaybackRequiresUserAction={false}
             mixedContentMode="always"
             cacheEnabled
-            cacheMode="LOAD_DEFAULT"
+            cacheMode={localUrl ? 'LOAD_DEFAULT' : 'LOAD_CACHE_ELSE_NETWORK'}
             overScrollMode="never"
             bounces={false}
             scrollEnabled={false}

@@ -33,6 +33,8 @@ export const PLACEHOLDER_HOSTS: ReadonlySet<string> = new Set([
   '127.0.0.1',
   '10.0.2.2',
   'games.example.com',
+  '187.77.147.226',
+  '162.243.197.241',
 ]);
 
 export const API_PATHS = {
@@ -67,6 +69,15 @@ export const ADMOB_DEFAULTS = {
   interstitialUnitId: 'ca-app-pub-3940256099942544/1033173712',
   rewardedUnitId: 'ca-app-pub-3940256099942544/5224354917',
 } as const;
+
+/** Known Google sample test ad publisher identifier. */
+export const GOOGLE_TEST_PUBLISHER_ID = 'ca-app-pub-3940256099942544';
+
+/** Checks whether a given ad unit ID belongs to Google's public test publisher. */
+export function isTestAdUnitId(unitId?: string | null): boolean {
+  if (!unitId) return false;
+  return unitId.includes(GOOGLE_TEST_PUBLISHER_ID) || unitId.startsWith('/6499/example/');
+}
 
 export const GAMEPLAY = {
   /** Starter wallet for a brand-new player (PlayerProgressManager). */

@@ -4,12 +4,12 @@
   "version": "1.14.0",
   "buildId": "e556c1eae1e690a2ef361143e5a38919",
   "entry": "index.html",
-  "totalBytes": 131929,
+  "totalBytes": 133054,
   "files": [
     {
       "path": "index.html",
-      "bytes": 131307,
-      "sha256": "a6969702c595eeaf4ee2e4779944e28bbbae218bbb5d6588c717160e55f92673"
+      "bytes": 132432,
+      "sha256": "5db0f0566305fc0b0dbd0924bb1e87fccea9aa4ef9a0f080bcd82d5a948aaf11"
     },
     {
       "path": "manifest.json",
@@ -17,5 +17,5 @@
       "sha256": "bd3dc5d1e38e99bb628db783f9fc25e88993128992943b93e6d2dede65db3216"
     }
   ],
-  "generatedAt": "2026-09-22T12:10:32.008Z"
+  "generatedAt": "2026-09-25T07:12:07.703Z"
 }
