@@ -5,6 +5,10 @@ import type { GameItem } from '../src/types/game';
 import { tutorialPageLoadPolicy } from '../src/feed/tutorialFlow';
 import { PAUSE_SCRIPT, buildResumeScript } from '../src/services/gameBridge';
 
+const mockOffline = { value: false };
+jest.mock('../src/hooks/useNetworkStatus', () => ({
+  useIsOffline: () => mockOffline.value,
+}));
 const mockStopLoading = jest.fn();
 const mockInjectJavaScript = jest.fn();
 jest.mock('react-native-webview', () => {
@@ -81,6 +85,7 @@ beforeEach(() => {
   mockStopLoading.mockClear();
   mockInjectJavaScript.mockClear();
   mockLocalUrl.value = 'http://127.0.0.1:42731/tok/test/build-1/index.html';
+  mockOffline.value = false;
   mockLoadEvents.length = 0;
 });
 afterEach(async () => {
@@ -206,6 +211,53 @@ test('a game with no local build waits for the disk downloader', async () => {
   expect(webviews()).toHaveLength(0);
   mockLocalUrl.value = 'http://127.0.0.1:42731/tok/test/build-1/index.html';
   await act(async () => tree.update(<GamePage {...props} slot="active" near={false} />));
+  expect(webviews()[0].props.source.uri).toBe(mockLocalUrl.value);
+});
+
+const serverGame: GameItem = {
+  ...game,
+  id: 'game-abc',
+  version: '1.0.0',
+  entryUrl: 'https://games.raiabdullah.tech/games/game-abc/1.0.0/index.html',
+  bundleUrl: 'https://games.raiabdullah.tech/api/offline-bundles/game-abc/1.0.0/bundle.json',
+  buildId: 'build-123',
+};
+
+test('a missing server game fast-starts on the canonical play route while online', async () => {
+  mockLocalUrl.value = null;
+  await act(async () => {
+    tree = TestRenderer.create(<GamePage {...props} game={serverGame} slot="active" />);
+  });
+  expect(webviews()[0].props.source.uri).toMatch(
+    /^https:\/\/games\.raiabdullah\.tech\/api\/play\/game-abc\/1\.0\.0\/index\.html\?/,
+  );
+  const source = webviews()[0].props.source;
+  mockLocalUrl.value = 'http://127.0.0.1:42731/tok/game-abc/build-123/index.html';
+  await act(async () => tree.update(<GamePage {...props} game={serverGame} slot="active" />));
+  expect(webviews()[0].props.source).toBe(source);
+});
+
+test('a missing server game does not try the network offline', async () => {
+  mockLocalUrl.value = null;
+  mockOffline.value = true;
+  await act(async () => {
+    tree = TestRenderer.create(<GamePage {...props} game={serverGame} slot="active" />);
+  });
+  expect(webviews()).toHaveLength(0);
+});
+
+test('a failed fast-start waits for the verified local copy', async () => {
+  mockLocalUrl.value = null;
+  await act(async () => {
+    tree = TestRenderer.create(<GamePage {...props} game={serverGame} slot="active" />);
+  });
+  const url = webviews()[0].props.source.uri;
+  await act(async () => {
+    webviews()[0].props.onHttpError({ nativeEvent: { url, statusCode: 404 } });
+  });
+  expect(webviews()).toHaveLength(0);
+  mockLocalUrl.value = 'http://127.0.0.1:42731/tok/game-abc/build-123/index.html';
+  await act(async () => tree.update(<GamePage {...props} game={serverGame} slot="active" near={false} />));
   expect(webviews()[0].props.source.uri).toBe(mockLocalUrl.value);
 });
 

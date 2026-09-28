@@ -1,4 +1,5 @@
 import type { GameItem } from '../types/game';
+import { DEFAULT_BASE_URL } from '../config/env';
 
 const ABSOLUTE_URL = /^https?:\/\//i;
 
@@ -61,6 +62,25 @@ export function buildGameEntryUrl(game: GameItem): string {
       : String(hashCode(`${game.id}:${game.version}`));
   const sep = game.entryUrl.includes('?') ? '&' : '?';
   return `${game.entryUrl}${sep}v=${encodeURIComponent(game.version)}&t=${token}`;
+}
+
+/**
+ * Play an uncached server build from the canonical origin without using the
+ * public /games redirect (which points at the separate Admin preview host).
+ * The native downloader remains the only authority for offline readiness.
+ */
+export function buildRemotePlayUrl(game: GameItem): string | null {
+  if (game.tutorial || !game.buildId || !game.bundleUrl ||
+      !/^[a-z0-9-]+$/.test(game.id) || !/^\d+\.\d+\.\d+$/.test(game.version)) return null;
+  const pathAndQuery = splitUrl(buildGameEntryUrl(game))?.pathAndQuery;
+  const prefix = `/games/${game.id}/${game.version}/`;
+  if (!pathAndQuery?.startsWith(prefix)) return null;
+  const relative = pathAndQuery.slice(prefix.length).split('?')[0];
+  if (!/\.html?$/i.test(relative) || relative.includes('\\') ||
+      relative.split('/').some(part => !part || part === '.' || part === '..' || /%2f|%5c/i.test(part))) return null;
+  const suffix = pathAndQuery.slice(prefix.length);
+  return `${DEFAULT_BASE_URL}/api/play/${game.id}/${game.version}/${suffix}` +
+    `${suffix.includes('?') ? '&' : '?'}b=${encodeURIComponent(game.buildId)}`;
 }
 
 /** Java-compatible String.hashCode, kept so cache keys match the native app. */

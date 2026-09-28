@@ -718,12 +718,16 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     setBundlePolicy({ metered });
   }, [metered]);
 
-  // Downloads stop entirely only when there is no network to use. Being
-  // backgrounded is not a reason to stop: it is the best time to finish a
-  // bundle, and `setBundlePlaying` above already lifts the speculative ceiling.
+  // Give a missing game's first remote load the network to itself. As soon as
+  // its WebView is ready, resume the sequential offline queue while it plays.
+  // Built-in games are local and never pause background downloads here.
+  const remoteStarting = Boolean(
+    current?.buildId && current.bundleUrl &&
+    localUrlFor(current) === null && pagePhases[current.id] === 'loading',
+  );
   useEffect(() => {
-    setBundlePaused(offline);
-  }, [offline]);
+    setBundlePaused(offline || remoteStarting);
+  }, [offline, remoteStarting]);
 
   /* ---------------- bridge messages from the active game --------------------- */
   const grantHint = useCallback(

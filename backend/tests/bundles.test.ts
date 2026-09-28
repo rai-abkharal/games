@@ -149,6 +149,38 @@ describe("bundle manifests", () => {
 });
 
 describe("bundle endpoints", () => {
+  it("serves playable same-origin files without exposing the Admin origin to game scripts", async () => {
+    writeBuild("alpha", "1.0.0", {
+      "index.html": "<html><script src=\"assets/app.js\"></script></html>",
+      "assets/app.js": "console.log('play')",
+      "assets/logo.svg": "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>",
+    });
+    writeCatalog([gameEntry("alpha", "1.0.0")]);
+    const app = makeApp();
+    const html = await request(app)
+      .get("/api/play/alpha/1.0.0/index.html")
+      .set("Host", new URL(origin).host);
+    expect(html.status).toBe(200);
+    expect(html.headers.location).toBeUndefined();
+    expect(html.headers["content-disposition"]).toBeUndefined();
+    expect(html.headers["content-security-policy"]).toContain("sandbox allow-scripts");
+    expect(html.headers["content-security-policy"]).not.toContain("allow-same-origin");
+    expect(html.headers["content-security-policy"]).toContain(`connect-src ${origin}`);
+    expect(html.headers["content-security-policy"]).not.toContain(previewOrigin);
+    expect(html.text.indexOf("memoryStorage()")).toBeLessThan(html.text.indexOf("assets/app.js"));
+    const asset = await request(app)
+      .get("/api/play/alpha/1.0.0/assets/app.js")
+      .set("Host", new URL(origin).host);
+    expect(asset.status).toBe(200);
+    expect(asset.text).toBe("console.log('play')");
+    expect(asset.headers["content-disposition"]).toBeUndefined();
+    const svg = await request(app).get("/api/play/alpha/1.0.0/assets/logo.svg");
+    expect(svg.headers["content-security-policy"]).toContain("sandbox allow-scripts");
+    expect(svg.headers["content-security-policy"]).not.toContain("allow-same-origin");
+    expect((await request(app).get("/api/play/alpha/1.0.0/bundle.json")).status).toBe(404);
+    expect((await request(app).get("/api/play/alpha/nope/index.html")).status).toBe(404);
+  });
+
   it("serves manifest and range bytes on the canonical origin without a preview redirect", async () => {
     writeBuild("alpha", "1.0.0", {
       "index.html": "<html>alpha</html>",

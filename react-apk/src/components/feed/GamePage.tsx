@@ -2,6 +2,7 @@ import React, { forwardRef, memo, useCallback, useEffect, useImperativeHandle, u
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { FEED, NETWORK } from '../../config/env';
+import { useIsOffline } from '../../hooks/useNetworkStatus';
 import type { PageSlot } from '../../feed/preloadPlanner';
 import { canPreloadTutorial } from '../../feed/tutorialFlow';
 import {
@@ -23,7 +24,7 @@ import { GAME_SURFACE, GLASS, HUD, THEMES } from '../../theme/themes';
 import type { GameToHostMessage } from '../../types/bridge';
 import type { GameItem } from '../../types/game';
 import { displayCategory } from '../../utils/misc';
-import { buildGameEntryUrl } from '../../utils/url';
+import { buildGameEntryUrl, buildRemotePlayUrl } from '../../utils/url';
 import { MessageView } from '../StateViews';
 import { CircularLogoLoader } from '../common/CircularLogoLoader';
 
@@ -84,10 +85,9 @@ const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
  *                window; it is unmounted once the pager rests;
  *  - `far`     → tears the WebView down and frees its memory.
  *
- * A build stored on the device is loaded from the loopback origin; otherwise
- * the cache-busted entry URL is loaded straight from the server. Load failures,
- * timeouts and renderer crashes surface as a retry state instead of taking the
- * feed down.
+ * Verified builds load from the loopback origin. Missing server builds may
+ * fast-start from the canonical play route while the native queue downloads
+ * the complete offline bundle. A failed fast-start waits for that bundle.
  */
 export const GamePage = memo(
   forwardRef<GamePageHandle, Props>(function GamePageInner(
@@ -116,6 +116,8 @@ export const GamePage = memo(
       () => (slot === 'active' || canPreload) && mayLoad && (!suspended || isPrewarm),
     );
     const [attempt, setAttempt] = useState(0);
+    const [remoteUnavailable, setRemoteUnavailable] = useState(false);
+    const offline = useIsOffline();
     const [phase, setPhaseState] = useState<PagePhase>('idle');
     const [errorText, setErrorText] = useState<string | null>(null);
     const [placeholderShown, setPlaceholderShown] = useState(true);
@@ -212,20 +214,25 @@ export const GamePage = memo(
     // are picked up when this page is next created or explicitly retried.
     const sourceKey = `${game.id}:${game.version}:${game.buildId ?? game.updatedAt ?? game.sha256 ?? ''}`;
     const entryUrl = useMemo(() => buildGameEntryUrl(game), [sourceKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    const remotePlayUrl = useMemo(() => buildRemotePlayUrl(game), [sourceKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => setRemoteUnavailable(false), [sourceKey]);
     useBundleStore(useCallback(state => state.ready[game.id], [game.id]));
     const localUrl = live ? (game.tutorial ? entryUrl : localUrlFor(game)) : null;
     const selectedSource = useRef<{ attempt: number; source: WebSource } | null>(null);
     const source = useMemo<WebSource | null>(() => {
-      // Only verified disk builds run. Preserve the selected source while the
-      // player is using it, even if a newer build arrives in the background.
+      // Local wins. Once a remote session starts, preserve it until retry or
+      // unmount so a completed background download does not reset gameplay.
       if (!live) {
         selectedSource.current = null;
         return null;
       }
       if (selectedSource.current?.attempt !== attempt) selectedSource.current = null;
       if (!selectedSource.current && localUrl) selectedSource.current = { attempt, source: { uri: localUrl } };
+      if (!selectedSource.current && !offline && !remoteUnavailable && remotePlayUrl) {
+        selectedSource.current = { attempt, source: { uri: remotePlayUrl } };
+      }
       return selectedSource.current?.source ?? null;
-    }, [live, attempt, localUrl]);
+    }, [live, attempt, localUrl, offline, remoteUnavailable, remotePlayUrl]);
 
     /**
      * Publishes one `game_load` event for the attempt that just settled.
@@ -361,6 +368,7 @@ export const GamePage = memo(
       isResumedRef.current = false;
       if (live) inject(DESTROY_SCRIPT);
       setErrorText(null);
+      setRemoteUnavailable(false);
       setAttempt(value => value + 1);
       if (!live) setLive(true);
     }, [live, inject]);
@@ -432,9 +440,8 @@ export const GamePage = memo(
       }
     }, [slot, phase, retry]);
 
-    // When the offline bundle finishes downloading in the background,
-    // if the page had errored or is still stuck loading over the network,
-    // immediately re-launch with the fast local bundle.
+    // When the offline bundle finishes downloading, a still-loading or failed
+    // remote session may switch to the verified local build.
     const isBundleReady = useBundleStore(
       useCallback(
         state => Boolean(game.buildId && state.ready[game.id]),
@@ -597,10 +604,26 @@ export const GamePage = memo(
             onMessage={handleMessage}
             onLoadStart={handleLoadStart}
             onLoad={handleLoadEnd}
-            onError={event => fail(event.nativeEvent.description || 'The game could not be loaded.')}
+            onError={event => {
+              const reason = event.nativeEvent.description || 'The game could not be loaded.';
+              if (source.uri === remotePlayUrl) {
+                reportLoad('error', reason);
+                selectedSource.current = null;
+                setRemoteUnavailable(true);
+              } else {
+                fail(reason);
+              }
+            }}
             onHttpError={event => {
               if (event.nativeEvent.url === source.uri) {
-                fail(`Local game server responded with HTTP ${event.nativeEvent.statusCode}.`);
+                const reason = `Game server responded with HTTP ${event.nativeEvent.statusCode}.`;
+                if (source.uri === remotePlayUrl) {
+                  reportLoad('error', reason);
+                  selectedSource.current = null;
+                  setRemoteUnavailable(true);
+                } else {
+                  fail(reason);
+                }
               }
             }}
             onRenderProcessGone={() => fail('The game crashed. Tap retry to relaunch it.')}
