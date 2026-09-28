@@ -24,6 +24,7 @@ interface Props {
 const BAR_HEIGHT = 56;
 const HANDLE_GAP = 6;
 const HIDE_EXTRA = 40;
+const HANDLE_TOUCH_PADDING = 8;
 
 /**
  * The bottom dock:
@@ -85,7 +86,7 @@ export const FeedDock = memo(function FeedDockInner({
       {/* Edge-to-edge dock bar with safe-area padding and centered inner container */}
       <Animated.View
         collapsable={false}
-        pointerEvents="auto"
+        pointerEvents={visible ? 'auto' : 'none'}
         style={[
           styles.bar,
           {
@@ -121,22 +122,25 @@ export const FeedDock = memo(function FeedDockInner({
         style={[
           styles.handleWrap,
           {
-            bottom: collapsedBottom,
+            bottom: collapsedBottom - HANDLE_TOUCH_PADDING,
             transform: [{ translateY: handleY }],
           },
         ]}
       >
         <Pressable
-          onPress={onToggle}
+          pointerEvents="box-only"
+          onPress={e => {
+            e.stopPropagation();
+            onToggle();
+          }}
           onPressIn={e => e.stopPropagation()}
+          onPressOut={e => e.stopPropagation()}
           onTouchStart={e => e.stopPropagation()}
+          onTouchMove={e => e.stopPropagation()}
           onTouchEnd={e => e.stopPropagation()}
-          onStartShouldSetResponder={() => true}
-          onStartShouldSetResponderCapture={() => true}
-          onMoveShouldSetResponder={() => true}
-          onMoveShouldSetResponderCapture={() => true}
-          onResponderTerminationRequest={() => false}
-          hitSlop={8}
+          onTouchCancel={e => e.stopPropagation()}
+          cancelable={false}
+          hitSlop={HANDLE_TOUCH_PADDING}
           style={[
             styles.handle,
             {
@@ -189,10 +193,13 @@ function DockItem({
 
 const styles = StyleSheet.create({
   layer: {
+    // Android hit-testing requires the arrow to be inside its parent's bounds.
+    // box-none keeps every area except the actual dock/handle playable.
     position: 'absolute',
+    top: 0,
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
     zIndex: 10,
   },
   // Straight dock bar matching the phone edges from left to right (no rounded corners)
@@ -239,7 +246,8 @@ const styles = StyleSheet.create({
   // Toggle Arrow placed on the RIGHT side
   handleWrap: {
     position: 'absolute',
-    right: 18,
+    right: 18 - HANDLE_TOUCH_PADDING,
+    padding: HANDLE_TOUCH_PADDING,
     elevation: 20,
   },
   handle: {

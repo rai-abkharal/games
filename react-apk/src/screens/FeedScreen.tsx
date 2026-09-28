@@ -51,6 +51,7 @@ import {
   type SwipeDirection,
 } from '../feed/preloadPlanner';
 import { useAppStateChange } from '../hooks/useAppState';
+import { useHomeSwipeHint } from '../hooks/useHomeSwipeHint';
 import { useIsMetered, useIsOffline } from '../hooks/useNetworkStatus';
 import type { RootScreenProps } from '../navigation/types';
 import { adManager, useAdsStore } from '../services/adManager';
@@ -181,16 +182,8 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const [stage, setStage] = useState({ width: 0, height: 0 });
   const [tutorialStep, setTutorialStep] =
     useState<TutorialFlowStep>('arrow_playing');
-  const [homeSwipeVisible, setHomeSwipeVisible] = useState(false);
   const tutorialGestureProgress = useRef(new Animated.Value(0)).current;
   const homeTutorialRevealProgress = useRef(new Animated.Value(0)).current;
-  const swipeDistance = homeSwipeVisible
-    ? (stage.height > 0 ? stage.height * 0.14 : 90)
-    : (stage.height > 0 ? stage.height * 0.40 : 260);
-  const tutorialPageTranslateY = tutorialGestureProgress.interpolate({
-    inputRange: [0, 0.12, 0.43, 0.72, 0.94, 1],
-    outputRange: [0, 0, -swipeDistance, -swipeDistance, 0, 0],
-  });
 
   const [tab, setTab] = useState<FeedTab>('all');
   const filtered = useMemo(() => {
@@ -265,6 +258,19 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
 
   const current = list[position.index] ?? null;
   const currentId = current?.id ?? null;
+  const homeSwipeVisible = useHomeSwipeHint(
+    currentId,
+    tutorialsHydrated && !isTutorialActive && !homeSwipeSeen &&
+      !suspended && !position.settling && stage.height > 0 &&
+      pagePhases[currentId ?? ''] === 'ready',
+  );
+  const swipeDistance = homeSwipeVisible
+    ? (stage.height > 0 ? stage.height * 0.14 : 90)
+    : (stage.height > 0 ? stage.height * 0.40 : 260);
+  const tutorialPageTranslateY = tutorialGestureProgress.interpolate({
+    inputRange: [0, 0.12, 0.43, 0.72, 0.94, 1],
+    outputRange: [0, 0, -swipeDistance, -swipeDistance, 0, 0],
+  });
 
   /* ---------------- page registry & phases ----------------------------------- */
   const pagesRef = useRef(new Map<string, GamePageHandle>());
@@ -293,7 +299,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     [],
   );
 
-  const phasesRef = useRef(new Map<string, PagePhase>());
   /** A finger is on the feed or the pages are moving (GamePager.onBusyChange). */
   const pagerBusyRef = useRef(false);
   /**
@@ -335,52 +340,36 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   );
 
   const onPhase = useCallback((gameId: string, phase: PagePhase) => {
-    phasesRef.current.set(gameId, phase);
     setPagePhases(phases => phases[gameId] === phase ? phases : { ...phases, [gameId]: phase });
     if (phase === 'ready' && gameId === currentIdRef.current) {
       markFirstGameReady();
-      const tutorials = useTutorialStore.getState();
-      if (tutorials.firstTimeTutorialCompleted && !tutorials.homeSwipeSeen) {
-        setHomeSwipeVisible(true);
-      }
     }
   }, []);
 
-  /* ---------------- dock auto-hide (5 s) -------------------------------------- */
-  const [dockVisible, setDockVisible] = useState(true);
+  /* ---------------- manual reveal, automatic hide (5 s) ---------------------- */
+  const [dockVisible, setDockVisible] = useState(false);
   const dockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleDockHide = useCallback(() => {
-    if (dockTimer.current) clearTimeout(dockTimer.current);
-    dockTimer.current = setTimeout(
-      () => setDockVisible(false),
-      FEED.dockAutoHideMs,
-    );
+    if (dockTimer.current !== null) clearTimeout(dockTimer.current);
+    dockTimer.current = setTimeout(() => {
+      dockTimer.current = null;
+      setDockVisible(false);
+    }, FEED.dockAutoHideMs);
   }, []);
-  const showDock = useCallback(() => {
-    setDockVisible(true);
-    scheduleDockHide();
-  }, [scheduleDockHide]);
   const resetDockTimer = useCallback(() => {
-    if (dockTimer.current) scheduleDockHide();
+    // Activity can extend an open dock's lifetime, but must never reveal it.
+    if (dockTimer.current !== null) scheduleDockHide();
   }, [scheduleDockHide]);
+  useEffect(() => {
+    if (dockVisible) scheduleDockHide();
+    return () => {
+      if (dockTimer.current !== null) clearTimeout(dockTimer.current);
+      dockTimer.current = null;
+    };
+  }, [dockVisible, scheduleDockHide]);
   const toggleDock = useCallback(() => {
-    setDockVisible(visible => {
-      if (visible) {
-        if (dockTimer.current) clearTimeout(dockTimer.current);
-        dockTimer.current = null;
-        return false;
-      }
-      scheduleDockHide();
-      return true;
-    });
-  }, [scheduleDockHide]);
-
-  useEffect(
-    () => () => {
-      if (dockTimer.current) clearTimeout(dockTimer.current);
-    },
-    [],
-  );
+    setDockVisible(visible => !visible);
+  }, []);
 
   /* ---------------- first-run tutorial flow --------------------------------- */
   const onTutorialSwipeUp = useCallback(() => {
@@ -407,20 +396,15 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     }
     setPosition({ index: 0, direction: 1, settling: false });
     setSwipeEnabled(true);
-    showDock();
-    if (firstGame && phasesRef.current.get(firstGame.id) === 'ready') {
-      setHomeSwipeVisible(true);
-    }
     analytics.onGameAction(
       'global',
       'Feed',
       'first_time_tutorial_done',
       'completed',
     );
-  }, [filtered, showDock]);
+  }, [filtered]);
 
   const dismissHomeSwipeTutorial = useCallback(() => {
-    setHomeSwipeVisible(false);
     tutorialGestureProgress.setValue(0);
     useTutorialStore.getState().markHomeSwipeSeen();
   }, [tutorialGestureProgress]);
@@ -455,7 +439,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     currentIdRef.current = game.id;
     setPlaying(true);
     setSwipeEnabled(true);
-    showDock();
     usePlayerStore.getState().setLastPlayed(game.id);
     // Least-recently-played is what the on-device store evicts by, so it has to
     // hear about every selection, not just the ones that persist a profile.
@@ -473,7 +456,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     analytics.onGameSelect(game.id, game.title, game.category);
     void analytics.onGameStart(game.id, game.title, game.category);
     adManager.setCurrentGame(game);
-  }, [currentId, showDock, setPlaying]);
+  }, [currentId, setPlaying]);
 
   // Per-game ad rules may change on a catalogue refresh.
   useEffect(() => {
@@ -780,7 +763,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           }
 
           toast(`+${earned} 🪙 Coins Earned for ${message.score} PTS!`);
-          showDock();
           adManager.onGameOver();
           break;
         }
@@ -808,7 +790,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           }
 
           toast(`🎉 Level Clear! +${earned} 🪙 Coins Earned!`);
-          showDock();
           adManager.onLevelCompleted();
           break;
         }
@@ -860,7 +841,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           break;
       }
     },
-    [grantHint, isTutorialActive, resetDockTimer, showDock, setPlaying],
+    [grantHint, isTutorialActive, resetDockTimer, setPlaying],
   );
 
   /* ---------------- pager callbacks ------------------------------------------ */
@@ -879,6 +860,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       // A performed swipe is the lesson itself: whoever changed the page on
       // their own never needs the swipe coach mark, shown yet or not.
       useTutorialStore.getState().markSwipeSeen();
+      if (!isTutorialActive) useTutorialStore.getState().markHomeSwipeSeen();
       if (isTutorialActive) {
         const game = listRef.current[index];
         const step = game && tutorialGameStep(game);
@@ -1155,7 +1137,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
           </Animated.View>
           <FeedDock
             theme={theme}
-            visible={dockVisible && !isTutorialActive && !homeSwipeVisible}
+            visible={dockVisible && !isTutorialActive}
             tab={tab}
             isFavorite={isFavorite}
             // The stage already ends above the navigation bar, like the native dock.

@@ -246,11 +246,23 @@ class LocalGameServer(
       return keepAlive
     }
 
-    val file = resolve(rawTarget)
-    if (file == null) {
+    val target = parseTarget(rawTarget)
+    if (target == null) {
       writeStatus(output, 404, "Not Found")
-      return keepAlive
+      return false
     }
+    val file = resolve(target)
+    if (file == null) return streamLiveFile(target, method, rangeHeader, output)
+    return serveFile(file, method, rangeHeader, keepAlive, output)
+  }
+
+  private fun serveFile(
+    file: File,
+    method: String,
+    rangeHeader: String?,
+    keepAlive: Boolean,
+    output: OutputStream,
+  ): Boolean {
     // Live/staging bytes are not yet an activated, whole-build-verified copy.
     // Do not let Chromium keep them under the final immutable build URL.
     val cacheControl = if (file.absolutePath.startsWith(liveCacheRoot.absolutePath + File.separator) ||
@@ -290,18 +302,7 @@ class LocalGameServer(
 
     if (file.name.endsWith(".html", ignoreCase = true) && !partial) {
       val raw = file.readText(Charsets.UTF_8)
-      val processed = if (raw.contains("fonts.googleapis.com")) {
-        raw.replace(Regex("""(<link\b[^>]*\bhref=["'][^"']*fonts\.googleapis\.com[^"']*["'][^>]*>)""", RegexOption.IGNORE_CASE)) { m ->
-          val tag = m.value
-          if (!tag.contains("media=")) {
-            tag.replace(Regex("""\brel=["']stylesheet["']""", RegexOption.IGNORE_CASE), """media="print" onload="this.media='all'" rel="stylesheet"""")
-          } else {
-            tag
-          }
-        }
-      } else {
-        raw
-      }
+      val processed = LiveAssetTransfer.rewriteHtml(raw)
       val payload = processed.toByteArray(Charsets.UTF_8)
       val htmlHeaders = linkedMapOf(
         "Content-Type" to "text/html; charset=utf-8",
@@ -360,7 +361,9 @@ class LocalGameServer(
    * Maps `/token/<gameId>/<buildId>/<path>` onto the store, refusing anything
    * that does not resolve strictly inside the named build directory.
    */
-  private fun resolve(rawTarget: String): File? {
+  private data class GamePath(val gameId: String, val buildId: String, val relative: String)
+
+  private fun parseTarget(rawTarget: String): GamePath? {
     val pathOnly = rawTarget.substringBefore('?').substringBefore('#')
     val decoded = try {
       URLDecoder.decode(pathOnly, "UTF-8")
@@ -375,7 +378,11 @@ class LocalGameServer(
     if (!gameId.matches(SAFE_ID) || !buildId.matches(SAFE_ID)) return null
     val relative = segments.subList(3, segments.size).joinToString("/")
     if (!GameBundleStore.isSafeRelativePath(relative)) return null
+    return GamePath(gameId, buildId, relative)
+  }
 
+  private fun resolve(target: GamePath): File? {
+    val (gameId, buildId, relative) = target
     val buildDir = if (gameId == "__tutorial") File(tutorialRoot, buildId)
       else store.buildDir(gameId, buildId)
     val file = File(buildDir, relative)
@@ -396,79 +403,132 @@ class LocalGameServer(
     // matches. Reuse those bytes before asking the network for a live file.
     val staged = File(store.stagingDir(gameId, buildId), relative)
     if (staged.isFile && staged.canRead()) return staged
-    return fetchLiveFile(gameId, buildId, relative)
+    val cached = File(liveCacheRoot, "$gameId/$buildId/$relative")
+    return cached.takeIf { it.isFile && it.canRead() }
   }
 
-  /** Fetches an individual missing asset through the canonical download API. */
-  private fun fetchLiveFile(gameId: String, buildId: String, relative: String): File? {
-    val version = liveVersions["$gameId|$buildId"] ?: return null
+  /**
+   * Streams a missing asset to the WebView as bytes arrive. A complete, plain
+   * GET is also copied to the transient cache, but only published after EOF.
+   * The offline downloader still verifies every cached file against the build
+   * manifest before it can activate a bundle.
+   */
+  private fun streamLiveFile(
+    target: GamePath,
+    method: String,
+    rangeHeader: String?,
+    output: OutputStream,
+  ): Boolean {
+    val (gameId, buildId, relative) = target
+    val version = liveVersions["$gameId|$buildId"]
+    if (version == null || gameId == "__tutorial") {
+      writeStatus(output, 404, "Not Found")
+      return false
+    }
     val cache = File(liveCacheRoot, "$gameId/$buildId/$relative")
-    if (cache.isFile) return cache
     val key = "$gameId|$buildId|$relative"
     val lock = liveFileLocks.getOrPut(key) { Any() }
     synchronized(lock) {
-      if (cache.isFile) return cache
-      val active = File(store.buildDir(gameId, buildId), relative)
-      if (store.isActive(gameId, buildId) && active.isFile && active.canRead()) return active
-      val staged = File(store.stagingDir(gameId, buildId), relative)
-      if (staged.isFile && staged.canRead()) return staged
-      if (liveCacheRoot.usableSpace < MIN_FREE_BYTES) return null
+      // Another request or the downloader may have completed this file while
+      // we waited for its lock. Serve that copy without another network trip.
+      val available = resolve(target)
+      if (available != null) return serveFile(available, method, rangeHeader, false, output)
       val encoded = relative.split("/").joinToString("/") {
         URLEncoder.encode(it, "UTF-8").replace("+", "%20")
       }
       val url = "https://$DOWNLOAD_HOST/api/offline-bundles/$gameId/$version/$encoded?b=$buildId"
       val part = File(cache.parentFile, "${cache.name}.part")
-      cache.parentFile?.mkdirs()
       var connection: HttpURLConnection? = null
+      var headersSent = false
       try {
-        connection = openTrusted(url)
-        if (connection.responseCode != 200) return null
-        val expectedBytes = connection.contentLengthLong
-        if (expectedBytes > MAX_LIVE_FILE_BYTES) return null
-        var written = 0L
-        connection.inputStream.use { input ->
-          part.outputStream().use { output ->
-            val buffer = ByteArray(64 * 1024)
-            while (true) {
-              val read = input.read(buffer)
-              if (read < 0) break
-              written += read
-              if (written > MAX_LIVE_FILE_BYTES) throw IOException("Live game asset too large")
-              output.write(buffer, 0, read)
-            }
+        connection = openTrusted(url, method, rangeHeader)
+        val status = connection.responseCode
+        if (status != 200 && status != 206) {
+          val reason = when (status) {
+            404 -> "Not Found"
+            416 -> "Range Not Satisfiable"
+            503 -> "Service Unavailable"
+            else -> "Bad Gateway"
           }
+          writeStatus(output, if (status in 400..599) status else 502, reason)
+          return false
         }
-        if (expectedBytes >= 0 && written != expectedBytes) return null
-        if (!part.renameTo(cache)) {
-          val completed = File(store.buildDir(gameId, buildId), relative)
-          return completed.takeIf { store.isActive(gameId, buildId) && it.isFile && it.canRead() }
+        val contentRange = connection.getHeaderField("Content-Range")
+        if (status == 206 && contentRange.isNullOrBlank()) {
+          writeStatus(output, 502, "Bad Gateway")
+          return false
         }
-        return cache
+        val expectedBytes = connection.contentLengthLong
+        val encoding = connection.getHeaderField("Content-Encoding")
+        val cachePart = if (method == "GET" && rangeHeader == null && status == 200 &&
+          (encoding.isNullOrBlank() || encoding.equals("identity", ignoreCase = true)) &&
+          expectedBytes <= MAX_LIVE_FILE_BYTES && liveCacheRoot.usableSpace >= MIN_FREE_BYTES) {
+          cache.parentFile?.mkdirs()
+          part
+        } else null
+        val html = relative.endsWith(".html", ignoreCase = true) && rangeHeader == null &&
+          (encoding.isNullOrBlank() || encoding.equals("identity", ignoreCase = true))
+        // Rewritten HTML has a different wire length; chunk it as it arrives.
+        val chunked = expectedBytes < 0 || html
+        val headers = linkedMapOf(
+          "Content-Type" to mimeTypeOf(relative),
+          "Accept-Ranges" to "bytes",
+          "Cache-Control" to "no-store",
+          "Access-Control-Allow-Origin" to "*",
+          "Cross-Origin-Resource-Policy" to "cross-origin",
+          "X-Content-Type-Options" to "nosniff",
+          "Connection" to "close",
+        )
+        if (chunked) headers["Transfer-Encoding"] = "chunked"
+        else headers["Content-Length"] = expectedBytes.toString()
+        if (status == 206) headers["Content-Range"] = contentRange!!
+        if (!encoding.isNullOrBlank()) headers["Content-Encoding"] = encoding
+        writeHeaders(output, status, if (status == 206) "Partial Content" else "OK", headers)
+        headersSent = true
+        output.flush()
+        if (method == "HEAD") return false
+
+        val cached = connection.inputStream.use { input ->
+          LiveAssetTransfer.forward(input, output, expectedBytes, chunked, html, cachePart, MAX_LIVE_FILE_BYTES)
+        }
+        if (cached && !part.renameTo(cache)) part.delete()
+        return false
       } catch (_: Exception) {
-        val completed = File(store.buildDir(gameId, buildId), relative)
-        return completed.takeIf { store.isActive(gameId, buildId) && it.isFile && it.canRead() }
+        // Once headers have gone out, closing the socket (without a complete
+        // Content-Length or terminal chunk) lets WebView detect a short read.
+        if (!headersSent) writeStatus(output, 502, "Bad Gateway")
+        return false
       } finally {
         connection?.disconnect()
         if (part.exists()) part.delete()
-        liveFileLocks.remove(key, lock)
+        // Keep this lock for the server lifetime. Removing it while a waiter
+        // retries a failed fetch would let a third request write the same part
+        // file concurrently using a new lock.
       }
     }
   }
 
   /** Never follow a redirect to an IP, preview host, or insecure origin. */
-  private fun openTrusted(initial: String): HttpURLConnection {
+  private fun openTrusted(initial: String, method: String, rangeHeader: String?): HttpURLConnection {
     var current = URL(initial)
     repeat(6) { redirects ->
       if (current.protocol != "https" || current.host != DOWNLOAD_HOST ||
         current.port !in listOf(-1, 443)) throw IOException("Untrusted game URL")
       val connection = (current.openConnection() as HttpURLConnection).apply {
         instanceFollowRedirects = false
+        requestMethod = method
         connectTimeout = 12_000
         readTimeout = 30_000
         useCaches = false
         setRequestProperty("Accept-Encoding", "identity")
+        if (rangeHeader != null) setRequestProperty("Range", rangeHeader)
       }
-      val status = connection.responseCode
+      val status = try {
+        connection.responseCode
+      } catch (error: IOException) {
+        connection.disconnect()
+        throw error
+      }
       if (status !in listOf(301, 302, 303, 307, 308)) return connection
       val location = connection.getHeaderField("Location")
       connection.disconnect()

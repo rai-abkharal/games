@@ -87,7 +87,8 @@ const BOOTSTRAP_SCRIPT = BRIDGE_BOOTSTRAP_SCRIPT + GAME_VIEWPORT_SCRIPT;
  *
  * Verified builds load from the loopback origin. Missing server builds may
  * fast-start through the local server's on-demand proxy while the native queue
- * downloads the complete offline bundle. A failed fast-start waits for it.
+ * downloads the complete offline bundle. A failed fast-start shows a retry
+ * action; the verified local build can still take over when it arrives.
  */
 export const GamePage = memo(
   forwardRef<GamePageHandle, Props>(function GamePageInner(
@@ -229,10 +230,14 @@ export const GamePage = memo(
       void prepareLiveBundle(game).then(url => {
         if (cancelled) return;
         if (url) setRemotePrepared({ key: sourceKey, url });
-        else setRemoteUnavailable(true);
+        else {
+          setRemoteUnavailable(true);
+          setErrorText('Could not connect to the game server. Check your connection and retry.');
+          setPhase('error');
+        }
       });
       return () => { cancelled = true; };
-    }, [live, localUrl, offline, remoteUnavailable, remoteEntry, sourceKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [live, localUrl, offline, remoteUnavailable, remoteEntry, sourceKey, setPhase]); // eslint-disable-line react-hooks/exhaustive-deps
     const selectedSource = useRef<{ attempt: number; source: WebSource; mode: 'local' | 'network' } | null>(null);
     const source = useMemo<WebSource | null>(() => {
       // Local wins. Once a remote session starts, preserve it until retry or
@@ -388,6 +393,13 @@ export const GamePage = memo(
       setAttempt(value => value + 1);
       if (!live) setLive(true);
     }, [live, inject]);
+
+    const wasOfflineRef = useRef(offline);
+    useEffect(() => {
+      const reconnected = wasOfflineRef.current && !offline;
+      wasOfflineRef.current = offline;
+      if (reconnected && slot === 'active' && phaseRef.current === 'error' && !localUrl) retry();
+    }, [offline, slot, localUrl, retry]);
 
     useImperativeHandle(
       ref,
@@ -623,24 +635,12 @@ export const GamePage = memo(
             onLoad={handleLoadEnd}
             onError={event => {
               const reason = event.nativeEvent.description || 'The game could not be loaded.';
-              if (selectedSource.current?.mode === 'network') {
-                reportLoad('error', reason);
-                selectedSource.current = null;
-                setRemoteUnavailable(true);
-              } else {
-                fail(reason);
-              }
+              fail(reason);
             }}
             onHttpError={event => {
               if (event.nativeEvent.url === source.uri) {
                 const reason = `Game server responded with HTTP ${event.nativeEvent.statusCode}.`;
-                if (selectedSource.current?.mode === 'network') {
-                  reportLoad('error', reason);
-                  selectedSource.current = null;
-                  setRemoteUnavailable(true);
-                } else {
-                  fail(reason);
-                }
+                fail(reason);
               } else if (selectedSource.current?.mode === 'network' &&
                          event.nativeEvent.statusCode >= 400) {
                 liveAssetFailedRef.current = true;

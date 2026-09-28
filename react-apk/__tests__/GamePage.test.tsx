@@ -24,6 +24,7 @@ jest.mock('react-native-webview', () => {
   };
 });
 const mockLocalUrl: { value: string | null } = { value: null };
+const mockReady: { value: Record<string, unknown> } = { value: {} };
 const mockPrepareLive = jest.fn((item: GameItem) => Promise.resolve(
   `http://127.0.0.1:42731/tok/${item.id}/${item.buildId}/index.html`,
 ));
@@ -31,7 +32,7 @@ jest.mock('../src/services/gameBundles', () => ({
   localUrlFor: () => mockLocalUrl.value,
   prepareLiveBundle: (item: GameItem) => mockPrepareLive(item),
   useBundleStore: (selector: (state: { ready: Record<string, unknown> }) => unknown) =>
-    selector({ ready: {} }),
+    selector({ ready: mockReady.value }),
   // The page subscribes to download progress on its own; nothing is in flight
   // in these tests, and the selector must still be callable.
   useDownloadStore: (selector: (state: { active: Record<string, unknown> }) => unknown) =>
@@ -44,7 +45,9 @@ jest.mock('../src/services/analytics', () => ({
       mockLoadEvents.push({ gameId, ...detail }),
   },
 }));
-jest.mock('../src/components/StateViews', () => ({ MessageView: () => null }));
+jest.mock('../src/components/StateViews', () => ({
+  MessageView: (viewProps: object) => require('react').createElement('MockMessageView', viewProps),
+}));
 jest.mock('../src/store/playerStore', () => {
   const state = {
     coins: 0,
@@ -83,13 +86,19 @@ const props = {
 let tree: TestRenderer.ReactTestRenderer;
 const webviews = () =>
   tree.root.findAll(node => String(node.type) === 'MockGameWebView');
+const messages = () =>
+  tree.root.findAll(node => String(node.type) === 'MockMessageView');
 
 beforeEach(() => {
   jest.useFakeTimers();
   mockStopLoading.mockClear();
   mockInjectJavaScript.mockClear();
   mockLocalUrl.value = 'http://127.0.0.1:42731/tok/test/build-1/index.html';
-  mockPrepareLive.mockClear();
+  mockReady.value = {};
+  mockPrepareLive.mockReset();
+  mockPrepareLive.mockImplementation((item: GameItem) => Promise.resolve(
+    `http://127.0.0.1:42731/tok/${item.id}/${item.buildId}/index.html`,
+  ));
   mockOffline.value = false;
   mockLoadEvents.length = 0;
 });
@@ -257,7 +266,7 @@ test('a missing server game does not try the network offline', async () => {
   expect(webviews()).toHaveLength(0);
 });
 
-test('a failed fast-start waits for the verified local copy', async () => {
+test('a failed fast-start retries once, then offers Retry and recovers when the local bundle arrives', async () => {
   mockLocalUrl.value = null;
   await act(async () => {
     tree = TestRenderer.create(<GamePage {...props} game={serverGame} slot="active" />);
@@ -266,10 +275,65 @@ test('a failed fast-start waits for the verified local copy', async () => {
   await act(async () => {
     webviews()[0].props.onHttpError({ nativeEvent: { url, statusCode: 404 } });
   });
-  expect(webviews()).toHaveLength(0);
+  expect(webviews()).toHaveLength(1);
+  await act(async () => {
+    webviews()[0].props.onHttpError({ nativeEvent: { url, statusCode: 404 } });
+  });
+  expect(messages()[0].props.actionLabel).toBe('Retry');
+  expect(messages()[0].props.body).toContain('HTTP 404');
+  expect(props.onPhase).toHaveBeenLastCalledWith(serverGame.id, 'error');
   mockLocalUrl.value = 'http://127.0.0.1:42731/tok/game-abc/build-123/index.html';
+  mockReady.value = { [serverGame.id]: { buildId: serverGame.buildId } };
   await act(async () => tree.update(<GamePage {...props} game={serverGame} slot="active" near={false} />));
   expect(webviews()[0].props.source.uri).toBe(mockLocalUrl.value);
+  expect(messages()).toHaveLength(0);
+});
+
+test('a network error keeps Retry visible and a manual retry starts a fresh attempt', async () => {
+  mockLocalUrl.value = null;
+  await act(async () => {
+    tree = TestRenderer.create(<GamePage {...props} game={serverGame} slot="active" />);
+  });
+  const error = { nativeEvent: { description: 'Connection interrupted' } };
+  await act(async () => { webviews()[0].props.onError(error); });
+  await act(async () => { webviews()[0].props.onError(error); });
+  expect(messages()[0].props.body).toBe('Connection interrupted');
+  expect(mockLoadEvents.filter(event => event.outcome === 'error')).toHaveLength(2);
+  await act(async () => { messages()[0].props.onAction(); });
+  expect(messages()).toHaveLength(0);
+  await act(async () => { webviews()[0].props.onLoad(); });
+  expect(props.onPhase).toHaveBeenLastCalledWith(serverGame.id, 'ready');
+});
+
+test('failure to prepare fast-start offers Retry instead of an endless placeholder', async () => {
+  mockLocalUrl.value = null;
+  mockPrepareLive.mockResolvedValueOnce(null as any).mockResolvedValueOnce(null as any);
+  await act(async () => {
+    tree = TestRenderer.create(<GamePage {...props} game={serverGame} slot="active" />);
+  });
+  expect(mockPrepareLive).toHaveBeenCalledTimes(2);
+  expect(webviews()).toHaveLength(0);
+  expect(messages()[0].props.actionLabel).toBe('Retry');
+  await act(async () => { messages()[0].props.onAction(); });
+  expect(webviews()).toHaveLength(1);
+  expect(messages()).toHaveLength(0);
+});
+
+test('a failed remote page tries again when connectivity returns', async () => {
+  mockLocalUrl.value = null;
+  await act(async () => {
+    tree = TestRenderer.create(<GamePage {...props} game={serverGame} slot="active" />);
+  });
+  const error = { nativeEvent: { description: 'Connection interrupted' } };
+  await act(async () => { webviews()[0].props.onError(error); });
+  await act(async () => { webviews()[0].props.onError(error); });
+  mockOffline.value = true;
+  await act(async () => tree.update(<GamePage {...props} game={serverGame} slot="active" near={false} />));
+  expect(messages()).toHaveLength(1);
+  mockOffline.value = false;
+  await act(async () => tree.update(<GamePage {...props} game={serverGame} slot="active" />));
+  expect(messages()).toHaveLength(0);
+  expect(props.onPhase).toHaveBeenLastCalledWith(serverGame.id, 'loading');
 });
 
 test('a bundle that lands mid-run does not swap the source under a running game', async () => {
