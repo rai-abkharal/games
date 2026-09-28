@@ -224,6 +224,18 @@ describe('Firebase Analytics & Universal Game Identity', () => {
     expect(screenEvt?.params?.screen_name).toBe('Settings');
   });
 
+  test('logs ad_impression for all ad formats (interstitial, banner, rewarded)', () => {
+    analytics.onAdImpression('snake-classic', 'Snake Classic', 'interstitial');
+    analytics.onAdImpression('snake-classic', 'Snake Classic', 'banner');
+    analytics.onAdImpression('snake-classic', 'Snake Classic', 'rewarded');
+
+    const adImpressions = loggedEvents.filter(e => e.name === 'ad_impression');
+    expect(adImpressions).toHaveLength(3);
+    expect(adImpressions[0].params?.ad_format).toBe('interstitial');
+    expect(adImpressions[1].params?.ad_format).toBe('banner');
+    expect(adImpressions[2].params?.ad_format).toBe('rewarded');
+  });
+
   describe('Per-Game Distinction & Reporting: Snake vs Car Racing', () => {
     const CORE_EVENT_NAMES = new Set([
       'game_start',

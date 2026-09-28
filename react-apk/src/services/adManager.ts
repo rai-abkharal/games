@@ -270,6 +270,11 @@ class AdManager {
     }
   }
 
+  /** Returns the game currently active on screen, or null if outside a game. */
+  getCurrentGame(): GameItem | null {
+    return this.currentGame;
+  }
+
   onGameOver(): void {
     if (this.config.gameOverAdEnabled || this.adDue) this.check(true);
   }
@@ -402,7 +407,8 @@ class AdManager {
       }),
       ad.addAdEventListener(AdEventType.OPENED, () => {
         this.recordAdShown();
-        if (this.currentGame) analytics.onAdImpression(this.currentGame.id, this.currentGame.title);
+        const game = this.currentGame;
+        analytics.onAdImpression(game?.id || 'interstitial', game?.title || 'Interstitial Ad', 'interstitial');
       }),
       ad.addAdEventListener(AdEventType.CLOSED, () => {
         useAdsStore.setState({ fullScreenAdShowing: false });
@@ -443,6 +449,10 @@ class AdManager {
       }),
       ad.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
         earned = true;
+      }),
+      ad.addAdEventListener(AdEventType.OPENED, () => {
+        const game = this.currentGame;
+        analytics.onAdImpression(game?.id || 'rewarded', game?.title || 'Rewarded Ad', 'rewarded');
       }),
       ad.addAdEventListener(AdEventType.ERROR, () => {
         this.rewardedLoading = false;

@@ -576,13 +576,18 @@ class AnalyticsService {
     });
   }
 
-  onAdImpression(gameId: string, fallbackTitle?: string): void {
-    const identity = gameIdentity(gameId, fallbackTitle);
+  onAdImpression(
+    gameId: string,
+    fallbackTitle?: string,
+    adFormat: 'interstitial' | 'banner' | 'rewarded' | string = 'interstitial',
+  ): void {
+    const resolvedGameId = gameId || 'app';
+    const identity = gameIdentity(resolvedGameId, fallbackTitle);
     this.logFirebaseEvent('ad_impression', {
       ...identity,
-      ad_format: 'interstitial',
+      ad_format: adFormat,
     });
-    this.send('ad_impression', gameId, identity.game_name, { extra: { ad_format: 'interstitial' } });
+    this.send('ad_impression', resolvedGameId, identity.game_name, { extra: { ad_format: adFormat } });
   }
 
   /** Time spent inside a full-screen ad must not count as play time. */

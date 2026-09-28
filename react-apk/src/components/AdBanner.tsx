@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
-import { useAdsStore } from '../services/adManager';
+import { adManager, useAdsStore } from '../services/adManager';
+import { analytics } from '../services/analytics';
 
 /**
  * Banner controlled by the Admin Panel `bannerEnabled` flag. The header
@@ -47,6 +48,10 @@ export function AdBanner() {
           retryTimerRef.current = setTimeout(() => {
             useAdsStore.setState(s => ({ bannerReloadKey: s.bannerReloadKey + 1 }));
           }, 15_000);
+        }}
+        onAdImpression={() => {
+          const game = adManager.getCurrentGame();
+          analytics.onAdImpression(game?.id || 'banner', game?.title || 'Banner Ad', 'banner');
         }}
       />
     </View>
