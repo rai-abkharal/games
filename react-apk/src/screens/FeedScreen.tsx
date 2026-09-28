@@ -60,6 +60,7 @@ import {
   BundlePriority,
   localUrlFor,
   markBundlePlayed,
+  prepareNextBundle,
   setBundleObserver,
   setBundlePaused,
   setBundlePlaying,
@@ -693,10 +694,27 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     list,
   ]);
 
-  // Ceilings apply to speculation only, and the game one swipe away barely
-  // counts as speculation: it gets several times the distant catalogue's
-  // allowance on both link types. The page on screen is exempt from all of
-  // them natively.
+  // Files-only preparation shares the downloader; no hidden remote renderer.
+  const nextStartupIndex = position.index + position.direction;
+  const nextStartupGame = !isTutorialActive && list.length > 1
+    ? (loop ? list[(nextStartupIndex + list.length) % list.length]
+      : list[nextStartupIndex] ?? null)
+    : null;
+  const canPrepareNext = !offline && !suspended && !position.settling &&
+    pagePhases[currentId ?? ''] === 'ready';
+  useEffect(() => {
+    if (!canPrepareNext || !nextStartupGame) {
+      prepareNextBundle(null);
+      return;
+    }
+    const timer = setTimeout(() => prepareNextBundle(nextStartupGame), 1500);
+    return () => {
+      clearTimeout(timer);
+      prepareNextBundle(null);
+    };
+  }, [canPrepareNext, nextStartupGame]);
+
+  // Native ceilings apply during gameplay on Wi-Fi as well as cellular.
   useEffect(() => {
     setBundlePolicy({ metered });
   }, [metered]);
@@ -709,8 +727,8 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     localUrlFor(current) === null && pagePhases[current.id] === 'loading',
   );
   useEffect(() => {
-    setBundlePaused(offline || remoteStarting);
-  }, [offline, remoteStarting]);
+    setBundlePaused(offline || suspended || remoteStarting);
+  }, [offline, suspended, remoteStarting]);
 
   /* ---------------- bridge messages from the active game --------------------- */
   const grantHint = useCallback(

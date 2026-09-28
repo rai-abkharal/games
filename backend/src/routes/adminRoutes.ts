@@ -6,6 +6,7 @@ import fs from "fs";
 import path from "path";
 import { CatalogService } from "../services/catalogService";
 import { ensureManifest, invalidateManifest } from "../services/bundleService";
+import { ensureOfflinePackage } from "../services/offlinePackageService";
 import { normalizeGameFeatures } from "../utils/gameFeatures";
 import { z } from "zod";
 import { SecurityStore, SecurityError, randomToken } from "../security/store";
@@ -874,7 +875,9 @@ export function createAdminRouter(
       // request, and drop any manifest cached for a build this upload replaced.
       invalidateManifest(gameId);
       try {
-        ensureManifest(gamesDir, gameId, version);
+        const bundle = ensureManifest(gamesDir, gameId, version);
+        if (bundle) void ensureOfflinePackage(gamesDir, bundle).catch(error =>
+          console.warn("[Bundles] Background archive preparation failed:", (error as Error).message));
       } catch {
         // A manifest that cannot be generated only costs this build its place
         // in the on-device store; the upload itself is still valid.

@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *     and caps it at a small share of CPU. A game rendering at 120 Hz outranks
  *     it by construction, not by politeness.
  *  2. **Bytes never enter JavaScript.** Responses stream straight from the
- *     socket into a `.part` file 64 KB at a time, so a 30 MB bundle costs 64 KB
+ *     socket into a `.part` file 32 KB at a time, so a 30 MB bundle costs 32 KB
  *     of heap, not 30 MB — and nothing crosses the bridge but progress counts.
  *  3. **A build is atomic.** Files land in a staging directory; the build is
  *     published by a single directory rename, and only after every file has
@@ -30,12 +30,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  *     previous build exactly as it was.
  *  4. **Work is resumable.** A `.part` file is resumed with a Range request
  *     rather than restarted, so swiping mid-download costs nothing.
- *  5. **Rate ceilings apply to speculation, never to the game in hand.** The
- *     bundle for the game on screen always runs at full link speed — storing it
- *     is the entire point, and a 30 MB build behind a 400 KB/s ceiling would
- *     need over a minute of play to become local. The game one swipe away is
- *     treated almost as urgently, because it is the one the player is about to
- *     open; only genuinely distant games yield hard.
+ *  5. **Foreground streams outrank all background work.** The selected game's
+ *     live requests run independently on the local server. Background bundles
+ *     are rate-limited during play, even on Wi-Fi; the nearest game's startup
+ *     files get a bounded higher allowance without starting an engine.
  *  6. **The queue is re-scored, and the job in flight is re-scored with it.**
  *     A wish-list arrives on every swipe. Letting whatever started first run to
  *     completion meant a game seven pages away could hold up the one under the
@@ -47,6 +45,7 @@ class GameBundleDownloader(
   private val store: GameBundleStore,
   private val listener: Listener,
   private val liveCacheRoot: File? = null,
+  private val foreground: ForegroundAssetGate = ForegroundAssetGate(),
 ) {
 
   interface Listener {
@@ -101,6 +100,22 @@ class GameBundleDownloader(
   /** 0..1 through the bundle in flight, so a near-finished job is not preempted. */
   @Volatile private var currentFraction = 0.0
   @Volatile private var activeConnection: HttpURLConnection? = null
+  @Volatile private var startupJob: Job? = null
+  private val preparedStartup = HashSet<String>()
+  private val archiveFallback = HashSet<String>()
+
+  init { foreground.onForegroundStart = { cancelActiveConnection() } }
+
+  /** One nearest game, sharing the existing worker. No extra WebView or engine. */
+  fun prepareStartup(job: Job?) {
+    val previous = startupJob
+    startupJob = job
+    if (job != null && !synchronized(queueLock) { key(job.gameId, job.buildId) in preparedStartup } &&
+      previous?.let { key(it.gameId, it.buildId) } != key(job.gameId, job.buildId) && currentJob?.gameId != job.gameId) {
+      cancelActiveConnection()
+    }
+    synchronized(pauseLock) { pauseLock.notifyAll() }
+  }
 
   private fun cancelActiveConnection() {
     currentCancelled = true
@@ -111,20 +126,19 @@ class GameBundleDownloader(
   }
 
   /**
-   * Ceilings for *speculative* bundles only — the game the player is actually
-   * on is never limited (see RateLimiter). Zero means no limit.
+   * Background transfer ceilings during play, including selected-game offline
+   * completion. Live streams use a separate unthrottled path.
    */
-  @Volatile var playingRateBytesPerSecond: Long = 15 * 1024 * 1024
-  @Volatile var meteredRateBytesPerSecond: Long = 1500 * 1024
+  @Volatile var playingRateBytesPerSecond: Long = 192 * 1024
+  @Volatile var meteredRateBytesPerSecond: Long = 128 * 1024
 
   /**
-   * The ceiling for the game one swipe away while another is being played, on
-   * an unmetered link. Deliberately high so the game about to be opened is ready.
+   * A higher but bounded allowance for the nearest game during Wi-Fi play.
    */
-  @Volatile var nextRateBytesPerSecond: Long = 20 * 1024 * 1024
+  @Volatile var nextRateBytesPerSecond: Long = 512 * 1024
 
   /** Cellular equivalent of the above: generous for +1, reasonable for the rest. */
-  @Volatile var meteredNextRateBytesPerSecond: Long = 3000 * 1024
+  @Volatile var meteredNextRateBytesPerSecond: Long = 256 * 1024
 
   /** Cellular or otherwise expensive link, as reported by NetInfo through JS. */
   private val metered = AtomicBoolean(false)
@@ -318,9 +332,15 @@ class GameBundleDownloader(
       try {
         awaitResume()
         if (!running.get()) return
-        val job = queue.pollFirst(5, TimeUnit.SECONDS) ?: continue
+        val prepare = startupJob?.takeIf { candidate ->
+          !store.isActive(candidate.gameId, candidate.buildId) && synchronized(queueLock) {
+            key(candidate.gameId, candidate.buildId) !in preparedStartup &&
+              (failedUntil[key(candidate.gameId, candidate.buildId)] ?: 0L) <= System.currentTimeMillis()
+          }
+        }
+        val job = prepare ?: queue.pollFirst(500, TimeUnit.MILLISECONDS) ?: continue
         synchronized(queueLock) {
-          if (queued[job.gameId]?.buildId != job.buildId) return@synchronized
+          if (prepare == null && queued[job.gameId]?.buildId != job.buildId) return@synchronized
           currentJob = job
           currentCancelled = false
           currentFraction = 0.0
@@ -332,7 +352,7 @@ class GameBundleDownloader(
             queue.addLast(job)
             Thread.sleep(minOf(retryAt - System.currentTimeMillis(), 1000L).coerceAtLeast(1L))
           } else {
-            process(job)
+            process(job, startupOnly = prepare != null)
           }
         } catch (error: Exception) {
           if (!currentCancelled) {
@@ -382,11 +402,11 @@ class GameBundleDownloader(
 
   private fun awaitResume() {
     synchronized(pauseLock) {
-      while (paused && running.get()) pauseLock.wait(1000)
+      while ((paused || foreground.isBusy()) && running.get()) pauseLock.wait(100)
     }
   }
 
-  private fun process(job: Job) {
+  private fun process(job: Job, startupOnly: Boolean = false) {
     // A null manifest always earns a back-off, including the malformed-JSON
     // paths inside fetchManifest that report nothing: without one, the feed's
     // per-swipe re-submit would retry a broken build on every gesture.
@@ -396,11 +416,11 @@ class GameBundleDownloader(
       manifest.files.none { it.path == manifest.entry } ||
       manifest.totalBytes != manifest.files.sumOf { it.bytes } ||
       manifest.files.any { !GameBundleStore.isSafeRelativePath(it.path) || it.bytes < 0 ||
-        !it.sha256.matches(Regex("^[a-fA-F0-9]{64}$")) }) {
+        !it.sha256.matches(Regex("^[a-fA-F0-9]{64}$")) } || manifest.files.map { it.path }.toSet().size != manifest.files.size) {
       fail(job.gameId, job.buildId, "invalid bundle manifest")
       return
     }
-    val files = manifest.files
+    val files = if (startupOnly) startupFiles(manifest) else manifest.files
     if (files.isEmpty()) {
       fail(job.gameId, job.buildId, "empty manifest")
       return
@@ -426,15 +446,64 @@ class GameBundleDownloader(
     // Announce the size before the first byte, so the feed can show a real
     // percentage from the start rather than an indeterminate spinner that only
     // becomes meaningful once the first progress tick lands.
-    listener.onBundleStarted(
+    if (!startupOnly) listener.onBundleStarted(
       job.gameId,
       manifest.buildId,
       manifest.totalBytes,
       alreadyOnDisk(staging, files),
     )
 
+    if (!startupOnly && manifest.archive != null && key(job.gameId, job.buildId) !in archiveFallback) {
+      val archive = manifest.archive
+      val part = File(store.rootDir(), ".archive-${job.gameId}-${job.buildId}.part")
+      if (archive.bytes + manifest.totalBytes > headroom) {
+        archiveFallback.add(key(job.gameId, job.buildId))
+      } else {
+        var reason: String? = null
+        val downloaded = downloadFile(base + encodePath(archive.path) + "?b=" + manifest.buildId, part, archive,
+          job, manifest.buildId, 0, archive.bytes,
+          progress = { bytes -> report(job, manifest, (bytes.toDouble() / archive.bytes * manifest.totalBytes * 0.9).toLong()) },
+          failure = { reason = it })
+        if (!running.get() || currentCancelled) return
+        if (!downloaded) {
+          if (reason?.startsWith("HTTP 404") == true || reason?.startsWith("HTTP 501") == true ||
+            reason?.startsWith("hash mismatch") == true) archiveFallback.add(key(job.gameId, job.buildId))
+          else { fail(job.gameId, job.buildId, reason ?: "archive download interrupted"); return }
+        } else {
+          val limiter = RateLimiter(job, disk = true)
+          var extracted = 0L
+          var extractionReportedAt = 0L
+          try {
+            VerifiedBundleArchive.extract(part, staging, manifest.files,
+              beforeChunk = {
+                if (!running.get() || currentCancelled) throw InterruptedIOException("Cancelled")
+                awaitResume()
+                if (currentCancelled) throw InterruptedIOException("Cancelled")
+              }, onBytes = { bytes ->
+                limiter.consume(bytes - extracted)
+                extracted = bytes
+                val now = System.currentTimeMillis()
+                if (now - extractionReportedAt >= PROGRESS_INTERVAL_MS) {
+                  extractionReportedAt = now
+                  report(job, manifest, (manifest.totalBytes * 0.9 + bytes * 0.1).toLong())
+                }
+              })
+            part.delete()
+            activate(job, manifest, staging, startedAt)
+            return
+          } catch (_: InterruptedIOException) { return }
+          catch (error: IOException) {
+            Log.w(TAG, "ZIP rejected for ${job.gameId}; falling back to verified files: ${error.message}")
+            part.delete()
+            archiveFallback.add(key(job.gameId, job.buildId))
+          }
+        }
+      }
+    }
+
     for (file in files) {
       if (!running.get() || currentCancelled) return
+      if (startupOnly && startupJob?.let { key(it.gameId, it.buildId) } != key(job.gameId, job.buildId)) return
       awaitResume()
       if (!GameBundleStore.isSafeRelativePath(file.path)) {
         fail(job.gameId, job.buildId, "unsafe path in manifest")
@@ -446,7 +515,7 @@ class GameBundleDownloader(
       ) {
         // Already fetched by an earlier, interrupted attempt at this build.
         done += file.bytes
-        report(job, manifest, done)
+        if (!startupOnly) report(job, manifest, done)
         continue
       }
       // An on-demand WebView request may already have fetched this file. Only
@@ -459,7 +528,7 @@ class GameBundleDownloader(
           target.parentFile?.mkdirs()
           liveFile.copyTo(target, overwrite = true)
           done += file.bytes
-          report(job, manifest, done)
+          if (!startupOnly) report(job, manifest, done)
           continue
         } catch (_: Exception) {
           // A cache file may disappear under storage pressure; download it.
@@ -470,7 +539,8 @@ class GameBundleDownloader(
       // `?b=` lets the CDN/server cache the exact build forever; the hash check
       // below means a wrong answer can never be activated regardless.
       val url = base + encodePath(file.path) + "?b=" + manifest.buildId
-      val fetched = downloadFile(url, part, file, job, manifest.buildId, done, manifest.totalBytes)
+      val fetched = downloadFile(url, part, file, job, manifest.buildId, done, manifest.totalBytes,
+        progress = if (startupOnly) ({ _: Long -> }) else null)
       if (!fetched) return
       if (target.exists()) target.delete()
       if (!part.renameTo(target)) {
@@ -483,10 +553,40 @@ class GameBundleDownloader(
         }
       }
       done += file.bytes
-      report(job, manifest, done)
+      if (!startupOnly) report(job, manifest, done)
     }
 
     if (!running.get() || currentCancelled) return
+    if (startupOnly) {
+      synchronized(queueLock) { preparedStartup.add(key(job.gameId, job.buildId)) }
+      Log.i(TAG, "Startup prepared: ${job.gameId} (${files.size} files, $done bytes); no engine started")
+      if (files.size == manifest.files.size) activate(job, manifest, staging, startedAt)
+      return
+    }
+    activate(job, manifest, staging, startedAt)
+  }
+
+  private fun startupFiles(manifest: Manifest): List<BundleFile> {
+    val byPath = manifest.files.associateBy { it.path }
+    val selected = ArrayList<BundleFile>()
+    var bytes = 0L
+    for (path in (listOf(manifest.entry) + manifest.startupFiles).distinct()) {
+      val file = byPath[path] ?: continue
+      if (selected.size >= GameTransferPolicy.MAX_STARTUP_FILES ||
+        bytes + file.bytes > GameTransferPolicy.MAX_STARTUP_BYTES) continue
+      selected.add(file)
+      bytes += file.bytes
+    }
+    return selected
+  }
+
+  private fun activate(job: Job, manifest: Manifest, staging: File, startedAt: Long) {
+    if (!running.get() || currentCancelled) return
+    // Resolve even deeply nested entry documents correctly after a relaunch.
+    java.io.FileOutputStream(File(staging, ".bundle-entry.json")).use { output ->
+      output.write(JSONObject().put("entry", manifest.entry).toString().toByteArray(Charsets.UTF_8))
+      output.fd.sync()
+    }
     if (!store.activate(job.gameId, manifest.buildId, staging)) {
       fail(job.gameId, job.buildId, "activation failed")
       return
@@ -503,7 +603,7 @@ class GameBundleDownloader(
     // hand; pulling them through the page cache now means the WebView's first
     // read comes from memory. Only worth doing for the short lookahead —
     // warming the whole catalogue would just evict itself.
-    if (job.priority <= PRIORITY_NEAR) store.warm(job.gameId, manifest.buildId)
+    if (!playing.get() && job.priority <= PRIORITY_NEAR) store.warm(job.gameId, manifest.buildId)
     listener.onBundleReady(
       job.gameId,
       manifest.buildId,
@@ -520,7 +620,7 @@ class GameBundleDownloader(
   }
 
   /** Bytes an earlier, interrupted attempt already left in the staging area. */
-  private fun alreadyOnDisk(staging: File, files: List<ManifestFile>): Long {
+  private fun alreadyOnDisk(staging: File, files: List<BundleFile>): Long {
     var total = 0L
     for (file in files) {
       val target = File(staging, file.path)
@@ -542,11 +642,13 @@ class GameBundleDownloader(
   private fun downloadFile(
     url: String,
     part: File,
-    file: ManifestFile,
+    file: BundleFile,
     job: Job,
     buildId: String,
     baseDone: Long,
     total: Long,
+    progress: ((Long) -> Unit)? = null,
+    failure: (String) -> Unit = { reason -> fail(job.gameId, buildId, reason) },
   ): Boolean {
     var existing = if (part.isFile) part.length() else 0L
     if (existing > file.bytes) {
@@ -556,7 +658,7 @@ class GameBundleDownloader(
     if (existing == file.bytes) {
       // Fully downloaded by an earlier attempt but never renamed; the caller
       // verifies the hash straight after this returns.
-      return verifyPart(part, file, job, buildId)
+      return verifyPart(part, file, failure)
     }
 
     val headers = mutableMapOf<String, String>()
@@ -573,7 +675,7 @@ class GameBundleDownloader(
       return false
     } catch (error: Exception) {
       if (currentCancelled) return false
-      fail(job.gameId, buildId, "connect failed for ${file.path}: ${error.message}")
+      failure("connect failed for ${file.path}: ${error.message}")
       return false
     }
 
@@ -592,7 +694,7 @@ class GameBundleDownloader(
         part.delete()
         connection.disconnect()
         if (activeConnection === connection) activeConnection = null
-        return downloadFile(url, part, file, job, buildId, baseDone, total)
+        return downloadFile(url, part, file, job, buildId, baseDone, total, progress, failure)
       } else if (code == HttpURLConnection.HTTP_OK && existing > 0) {
         // Server ignored the range: start over rather than append to a prefix
         // the response does not continue from.
@@ -600,28 +702,33 @@ class GameBundleDownloader(
         existing = 0L
         append = false
       } else if (code != HttpURLConnection.HTTP_OK && code != HttpURLConnection.HTTP_PARTIAL) {
-        fail(job.gameId, buildId, "HTTP $code for ${file.path}")
+        failure("HTTP $code for ${file.path}")
         return false
       }
       if (code == HttpURLConnection.HTTP_PARTIAL &&
         (!append || !connection.getHeaderField("Content-Range").orEmpty().startsWith("bytes $existing-"))) {
-        fail(job.gameId, buildId, "invalid range response for ${file.path}")
+        failure("invalid range response for ${file.path}")
         return false
       }
 
       var written = existing
+      var oversized = false
       var reportedAt = System.currentTimeMillis()
-      val limiter = RateLimiter(job.priority)
+      val limiter = RateLimiter(job)
 
       try {
         java.io.FileOutputStream(part, append).use { output ->
           connection.inputStream.use { input ->
-            val buffer = ByteArray(64 * 1024)
+            val buffer = ByteArray(32 * 1024)
             while (true) {
               if (!running.get() || currentCancelled) return false
               awaitResume()
               val read = input.read(buffer)
               if (read <= 0) break
+              if (read.toLong() > file.bytes - written) {
+                oversized = true
+                break
+              }
               output.write(buffer, 0, read)
               written += read
               limiter.consume(read.toLong())
@@ -630,7 +737,8 @@ class GameBundleDownloader(
                 reportedAt = now
                 val soFar = baseDone + written
                 currentFraction = if (total > 0) soFar.toDouble() / total else 0.0
-                listener.onBundleProgress(job.gameId, buildId, soFar, total)
+                if (progress != null) progress(soFar)
+                else listener.onBundleProgress(job.gameId, buildId, soFar, total)
               }
             }
             output.flush()
@@ -646,24 +754,26 @@ class GameBundleDownloader(
         throw error
       }
 
-      if (written != file.bytes) {
+      if (oversized || written != file.bytes) {
         // Truncated: the .part stays on disk so the next attempt resumes.
-        fail(job.gameId, buildId, "short read for ${file.path} ($written / ${file.bytes} bytes)")
+        if (oversized) part.delete()
+        failure(if (oversized) "response exceeds manifest size for ${file.path}"
+          else "short read for ${file.path} ($written / ${file.bytes} bytes)")
         return false
       }
-      return verifyPart(part, file, job, buildId)
+      return verifyPart(part, file, failure)
     } finally {
       connection.disconnect()
       if (activeConnection === connection) activeConnection = null
     }
   }
 
-  private fun verifyPart(part: File, file: ManifestFile, job: Job, buildId: String): Boolean {
+  private fun verifyPart(part: File, file: BundleFile, failure: (String) -> Unit): Boolean {
     val digest = GameBundleStore.sha256Of(part)
     if (!digest.equals(file.sha256, ignoreCase = true)) {
       // Resuming from corrupt bytes would never converge, so start clean.
       part.delete()
-      fail(job.gameId, buildId, "hash mismatch for ${file.path}")
+      failure("hash mismatch for ${file.path}")
       return false
     }
     return true
@@ -720,14 +830,14 @@ class GameBundleDownloader(
         fail(job.gameId, job.buildId, "manifest missing files array")
         return null
       }
-      val files = ArrayList<ManifestFile>(entries.length())
+      val files = ArrayList<BundleFile>(entries.length())
       for (i in 0 until entries.length()) {
         val item = entries.optJSONObject(i) ?: continue
         val path = item.optString("path", "")
         val sha = item.optString("sha256", "")
         val bytes = item.optLong("bytes", -1L)
         if (path.isEmpty() || sha.isEmpty() || bytes < 0) continue
-        files.add(ManifestFile(path, bytes, sha))
+        files.add(BundleFile(path, bytes, sha))
       }
       val buildId = json.optString("buildId", job.buildId)
       if (buildId.isEmpty()) {
@@ -738,12 +848,22 @@ class GameBundleDownloader(
       val effectiveBase = effectiveUrl.replace(Regex("[^/]*$"), "")
       Log.i(TAG, "Manifest parsed for ${job.gameId}: ${files.size} files, resolved base: $effectiveBase")
 
+      val startup = json.optJSONArray("startupFiles")
+      val archive = json.optJSONObject("archive")?.let {
+        val bytes = it.optLong("bytes", -1)
+        val sha = it.optString("sha256")
+        val archivePath = it.optString("path")
+        if (GameBundleStore.isSafeRelativePath(archivePath) && archivePath.endsWith(".zip") &&
+          bytes in 1..512L * 1024 * 1024 && sha.matches(Regex("^[a-fA-F0-9]{64}$"))) BundleFile(archivePath, bytes, sha) else null
+      }
       return Manifest(
         buildId = buildId,
         entry = json.optString("entry", "index.html"),
         totalBytes = json.optLong("totalBytes", files.sumOf { it.bytes }),
         files = files,
         baseUrl = effectiveBase,
+        startupFiles = (0 until (startup?.length() ?: 0)).map { startup!!.optString(it) },
+        archive = archive,
       )
     } catch (e: Exception) {
       if (!currentCancelled) {
@@ -763,44 +883,28 @@ class GameBundleDownloader(
     }
 
   /**
-   * Token bucket for *speculative* downloads only.
-   *
-   * The ceiling exists so that fetching games the player has not asked for
-   * cannot steal bandwidth from the game they are looking at. It has no
-   * business applying to that game's own bundle: the whole reason to store a
-   * game is to make its next open instant, and a 30 MB build metered at
-   * 400 KB/s would need over a minute of continuous play to get there. So the
-   * foreground bundle is exempt, and on an unmetered connection nothing is
-   * limited at all.
+   * Background bandwidth/disk pacing, with monotonic time and live priorities.
    */
-  private inner class RateLimiter(private val priority: Int) {
-    private var windowStart = System.currentTimeMillis()
+  private inner class RateLimiter(private val job: Job, private val disk: Boolean = false) {
+    private fun now() = System.nanoTime() / 1_000_000
+    private var windowStart = now()
     private var windowBytes = 0L
 
     fun consume(bytes: Long) {
-      // The game the player is on is never limited, on any connection.
-      if (priority <= PRIORITY_CURRENT) {
-        reset()
-        return
-      }
-      // On unmetered connection (Wi-Fi), background worker is already pinned to
-      // THREAD_PRIORITY_BACKGROUND (low CPU/IO cgroup), so 60/120 Hz rendering is
-      // protected while allowing games to download at maximum network throughput.
-      if (!metered.get()) {
-        reset()
-        return
-      }
-      val isNext = priority <= PRIORITY_NEXT
-      val limit = if (isNext) meteredNextRateBytesPerSecond else meteredRateBytesPerSecond
+      val priority = synchronized(queueLock) { queued[job.gameId]?.priority ?: job.priority }
+      val limit = if (disk) { if (playing.get()) 1024L * 1024 else 0L }
+        else GameTransferPolicy.rate(playing.get(), metered.get(), priority,
+        playingRateBytesPerSecond, nextRateBytesPerSecond,
+        meteredRateBytesPerSecond, meteredNextRateBytesPerSecond)
       if (limit <= 0) {
         reset()
         return
       }
       windowBytes += bytes
-      val now = System.currentTimeMillis()
-      val elapsed = now - windowStart
+      val clock = now()
+      val elapsed = clock - windowStart
       if (elapsed >= 1000) {
-        windowStart = now
+        windowStart = clock
         windowBytes = 0
         return
       }
@@ -813,18 +917,16 @@ class GameBundleDownloader(
             Thread.currentThread().interrupt()
           }
         }
-        windowStart = System.currentTimeMillis()
+        windowStart = now()
         windowBytes = 0
       }
     }
 
     private fun reset() {
       windowBytes = 0
-      windowStart = System.currentTimeMillis()
+      windowStart = now()
     }
   }
-
-  private data class ManifestFile(val path: String, val bytes: Long, val sha256: String)
 
   companion object {
     /** The page on screen. Never rate-limited, always first in the queue. */
@@ -868,7 +970,9 @@ class GameBundleDownloader(
     val buildId: String,
     val entry: String,
     val totalBytes: Long,
-    val files: List<ManifestFile>,
+    val files: List<BundleFile>,
     val baseUrl: String = "",
+    val startupFiles: List<String> = emptyList(),
+    val archive: BundleFile? = null,
   )
 }

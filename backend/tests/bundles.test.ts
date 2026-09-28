@@ -4,12 +4,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
+import AdmZip from "adm-zip";
 import { createApp } from "../src/app";
 import {
   buildManifest,
   ensureManifest,
   invalidateManifest,
 } from "../src/services/bundleService";
+import { ensureOfflinePackage, offlinePackageDir, readOfflinePackage, waitForOfflinePackages } from "../src/services/offlinePackageService";
 import { SecurityStore } from "../src/security/store";
 import type { SecurityConfig } from "../src/security/config";
 
@@ -22,6 +24,14 @@ let config: SecurityConfig;
 
 const origin = "https://admin.bundles.test";
 const previewOrigin = "https://preview.bundles.test";
+
+function binaryResponse(response: import("node:http").IncomingMessage,
+  done: (error: Error | null, data?: Buffer) => void) {
+  const chunks: Buffer[] = [];
+  response.on("data", (chunk: Buffer) => chunks.push(chunk));
+  response.on("end", () => done(null, Buffer.concat(chunks)));
+  response.on("error", done);
+}
 
 function writeBuild(gameId: string, version: string, files: Record<string, string>) {
   const buildDir = path.join(gamesDir, gameId, version);
@@ -86,7 +96,8 @@ beforeEach(() => {
   store = new SecurityStore(config.database);
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await waitForOfflinePackages();
   try {
     fs.rmSync(directory, { recursive: true, force: true });
   } catch {
@@ -146,9 +157,138 @@ describe("bundle manifests", () => {
   it("returns null for a build that does not exist", () => {
     expect(ensureManifest(gamesDir, "missing", "1.0.0")).toBeNull();
   });
+
+  it("rejects stale saved hashes after a same-size edit with unchanged file count", () => {
+    const root = writeBuild("stale", "1.0.0", { "index.html": "aaaa", "app.js": "old!" });
+    const before = ensureManifest(gamesDir, "stale", "1.0.0")!;
+    fs.writeFileSync(path.join(root, "app.js"), "new!", "utf8");
+    invalidateManifest("stale");
+    const after = ensureManifest(gamesDir, "stale", "1.0.0")!;
+    expect(after.buildId).not.toBe(before.buildId);
+    expect(after.totalBytes).toBe(before.totalBytes);
+  });
+
+  it("does not confuse equal ids/versions in different game directories", () => {
+    writeBuild("isolated", "1.0.0", { "index.html": "first" });
+    const before = ensureManifest(gamesDir, "isolated", "1.0.0")!;
+    const other = path.join(directory, "other-games");
+    fs.mkdirSync(path.join(other, "isolated", "1.0.0"), { recursive: true });
+    fs.writeFileSync(path.join(other, "isolated", "1.0.0", "index.html"), "second");
+    expect(ensureManifest(other, "isolated", "1.0.0")!.buildId).not.toBe(before.buildId);
+  });
+
+  it("discovers bounded local startup dependencies without running JavaScript or fetching external URLs", () => {
+    const root = writeBuild("startup", "1.0.0", {
+      "index.html": '<script type="module" src="assets/app.js"></script><link rel="stylesheet" href="style.css"><img src="title.png"><script src="https://external.test/engine.js"></script>',
+      "assets/app.js": 'import "./engine.js"; import("./level2.js");',
+      "assets/engine.js": "/* engine */", "assets/level2.js": "/* lazy */",
+      "style.css": 'body{background:url("back.png")}', "back.png": "background", "title.png": "title",
+      "startup-assets.json": '["first-level.json"]', "first-level.json": "{}",
+    });
+    const manifest = buildManifest(root, "startup", "1.0.0");
+    expect(manifest.startupFiles).toEqual(expect.arrayContaining(["index.html", "assets/app.js", "assets/engine.js", "style.css", "title.png", "back.png", "first-level.json"]));
+    expect(manifest.startupFiles).not.toContain("assets/level2.js");
+    expect(manifest.files.map(file => file.path)).not.toContain("startup-assets.json");
+  });
+  it("prioritizes engine dependencies over large optional startup hints", () => {
+    const root = writeBuild("priority", "1.0.0", {
+      "index.html": '<script src="engine.js"></script>',
+      "engine.js": " ".repeat(5 * 1024 * 1024),
+      "optional.bin": " ".repeat(2 * 1024 * 1024),
+      "startup-assets.json": '["optional.bin"]',
+    });
+    const manifest = buildManifest(root, "priority", "1.0.0");
+    expect(manifest.startupFiles).toContain("engine.js");
+    expect(manifest.startupFiles).not.toContain("optional.bin");
+  });
 });
 
 describe("bundle endpoints", () => {
+  it("does not hijack an existing game asset named bundle.zip", async () => {
+    writeBuild("collision", "1.0.0", { "index.html": "game", "bundle.zip": "original-game-data" });
+    writeCatalog([gameEntry("collision", "1.0.0")]);
+    const manifest = ensureManifest(gamesDir, "collision", "1.0.0")!;
+    const archive = await ensureOfflinePackage(gamesDir, manifest);
+    expect(archive!.path).not.toBe("bundle.zip");
+    const app = makeApp();
+    const file = await request(app).get(`/api/offline-bundles/collision/1.0.0/bundle.zip?b=${manifest.buildId}`)
+      .buffer(true).parse(binaryResponse);
+    expect(file.status).toBe(200);
+    expect(file.body.toString()).toBe("original-game-data");
+    const zip = await request(app).get(`/api/offline-bundles/collision/1.0.0/${archive!.path}?b=${manifest.buildId}`)
+      .buffer(true).parse(binaryResponse);
+    expect(zip.status).toBe(200);
+    expect(new AdmZip(zip.body).readAsText("bundle.zip")).toBe("original-game-data");
+  });
+
+  it("creates a verified, resumable ZIP and publishes archive metadata without redirecting", async () => {
+    writeBuild("zip", "1.0.0", { "index.html": "<html>ZIP</html>", "assets/é.js": "console.log(1)" });
+    writeCatalog([gameEntry("zip", "1.0.0")]);
+    const manifest = ensureManifest(gamesDir, "zip", "1.0.0")!;
+    const archive = await ensureOfflinePackage(gamesDir, manifest);
+    expect(archive!.bytes).toBeGreaterThan(0);
+    const localZip = fs.readFileSync(path.join(offlinePackageDir(gamesDir, "zip", manifest.buildId), ".payload.zip"));
+    expect(crypto.createHash("sha256").update(localZip).digest("hex")).toBe(archive!.sha256);
+    const unpacked = new AdmZip(localZip);
+    for (const file of manifest.files) {
+      const bytes = unpacked.readFile(file.path)!;
+      expect(bytes.length).toBe(file.bytes);
+      expect(crypto.createHash("sha256").update(bytes).digest("hex")).toBe(file.sha256);
+    }
+    const app = makeApp();
+    const metadata = await request(app).get("/api/offline-bundles/zip/1.0.0/bundle.json");
+    expect(metadata.body.archive).toEqual(archive);
+    expect(metadata.headers["cache-control"]).toContain("no-store");
+    const zip = await request(app).get(`/api/offline-bundles/zip/1.0.0/bundle.zip?b=${manifest.buildId}`).set("Range", "bytes=0-9");
+    expect(zip.status).toBe(206);
+    expect(zip.headers.location).toBeUndefined();
+    expect(zip.headers["content-type"]).toContain("application/zip");
+    expect(zip.headers["content-range"]).toBe(`bytes 0-9/${archive!.bytes}`);
+    expect(zip.headers["cache-control"]).toContain("max-age=2592000");
+    expect(zip.headers["content-encoding"]).toBeUndefined();
+  });
+
+  it("cacheable snapshot URLs cannot change when a version is edited or redeployed", async () => {
+    const source = writeBuild("immutable", "1.0.0", { "index.html": "old!" });
+    writeCatalog([gameEntry("immutable", "1.0.0")]);
+    const before = ensureManifest(gamesDir, "immutable", "1.0.0")!;
+    await ensureOfflinePackage(gamesDir, before);
+    fs.writeFileSync(path.join(source, "index.html"), "new!", "utf8");
+    invalidateManifest("immutable");
+    const after = ensureManifest(gamesDir, "immutable", "1.0.0")!;
+    await ensureOfflinePackage(gamesDir, after);
+    const app = makeApp();
+    const old = await request(app).get(`/api/offline-bundles/immutable/1.0.0/index.html?b=${before.buildId}`);
+    const next = await request(app).get(`/api/offline-bundles/immutable/1.0.0/index.html?b=${after.buildId}`);
+    expect(old.text).toBe("old!");
+    expect(next.text).toBe("new!");
+    expect(old.headers["cache-control"]).toContain("immutable");
+    expect(next.headers["cloudflare-cdn-cache-control"]).toBe("public, max-age=2592000");
+    const plain = await request(app).get("/api/offline-bundles/immutable/1.0.0/index.html");
+    expect(plain.text).toBe("new!");
+    expect(plain.headers["cache-control"]).toContain("no-store");
+    const metadata = await request(app).get("/api/offline-bundles/immutable/1.0.0/bundle.json");
+    expect(metadata.body.buildId).toBe(after.buildId);
+    expect(metadata.headers["cache-control"]).toContain("no-store");
+  });
+
+  it("rejects unknown build ids, unpinned ZIPs and unpublished files", async () => {
+    writeBuild("safe", "1.0.0", { "index.html": "safe" });
+    writeCatalog([gameEntry("safe", "1.0.0")]);
+    const app = makeApp();
+    expect((await request(app).get("/api/offline-bundles/safe/1.0.0/index.html?b=" + "a".repeat(32))).status).toBe(409);
+    expect((await request(app).get("/api/offline-bundles/safe/1.0.0/bundle.zip")).status).toBe(400);
+    expect((await request(app).get("/api/offline-bundles/safe/1.0.0/.package.json")).status).toBe(404);
+  });
+
+  it("refuses to publish a snapshot when source bytes do not match the manifest", async () => {
+    const source = writeBuild("race", "1.0.0", { "index.html": "first" });
+    const manifest = ensureManifest(gamesDir, "race", "1.0.0")!;
+    fs.writeFileSync(path.join(source, "index.html"), "other");
+    await expect(ensureOfflinePackage(gamesDir, manifest)).rejects.toThrow("Source changed");
+    expect(readOfflinePackage(gamesDir, "race", manifest.buildId)).toBeNull();
+  });
+
   it("serves manifest and range bytes on the canonical origin without a preview redirect", async () => {
     writeBuild("alpha", "1.0.0", {
       "index.html": "<html>alpha</html>",

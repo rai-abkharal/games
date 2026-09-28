@@ -5,7 +5,8 @@ import path from "path";
 import fs from "fs";
 import crypto from "node:crypto";
 import { CatalogService } from "./services/catalogService";
-import { ensureManifest } from "./services/bundleService";
+import { archivePathFor, ensureManifest } from "./services/bundleService";
+import { ensureOfflinePackage, offlinePackageDir, readOfflinePackage } from "./services/offlinePackageService";
 import { createAdminRouter } from "./routes/adminRoutes";
 import { createPublicAnalyticsRouter, createAdminAnalyticsRouter } from "./routes/analyticsRoutes";
 import { SecurityStore } from "./security/store";
@@ -111,34 +112,81 @@ export function createApp(
   const preview = previewApp(publicDir, store, config);
   // The mobile downloader needs raw, resumable bytes on the canonical host.
   // Game HTML is an attachment here so it cannot run with the Admin origin.
-  app.get("/api/offline-bundles/:id/:version/*", (req, res, next) => {
+  app.get("/api/offline-bundles/:id/:version/*", async (req, res, next) => {
     const { id, version } = req.params;
     const relative = (req.params as Record<string, string>)[0];
     if (!/^[a-z0-9-]+$/.test(id) || !/^\d+\.\d+\.\d+$/.test(version) ||
         !relative || relative.split("/").some(part => !part || part === "." || part === "..") ||
         relative.includes("\\")) return res.sendStatus(404);
-    const root = path.resolve(gamesDir, id, version);
-    const filename = path.resolve(root, relative);
-    if (!filename.startsWith(root + path.sep)) return res.sendStatus(404);
+    let root = path.resolve(gamesDir, id, version);
     res.setHeader("Content-Disposition", `attachment; filename="${path.basename(relative).replace(/[^a-zA-Z0-9._-]/g, "_")}"`);
     res.setHeader("Content-Security-Policy", "sandbox");
     res.setHeader("Cache-Control", "no-store, no-transform");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    const pinned = typeof req.query.b === "string" ? req.query.b : null;
+    if (pinned !== null && !/^[a-f0-9]{32}$/.test(pinned)) return res.sendStatus(400);
+    let snapshot = pinned ? readOfflinePackage(gamesDir, id, pinned) : null;
+    if (snapshot && snapshot.version !== version) return res.sendStatus(409);
+    let manifest;
+    try {
+      // Existing snapshots remain valid even after a same-version force deploy.
+      manifest = snapshot || ensureManifest(gamesDir, id, version);
+    } catch (error) { return next(error); }
+    if (!manifest) return res.sendStatus(404);
+    if (pinned && pinned !== manifest.buildId) return res.sendStatus(409);
+    if (!snapshot) snapshot = readOfflinePackage(gamesDir, id, manifest.buildId);
     if (relative === "bundle.json") {
-      const manifest = ensureManifest(gamesDir, id, version);
-      return manifest ? res.json(manifest) : res.sendStatus(404);
+      // Fresh metadata never waits for ZIP compression or becomes edge-cached.
+      return res.json({ ...manifest, ...(snapshot?.archive ? { archive: snapshot.archive } : {}) });
     }
+    const isArchive = relative === (snapshot?.archive?.path || archivePathFor(manifest));
+    if (isArchive) {
+      if (!pinned) return res.status(400).json({ error: "Archive requires a build id" });
+      try {
+        await ensureOfflinePackage(gamesDir, manifest);
+        snapshot = readOfflinePackage(gamesDir, id, pinned);
+      } catch (error) {
+        console.warn("[Bundles] Archive unavailable:", (error as Error).message);
+        return res.sendStatus(503);
+      }
+      if (!snapshot) return res.sendStatus(503);
+    } else if (!manifest.files.some(file => file.path === relative)) {
+      return res.sendStatus(404);
+    }
+    if (snapshot && pinned) {
+      root = offlinePackageDir(gamesDir, id, pinned);
+      res.setHeader("Cache-Control", "public, max-age=2592000, immutable, no-transform");
+      res.setHeader("Cloudflare-CDN-Cache-Control", "public, max-age=2592000");
+    } else {
+      // Legacy or unprepared builds stay playable, but are not immutable yet.
+      void ensureOfflinePackage(gamesDir, manifest).catch(error =>
+        console.warn("[Bundles] Package preparation failed:", (error as Error).message));
+    }
+    const filename = path.resolve(root, isArchive ? ".payload.zip" : relative);
+    if (!filename.startsWith(root + path.sep)) return res.sendStatus(404);
     let realFile: string;
     try {
       const realRoot = fs.realpathSync(root);
       realFile = fs.realpathSync(filename);
       if (!realFile.startsWith(realRoot + path.sep) || !fs.statSync(realFile).isFile()) {
+        res.setHeader("Cache-Control", "no-store");
+        res.removeHeader("Cloudflare-CDN-Cache-Control");
         return res.sendStatus(404);
       }
     } catch {
+      res.setHeader("Cache-Control", "no-store");
+      res.removeHeader("Cloudflare-CDN-Cache-Control");
       return res.sendStatus(404);
     }
-    return res.sendFile(realFile, { dotfiles: "deny", acceptRanges: true, cacheControl: false }, error => {
-      if (error && !res.headersSent) res.sendStatus((error as { status?: number }).status || 404);
+    if (isArchive) res.type("application/zip");
+    // Snapshot paths include a private dot-directory. Files were already
+    // allowlisted against the frozen manifest; hidden source files aren't in it.
+    return res.sendFile(realFile, { dotfiles: snapshot && pinned ? "allow" : "deny", acceptRanges: true, cacheControl: false }, error => {
+      if (error && !res.headersSent) {
+        res.setHeader("Cache-Control", "no-store");
+        res.removeHeader("Cloudflare-CDN-Cache-Control");
+        res.sendStatus((error as { status?: number }).status || 404);
+      }
       else if (error) next(error);
     });
   });

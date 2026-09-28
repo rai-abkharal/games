@@ -47,6 +47,11 @@ export interface BundleManifest {
   totalBytes: number;
   files: BundleFileEntry[];
   generatedAt: string;
+  /** Disk metadata fingerprint; not part of the content-derived build identity. */
+  sourceSignature?: string;
+  /** Conservative startup dependency order, without executing a game engine. */
+  startupFiles?: string[];
+  archive?: { path: string; bytes: number; sha256: string };
 }
 
 /** Never shipped to a device: build metadata, editor leftovers, the manifest itself. */
@@ -56,6 +61,7 @@ function isExcluded(relativePath: string): boolean {
   const name = segments[segments.length - 1];
   return (
     name === BUNDLE_MANIFEST_FILE ||
+    name === "startup-assets.json" ||
     name === "Thumbs.db" ||
     name === "desktop.ini" ||
     name.endsWith(".map")
@@ -148,7 +154,68 @@ export function buildManifest(
     totalBytes: files.reduce((sum, file) => sum + file.bytes, 0),
     files,
     generatedAt: new Date().toISOString(),
+    sourceSignature: directorySignature(buildDir),
+    startupFiles: startupFiles(buildDir, files, pickEntry(files)),
   };
+}
+
+/** Only explicit local dependencies are prefetched. Never guess all game assets. */
+function startupFiles(buildDir: string, files: BundleFileEntry[], entry: string): string[] {
+  const known = new Map(files.map(file => [file.path, file]));
+  const selected = new Set<string>();
+  const pending = [entry];
+  const hints: string[] = [];
+  let bytes = 0;
+  const addReference = (from: string, reference: string) => {
+    try {
+      const url = new URL(reference, `https://bundle.invalid/${from}`);
+      if (url.origin !== "https://bundle.invalid") return;
+      const relative = decodeURIComponent(url.pathname.slice(1));
+      if (known.has(relative)) pending.push(relative);
+    } catch { /* external or malformed reference */ }
+  };
+  // Authors can name actual first-screen assets without changing game code.
+  try {
+    const explicit = JSON.parse(fs.readFileSync(path.join(buildDir, "startup-assets.json"), "utf8"));
+    if (Array.isArray(explicit)) for (const relative of explicit) {
+      if (typeof relative === "string" && known.has(relative)) hints.push(relative);
+    }
+  } catch { /* optional author hints */ }
+  while ((pending.length || hints.length) && selected.size < 24) {
+    // HTML/engine dependencies take precedence over optional author hints.
+    const relative = (pending.length ? pending : hints).shift()!;
+    const file = known.get(relative);
+    if (!file || selected.has(relative) || bytes + file.bytes > 6 * 1024 * 1024) continue;
+    selected.add(relative);
+    bytes += file.bytes;
+    if (!/\.(html?|m?js|css)$/i.test(relative) || file.bytes > 4 * 1024 * 1024) continue;
+    const source = fs.readFileSync(path.join(buildDir, relative), "utf8");
+    if (/\.html?$/i.test(relative)) {
+      for (const match of source.matchAll(/<(script|link|img|source)\b[^>]*>/gi)) {
+        const tag = match[0];
+        if (match[1].toLowerCase() === "link" && !/\brel\s*=\s*["'](?:stylesheet|preload|modulepreload)["']/i.test(tag)) continue;
+        const attribute = /\b(?:src|href)\s*=\s*["']([^"']+)["']/i.exec(tag);
+        if (attribute) addReference(relative, attribute[1]);
+      }
+    } else if (/\.css$/i.test(relative)) {
+      for (const match of source.matchAll(/url\(\s*["']?([^\s"')]+)["']?\s*\)/gi)) addReference(relative, match[1]);
+    } else {
+      // Static ES module dependencies only: dynamic imports stay lazy.
+      for (const match of source.matchAll(/(?:\bfrom\s*|\bimport\s*)["']([^"']+)["']/g)) {
+        if (match[1].startsWith(".") || match[1].startsWith("/")) addReference(relative, match[1]);
+      }
+    }
+  }
+  return [...selected];
+}
+
+/** Never reserve a filename that is already part of a game's assets. */
+export function archivePathFor(manifest: BundleManifest): string {
+  const paths = new Set(manifest.files.map(file => file.path));
+  let candidate = "bundle.zip";
+  let attempt = 0;
+  while (paths.has(candidate)) candidate = `bundle-${manifest.buildId}-${++attempt}.zip`;
+  return candidate;
 }
 
 interface CacheEntry {
@@ -169,41 +236,22 @@ const memo = new Map<string, CacheEntry>();
 const SIGNATURE_TTL_MS = 5_000;
 
 /**
- * Cheap staleness check: the newest mtime and the file count across the build.
+ * Cheap staleness check: every path, size, mtime and ctime across the build.
  * Hashing every file on each request would make the catalogue endpoint
  * proportional to the size of the games directory.
  */
 function directorySignature(buildDir: string): string {
-  let newest = 0;
-  let count = 0;
-  const stack = [buildDir];
-  while (stack.length) {
-    const current = stack.pop() as string;
-    let entries: fs.Dirent[];
-    try {
-      entries = fs.readdirSync(current, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      const absolute = path.join(current, entry.name);
-      if (entry.isSymbolicLink()) continue;
-      if (entry.isDirectory()) {
-        stack.push(absolute);
-        continue;
-      }
-      if (!entry.isFile()) continue;
-      if (entry.name === BUNDLE_MANIFEST_FILE) continue;
-      try {
-        const stats = fs.statSync(absolute);
-        newest = Math.max(newest, stats.mtimeMs);
-        count += 1;
-      } catch {
-        /* a file that vanished mid-walk simply does not count */
-      }
-    }
+  const files: string[] = [];
+  walk(buildDir, buildDir, files);
+  // Include every path, size, mtime and ctime, not just the newest timestamp.
+  // Also track optional startup hints even though they aren't shipped to clients.
+  if (fs.existsSync(path.join(buildDir, "startup-assets.json"))) files.push("startup-assets.json");
+  const digest = crypto.createHash("sha256");
+  for (const relative of files.sort()) {
+    const stats = fs.statSync(path.join(buildDir, relative));
+    digest.update(JSON.stringify([relative, stats.size, stats.mtimeMs, stats.ctimeMs]));
   }
-  return `${count}:${Math.round(newest)}`;
+  return digest.digest("hex");
 }
 
 function writeAtomically(target: string, contents: string): void {
@@ -234,7 +282,7 @@ export function ensureManifest(
     return null;
   }
 
-  const key = `${gameId}/${version}`;
+  const key = path.resolve(buildDir);
   const now = Date.now();
   const cached = memo.get(key);
   if (cached && now - cached.checkedAt < SIGNATURE_TTL_MS) return cached.manifest;
@@ -251,15 +299,16 @@ export function ensureManifest(
       const onDisk = JSON.parse(
         fs.readFileSync(manifestPath, "utf8"),
       ) as BundleManifest;
-      // A manifest written before the build changed is worse than none: trust
-      // it only when it still describes the same file count and byte total.
+      // A saved manifest is trusted only with its exact source fingerprint.
+      // Older manifests lacking this field are rehashed once, fixing stale
+      // sizes/hashes even when the file count and total bytes stayed identical.
       if (
         onDisk?.schema === BUNDLE_SCHEMA &&
         onDisk.buildId &&
         Array.isArray(onDisk.files) &&
         onDisk.version === version &&
         onDisk.gameId === gameId &&
-        onDisk.files.length === Number(signature.split(":")[0])
+        onDisk.sourceSignature === signature
       ) {
         const total = onDisk.files.reduce(
           (sum, file) => sum + (Number(file.bytes) || 0),
@@ -283,11 +332,7 @@ export function ensureManifest(
 
 /** Drops a cached manifest, e.g. right after an Admin Panel re-upload. */
 export function invalidateManifest(gameId: string, version?: string): void {
-  if (version) {
-    memo.delete(`${gameId}/${version}`);
-    return;
-  }
-  for (const key of Array.from(memo.keys())) {
-    if (key.startsWith(`${gameId}/`)) memo.delete(key);
+  for (const [key, cached] of memo) {
+    if (cached.manifest.gameId === gameId && (!version || cached.manifest.version === version)) memo.delete(key);
   }
 }

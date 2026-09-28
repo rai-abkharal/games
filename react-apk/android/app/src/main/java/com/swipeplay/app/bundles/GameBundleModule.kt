@@ -30,8 +30,9 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
   private val store = GameBundleStore(reactContext.applicationContext)
   private val tutorialRoot = File(reactContext.filesDir, "tutorial-games")
   private val liveCacheRoot = File(reactContext.cacheDir, "live-game-files")
-  private val server = LocalGameServer(store, tutorialRoot, liveCacheRoot)
-  private val downloader = GameBundleDownloader(store, this, liveCacheRoot)
+  private val foreground = ForegroundAssetGate()
+  private val server = LocalGameServer(store, tutorialRoot, liveCacheRoot, foreground)
+  private val downloader = GameBundleDownloader(store, this, liveCacheRoot, foreground)
 
   /** gameId -> entry path of the activated build, so URLs can be rebuilt cheaply. */
   private val entries = HashMap<String, String>()
@@ -139,6 +140,20 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
         promise.reject("live_prepare_failed", error.message, error)
       }
     }
+  }
+
+  /** Prepare only the nearest game's bounded startup set on the download worker. */
+  @ReactMethod
+  fun prepareStartup(request: ReadableMap?) {
+    if (request == null) { downloader.prepareStartup(null); return }
+    val gameId = request.getString("gameId") ?: return
+    val version = request.getString("version") ?: return
+    val buildId = request.getString("buildId") ?: return
+    if (!gameId.matches(Regex("^[a-z0-9-]+$")) || !version.matches(Regex("^\\d+\\.\\d+\\.\\d+$")) ||
+      !buildId.matches(Regex("^[a-f0-9]{32}$")) || GameBundleStore.BUNDLED_GAME_IDS.contains(gameId)) return
+    downloader.prepareStartup(GameBundleDownloader.Job(gameId, version, buildId,
+      "https://games.raiabdullah.tech/api/offline-bundles/$gameId/$version/bundle.json",
+      GameBundleDownloader.PRIORITY_NEXT))
   }
 
   /**
@@ -340,7 +355,7 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
     bytes: Long,
     elapsedMs: Long,
   ) {
-    synchronized(entriesLock) { entries[gameId] = entry }
+    synchronized(entriesLock) { entries["$gameId|$buildId"] = entry }
     val payload = describe(gameId, buildId, entry)
     // Carried so the feed can report a download's real cost to analytics
     // without timing it from JavaScript, where a busy bridge would skew it.
@@ -392,9 +407,16 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
    * copy when it is there, otherwise the conventional `index.html`.
    */
   private fun resolveEntry(gameId: String, buildId: String): String? {
-    synchronized(entriesLock) { entries[gameId]?.let { return it } }
+    synchronized(entriesLock) { entries["$gameId|$buildId"]?.let { return it } }
     val dir = store.buildDir(gameId, buildId)
     if (!dir.isDirectory) return null
+    try {
+      val entry = org.json.JSONObject(File(dir, ".bundle-entry.json").readText()).getString("entry")
+      if (GameBundleStore.isSafeRelativePath(entry) && File(dir, entry).isFile) {
+        synchronized(entriesLock) { entries["$gameId|$buildId"] = entry }
+        return entry
+      }
+    } catch (_: Exception) { /* legacy builds did not persist entry metadata */ }
     val candidate = java.io.File(dir, "index.html")
     val entry = if (candidate.isFile) {
       "index.html"
@@ -403,7 +425,7 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
       dir.walkTopDown().maxDepth(3).firstOrNull { it.isFile && it.name == "index.html" }
         ?.relativeTo(dir)?.path?.replace('\\', '/')
     }
-    if (entry != null) synchronized(entriesLock) { entries[gameId] = entry }
+    if (entry != null) synchronized(entriesLock) { entries["$gameId|$buildId"] = entry }
     return entry
   }
 

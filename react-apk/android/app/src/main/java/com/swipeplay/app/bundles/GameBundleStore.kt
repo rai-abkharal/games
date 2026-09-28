@@ -36,6 +36,15 @@ class GameBundleStore(context: Context) {
 
   /** gameId -> active buildId. */
   private val active = HashMap<String, String>()
+  /** Readers can keep using an older build until this app process ends. */
+  private val pinnedBuilds = HashSet<String>()
+
+  fun pinBuild(gameId: String, buildId: String) {
+    synchronized(lock) { pinnedBuilds.add("$gameId|$buildId") }
+  }
+
+  fun isPinned(gameId: String, buildId: String): Boolean =
+    synchronized(lock) { "$gameId|$buildId" in pinnedBuilds }
 
   /** gameId -> epoch millis, for least-recently-used eviction. */
   private val lastPlayed = HashMap<String, Long>()
@@ -105,7 +114,7 @@ class GameBundleStore(context: Context) {
         if (previous == null) active.remove(gameId) else active[gameId] = previous
         return false
       }
-      if (previous != null && previous != buildId) {
+      if (previous != null && previous != buildId && "$gameId|$previous" !in pinnedBuilds) {
         File(root, "$gameId/$previous").deleteRecursively()
       }
       return true
@@ -207,13 +216,14 @@ class GameBundleStore(context: Context) {
           if (name.startsWith(".staging-")) {
             // Keep only the staging area for the build we still intend to fetch,
             // so an abandoned partial download cannot occupy space forever.
-            if (keepWanted != null && name.removePrefix(".staging-") != keepWanted) {
+            if (keepWanted != null && name.removePrefix(".staging-") != keepWanted &&
+              "$gameId|${name.removePrefix(".staging-")}" !in pinnedBuilds) {
               buildDir.deleteRecursively()
             }
             continue
           }
           // Never delete an active playable build. Only prune superseded builds.
-          if (keepActive != null && name != keepActive) {
+          if (keepActive != null && name != keepActive && "$gameId|$name" !in pinnedBuilds) {
             buildDir.deleteRecursively()
           }
         }
@@ -232,7 +242,8 @@ class GameBundleStore(context: Context) {
       var used = usedBytes()
       if (used <= budgetBytes) return
       val candidates = active.keys
-        .filter { !pinned.contains(it) && !BUNDLED_GAME_IDS.contains(it) }
+        .filter { !pinned.contains(it) && !BUNDLED_GAME_IDS.contains(it) &&
+          pinnedBuilds.none { build -> build.startsWith("$it|") } }
         .sortedBy { lastPlayed[it] ?: 0L }
       var indexChanged = false
       for (gameId in candidates) {

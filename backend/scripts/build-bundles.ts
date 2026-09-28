@@ -14,6 +14,7 @@ import {
   buildManifest,
   ensureManifest,
 } from "../src/services/bundleService";
+import { ensureOfflinePackage } from "../src/services/offlinePackageService";
 
 function resolvePublicDir(explicit?: string): string {
   const candidates = [
@@ -34,7 +35,7 @@ function resolvePublicDir(explicit?: string): string {
   return found;
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const force = argv.includes("--force");
   const dirFlag = argv.indexOf("--public-dir");
@@ -71,6 +72,7 @@ function main(): void {
           manifest = ensureManifest(gamesDir, gameId, version);
         }
         if (!manifest) continue;
+        await ensureOfflinePackage(gamesDir, manifest);
         builds += 1;
         bytes += manifest.totalBytes;
         console.log(
@@ -91,4 +93,4 @@ function main(): void {
   );
 }
 
-main();
+void main().catch(error => { console.error(error); process.exitCode = 1; });

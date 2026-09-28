@@ -5,6 +5,7 @@ import { BUNDLED_GAMES } from '../src/config/bundledGames';
 import { useCatalogStore } from '../src/store/catalogStore';
 import { usePlayerStore } from '../src/store/playerStore';
 import { useTutorialStore } from '../src/store/tutorialStore';
+import { prepareNextBundle } from '../src/services/gameBundles';
 
 jest.mock('@react-navigation/native', () => ({ useFocusEffect: () => {} }));
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaProvider: 'SafeAreaProvider', SafeAreaView: 'SafeAreaView' }));
@@ -25,6 +26,7 @@ jest.mock('../src/services/gameBundles', () => ({
   localUrlFor: () => null,
   BundlePriority: { current: 0, next: 1, near: 2, rest: 3 },
   markBundlePlayed: jest.fn(), setBundleObserver: jest.fn(), setBundlePaused: jest.fn(),
+  prepareNextBundle: jest.fn(),
   setBundlePlaying: jest.fn(), setBundlePolicy: jest.fn(), syncBundles: jest.fn(), warmBundle: jest.fn(),
 }));
 jest.mock('../src/components/feed/FeedHeader', () => ({ FeedHeader: 'FeedHeader' }));
@@ -45,12 +47,26 @@ const game = (id: string) => ({ ...BUNDLED_GAMES[0], id, title: id });
 
 beforeEach(() => {
   jest.useFakeTimers();
+  jest.clearAllMocks();
   useCatalogStore.setState({ games: [game('first'), game('second')], status: 'ready' });
   usePlayerStore.setState({ lastPlayedGameId: null, favorites: [] });
   useTutorialStore.setState({ hydrated: true, firstTimeTutorialCompleted: true, homeSwipeSeen: false });
   act(() => { tree = TestRenderer.create(<FeedScreen navigation={{ navigate: jest.fn() } as any} route={{} as any} />); });
   const stage = tree.root.findAll(node => typeof node.props.onLayout === 'function')[0];
   act(() => stage.props.onLayout({ nativeEvent: { layout: { width: 400, height: 800 } } }));
+});
+
+test('next startup preparation waits for readiness and a stable interval without booting another page', () => {
+  advance(5_000);
+  expect(prepareNextBundle).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'second' }));
+  act(() => node('GamePage').props.onPhase('first', 'ready'));
+  advance(1_499);
+  expect(prepareNextBundle).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'second' }));
+  advance(1);
+  expect(prepareNextBundle).toHaveBeenCalledWith(expect.objectContaining({ id: 'second' }));
+  expect(tree.root.findAllByType('GamePage' as any)).toHaveLength(1);
+  act(() => node('GamePager').props.onSwipeStart());
+  expect(prepareNextBundle).toHaveBeenLastCalledWith(null);
 });
 afterEach(() => {
   act(() => tree.unmount());

@@ -58,6 +58,7 @@ class LocalGameServer(
   private val store: GameBundleStore,
   private val tutorialRoot: File,
   private val liveCacheRoot: File,
+  private val foreground: ForegroundAssetGate = ForegroundAssetGate(),
 ) {
 
   /** Only builds explicitly selected by the app may fetch missing files. */
@@ -252,6 +253,9 @@ class LocalGameServer(
       return false
     }
     val file = resolve(target)
+    if (target.gameId != "__tutorial" && target.relative.endsWith(".html", ignoreCase = true)) {
+      store.pinBuild(target.gameId, target.buildId)
+    }
     if (file == null) return streamLiveFile(target, method, rangeHeader, output)
     return serveFile(file, method, rangeHeader, keepAlive, output)
   }
@@ -398,7 +402,7 @@ class LocalGameServer(
     }
     if (!canonicalFile.startsWith(canonicalRoot)) return null
     if (gameId == "__tutorial") return file.takeIf { it.isFile && it.canRead() }
-    if (store.isActive(gameId, buildId) && file.isFile && file.canRead()) return file
+    if ((store.isActive(gameId, buildId) || store.isPinned(gameId, buildId)) && file.isFile && file.canRead()) return file
     // The downloader publishes each staging file only after its manifest hash
     // matches. Reuse those bytes before asking the network for a live file.
     val staged = File(store.stagingDir(gameId, buildId), relative)
@@ -440,6 +444,7 @@ class LocalGameServer(
       val part = File(cache.parentFile, "${cache.name}.part")
       var connection: HttpURLConnection? = null
       var headersSent = false
+      foreground.begin()
       try {
         connection = openTrusted(url, method, rangeHeader)
         val status = connection.responseCode
@@ -500,6 +505,7 @@ class LocalGameServer(
         return false
       } finally {
         connection?.disconnect()
+        foreground.end()
         if (part.exists()) part.delete()
         // Keep this lock for the server lifetime. Removing it while a waiter
         // retries a failed fetch would let a third request write the same part

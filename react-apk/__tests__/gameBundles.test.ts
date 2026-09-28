@@ -53,12 +53,30 @@ beforeEach(() => {
       setPolicy: jest.fn(),
       markPlayed,
       warm: jest.fn(),
+      prepareStartup: jest.fn(),
       getStatus: jest.fn(async () => ({ available: true, port: 42731, usedBytes: 0, ready: [] })),
       addListener: jest.fn(),
       removeListeners: jest.fn(),
     },
   });
   bundles = require('../src/services/gameBundles');
+});
+
+describe('prepareNextBundle', () => {
+  it('passes only descriptors and can cancel preparation', () => {
+    bundles.prepareNextBundle(game('alpha'));
+    expect((NativeModules as any).GameBundles.prepareStartup).toHaveBeenCalledWith({ gameId: 'alpha', version: '1.0.0', buildId: 'build-1' });
+    bundles.prepareNextBundle(null);
+    expect((NativeModules as any).GameBundles.prepareStartup).toHaveBeenLastCalledWith(null);
+  });
+
+  it('skips local games and ignores errors from this optional optimization', () => {
+    bundles.useBundleStore.setState({ ready: { alpha: { gameId: 'alpha', buildId: 'build-1', entry: 'index.html', url: 'http://127.0.0.1:42731/tok/alpha/build-1/index.html' } } });
+    bundles.prepareNextBundle(game('alpha'));
+    expect((NativeModules as any).GameBundles.prepareStartup).toHaveBeenCalledWith(null);
+    (NativeModules as any).GameBundles.prepareStartup.mockImplementation(() => { throw new Error('optional prefetch failed'); });
+    expect(() => bundles.prepareNextBundle(game('beta'))).not.toThrow();
+  });
 });
 
 describe('localUrlFor', () => {

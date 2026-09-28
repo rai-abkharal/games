@@ -83,6 +83,7 @@ interface NativeGameBundles {
   warm(gameId: string): void;
   getStatus(): Promise<{ available: boolean; port: number; usedBytes: number; ready: ReadyBundle[] }>;
   prepareLive(gameId: string, version: string, buildId: string, entry: string): Promise<string>;
+  prepareStartup?(request: { gameId: string; version: string; buildId: string } | null): void;
   addListener(eventName: string): void;
   removeListeners(count: number): void;
 }
@@ -149,6 +150,18 @@ export async function prepareLiveBundle(game: GameItem): Promise<string | null> 
   } catch {
     return null;
   }
+}
+
+/** Files only, on the single native worker; null cancels speculative preparation. */
+export function prepareNextBundle(game: GameItem | null): void {
+  try {
+    if (!game || localUrlFor(game) || !game.bundleUrl || !game.buildId ||
+      !/^[a-z0-9-]+$/.test(game.id) || !/^\d+\.\d+\.\d+$/.test(game.version)) {
+      native?.prepareStartup?.(null);
+      return;
+    }
+    native?.prepareStartup?.({ gameId: game.id, version: game.version, buildId: String(game.buildId) });
+  } catch { /* prefetch failure must never affect current play */ }
 }
 
 /** The download in flight for a game, if any. Safe to call from a selector. */
