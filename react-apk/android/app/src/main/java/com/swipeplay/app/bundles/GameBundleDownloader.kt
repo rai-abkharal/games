@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class GameBundleDownloader(
   private val store: GameBundleStore,
   private val listener: Listener,
+  private val liveCacheRoot: File? = null,
 ) {
 
   interface Listener {
@@ -448,6 +449,22 @@ class GameBundleDownloader(
         report(job, manifest, done)
         continue
       }
+      // An on-demand WebView request may already have fetched this file. Only
+      // reuse it after the normal manifest hash check; live play itself never
+      // promotes a bundle to offline-ready.
+      val liveFile = liveCacheRoot?.let { File(it, "${job.gameId}/${manifest.buildId}/${file.path}") }
+      if (liveFile?.isFile == true && liveFile.length() == file.bytes &&
+        GameBundleStore.sha256Of(liveFile) == file.sha256) {
+        try {
+          target.parentFile?.mkdirs()
+          liveFile.copyTo(target, overwrite = true)
+          done += file.bytes
+          report(job, manifest, done)
+          continue
+        } catch (_: Exception) {
+          // A cache file may disappear under storage pressure; download it.
+        }
+      }
       target.parentFile?.mkdirs()
       val part = File(target.parentFile, "${target.name}.part")
       // `?b=` lets the CDN/server cache the exact build forever; the hash check
@@ -475,6 +492,7 @@ class GameBundleDownloader(
       return
     }
     Log.i(TAG, "Bundle activated on disk: ${job.gameId} build ${manifest.buildId}")
+    liveCacheRoot?.let { File(it, "${job.gameId}/${manifest.buildId}").deleteRecursively() }
     synchronized(queueLock) {
       if (queued[job.gameId]?.buildId == manifest.buildId) queued.remove(job.gameId)
       val id = key(job.gameId, manifest.buildId)

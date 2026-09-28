@@ -2,6 +2,7 @@ import { NativeEventEmitter, NativeModules, type EmitterSubscription } from 'rea
 import { create } from 'zustand';
 import type { GameItem } from '../types/game';
 import { DEFAULT_BASE_URL } from '../config/env';
+import { remoteEntryPath } from '../utils/url';
 
 /**
  * JavaScript's half of the on-device game store.
@@ -16,7 +17,8 @@ import { DEFAULT_BASE_URL } from '../config/env';
  * back, so a 30 MB game costs JavaScript the same as an 8 KB one.
  *
  * Every entry point is a no-op when the native module is missing (iOS, Jest,
- * an older build of the app). Server games wait for a verified local bundle.
+ * an older build of the app). On Android a missing server build can use the
+ * same loopback origin while its verified offline bundle is still arriving.
  */
 
 export interface ReadyBundle {
@@ -80,6 +82,7 @@ interface NativeGameBundles {
   markPlayed(gameId: string): void;
   warm(gameId: string): void;
   getStatus(): Promise<{ available: boolean; port: number; usedBytes: number; ready: ReadyBundle[] }>;
+  prepareLive(gameId: string, version: string, buildId: string, entry: string): Promise<string>;
   addListener(eventName: string): void;
   removeListeners(count: number): void;
 }
@@ -135,6 +138,17 @@ export function localUrlFor(game: Pick<GameItem, 'id' | 'buildId'>): string | nu
   const entry = useBundleStore.getState().ready[game.id];
   // Keep the last verified build playable until its replacement is fully on disk.
   return entry?.url ?? null;
+}
+
+/** A temporary same-origin play URL; it does not mark the build offline-ready. */
+export async function prepareLiveBundle(game: GameItem): Promise<string | null> {
+  const entry = remoteEntryPath(game);
+  if (!native?.prepareLive || !entry || !game.buildId) return null;
+  try {
+    return await native.prepareLive(game.id, game.version, String(game.buildId), entry);
+  } catch {
+    return null;
+  }
 }
 
 /** The download in flight for a game, if any. Safe to call from a selector. */
@@ -233,8 +247,8 @@ export function startBundleStore(): Promise<void> {
         emitter.addListener('GameBundleFailed', (raw: unknown) => {
           const event = raw as { gameId: string; buildId: string; reason: string; retryInMs: number };
           if (!event?.gameId) return;
-          // The page keeps loading from the network, and the build stays in the
-          // wish-list for the next sync to retry after the native back-off. The
+          // A live page may still fetch assets on demand; the build stays in
+          // the wish-list for the next sync to retry after the native back-off. The
           // record is kept so the placeholder can say *why* it is waiting.
           setDownload(event.gameId, {
             gameId: event.gameId,
@@ -292,7 +306,7 @@ export function syncBundles(
   try {
     native.sync(requests);
   } catch {
-    /* the feed still plays from the network */
+    /* a live page may continue through the local on-demand proxy */
   }
 }
 

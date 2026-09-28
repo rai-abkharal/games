@@ -29,8 +29,9 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
 
   private val store = GameBundleStore(reactContext.applicationContext)
   private val tutorialRoot = File(reactContext.filesDir, "tutorial-games")
-  private val server = LocalGameServer(store, tutorialRoot)
-  private val downloader = GameBundleDownloader(store, this)
+  private val liveCacheRoot = File(reactContext.cacheDir, "live-game-files")
+  private val server = LocalGameServer(store, tutorialRoot, liveCacheRoot)
+  private val downloader = GameBundleDownloader(store, this, liveCacheRoot)
 
   /** gameId -> entry path of the activated build, so URLs can be rebuilt cheaply. */
   private val entries = HashMap<String, String>()
@@ -118,6 +119,24 @@ class GameBundleModule(private val reactContext: ReactApplicationContext) :
         promise.resolve(result)
       } catch (error: Exception) {
         promise.reject("start_failed", error.message, error)
+      }
+    }
+  }
+
+  /** Gives a missing build a same-origin, on-demand WebView URL. */
+  @ReactMethod
+  fun prepareLive(gameId: String, version: String, buildId: String, entry: String, promise: Promise) {
+    io.execute {
+      try {
+        if (!server.isRunning() && !server.start()) {
+          promise.reject("live_unavailable", "Local game server is not running")
+          return@execute
+        }
+        val url = server.prepareLive(gameId, version, buildId, entry)
+        if (url == null) promise.reject("invalid_live_game", "Invalid live game descriptor")
+        else promise.resolve(url)
+      } catch (error: Exception) {
+        promise.reject("live_prepare_failed", error.message, error)
       }
     }
   }

@@ -1,4 +1,4 @@
-import { buildGameEntryUrl, buildRemotePlayUrl, hashCode, normalizeAssetUrl, normalizeGameUrls } from '../src/utils/url';
+import { buildGameEntryUrl, remoteEntryPath, hashCode, normalizeAssetUrl, normalizeGameUrls } from '../src/utils/url';
 import type { GameItem } from '../src/types/game';
 
 const base = 'https://games.raiabdullah.tech';
@@ -67,23 +67,21 @@ describe('cache-busting entry URL (parity with GameFeedAdapter)', () => {
   });
 });
 
-describe('same-domain fast-start URL', () => {
+describe('same-origin fast-start entry', () => {
   const remote = {
     id: 'game-abc', version: '1.2.0', buildId: 'build-123',
     bundleUrl: `${base}/api/offline-bundles/game-abc/1.2.0/bundle.json`,
     entryUrl: `${base}/games/game-abc/1.2.0/index.html`,
   } as GameItem;
 
-  test('uses the inline play route, not the preview-redirecting /games route', () => {
-    expect(buildRemotePlayUrl(remote)).toBe(
-      `${base}/api/play/game-abc/1.2.0/index.html?v=1.2.0&t=${hashCode('game-abc:1.2.0')}&b=build-123`,
-    );
+  test('extracts the entry for the native on-demand loopback server', () => {
+    expect(remoteEntryPath(remote)).toBe('index.html');
   });
 
   test('does not fast-start tutorials, missing bundles, or unsafe paths', () => {
-    expect(buildRemotePlayUrl({ ...remote, tutorial: true })).toBeNull();
-    expect(buildRemotePlayUrl({ ...remote, bundleUrl: undefined })).toBeNull();
-    expect(buildRemotePlayUrl({ ...remote, entryUrl: `${base}/games/game-abc/1.2.0/../admin/index.html` })).toBeNull();
-    expect(buildRemotePlayUrl({ ...remote, id: 'bad/id' })).toBeNull();
+    expect(remoteEntryPath({ ...remote, tutorial: true })).toBeNull();
+    expect(remoteEntryPath({ ...remote, bundleUrl: undefined })).toBeNull();
+    expect(remoteEntryPath({ ...remote, entryUrl: `${base}/games/game-abc/1.2.0/../admin/index.html` })).toBeNull();
+    expect(remoteEntryPath({ ...remote, id: 'bad/id' })).toBeNull();
   });
 });

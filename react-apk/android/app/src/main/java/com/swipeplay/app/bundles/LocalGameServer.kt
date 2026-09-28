@@ -6,10 +6,14 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.URL
 import java.net.URLDecoder
+import java.net.URLEncoder
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadFactory
 
@@ -46,14 +50,19 @@ import java.util.concurrent.ThreadFactory
  *    a larger, more certain cost than the narrow replay window a rotating
  *    token closed.
  *
- * Responses are cacheable, and deliberately so: a URL here names a specific
- * *build* (`/<token>/<gameId>/<buildId>/<path>`), and a buildId is a content
- * hash of that whole build. The bytes behind a given URL can therefore never
- * change, which is exactly the condition `immutable` describes. Letting
- * Chromium keep its own copy costs disk the store already proves the device
- * has, and buys a warm code cache on the second open of every game.
+ * Activated builds are cacheable under their content-addressed URL. A live
+ * file or still-staging build is sent `no-store` until the complete build has
+ * passed the downloader's manifest checks and activation.
  */
-class LocalGameServer(private val store: GameBundleStore, private val tutorialRoot: File) {
+class LocalGameServer(
+  private val store: GameBundleStore,
+  private val tutorialRoot: File,
+  private val liveCacheRoot: File,
+) {
+
+  /** Only builds explicitly selected by the app may fetch missing files. */
+  private val liveVersions = ConcurrentHashMap<String, String>()
+  private val liveFileLocks = ConcurrentHashMap<String, Any>()
 
   @Volatile private var socket: ServerSocket? = null
   @Volatile private var acceptor: Thread? = null
@@ -68,7 +77,7 @@ class LocalGameServer(private val store: GameBundleStore, private val tutorialRo
 
   private fun newWorkerPool(): java.util.concurrent.ExecutorService =
     Executors.newFixedThreadPool(
-      4,
+      8,
       ThreadFactory { runnable ->
         Thread({
           Process.setThreadPriority(Process.THREAD_PRIORITY_DEFAULT)
@@ -127,6 +136,15 @@ class LocalGameServer(private val store: GameBundleStore, private val tutorialRo
   /** The URL a WebView should load for an activated build. */
   fun entryUrl(gameId: String, buildId: String, entry: String): String =
     "http://127.0.0.1:$port/$token/$gameId/$buildId/$entry"
+
+  /** The live URL is identical to the eventual disk URL, preserving WebView storage. */
+  fun prepareLive(gameId: String, version: String, buildId: String, entry: String): String? {
+    if (!gameId.matches(SAFE_ID) || !buildId.matches(SAFE_ID) ||
+      !version.matches(SAFE_VERSION) || !GameBundleStore.isSafeRelativePath(entry) ||
+      !entry.endsWith(".html", ignoreCase = true)) return null
+    liveVersions["$gameId|$buildId"] = version
+    return entryUrl(gameId, buildId, entry)
+  }
 
   private fun acceptLoop(server: ServerSocket) {
     Process.setThreadPriority(Process.THREAD_PRIORITY_DEFAULT)
@@ -233,6 +251,11 @@ class LocalGameServer(private val store: GameBundleStore, private val tutorialRo
       writeStatus(output, 404, "Not Found")
       return keepAlive
     }
+    // Live/staging bytes are not yet an activated, whole-build-verified copy.
+    // Do not let Chromium keep them under the final immutable build URL.
+    val cacheControl = if (file.absolutePath.startsWith(liveCacheRoot.absolutePath + File.separator) ||
+      file.absolutePath.contains("${File.separator}.staging-")) "no-store"
+      else "public, max-age=31536000, immutable"
 
     val length = file.length()
     var start = 0L
@@ -284,7 +307,7 @@ class LocalGameServer(private val store: GameBundleStore, private val tutorialRo
         "Content-Type" to "text/html; charset=utf-8",
         "Content-Length" to payload.size.toString(),
         "Accept-Ranges" to "bytes",
-        "Cache-Control" to "public, max-age=31536000, immutable",
+        "Cache-Control" to cacheControl,
         "Access-Control-Allow-Origin" to "*",
         "Cross-Origin-Resource-Policy" to "cross-origin",
         "X-Content-Type-Options" to "nosniff",
@@ -300,15 +323,8 @@ class LocalGameServer(private val store: GameBundleStore, private val tutorialRo
       "Content-Type" to mimeTypeOf(file.name),
       "Content-Length" to contentLength.toString(),
       "Accept-Ranges" to "bytes",
-      // Immutable, deliberately. The path names a buildId, a buildId is a hash
-      // of the build, so these bytes cannot change without the URL changing.
-      // What this actually buys is not saved disk reads — those were always
-      // cheap — but V8's compiled-code cache, which is keyed by resource URL
-      // and is what makes the *second* open of a game with a megabyte-plus
-      // engine bundle skip a full parse and compile. The duplicate copy in
-      // Chromium's cache is a price worth paying for that, and Chromium evicts
-      // it under pressure while the store's copy stays put.
-      "Cache-Control" to "public, max-age=31536000, immutable",
+      // Immutable caching applies only after whole-build verification.
+      "Cache-Control" to cacheControl,
       "Access-Control-Allow-Origin" to "*",
       "Cross-Origin-Resource-Policy" to "cross-origin",
       "X-Content-Type-Options" to "nosniff",
@@ -374,8 +390,92 @@ class LocalGameServer(private val store: GameBundleStore, private val tutorialRo
       return null
     }
     if (!canonicalFile.startsWith(canonicalRoot)) return null
-    if (!file.isFile || !file.canRead()) return null
-    return file
+    if (gameId == "__tutorial") return file.takeIf { it.isFile && it.canRead() }
+    if (store.isActive(gameId, buildId) && file.isFile && file.canRead()) return file
+    // The downloader publishes each staging file only after its manifest hash
+    // matches. Reuse those bytes before asking the network for a live file.
+    val staged = File(store.stagingDir(gameId, buildId), relative)
+    if (staged.isFile && staged.canRead()) return staged
+    return fetchLiveFile(gameId, buildId, relative)
+  }
+
+  /** Fetches an individual missing asset through the canonical download API. */
+  private fun fetchLiveFile(gameId: String, buildId: String, relative: String): File? {
+    val version = liveVersions["$gameId|$buildId"] ?: return null
+    val cache = File(liveCacheRoot, "$gameId/$buildId/$relative")
+    if (cache.isFile) return cache
+    val key = "$gameId|$buildId|$relative"
+    val lock = liveFileLocks.getOrPut(key) { Any() }
+    synchronized(lock) {
+      if (cache.isFile) return cache
+      val active = File(store.buildDir(gameId, buildId), relative)
+      if (store.isActive(gameId, buildId) && active.isFile && active.canRead()) return active
+      val staged = File(store.stagingDir(gameId, buildId), relative)
+      if (staged.isFile && staged.canRead()) return staged
+      if (liveCacheRoot.usableSpace < MIN_FREE_BYTES) return null
+      val encoded = relative.split("/").joinToString("/") {
+        URLEncoder.encode(it, "UTF-8").replace("+", "%20")
+      }
+      val url = "https://$DOWNLOAD_HOST/api/offline-bundles/$gameId/$version/$encoded?b=$buildId"
+      val part = File(cache.parentFile, "${cache.name}.part")
+      cache.parentFile?.mkdirs()
+      var connection: HttpURLConnection? = null
+      try {
+        connection = openTrusted(url)
+        if (connection.responseCode != 200) return null
+        val expectedBytes = connection.contentLengthLong
+        if (expectedBytes > MAX_LIVE_FILE_BYTES) return null
+        var written = 0L
+        connection.inputStream.use { input ->
+          part.outputStream().use { output ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+              val read = input.read(buffer)
+              if (read < 0) break
+              written += read
+              if (written > MAX_LIVE_FILE_BYTES) throw IOException("Live game asset too large")
+              output.write(buffer, 0, read)
+            }
+          }
+        }
+        if (expectedBytes >= 0 && written != expectedBytes) return null
+        if (!part.renameTo(cache)) {
+          val completed = File(store.buildDir(gameId, buildId), relative)
+          return completed.takeIf { store.isActive(gameId, buildId) && it.isFile && it.canRead() }
+        }
+        return cache
+      } catch (_: Exception) {
+        val completed = File(store.buildDir(gameId, buildId), relative)
+        return completed.takeIf { store.isActive(gameId, buildId) && it.isFile && it.canRead() }
+      } finally {
+        connection?.disconnect()
+        if (part.exists()) part.delete()
+        liveFileLocks.remove(key, lock)
+      }
+    }
+  }
+
+  /** Never follow a redirect to an IP, preview host, or insecure origin. */
+  private fun openTrusted(initial: String): HttpURLConnection {
+    var current = URL(initial)
+    repeat(6) { redirects ->
+      if (current.protocol != "https" || current.host != DOWNLOAD_HOST ||
+        current.port !in listOf(-1, 443)) throw IOException("Untrusted game URL")
+      val connection = (current.openConnection() as HttpURLConnection).apply {
+        instanceFollowRedirects = false
+        connectTimeout = 12_000
+        readTimeout = 30_000
+        useCaches = false
+        setRequestProperty("Accept-Encoding", "identity")
+      }
+      val status = connection.responseCode
+      if (status !in listOf(301, 302, 303, 307, 308)) return connection
+      val location = connection.getHeaderField("Location")
+      connection.disconnect()
+      if (location.isNullOrEmpty() || redirects == 5) throw IOException("Invalid game redirect")
+      current = URL(current, location)
+    }
+    throw IOException("Too many game redirects")
   }
 
   private fun readLine(input: InputStream): String? {
@@ -415,6 +515,10 @@ class LocalGameServer(private val store: GameBundleStore, private val tutorialRo
     /** Arbitrary but fixed: the first choice for a stable, sticky origin. */
     private const val DEFAULT_PORT = 42731
     private val SAFE_ID = Regex("^[A-Za-z0-9._-]{1,128}$")
+    private val SAFE_VERSION = Regex("^\\d+\\.\\d+\\.\\d+$")
+    private const val DOWNLOAD_HOST = "games.raiabdullah.tech"
+    private const val MIN_FREE_BYTES = 128L * 1024 * 1024
+    private const val MAX_LIVE_FILE_BYTES = 256L * 1024 * 1024
 
     fun mimeTypeOf(name: String): String {
       val lower = name.lowercase()

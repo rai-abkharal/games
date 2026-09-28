@@ -24,8 +24,12 @@ jest.mock('react-native-webview', () => {
   };
 });
 const mockLocalUrl: { value: string | null } = { value: null };
+const mockPrepareLive = jest.fn((item: GameItem) => Promise.resolve(
+  `http://127.0.0.1:42731/tok/${item.id}/${item.buildId}/index.html`,
+));
 jest.mock('../src/services/gameBundles', () => ({
   localUrlFor: () => mockLocalUrl.value,
+  prepareLiveBundle: (item: GameItem) => mockPrepareLive(item),
   useBundleStore: (selector: (state: { ready: Record<string, unknown> }) => unknown) =>
     selector({ ready: {} }),
   // The page subscribes to download progress on its own; nothing is in flight
@@ -85,6 +89,7 @@ beforeEach(() => {
   mockStopLoading.mockClear();
   mockInjectJavaScript.mockClear();
   mockLocalUrl.value = 'http://127.0.0.1:42731/tok/test/build-1/index.html';
+  mockPrepareLive.mockClear();
   mockOffline.value = false;
   mockLoadEvents.length = 0;
 });
@@ -223,14 +228,20 @@ const serverGame: GameItem = {
   buildId: 'build-123',
 };
 
-test('a missing server game fast-starts on the canonical play route while online', async () => {
+test('a missing server game fast-starts through the local proxy while online', async () => {
   mockLocalUrl.value = null;
   await act(async () => {
     tree = TestRenderer.create(<GamePage {...props} game={serverGame} slot="active" />);
   });
-  expect(webviews()[0].props.source.uri).toMatch(
-    /^https:\/\/games\.raiabdullah\.tech\/api\/play\/game-abc\/1\.0\.0\/index\.html\?/,
+  expect(webviews()[0].props.source.uri).toBe(
+    'http://127.0.0.1:42731/tok/game-abc/build-123/index.html',
   );
+  expect(mockPrepareLive).toHaveBeenCalledWith(serverGame);
+  await act(async () => {
+    webviews()[0].props.onLoadStart();
+    webviews()[0].props.onLoad();
+  });
+  expect(mockLoadEvents[0]).toMatchObject({ source: 'network', outcome: 'ready' });
   const source = webviews()[0].props.source;
   mockLocalUrl.value = 'http://127.0.0.1:42731/tok/game-abc/build-123/index.html';
   await act(async () => tree.update(<GamePage {...props} game={serverGame} slot="active" />));
