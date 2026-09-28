@@ -1,7 +1,7 @@
 import { buildGameEntryUrl, hashCode, normalizeAssetUrl, normalizeGameUrls } from '../src/utils/url';
 import type { GameItem } from '../src/types/game';
 
-const base = 'http://162.243.197.241:3000';
+const base = 'https://games.raiabdullah.tech';
 
 describe('URL normalisation (parity with GameRepository.normalizeGameUrls)', () => {
   test('placeholder hosts are rewritten onto the active base', () => {
@@ -14,7 +14,7 @@ describe('URL normalisation (parity with GameRepository.normalizeGameUrls)', () 
 
   test('relative paths and real hosts', () => {
     expect(normalizeAssetUrl('/games/a/index.html', base)).toBe(`${base}/games/a/index.html`);
-    expect(normalizeAssetUrl('https://cdn.example.net/a.png', base)).toBe('https://cdn.example.net/a.png');
+    expect(normalizeAssetUrl('https://cdn.example.net/a.png', base)).toBe(`${base}/a.png`);
     expect(normalizeAssetUrl('', base)).toBe('');
   });
 

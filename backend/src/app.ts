@@ -62,7 +62,9 @@ export function createApp(
     compression({
       level: 6,
       filter: (req, res) =>
-        !req.headers.range && compression.filter(req, res),
+        !req.headers.range &&
+        !req.path.startsWith("/api/offline-bundles/") &&
+        compression.filter(req, res),
     }),
   );
   const publicCors = cors({
@@ -107,6 +109,39 @@ export function createApp(
   const sharedDir = path.join(publicDir, "shared");
   const catalogFile = catalogPath || catalogService.getCatalogPath();
   const preview = previewApp(publicDir, store, config);
+  // The mobile downloader needs raw, resumable bytes on the canonical host.
+  // Game HTML is an attachment here so it cannot run with the Admin origin.
+  app.get("/api/offline-bundles/:id/:version/*", (req, res, next) => {
+    const { id, version } = req.params;
+    const relative = (req.params as Record<string, string>)[0];
+    if (!/^[a-z0-9-]+$/.test(id) || !/^\d+\.\d+\.\d+$/.test(version) ||
+        !relative || relative.split("/").some(part => !part || part === "." || part === "..") ||
+        relative.includes("\\")) return res.sendStatus(404);
+    const root = path.resolve(gamesDir, id, version);
+    const filename = path.resolve(root, relative);
+    if (!filename.startsWith(root + path.sep)) return res.sendStatus(404);
+    res.setHeader("Content-Disposition", `attachment; filename="${path.basename(relative).replace(/[^a-zA-Z0-9._-]/g, "_")}"`);
+    res.setHeader("Content-Security-Policy", "sandbox");
+    res.setHeader("Cache-Control", "no-store, no-transform");
+    if (relative === "bundle.json") {
+      const manifest = ensureManifest(gamesDir, id, version);
+      return manifest ? res.json(manifest) : res.sendStatus(404);
+    }
+    let realFile: string;
+    try {
+      const realRoot = fs.realpathSync(root);
+      realFile = fs.realpathSync(filename);
+      if (!realFile.startsWith(realRoot + path.sep) || !fs.statSync(realFile).isFile()) {
+        return res.sendStatus(404);
+      }
+    } catch {
+      return res.sendStatus(404);
+    }
+    return res.sendFile(realFile, { dotfiles: "deny", acceptRanges: true, cacheControl: false }, error => {
+      if (error && !res.headersSent) res.sendStatus((error as { status?: number }).status || 404);
+      else if (error) next(error);
+    });
+  });
   app.use((req, res, next) => {
     if (req.get("host") === new URL(config.previewOrigin).host)
       return preview(req, res, next);
@@ -310,11 +345,10 @@ export function createApp(
       try {
         const manifest = ensureManifest(gamesDir, game.id, game.version);
         if (!manifest) return game;
-        const base = String(game.entryUrl || "").replace(/[^/]*$/, "");
         return {
           ...game,
           buildId: manifest.buildId,
-          bundleUrl: base ? `${base}bundle.json` : undefined,
+          bundleUrl: `${catalogService.getBaseUrl()}/api/offline-bundles/${game.id}/${game.version}/bundle.json`,
           bundleBytes: manifest.totalBytes,
         };
       } catch {
@@ -325,6 +359,10 @@ export function createApp(
     });
 
   const applyRequestBaseUrl = (req: Request) => {
+    if (req.get("host") === new URL(config.origin).host) {
+      catalogService.setBaseUrl(config.origin);
+      return;
+    }
     // Dynamic base URL detection if client host header differs (e.g. Android 10.0.2.2)
     const host = req.get("host");
     const protocol = req.protocol || "http";

@@ -88,7 +88,9 @@ export class CatalogService {
   }
 
   public setBaseUrl(url: string) {
-    this.baseUrl = url.replace(/\/+$/, '');
+    const next = url.replace(/\/+$/, '');
+    if (next === this.baseUrl) return;
+    this.baseUrl = next;
     this.cachedCatalog = null;
   }
 
@@ -187,17 +189,14 @@ export class CatalogService {
         return `${this.baseUrl}${url}`;
       }
       if (url.startsWith('http://') || url.startsWith('https://')) {
-        // If placeholder host like games.example.com or local host, adjust according to base URL if set
         try {
           const parsed = new URL(url);
-          if (parsed.hostname === 'games.example.com' || parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '10.0.2.2') {
-            return `${this.baseUrl}${parsed.pathname}`;
-          }
+          return `${this.baseUrl}${parsed.pathname}${parsed.search}`;
         } catch {
-          // Keep original
+          return '';
         }
       }
-      return url;
+      return `${this.baseUrl}/${url.replace(/^\.\//, '')}`;
     };
 
     return {

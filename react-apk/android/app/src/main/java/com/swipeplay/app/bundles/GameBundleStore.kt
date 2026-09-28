@@ -1,6 +1,7 @@
 package com.swipeplay.app.bundles
 
 import android.content.Context
+import android.util.AtomicFile
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
@@ -30,6 +31,7 @@ class GameBundleStore(context: Context) {
 
   private val root = File(context.filesDir, "gamebundles")
   private val indexFile = File(root, "index.json")
+  private val atomicIndex = AtomicFile(indexFile)
   private val lock = Any()
 
   /** gameId -> active buildId. */
@@ -99,7 +101,10 @@ class GameBundleStore(context: Context) {
       val previous = active[gameId]
       active[gameId] = buildId
       cachedUsedBytes = -1L
-      writeIndex()
+      if (!writeIndex()) {
+        if (previous == null) active.remove(gameId) else active[gameId] = previous
+        return false
+      }
       if (previous != null && previous != buildId) {
         File(root, "$gameId/$previous").deleteRecursively()
       }
@@ -259,9 +264,9 @@ class GameBundleStore(context: Context) {
   }
 
   private fun readIndex() {
-    if (!indexFile.isFile) return
+    if (!indexFile.isFile && !File(indexFile.path + ".bak").isFile) return
     try {
-      val json = JSONObject(indexFile.readText())
+      val json = JSONObject(atomicIndex.openRead().bufferedReader().use { it.readText() })
       preferredPort = json.optInt("port", 0)
       pathToken = json.optString("token", "")
       val builds = json.optJSONObject("active")
@@ -286,7 +291,8 @@ class GameBundleStore(context: Context) {
     }
   }
 
-  private fun writeIndex() {
+  private fun writeIndex(): Boolean {
+    var output: java.io.FileOutputStream? = null
     try {
       val activeJson = JSONObject()
       for ((gameId, buildId) in active) activeJson.put(gameId, buildId)
@@ -298,14 +304,14 @@ class GameBundleStore(context: Context) {
       json.put("token", pathToken)
       json.put("active", activeJson)
       json.put("lastPlayed", playedJson)
-      val temporary = File(root, "index.json.tmp")
-      temporary.writeText(json.toString())
-      if (!temporary.renameTo(indexFile)) {
-        indexFile.writeText(json.toString())
-        temporary.delete()
-      }
-    } catch (_: Exception) {
-      // Losing the index costs re-downloads on the next launch, nothing more.
+      output = atomicIndex.startWrite()
+      output.write(json.toString().toByteArray(Charsets.UTF_8))
+      atomicIndex.finishWrite(output)
+      return true
+    } catch (error: Exception) {
+      if (output != null) atomicIndex.failWrite(output)
+      android.util.Log.e("GameBundleStore", "Could not persist bundle index", error)
+      return false
     }
   }
 

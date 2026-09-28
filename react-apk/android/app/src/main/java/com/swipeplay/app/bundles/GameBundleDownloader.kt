@@ -1,6 +1,7 @@
 package com.swipeplay.app.bundles
 
 import android.os.Process
+import android.util.Log
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
@@ -112,19 +113,17 @@ class GameBundleDownloader(
    * Ceilings for *speculative* bundles only — the game the player is actually
    * on is never limited (see RateLimiter). Zero means no limit.
    */
-  @Volatile var playingRateBytesPerSecond: Long = 2500 * 1024
-  @Volatile var meteredRateBytesPerSecond: Long = 400 * 1024
+  @Volatile var playingRateBytesPerSecond: Long = 15 * 1024 * 1024
+  @Volatile var meteredRateBytesPerSecond: Long = 1500 * 1024
 
   /**
    * The ceiling for the game one swipe away while another is being played, on
-   * an unmetered link. Deliberately several times [playingRateBytesPerSecond]:
-   * this is the bundle whose absence the player is about to *see*, and at
-   * 5 MB/s a 4.5 MB build finishes in under a second of play.
+   * an unmetered link. Deliberately high so the game about to be opened is ready.
    */
-  @Volatile var nextRateBytesPerSecond: Long = 5 * 1024 * 1024
+  @Volatile var nextRateBytesPerSecond: Long = 20 * 1024 * 1024
 
   /** Cellular equivalent of the above: generous for +1, reasonable for the rest. */
-  @Volatile var meteredNextRateBytesPerSecond: Long = 1200 * 1024
+  @Volatile var meteredNextRateBytesPerSecond: Long = 3000 * 1024
 
   /** Cellular or otherwise expensive link, as reported by NetInfo through JS. */
   private val metered = AtomicBoolean(false)
@@ -151,18 +150,78 @@ class GameBundleDownloader(
    * it needs no dependency beyond the platform, which on Android is an OkHttp
    * engine underneath regardless.
    */
-  private fun open(
-    url: String,
+  data class ConnectionResult(
+    val connection: HttpURLConnection,
+    val effectiveUrl: String,
+  )
+
+  /**
+   * Opens an HttpURLConnection with full support for:
+   * - HTTP 301, 302, 303, 307 (Temporary Redirect), 308 (Permanent Redirect)
+   * - Cross-protocol redirects (http -> https and https -> https)
+   * - Connection keep-alive for HTTP connection reuse
+   */
+  private fun openWithRedirects(
+    initialUrl: String,
     connectTimeoutMs: Int = 20_000,
     readTimeoutMs: Int = 60_000,
-  ): HttpURLConnection {
-    val connection = URL(url).openConnection() as HttpURLConnection
-    connection.connectTimeout = connectTimeoutMs
-    connection.readTimeout = readTimeoutMs
-    connection.instanceFollowRedirects = true
-    connection.useCaches = false
-    activeConnection = connection
-    return connection
+    headers: Map<String, String> = emptyMap(),
+    maxRedirects: Int = 5,
+  ): ConnectionResult {
+    var currentUrl = initialUrl
+    var redirects = 0
+    while (redirects <= maxRedirects) {
+      val urlObj = URL(currentUrl)
+      if (urlObj.protocol != "https" || urlObj.host != DOWNLOAD_HOST ||
+        urlObj.port !in listOf(-1, 443)) {
+        throw IOException("Bundle URL must use https://$DOWNLOAD_HOST")
+      }
+      val connection = (urlObj.openConnection() as HttpURLConnection).apply {
+        this.connectTimeout = connectTimeoutMs
+        this.readTimeout = readTimeoutMs
+        this.instanceFollowRedirects = false
+        this.useCaches = false
+        setRequestProperty("Connection", "keep-alive")
+        setRequestProperty("Accept-Encoding", "identity")
+        for ((k, v) in headers) {
+          setRequestProperty(k, v)
+        }
+      }
+      activeConnection = connection
+      val code = try {
+        connection.responseCode
+      } catch (error: IOException) {
+        connection.disconnect()
+        if (activeConnection === connection) activeConnection = null
+        if (currentCancelled) {
+          throw InterruptedIOException("Cancelled")
+        }
+        throw error
+      }
+      if (code in listOf(
+          HttpURLConnection.HTTP_MOVED_PERM,
+          HttpURLConnection.HTTP_MOVED_TEMP,
+          HttpURLConnection.HTTP_SEE_OTHER,
+          307, // Temporary Redirect
+          308  // Permanent Redirect
+        )
+      ) {
+        val location = connection.getHeaderField("Location")
+        connection.disconnect()
+        if (activeConnection === connection) activeConnection = null
+        if (location.isNullOrEmpty()) {
+          throw IOException("Redirect without Location header (HTTP $code) from $currentUrl")
+        }
+        val targetUrl = URL(urlObj, location).toString()
+        if (redirects == maxRedirects) throw IOException("Too many redirects for $initialUrl")
+        Log.d(TAG, "Redirect $code: $currentUrl -> $targetUrl")
+        currentUrl = targetUrl
+        redirects++
+        continue
+      }
+      return ConnectionResult(connection, currentUrl)
+    }
+    throw IOException("Too many redirects ($maxRedirects) for $initialUrl")
   }
 
   fun setPlaying(value: Boolean) {
@@ -176,7 +235,13 @@ class GameBundleDownloader(
   fun setPaused(value: Boolean) {
     synchronized(pauseLock) {
       paused = value
-      if (!value) pauseLock.notifyAll()
+      if (!value) {
+        synchronized(queueLock) {
+          failedUntil.clear()
+          failureCounts.clear()
+        }
+        pauseLock.notifyAll()
+      }
     }
     if (value) cancelActiveConnection()
   }
@@ -186,57 +251,45 @@ class GameBundleDownloader(
    * wants most first, each tagged with how close it is to the player.
    *
    * Sequential background download resiliency:
-   * The in-flight job is NOT cancelled when the user swipes or plays. It continues
+   * The in-flight job is NOT cancelled for speculative background jobs. It continues
    * downloading to completion so games are reliably saved to local storage one by one.
+   * Only an active on-screen game (PRIORITY_CURRENT) that is not yet downloaded may preempt.
    * The remaining queue is re-ordered so the games closest to the player are downloaded next.
    */
   fun submit(jobs: List<Job>) {
     synchronized(queueLock) {
       queued.clear()
       queue.clear()
-      val now = System.currentTimeMillis()
       // Stable sort by priority: within a tier the caller's order is the feed's
       // own "nearest first" ordering and is preserved.
       for (job in jobs.sortedBy { it.priority }) {
         if (store.isActive(job.gameId, job.buildId)) continue
-        val retryAt = failedUntil[key(job.gameId, job.buildId)]
-        if (retryAt != null && retryAt > now) continue
         if (queued.containsKey(job.gameId)) continue
         queued[job.gameId] = job
+        // If this job is already actively downloading, keep it in queued but do not duplicate in queue
+        if (currentJob?.gameId == job.gameId && currentJob?.buildId == job.buildId) {
+          continue
+        }
         queue.addLast(job)
       }
+      Log.d(TAG, "submit: ${jobs.size} jobs received, queue count: ${queue.size}, inFlight: ${currentJob?.gameId}")
       val inFlight = currentJob
       if (inFlight != null) {
         val wanted = queued[inFlight.gameId]
         if (wanted != null && wanted.buildId != inFlight.buildId) {
           // The build being fetched is no longer wanted (a newer build landed).
           cancelActiveConnection()
-        } else if (inFlight.priority > PRIORITY_NEXT && currentFraction < NEARLY_DONE_FRACTION) {
-          // An active on-screen game urgently needs downloading before distant background queue.
+        } else if (currentFraction < NEARLY_DONE_FRACTION) {
           val head = queue.peekFirst()
           if (head != null && head.priority == PRIORITY_CURRENT && head.gameId != inFlight.gameId) {
+            // An active on-screen game urgently needs downloading before any background job.
             cancelActiveConnection()
           }
+          // Note: Speculative background jobs (PRIORITY_NEXT / NEAR / REST) never preempt each other.
         }
       }
     }
     start()
-  }
-
-  /**
-   * Should the job in flight, now scored [inFlightPriority], give way?
-   *
-   * Two guards keep this from thrashing. The replacement has to be at least a
-   * whole tier more urgent, so a re-score that only shuffles distant games
-   * changes nothing; and a bundle that is nearly finished is left alone, since
-   * abandoning it within a second of completion costs a reconnect and gains the
-   * newcomer almost no time.
-   */
-  private fun shouldPreempt(inFlightPriority: Int): Boolean {
-    if (currentFraction >= NEARLY_DONE_FRACTION) return false
-    val head = queue.peekFirst() ?: return false
-    if (head.gameId == currentJob?.gameId) return false
-    return head.priority < inFlightPriority
   }
 
   fun start() {
@@ -273,7 +326,13 @@ class GameBundleDownloader(
         }
         if (currentJob !== job) continue
         try {
-          process(job)
+          val retryAt = synchronized(queueLock) { failedUntil[key(job.gameId, job.buildId)] ?: 0L }
+          if (retryAt > System.currentTimeMillis()) {
+            queue.addLast(job)
+            Thread.sleep(minOf(retryAt - System.currentTimeMillis(), 1000L).coerceAtLeast(1L))
+          } else {
+            process(job)
+          }
         } catch (error: Exception) {
           if (!currentCancelled) {
             fail(job.gameId, job.buildId, error.message ?: "download failed")
@@ -283,6 +342,10 @@ class GameBundleDownloader(
             if (currentJob === job) {
               currentJob = null
               currentFraction = 0.0
+            }
+            if (queued[job.gameId]?.buildId == job.buildId &&
+              !store.isActive(job.gameId, job.buildId) && !queue.contains(job)) {
+              queue.addLast(job)
             }
           }
         }
@@ -310,6 +373,7 @@ class GameBundleDownloader(
       retryInMs = backoff
       failedUntil[id] = System.currentTimeMillis() + backoff
     }
+    Log.w(TAG, "Download failed: $gameId build $buildId -> $reason (retry in ${retryInMs}ms)")
     listener.onBundleFailed(gameId, buildId, reason, retryInMs)
   }
 
@@ -325,8 +389,14 @@ class GameBundleDownloader(
     // A null manifest always earns a back-off, including the malformed-JSON
     // paths inside fetchManifest that report nothing: without one, the feed's
     // per-swipe re-submit would retry a broken build on every gesture.
-    val manifest = fetchManifest(job) ?: run {
-      fail(job.gameId, job.buildId, "manifest unavailable")
+    val manifest = fetchManifest(job) ?: return
+    if (manifest.buildId != job.buildId ||
+      !GameBundleStore.isSafeRelativePath(manifest.entry) ||
+      manifest.files.none { it.path == manifest.entry } ||
+      manifest.totalBytes != manifest.files.sumOf { it.bytes } ||
+      manifest.files.any { !GameBundleStore.isSafeRelativePath(it.path) || it.bytes < 0 ||
+        !it.sha256.matches(Regex("^[a-fA-F0-9]{64}$")) }) {
+      fail(job.gameId, job.buildId, "invalid bundle manifest")
       return
     }
     val files = manifest.files
@@ -338,20 +408,19 @@ class GameBundleDownloader(
     // Budget check before writing anything: better to skip a game than to fill
     // the device and take the rest of the library down with it. The budget is
     // generous now, so the binding constraint is usually free space, not it.
-    store.evictTo(storageBudgetBytes, setOf(job.gameId))
     val headroom = store.freeBytes() - MIN_FREE_BYTES
-    if (store.usedBytes() + manifest.totalBytes > storageBudgetBytes ||
-      manifest.totalBytes > headroom
-    ) {
+    if (manifest.totalBytes > headroom) {
       fail(job.gameId, job.buildId, "storage budget reached")
       return
     }
 
     val staging = store.stagingDir(job.gameId, manifest.buildId)
     staging.mkdirs()
-    val base = job.bundleUrl.replace(Regex("[^/]*$"), "")
+    val base = manifest.baseUrl.ifEmpty { job.bundleUrl.replace(Regex("[^/]*$"), "") }
     var done = 0L
     val startedAt = System.currentTimeMillis()
+
+    Log.i(TAG, "Processing download: ${job.gameId} (${files.size} files, ${manifest.totalBytes} bytes) from $base")
 
     // Announce the size before the first byte, so the feed can show a real
     // percentage from the start rather than an indeterminate spinner that only
@@ -386,9 +455,15 @@ class GameBundleDownloader(
       val url = base + encodePath(file.path) + "?b=" + manifest.buildId
       val fetched = downloadFile(url, part, file, job, manifest.buildId, done, manifest.totalBytes)
       if (!fetched) return
+      if (target.exists()) target.delete()
       if (!part.renameTo(target)) {
-        fail(job.gameId, job.buildId, "could not place ${file.path}")
-        return
+        try {
+          part.copyTo(target, overwrite = true)
+          part.delete()
+        } catch (e: Exception) {
+          fail(job.gameId, job.buildId, "could not place ${file.path}: ${e.message}")
+          return
+        }
       }
       done += file.bytes
       report(job, manifest, done)
@@ -399,6 +474,7 @@ class GameBundleDownloader(
       fail(job.gameId, job.buildId, "activation failed")
       return
     }
+    Log.i(TAG, "Bundle activated on disk: ${job.gameId} build ${manifest.buildId}")
     synchronized(queueLock) {
       if (queued[job.gameId]?.buildId == manifest.buildId) queued.remove(job.gameId)
       val id = key(job.gameId, manifest.buildId)
@@ -465,14 +541,25 @@ class GameBundleDownloader(
       return verifyPart(part, file, job, buildId)
     }
 
-    val connection = open(url)
+    val headers = mutableMapOf<String, String>()
     if (existing > 0) {
-      connection.setRequestProperty("Range", "bytes=$existing-")
+      headers["Range"] = "bytes=$existing-"
       // A ranged response must not be content-encoded, or the offsets tracked
       // here would refer to compressed bytes and the hash would never match.
-      connection.setRequestProperty("Accept-Encoding", "identity")
+      headers["Accept-Encoding"] = "identity"
     }
 
+    val connResult = try {
+      openWithRedirects(url, headers = headers)
+    } catch (error: InterruptedIOException) {
+      return false
+    } catch (error: Exception) {
+      if (currentCancelled) return false
+      fail(job.gameId, buildId, "connect failed for ${file.path}: ${error.message}")
+      return false
+    }
+
+    val connection = connResult.connection
     try {
       val code = try {
         connection.responseCode
@@ -482,7 +569,13 @@ class GameBundleDownloader(
       }
 
       var append = existing > 0
-      if (code == HttpURLConnection.HTTP_OK && existing > 0) {
+      if (code == 416 && existing > 0) {
+        // Range not satisfiable (part corrupted or truncated). Delete and retry clean.
+        part.delete()
+        connection.disconnect()
+        if (activeConnection === connection) activeConnection = null
+        return downloadFile(url, part, file, job, buildId, baseDone, total)
+      } else if (code == HttpURLConnection.HTTP_OK && existing > 0) {
         // Server ignored the range: start over rather than append to a prefix
         // the response does not continue from.
         part.delete()
@@ -490,6 +583,11 @@ class GameBundleDownloader(
         append = false
       } else if (code != HttpURLConnection.HTTP_OK && code != HttpURLConnection.HTTP_PARTIAL) {
         fail(job.gameId, buildId, "HTTP $code for ${file.path}")
+        return false
+      }
+      if (code == HttpURLConnection.HTTP_PARTIAL &&
+        (!append || !connection.getHeaderField("Content-Range").orEmpty().startsWith("bytes $existing-"))) {
+        fail(job.gameId, buildId, "invalid range response for ${file.path}")
         return false
       }
 
@@ -532,7 +630,7 @@ class GameBundleDownloader(
 
       if (written != file.bytes) {
         // Truncated: the .part stays on disk so the next attempt resumes.
-        fail(job.gameId, buildId, "short read for ${file.path}")
+        fail(job.gameId, buildId, "short read for ${file.path} ($written / ${file.bytes} bytes)")
         return false
       }
       return verifyPart(part, file, job, buildId)
@@ -554,11 +652,23 @@ class GameBundleDownloader(
   }
 
   private fun fetchManifest(job: Job): Manifest? {
-    val connection = open(job.bundleUrl, connectTimeoutMs = 15_000, readTimeoutMs = 30_000)
-    connection.setRequestProperty("Accept", "application/json")
+    val headers = mapOf("Accept" to "application/json")
+    val connResult = try {
+      openWithRedirects(job.bundleUrl, connectTimeoutMs = 15_000, readTimeoutMs = 30_000, headers = headers)
+    } catch (error: Exception) {
+      if (!currentCancelled) {
+        Log.w(TAG, "Failed to connect to manifest for ${job.gameId}: ${error.message}")
+        fail(job.gameId, job.buildId, "manifest connection error: ${error.message}")
+      }
+      return null
+    }
+
+    val connection = connResult.connection
+    val effectiveUrl = connResult.effectiveUrl
     try {
       val code = connection.responseCode
       if (code !in 200..299) {
+        Log.w(TAG, "Manifest HTTP $code for ${job.gameId} at $effectiveUrl")
         fail(job.gameId, job.buildId, "manifest HTTP $code")
         return null
       }
@@ -584,7 +694,14 @@ class GameBundleDownloader(
         output.toString("UTF-8")
       }
       val json = JSONObject(text)
-      val entries = json.optJSONArray("files") ?: return null
+      if (json.optString("gameId") != job.gameId || json.optString("version") != job.version) {
+        fail(job.gameId, job.buildId, "manifest identity mismatch")
+        return null
+      }
+      val entries = json.optJSONArray("files") ?: run {
+        fail(job.gameId, job.buildId, "manifest missing files array")
+        return null
+      }
       val files = ArrayList<ManifestFile>(entries.length())
       for (i in 0 until entries.length()) {
         val item = entries.optJSONObject(i) ?: continue
@@ -595,13 +712,27 @@ class GameBundleDownloader(
         files.add(ManifestFile(path, bytes, sha))
       }
       val buildId = json.optString("buildId", job.buildId)
-      if (buildId.isEmpty()) return null
+      if (buildId.isEmpty()) {
+        fail(job.gameId, job.buildId, "manifest missing buildId")
+        return null
+      }
+
+      val effectiveBase = effectiveUrl.replace(Regex("[^/]*$"), "")
+      Log.i(TAG, "Manifest parsed for ${job.gameId}: ${files.size} files, resolved base: $effectiveBase")
+
       return Manifest(
         buildId = buildId,
         entry = json.optString("entry", "index.html"),
         totalBytes = json.optLong("totalBytes", files.sumOf { it.bytes }),
         files = files,
+        baseUrl = effectiveBase,
       )
+    } catch (e: Exception) {
+      if (!currentCancelled) {
+        Log.w(TAG, "Error reading manifest for ${job.gameId}: ${e.message}")
+        fail(job.gameId, job.buildId, "manifest parse error: ${e.message}")
+      }
+      return null
     } finally {
       connection.disconnect()
       if (activeConnection === connection) activeConnection = null
@@ -634,24 +765,15 @@ class GameBundleDownloader(
         reset()
         return
       }
-      // Nothing is running, so there are no frames to protect: the only reason
-      // left to hold back is the player's data plan.
-      if (!playing.get() && !metered.get()) {
+      // On unmetered connection (Wi-Fi), background worker is already pinned to
+      // THREAD_PRIORITY_BACKGROUND (low CPU/IO cgroup), so 60/120 Hz rendering is
+      // protected while allowing games to download at maximum network throughput.
+      if (!metered.get()) {
         reset()
         return
       }
       val isNext = priority <= PRIORITY_NEXT
-      val limit = when {
-        // Cellular: stay modest, because the cost here is the player's data
-        // plan rather than their frame rate — but the game they are about to
-        // swipe to still gets a far higher ceiling than a distant one.
-        metered.get() -> if (isNext) meteredNextRateBytesPerSecond else meteredRateBytesPerSecond
-        // Unmetered with a game running: the next game is the one whose absence
-        // the player is about to see, so it takes what it needs while the rest
-        // of the catalogue trickles.
-        isNext -> nextRateBytesPerSecond
-        else -> playingRateBytesPerSecond
-      }
+      val limit = if (isNext) meteredNextRateBytesPerSecond else meteredRateBytesPerSecond
       if (limit <= 0) {
         reset()
         return
@@ -700,11 +822,11 @@ class GameBundleDownloader(
     private const val MAX_MANIFEST_BYTES = 8L * 1024 * 1024
 
     /** Never take the device below this, whatever the configured budget says. */
-    private const val MIN_FREE_BYTES = 512L * 1024 * 1024
+    private const val MIN_FREE_BYTES = 128L * 1024 * 1024
 
-    private const val BASE_BACKOFF_MS = 30_000L
-    private const val MAX_BACKOFF_MS = 30L * 60_000L
-    /** 30 s << 6 is already past the half-hour cap; the shift just avoids overflow. */
+    private const val BASE_BACKOFF_MS = 10_000L
+    private const val MAX_BACKOFF_MS = 5L * 60_000L
+    /** 10 s << 6 is already past the 5-minute cap; the shift just avoids overflow. */
     private const val BACKOFF_SHIFT_CAP = 6
 
     /**
@@ -712,7 +834,7 @@ class GameBundleDownloader(
      * reconnect a restart costs is worth more than the seconds the newcomer
      * would gain.
      */
-    private const val NEARLY_DONE_FRACTION = 0.9
+    private const val NEARLY_DONE_FRACTION = 0.8
 
     /**
      * Progress crosses the bridge at 4 Hz. Fast enough that a percentage reads
@@ -720,6 +842,8 @@ class GameBundleDownloader(
      * touch — and only one bundle is ever in flight.
      */
     private const val PROGRESS_INTERVAL_MS = 250L
+    private const val TAG = "GameBundleDownloader"
+    private const val DOWNLOAD_HOST = "games.raiabdullah.tech"
   }
 
   private data class Manifest(
@@ -727,5 +851,6 @@ class GameBundleDownloader(
     val entry: String,
     val totalBytes: Long,
     val files: List<ManifestFile>,
+    val baseUrl: String = "",
   )
 }

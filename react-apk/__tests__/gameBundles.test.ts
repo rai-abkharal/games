@@ -62,7 +62,7 @@ beforeEach(() => {
 });
 
 describe('localUrlFor', () => {
-  it('serves a stored build only when its id matches what the catalogue advertises', () => {
+  it('keeps the last verified build playable until an updated build lands', () => {
     bundles.useBundleStore.setState({
       ready: {
         alpha: {
@@ -77,9 +77,9 @@ describe('localUrlFor', () => {
     expect(bundles.localUrlFor(game('alpha'))).toBe(
       'http://127.0.0.1:42731/tok/alpha/build-1/index.html',
     );
-    // A newer build on the server makes the stored copy stale: the page must
-    // fall back to the network rather than silently play the old game.
-    expect(bundles.localUrlFor(game('alpha', { buildId: 'build-2' }))).toBeNull();
+    expect(bundles.localUrlFor(game('alpha', { buildId: 'build-2' }))).toBe(
+      'http://127.0.0.1:42731/tok/alpha/build-1/index.html',
+    );
     expect(bundles.localUrlFor(game('beta'))).toBeNull();
   });
 
@@ -95,6 +95,7 @@ describe('syncBundles', () => {
     expect(sync).toHaveBeenCalledTimes(1);
     const payload = sync.mock.calls[0][0];
     expect(payload.map((item: any) => item.gameId)).toEqual(['alpha', 'beta']);
+    expect(payload[0].bundleUrl).toBe('https://games.raiabdullah.tech/api/offline-bundles/alpha/1.0.0/bundle.json');
     for (const item of payload) {
       expect(Object.keys(item).sort()).toEqual([
         'buildId',

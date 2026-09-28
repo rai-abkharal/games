@@ -1,6 +1,7 @@
 import { NativeEventEmitter, NativeModules, type EmitterSubscription } from 'react-native';
 import { create } from 'zustand';
 import type { GameItem } from '../types/game';
+import { DEFAULT_BASE_URL } from '../config/env';
 
 /**
  * JavaScript's half of the on-device game store.
@@ -15,8 +16,7 @@ import type { GameItem } from '../types/game';
  * back, so a 30 MB game costs JavaScript the same as an 8 KB one.
  *
  * Every entry point is a no-op when the native module is missing (iOS, Jest,
- * an older build of the app), and the feed falls back to loading games from
- * the network exactly as it did before.
+ * an older build of the app). Server games wait for a verified local bundle.
  */
 
 export interface ReadyBundle {
@@ -133,9 +133,8 @@ export const useDownloadStore = create<DownloadState>(() => ({ active: {} }));
 export function localUrlFor(game: Pick<GameItem, 'id' | 'buildId'>): string | null {
   if (!game.buildId) return null;
   const entry = useBundleStore.getState().ready[game.id];
-  // The build must match exactly: a stored copy of an older build is stale the
-  // moment the catalogue advertises a new one.
-  return entry && entry.buildId === game.buildId ? entry.url : null;
+  // Keep the last verified build playable until its replacement is fully on disk.
+  return entry?.url ?? null;
 }
 
 /** The download in flight for a game, if any. Safe to call from a selector. */
@@ -267,17 +266,12 @@ export function stopBundleStore(): void {
   subscriptions = [];
 }
 
-let lastSyncKey = '';
-
 /**
  * Hands the native queue the games worth having on disk, most wanted first.
  *
  * `priorityFor` says how close each game is to the player. The native side
- * runs the queue strictly in that order and re-scores the job already in
- * flight against it, so a distant bundle that started before the last swipe is
- * paused rather than allowed to hold up the game about to be opened. Builds
- * already stored are filtered out natively, so a relaunch with an unchanged
- * catalogue issues no requests at all.
+ * runs one download at a time. Only a newly selected, missing game can
+ * interrupt a background transfer. Builds already stored are skipped natively.
  */
 export function syncBundles(
   games: GameItem[],
@@ -285,20 +279,15 @@ export function syncBundles(
 ): void {
   if (!native) return;
   const requests: BundleRequest[] = games
-    .filter(game => game.buildId && game.bundleUrl)
+    .filter(game => game.buildId && game.bundleUrl && /^[a-z0-9-]+$/.test(game.id) && /^\d+\.\d+\.\d+$/.test(game.version))
     .map((game, index) => ({
       gameId: game.id,
       version: game.version,
       buildId: String(game.buildId),
-      bundleUrl: String(game.bundleUrl),
+      bundleUrl: `${DEFAULT_BASE_URL}/api/offline-bundles/${game.id}/${game.version}/bundle.json`,
       priority: priorityFor(game, index),
     }));
   if (!requests.length) return;
-
-  // Deduplicate: avoid crossing the bridge if the wish-list and priorities have not changed
-  const syncKey = requests.map(r => `${r.gameId}:${r.priority}`).join('|');
-  if (syncKey === lastSyncKey) return;
-  lastSyncKey = syncKey;
 
   try {
     native.sync(requests);

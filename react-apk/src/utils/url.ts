@@ -1,4 +1,3 @@
-import { PLACEHOLDER_HOSTS } from '../config/env';
 import type { GameItem } from '../types/game';
 
 const ABSOLUTE_URL = /^https?:\/\//i;
@@ -22,20 +21,18 @@ export function trimBase(base: string): string {
 }
 
 /**
- * Rewrites placeholder hosts (localhost, 10.0.2.2, games.example.com…) and
- * relative paths onto the base URL that actually answered — the same
- * normalisation GameRepository.normalizeGameUrls performs.
+ * Treat catalogue hosts as untrusted metadata and route their paths through
+ * the configured HTTPS origin.
  */
 export function normalizeAssetUrl(url: string, activeBase: string): string {
   if (!url) return url;
   const base = trimBase(activeBase);
   if (url.startsWith('/')) return `${base}${url}`;
-  if (!ABSOLUTE_URL.test(url)) return url;
-  const parts = splitUrl(url);
-  if (parts && PLACEHOLDER_HOSTS.has(parts.host)) {
-    return `${base}${parts.pathAndQuery}`;
+  if (!ABSOLUTE_URL.test(url)) {
+    return /^[a-z][a-z0-9+.-]*:/i.test(url) ? '' : `${base}/${url.replace(/^\.?\//, '')}`;
   }
-  return url;
+  const parts = splitUrl(url);
+  return parts ? `${base}${parts.pathAndQuery}` : '';
 }
 
 export function normalizeGameUrls(game: GameItem, activeBase: string): GameItem {

@@ -3,7 +3,7 @@ import { fetchCatalog } from '../api/catalogApi';
 import { getActiveBaseUrl, hydrateBaseUrl, isAbortError } from '../api/http';
 import { NETWORK, STORAGE_KEYS } from '../config/env';
 import { BUNDLED_GAMES, BUNDLED_GAME_IDS } from '../config/bundledGames';
-import { readJson, writeJson } from '../services/storage';
+import { readJson, writeJsonNow } from '../services/storage';
 import type { GameItem } from '../types/game';
 import { displayCategory } from '../utils/misc';
 import { normalizeGameUrls } from '../utils/url';
@@ -115,20 +115,21 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       if (controller.signal.aborted) return;
       const fetchedAt = Date.now();
       const mergedGames = mergeWithBundledGames(result.games);
-      set({
-        games: mergedGames,
-        categories: deriveCategories(mergedGames),
-        status: 'ready',
-        source: 'network',
-        error: null,
-        lastFetchedAt: fetchedAt,
-      });
-      writeJson(STORAGE_KEYS.catalog, {
+      const persisted = await writeJsonNow(STORAGE_KEYS.catalog, {
         version: result.version,
         updatedAt: result.updatedAt,
         games: mergedGames,
         fetchedAt,
       } satisfies PersistedCatalog);
+      if (controller.signal.aborted) return;
+      set({
+        games: mergedGames,
+        categories: deriveCategories(mergedGames),
+        status: 'ready',
+        source: 'network',
+        error: persisted ? null : 'Could not save the game list for offline use',
+        lastFetchedAt: fetchedAt,
+      });
     } catch (error) {
       if (isAbortError(error)) return;
       const message = error instanceof Error ? error.message : 'Unable to load games';

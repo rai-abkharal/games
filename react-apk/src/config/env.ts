@@ -20,22 +20,7 @@ export const DEFAULT_BASE_URL = `https://${PRIMARY_HOST}`;
  * only make sense while developing against a local backend, so they are
  * excluded from release builds.
  */
-export const CANDIDATE_BASE_URLS: readonly string[] = [
-  DEFAULT_BASE_URL,
-  'http://187.77.147.226:3000',
-  'http://162.243.197.241:3000',
-  ...(__DEV__ ? ['http://10.0.2.2:3000', 'http://10.0.2.2:8080'] : []),
-];
-
-/** Hosts that the catalogue may reference but which must be rewritten to the active base. */
-export const PLACEHOLDER_HOSTS: ReadonlySet<string> = new Set([
-  'localhost',
-  '127.0.0.1',
-  '10.0.2.2',
-  'games.example.com',
-  '187.77.147.226',
-  '162.243.197.241',
-]);
+export const CANDIDATE_BASE_URLS: readonly string[] = [DEFAULT_BASE_URL];
 
 export const API_PATHS = {
   catalog: '/api/games',

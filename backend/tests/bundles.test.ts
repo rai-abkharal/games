@@ -3,6 +3,7 @@ import request from "supertest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import crypto from "node:crypto";
 import { createApp } from "../src/app";
 import {
   buildManifest,
@@ -148,6 +149,37 @@ describe("bundle manifests", () => {
 });
 
 describe("bundle endpoints", () => {
+  it("serves manifest and range bytes on the canonical origin without a preview redirect", async () => {
+    writeBuild("alpha", "1.0.0", {
+      "index.html": "<html>alpha</html>",
+      "assets/app.js": "console.log(1)",
+    });
+    writeCatalog([gameEntry("alpha", "1.0.0")]);
+    const app = makeApp();
+    const manifest = await request(app)
+      .get("/api/offline-bundles/alpha/1.0.0/bundle.json")
+      .set("Host", new URL(origin).host);
+    expect(manifest.status).toBe(200);
+    expect(manifest.headers.location).toBeUndefined();
+    expect(manifest.body.files).toHaveLength(2);
+    const file = await request(app)
+      .get("/api/offline-bundles/alpha/1.0.0/assets/app.js")
+      .set("Host", new URL(origin).host)
+      .set("Range", "bytes=0-6");
+    expect(file.status).toBe(206);
+    expect(file.text).toBe("console");
+    expect(file.headers["content-range"]).toBe("bytes 0-6/14");
+    expect(file.headers["content-disposition"]).toContain("attachment");
+    const html = await request(app)
+      .get("/api/offline-bundles/alpha/1.0.0/index.html")
+      .set("Host", new URL(origin).host);
+    expect(html.status).toBe(200);
+    expect(html.text).toBe("<html>alpha</html>");
+    expect(crypto.createHash("sha256").update(html.text).digest("hex")).toBe(
+      manifest.body.files.find((entry: { path: string }) => entry.path === "index.html").sha256,
+    );
+  });
+
   it("serves a manifest and revalidates it with the build id as the ETag", async () => {
     writeBuild("alpha", "1.0.0", {
       "index.html": "<html>alpha</html>",
@@ -184,8 +216,17 @@ describe("bundle endpoints", () => {
     expect(res.status).toBe(200);
     const game = res.body.games.find((item: any) => item.id === "alpha");
     expect(game.buildId).toMatch(/^[0-9a-f]{32}$/);
-    expect(game.bundleUrl).toBe("http://localhost:8080/games/alpha/1.0.0/bundle.json");
+    expect(game.bundleUrl).toBe("http://localhost:8080/api/offline-bundles/alpha/1.0.0/bundle.json");
     expect(game.bundleBytes).toBeGreaterThan(0);
+  });
+
+  it("publishes canonical URLs even when a stored catalogue points at an old host", async () => {
+    writeBuild("alpha", "1.0.0", { "index.html": "<html>alpha</html>" });
+    writeCatalog([{ ...gameEntry("alpha", "1.0.0"), entryUrl: "http://legacy.example.test/games/alpha/1.0.0/index.html" }]);
+    const res = await request(makeApp()).get("/api/games").set("Host", new URL(origin).host);
+    expect(res.status).toBe(200);
+    expect(res.body.games[0].entryUrl).toBe(`${origin}/games/alpha/1.0.0/index.html`);
+    expect(res.body.games[0].bundleUrl).toBe(`${origin}/api/offline-bundles/alpha/1.0.0/bundle.json`);
   });
 
   it("revalidates the catalogue with an ETag instead of forbidding caching", async () => {

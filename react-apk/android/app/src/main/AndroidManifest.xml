@@ -5,9 +5,7 @@
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <!--
-      The game backend is served over plain HTTP from a fixed IP (same as the
-      native client), so cleartext is allowed only for those hosts via
-      network_security_config.xml.
+      Downloaded games are served over HTTP on loopback; the backend uses HTTPS.
     -->
     <application
       android:name=".MainApplication"
@@ -19,7 +17,7 @@
       android:theme="@style/AppTheme"
       android:largeHeap="true"
       android:hardwareAccelerated="true"
-      android:usesCleartextTraffic="true"
+        android:usesCleartextTraffic="false"
       android:networkSecurityConfig="@xml/network_security_config"
       android:supportsRtl="true">
       <activity

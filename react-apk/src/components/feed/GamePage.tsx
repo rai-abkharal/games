@@ -191,7 +191,7 @@ export const GamePage = memo(
       // preparation is allowed to finish even if the pager starts moving.
       if (slot !== 'active') {
         if ((game.tutorial || isPrewarm) && slot === 'ahead') {
-          if (canPreload && mayLoad && !suspended && !live) setLive(true);
+          if (canPreload && mayLoad && (!suspended || isPrewarm) && !live) setLive(true);
           return;
         }
         // A fast swipe can leave the selected game before its load finishes.
@@ -205,28 +205,27 @@ export const GamePage = memo(
         return;
       }
       if (mayLoad && !live) setLive(true);
-    }, [slot, mayLoad, live, phase, canPreload, game.tutorial, suspended]);
+    }, [slot, mayLoad, live, phase, canPreload, game.tutorial, suspended, isPrewarm]);
 
     // Source is decided once per WebView instance so a catalogue refresh (new
-    // game object, same build) never reloads a running game. `buildId` is part
-    // of the key: a genuinely new build *should* replace the document.
+    // game object, same build) never reloads a running game. Build changes
+    // are picked up when this page is next created or explicitly retried.
     const sourceKey = `${game.id}:${game.version}:${game.buildId ?? game.updatedAt ?? game.sha256 ?? ''}`;
     const entryUrl = useMemo(() => buildGameEntryUrl(game), [sourceKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    useBundleStore(useCallback(state => state.ready[game.id], [game.id]));
     const localUrl = live ? (game.tutorial ? entryUrl : localUrlFor(game)) : null;
+    const selectedSource = useRef<{ attempt: number; source: WebSource } | null>(null);
     const source = useMemo<WebSource | null>(() => {
-      if (!live) return null;
-      // Two possibilities, and only two: the build stored on this device
-      // (served over the loopback origin — no network, and a real http origin
-      // so module scripts, fonts, fetch and localStorage behave exactly as
-      // they always have), or the server. There is no longer a third path
-      // handing over a document held in JS memory.
-      //
-      // Read once, when this WebView comes to life. A bundle that finishes
-      // downloading while the page is already running must *not* swap the
-      // source underneath it — that would reload a game mid-play. The local
-      // copy is picked up the next time the page is created.
-      return { uri: localUrlFor(game) ?? entryUrl };
-    }, [live, attempt, sourceKey, entryUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+      // Only verified disk builds run. Preserve the selected source while the
+      // player is using it, even if a newer build arrives in the background.
+      if (!live) {
+        selectedSource.current = null;
+        return null;
+      }
+      if (selectedSource.current?.attempt !== attempt) selectedSource.current = null;
+      if (!selectedSource.current && localUrl) selectedSource.current = { attempt, source: { uri: localUrl } };
+      return selectedSource.current?.source ?? null;
+    }, [live, attempt, localUrl]);
 
     /**
      * Publishes one `game_load` event for the attempt that just settled.
@@ -562,7 +561,7 @@ export const GamePage = memo(
       <View style={styles.root} collapsable={false}>
         {source ? (
           <WebView<object>
-            key={`${sourceKey}:${attempt}`}
+            key={`${game.id}:${attempt}:${source.uri}`}
             ref={webviewRef}
             source={source}
             style={styles.web}
@@ -594,14 +593,14 @@ export const GamePage = memo(
             // with a plain WebView child; touch zones are honoured by the pager.
             nestedScrollEnabled={false}
             injectedJavaScriptBeforeContentLoaded={pageBootstrapScript}
-            injectedJavaScriptBeforeContentLoadedForMainFrameOnly={false}
+            injectedJavaScriptBeforeContentLoadedForMainFrameOnly={true}
             onMessage={handleMessage}
             onLoadStart={handleLoadStart}
             onLoad={handleLoadEnd}
             onError={event => fail(event.nativeEvent.description || 'The game could not be loaded.')}
             onHttpError={event => {
-              if (event.nativeEvent.url === entryUrl || event.nativeEvent.url.startsWith(game.entryUrl)) {
-                fail(`Server responded with HTTP ${event.nativeEvent.statusCode}.`);
+              if (event.nativeEvent.url === source.uri) {
+                fail(`Local game server responded with HTTP ${event.nativeEvent.statusCode}.`);
               }
             }}
             onRenderProcessGone={() => fail('The game crashed. Tap retry to relaunch it.')}

@@ -32,6 +32,19 @@ export function writeJson(key: string, value: unknown, delayMs = 150): void {
   );
 }
 
+/** Persist data that must survive the moment it becomes visible to the player. */
+export async function writeJsonNow(key: string, value: unknown): Promise<boolean> {
+  const pending = pendingWrites.get(key);
+  if (pending) clearTimeout(pending);
+  pendingWrites.delete(key);
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function readString(key: string): Promise<string | null> {
   try {
     return await AsyncStorage.getItem(key);

@@ -16,10 +16,10 @@ test('concurrent startup requests wait for the same remembered endpoint read', a
     const request = http.requestJsonWithFallback('/api/games', { timeoutMs: 8000 });
     expect(read).toHaveBeenCalledTimes(1);
     expect(fetchSpy).not.toHaveBeenCalled();
-    finishRead(CANDIDATE_BASE_URLS[1]);
+    finishRead('https://legacy.example.test');
     await Promise.all([a, b, request]);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(fetchSpy.mock.calls[0][0]).toBe(`${CANDIDATE_BASE_URLS[1]}/api/games`);
+    expect(fetchSpy.mock.calls[0][0]).toBe(`${CANDIDATE_BASE_URLS[0]}/api/games`);
   } finally {
     fetchSpy.mockRestore();
     jest.dontMock('../src/services/storage');

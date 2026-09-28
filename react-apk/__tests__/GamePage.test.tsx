@@ -80,7 +80,7 @@ beforeEach(() => {
   jest.useFakeTimers();
   mockStopLoading.mockClear();
   mockInjectJavaScript.mockClear();
-  mockLocalUrl.value = null;
+  mockLocalUrl.value = 'http://127.0.0.1:42731/tok/test/build-1/index.html';
   mockLoadEvents.length = 0;
 });
 afterEach(async () => {
@@ -198,15 +198,15 @@ test('a build stored on the device is loaded from the local origin, not the netw
   });
 });
 
-test('a game with no local build loads from the network, never from a JS-held document', async () => {
+test('a game with no local build waits for the disk downloader', async () => {
+  mockLocalUrl.value = null;
   await act(async () => {
     tree = TestRenderer.create(<GamePage {...props} slot="active" />);
   });
-  const source = webviews()[0].props.source;
-  // The only shapes a source may take now are two URLs. A document handed over
-  // as an HTML string is exactly the path that kept games in the JS heap.
-  expect(Object.keys(source)).toEqual(['uri']);
-  expect(source.uri).toContain('https://games.example/test/index.html');
+  expect(webviews()).toHaveLength(0);
+  mockLocalUrl.value = 'http://127.0.0.1:42731/tok/test/build-1/index.html';
+  await act(async () => tree.update(<GamePage {...props} slot="active" near={false} />));
+  expect(webviews()[0].props.source.uri).toBe(mockLocalUrl.value);
 });
 
 test('a bundle that lands mid-run does not swap the source under a running game', async () => {
@@ -214,10 +214,10 @@ test('a bundle that lands mid-run does not swap the source under a running game'
     tree = TestRenderer.create(<GamePage {...props} slot="active" />);
   });
   const original = webviews()[0].props.source;
-  expect(original).toEqual({ uri: expect.stringContaining('https://games.example/test/index.html') });
+  expect(original).toEqual({ uri: expect.stringContaining('http://127.0.0.1:42731/') });
 
   // The download finishes while the player is mid-game.
-  mockLocalUrl.value = 'http://127.0.0.1:42731/tok/test/build-1/index.html';
+  mockLocalUrl.value = 'http://127.0.0.1:42731/tok/test/build-2/index.html';
   await act(async () => {
     tree.update(<GamePage {...props} slot="active" />);
   });
@@ -268,7 +268,7 @@ test('a load that times out is reported as a timeout, not silently dropped', asy
     jest.advanceTimersByTime(65_000);
   });
   expect(mockLoadEvents).toHaveLength(1);
-  expect(mockLoadEvents[0]).toMatchObject({ outcome: 'timeout', source: 'network' });
+  expect(mockLoadEvents[0]).toMatchObject({ outcome: 'timeout', source: 'local' });
 });
 
 test('a completed game stays mounted when swiped away and back', async () => {

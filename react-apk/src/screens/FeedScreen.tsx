@@ -325,7 +325,11 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   const onPagerBusy = useCallback(
     (busy: boolean) => {
       pagerBusyRef.current = busy;
-      if (busy) setPlaying(true);
+      if (busy) {
+        if (prewarmTimerRef.current) clearTimeout(prewarmTimerRef.current);
+        setPrewarmGameId(null);
+        setPlaying(true);
+      }
     },
     [setPlaying],
   );
@@ -583,7 +587,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     syncTimerRef.current = setTimeout(() => {
       const count = list.length;
       const at = position.index;
-      const heading = position.direction;
+      const heading = position.direction || 1;
       const ordered: GameItem[] = [];
       const seen = new Set<string>();
       const push = (game?: GameItem) => {
@@ -592,27 +596,26 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
         ordered.push(game);
       };
 
-      // Current game is always first
+      // 1. Current game is always first (priority: current)
       push(list[at]);
 
-      // BIDIRECTIONAL LOOKAHEAD:
-      // The user can continue scrolling in the current direction OR reverse direction at any time.
-      // We prioritize the forward next game AND the reverse previous game so both directions
-      // are instantly ready on demand without delay.
-      const aheadIdx = ((at + heading) % count + count) % count;
-      const behindIdx = ((at - heading) % count + count) % count;
-      push(list[aheadIdx]);
-      push(list[behindIdx]);
-
-      const ahead2Idx = ((at + 2 * heading) % count + count) % count;
-      const behind2Idx = ((at - 2 * heading) % count + count) % count;
+      // 2. Immediate lookahead games in scroll direction
+      const ahead1Idx = (at + heading + count * 1000) % count;
+      const ahead2Idx = (at + 2 * heading + count * 1000) % count;
+      const ahead3Idx = (at + 3 * heading + count * 1000) % count;
+      push(list[ahead1Idx]);
       push(list[ahead2Idx]);
-      push(list[behind2Idx]);
+      push(list[ahead3Idx]);
 
-      // Then the rest of the ring, alternating directions, then anything left.
-      for (let step = 3; step <= count; step++) {
-        push(list[(((at + heading * step) % count) + count) % count]);
-        push(list[(((at - heading * step) % count) + count) % count]);
+      // 3. Immediate previous game for fast swipe back (only when valid, avoiding backwards wrap to tail)
+      const behind1Idx = at - heading;
+      if (behind1Idx >= 0 && behind1Idx < count) {
+        push(list[behind1Idx]);
+      }
+
+      // 4. All remaining games in natural continuous forward catalogue order from `at`
+      for (let step = 1; step < count; step++) {
+        push(list[(at + step * heading + count * 1000) % count]);
       }
       for (const game of list) push(game);
       for (const game of games) push(game);
@@ -621,22 +624,27 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
       const currentGame = list[at];
       if (currentGame) tiers.set(currentGame.id, BundlePriority.current);
 
-      const aheadGame = list[aheadIdx];
-      if (aheadGame && !tiers.has(aheadGame.id)) tiers.set(aheadGame.id, BundlePriority.next);
-
-      const behindGame = list[behindIdx];
-      if (behindGame && !tiers.has(behindGame.id)) tiers.set(behindGame.id, BundlePriority.next);
+      const ahead1Game = list[ahead1Idx];
+      if (ahead1Game && !tiers.has(ahead1Game.id)) tiers.set(ahead1Game.id, BundlePriority.next);
 
       const ahead2Game = list[ahead2Idx];
       if (ahead2Game && !tiers.has(ahead2Game.id)) tiers.set(ahead2Game.id, BundlePriority.near);
 
-      const behind2Game = list[behind2Idx];
-      if (behind2Game && !tiers.has(behind2Game.id)) tiers.set(behind2Game.id, BundlePriority.near);
+      const ahead3Game = list[ahead3Idx];
+      if (ahead3Game && !tiers.has(ahead3Game.id)) tiers.set(ahead3Game.id, BundlePriority.near);
+
+      if (behind1Idx >= 0 && behind1Idx < count) {
+        const behind1Game = list[behind1Idx];
+        if (behind1Game && !tiers.has(behind1Game.id)) tiers.set(behind1Game.id, BundlePriority.near);
+      }
 
       syncBundles(ordered, game => tiers.get(game.id) ?? BundlePriority.rest);
 
-      if (aheadGame) warmBundle(aheadGame.id);
-      if (behindGame) warmBundle(behindGame.id);
+      if (ahead1Game) warmBundle(ahead1Game.id);
+      if (behind1Idx >= 0 && behind1Idx < count) {
+        const behind1Game = list[behind1Idx];
+        if (behind1Game) warmBundle(behind1Game.id);
+      }
     }, 120);
 
     return () => {
@@ -652,7 +660,7 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   // 4. The ahead game is already stored locally on disk (0 network contention)
   // 5. Standby view is strictly suspended/frozen (0 CPU / 0 GPU contention)
   useEffect(() => {
-    if (position.settling || suspended || !focused || !appActive) {
+    if (position.settling || suspended || !focused || !appActive || pagerBusyRef.current) {
       if (prewarmTimerRef.current) clearTimeout(prewarmTimerRef.current);
       setPrewarmGameId(null);
       return;
@@ -682,7 +690,9 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
     if (prewarmTimerRef.current) clearTimeout(prewarmTimerRef.current);
     prewarmTimerRef.current = setTimeout(() => {
       runAfterInteractions(() => {
-        setPrewarmGameId(aheadGame.id);
+        if (!pagerBusyRef.current && !positionRef.current.settling && !suspendedRef.current) {
+          setPrewarmGameId(aheadGame.id);
+        }
       });
     }, 1200);
 
@@ -713,7 +723,6 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   // bundle, and `setBundlePlaying` above already lifts the speculative ceiling.
   useEffect(() => {
     setBundlePaused(offline);
-    return () => setBundlePaused(true);
   }, [offline]);
 
   /* ---------------- bridge messages from the active game --------------------- */

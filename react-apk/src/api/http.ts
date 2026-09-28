@@ -70,7 +70,12 @@ export function hydrateBaseUrl(): Promise<string> {
   if (!baseHydration) {
     baseHydration = (async () => {
       const saved = await readString(STORAGE_KEYS.activeBaseUrl);
-      if (saved && CANDIDATE_BASE_URLS.includes(saved)) activeBaseUrl = saved;
+      if (saved && CANDIDATE_BASE_URLS.includes(saved)) {
+        activeBaseUrl = saved;
+      } else {
+        activeBaseUrl = DEFAULT_BASE_URL;
+        if (saved) void writeString(STORAGE_KEYS.activeBaseUrl, DEFAULT_BASE_URL);
+      }
       return activeBaseUrl;
     })();
   }
@@ -83,6 +88,7 @@ export function getActiveBaseUrl(): string {
 
 export function setActiveBaseUrl(base: string): void {
   const next = trimBase(base);
+  if (!CANDIDATE_BASE_URLS.includes(next)) return;
   if (next === activeBaseUrl) return;
   activeBaseUrl = next;
   writeString(STORAGE_KEYS.activeBaseUrl, next);

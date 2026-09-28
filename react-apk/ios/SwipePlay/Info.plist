@@ -28,16 +28,6 @@
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<!--
-		  The game backend (162.243.197.241:3000) is plain HTTP on a bare IP, and
-		  ATS exception domains cannot name IP addresses. Arbitrary loads are
-		  therefore required for parity with the Android client. Move the backend
-		  to HTTPS and drop these two keys before an App Store submission.
-		-->
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-		<key>NSAllowsArbitraryLoadsInWebContent</key>
-		<true/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
