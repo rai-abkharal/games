@@ -151,7 +151,7 @@ export const AdsTab: React.FC<AdsTabProps> = ({
                   color: "var(--text-muted)",
                 }}
               >
-                Show full-screen ad after a certain number of game swipes
+                Enable full-screen ads from the timer and enabled event triggers
               </p>
             </div>
             <input
@@ -181,6 +181,26 @@ export const AdsTab: React.FC<AdsTabProps> = ({
               border: "1px solid var(--border-subtle)",
             }}
           >
+            <label
+              htmlFor="swipe-ad-enabled"
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", cursor: "pointer" }}
+            >
+              <span style={{ fontSize: "14px", fontWeight: 700 }}>
+                Swipe-triggered ads — {adsConfig.swipeAdEnabled ? "ON" : "OFF"}
+              </span>
+              <input
+                id="swipe-ad-enabled"
+                type="checkbox"
+                role="switch"
+                aria-label="Swipe-triggered ads"
+                checked={adsConfig.swipeAdEnabled ?? false}
+                onChange={(e) => {
+                  const enabled = e.currentTarget.checked;
+                  setAdsConfig((current) => ({ ...current, swipeAdEnabled: enabled }));
+                }}
+                style={{ width: "22px", height: "22px", accentColor: "#6366f1", cursor: "pointer" }}
+              />
+            </label>
             <div
               style={{
                 display: "flex",
@@ -206,6 +226,8 @@ export const AdsTab: React.FC<AdsTabProps> = ({
               type="range"
               min="3"
               max="25"
+              aria-label="Swipe frequency interval"
+              disabled={!adsConfig.swipeAdEnabled}
               value={adsConfig.swipeInterval}
               onChange={(e) =>
                 setAdsConfig({
@@ -222,8 +244,8 @@ export const AdsTab: React.FC<AdsTabProps> = ({
                 marginTop: "6px",
               }}
             >
-              Controls how often full-screen ads appear when users swipe
-              between games. Recommended: 10.
+              When OFF, swiping never triggers an ad; timer-based ad settings are unchanged.
+              Your frequency is kept for when you turn this ON. Save Ads Configuration to apply.
             </p>
           </div>
 

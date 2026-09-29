@@ -45,8 +45,8 @@ export const NETWORK = {
 
 /**
  * Google's official AdMob *test* identifiers — identical to the native app's
- * compiled-in defaults. Production ids arrive from /api/ads/config and are only
- * honoured in release builds, again mirroring the native behaviour.
+ * compiled-in defaults. Unit IDs arrive from /api/ads/config in both builds;
+ * the ad manager rejects these sample units in release builds.
  */
 export const ADMOB_DEFAULTS = {
   appId: 'ca-app-pub-3940256099942544~3347511713',

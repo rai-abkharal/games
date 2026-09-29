@@ -5,6 +5,7 @@ import { BUNDLED_GAMES } from '../src/config/bundledGames';
 import { useCatalogStore } from '../src/store/catalogStore';
 import { usePlayerStore } from '../src/store/playerStore';
 import { useTutorialStore } from '../src/store/tutorialStore';
+import { useAdsStore } from '../src/services/adManager';
 
 jest.mock('@react-navigation/native', () => ({ useFocusEffect: () => {} }));
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaProvider: 'SafeAreaProvider', SafeAreaView: 'SafeAreaView' }));
@@ -14,10 +15,8 @@ jest.mock('../src/theme/useTheme', () => ({ useTheme: () => require('../src/them
 jest.mock('../src/i18n/translations', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock('../src/services/analytics', () => ({ analytics: new Proxy({}, { get: () => jest.fn() }) }));
 jest.mock('../src/services/adManager', () => ({
-  adManager: new Proxy({}, { get: () => jest.fn() }),
-  useAdsStore: Object.assign((selector: any) => selector({ bannerEnabled: false, fullScreenAdShowing: false }), {
-    getState: () => ({ fullScreenAdShowing: false }),
-  }),
+  adManager: new Proxy({}, { get: (_target, key) => key === 'setCurrentGame' ? mockSetCurrentGame : jest.fn() }),
+  useAdsStore: require('zustand').create(() => ({ bannerEnabled: false, fullScreenAdShowing: false })),
 }));
 jest.mock('../src/services/gameBundles', () => ({
   useBundleStore: (selector: any) => selector({ tutorials: [], bootFinished: true }),
@@ -35,9 +34,14 @@ jest.mock('../src/components/feed/GamePager', () => ({
   GamePager: (props: any) => require('react').createElement('GamePager', props, props.renderPage(props.index)),
 }));
 jest.mock('../src/components/feed/GamePage', () => ({
-  GamePage: require('react').forwardRef((props: any, _ref: any) => require('react').createElement('GamePage', props)),
+  GamePage: require('react').forwardRef((props: any, ref: any) => {
+    require('react').useImperativeHandle(ref, () => ({ pause: mockPausePage, inject: jest.fn() }));
+    return require('react').createElement('GamePage', props);
+  }),
 }));
 
+const mockPausePage = jest.fn();
+const mockSetCurrentGame = jest.fn();
 let tree: TestRenderer.ReactTestRenderer;
 const node = (type: string) => tree.root.findByType(type as any);
 const advance = (ms: number) => act(() => jest.advanceTimersByTime(ms));
@@ -45,6 +49,8 @@ const game = (id: string) => ({ ...BUNDLED_GAMES[0], id, title: id });
 
 beforeEach(() => {
   jest.useFakeTimers();
+  useAdsStore.setState({ fullScreenAdShowing: false });
+  mockPausePage.mockClear();
   useCatalogStore.setState({ games: [game('first'), game('second')], status: 'ready' });
   usePlayerStore.setState({ lastPlayedGameId: null, favorites: [] });
   useTutorialStore.setState({ hydrated: true, firstTimeTutorialCompleted: true, homeSwipeSeen: false });
@@ -56,6 +62,32 @@ afterEach(() => {
   act(() => tree.unmount());
   jest.clearAllTimers();
   jest.useRealTimers();
+});
+
+test('an ad break immediately pauses the existing page and holds it suspended', () => {
+  const page = node('GamePage');
+  act(() => {
+    useAdsStore.setState({ fullScreenAdShowing: true });
+    expect(mockPausePage).toHaveBeenCalledWith(true);
+  });
+  expect(node('GamePage')).toBe(page);
+  expect(node('GamePage').props.suspended).toBe(true);
+  act(() => useAdsStore.setState({ fullScreenAdShowing: false }));
+  expect(node('GamePage')).toBe(page);
+  expect(node('GamePage').props.suspended).toBe(false);
+});
+
+test('an Admin change to the per-game custom-interval toggle reaches the ad manager', () => {
+  act(() => useCatalogStore.setState({ games: [
+    { ...game('first'), ads: { enabled: true, useCustomInterval: false, intervalMinutes: 5 } }, game('second'),
+  ] }));
+  mockSetCurrentGame.mockClear();
+  act(() => useCatalogStore.setState({ games: [
+    { ...game('first'), ads: { enabled: true, useCustomInterval: true, intervalMinutes: 5 } }, game('second'),
+  ] }));
+  expect(mockSetCurrentGame).toHaveBeenCalledWith(expect.objectContaining({
+    ads: { enabled: true, useCustomInterval: true, intervalMinutes: 5 },
+  }));
 });
 
 test('home hint waits for game readiness and then a ten-second delay', () => {

@@ -115,7 +115,7 @@ function listSignature(games: GameItem[]): string {
           game.buildId ?? ''
         }|${game.title}|${game.category}|${game.ads?.enabled ? '1' : '0'}|${
           game.ads?.intervalMinutes ?? ''
-        }|${JSON.stringify(game.touchZones ?? [])}|${game.entryUrl}|${
+        }|${game.ads?.useCustomInterval ? '1' : '0'}|${JSON.stringify(game.touchZones ?? [])}|${game.entryUrl}|${
           game.sha256 ?? ''
         }|${game.sizeBytes}`,
     )
@@ -496,6 +496,12 @@ export function FeedScreen({ navigation }: RootScreenProps<'Feed'>) {
   }, []);
 
   /* ---------------- lifecycle: focus, background, ads, sound ------------------ */
+  useEffect(() => useAdsStore.subscribe((state, previous) => {
+    if (state.fullScreenAdShowing && !previous.fullScreenAdShowing) {
+      pagesRef.current.forEach(page => page.pause(true));
+    }
+  }), []);
+
   // Run state is driven declaratively through the `suspended` prop (see
   // GamePage): Settings on top, app in background, or a full-screen ad all
   // freeze the page on screen, and clearing them wakes exactly that page —

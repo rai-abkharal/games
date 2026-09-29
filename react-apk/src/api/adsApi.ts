@@ -1,4 +1,4 @@
-import { ADMOB_DEFAULTS, API_PATHS, NETWORK } from '../config/env';
+import { API_PATHS, NETWORK } from '../config/env';
 import type { AdsRemoteConfig } from '../types/game';
 import { clamp, toInt } from '../utils/misc';
 import { requestJsonWithFallback } from './http';
@@ -11,6 +11,7 @@ import { requestJsonWithFallback } from './http';
 export const DEFAULT_ADS_CONFIG: AdsRemoteConfig = {
   bannerEnabled: true,
   interstitialEnabled: true,
+  swipeAdEnabled: false,
   swipeInterval: 10,
   defaultIntervalMinutes: 5,
   levelCompleteAd: true,
@@ -35,6 +36,7 @@ export function normalizeAdsConfig(raw: Partial<AdsRemoteConfig> | null | undefi
   return {
     bannerEnabled: bool(source.bannerEnabled, DEFAULT_ADS_CONFIG.bannerEnabled),
     interstitialEnabled: bool(source.interstitialEnabled, DEFAULT_ADS_CONFIG.interstitialEnabled),
+    swipeAdEnabled: bool(source.swipeAdEnabled, false),
     swipeInterval: Math.max(1, toInt(source.swipeInterval, DEFAULT_ADS_CONFIG.swipeInterval)),
     defaultIntervalMinutes: clamp(
       toInt(source.defaultIntervalMinutes, DEFAULT_ADS_CONFIG.defaultIntervalMinutes),

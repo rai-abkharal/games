@@ -41,7 +41,7 @@ export type PagePhase = 'idle' | 'loading' | 'ready' | 'error';
 export interface GamePageHandle {
   inject: (script: string) => void;
   /** Immediate freeze (app backgrounded, screen left). */
-  pause: () => void;
+  pause: (forAd?: boolean) => void;
   /** Wake with the current sound preference. */
   resume: () => void;
   retry: () => void;
@@ -111,6 +111,7 @@ export const GamePage = memo(
       isPrewarm,
     );
     const webviewRef = useRef<WebView<object>>(null);
+    const adPausedRef = useRef(false);
     // The selected page can create its view in the first commit. Only an
     // explicitly opted-in bundled tutorial or idle pre-warm candidate may initialize as a neighbor.
     const [live, setLive] = useState(
@@ -375,10 +376,12 @@ export const GamePage = memo(
       } catch {
         /* ignore */
       }
-      inject(buildResumeScript(!usePlayerStore.getState().soundMuted));
+      inject(buildResumeScript(!usePlayerStore.getState().soundMuted, adPausedRef.current));
+      adPausedRef.current = false;
     }, [inject]);
 
-    const pause = useCallback(() => {
+    const pause = useCallback((forAd = false) => {
+      if (forAd) adPausedRef.current = true;
       isResumedRef.current = false;
       if (phaseRef.current !== 'ready') return;
       inject(PAUSE_SCRIPT);

@@ -1099,4 +1099,22 @@ describe("Admin security boundaries", () => {
       ).status,
     ).toBe(400);
   });
+
+  it("configures swipe ad ON/OFF independently from the timer and defaults legacy settings to OFF", async () => {
+    const root = await login("root");
+    const initial = await call(root, "get", "/v1/admin/ads-config");
+    expect(initial.body.config.swipeAdEnabled).toBe(false);
+    expect((await request(app).get("/api/ads/config")).body.swipeAdEnabled).toBe(false);
+    const timerConfig = { interstitialEnabled: true, defaultIntervalMinutes: 1, cooldownSeconds: 180, swipeInterval: 3 };
+    for (const enabled of [true, false]) {
+      const saved = await call(root, "put", "/v1/admin/ads-config", { ...timerConfig, swipeAdEnabled: enabled });
+      expect(saved.status).toBe(200);
+      expect((await call(root, "get", "/v1/admin/ads-config")).body.config).toMatchObject({ ...timerConfig, swipeAdEnabled: enabled });
+      expect((await request(app).get("/api/ads/config")).body).toMatchObject({ ...timerConfig, swipeAdEnabled: enabled });
+    }
+    // An existing file without the new switch cannot silently opt clients in.
+    await call(root, "put", "/v1/admin/ads-config", timerConfig);
+    expect((await call(root, "get", "/v1/admin/ads-config")).body.config.swipeAdEnabled).toBe(false);
+    expect((await request(app).get("/api/ads/config")).body.swipeAdEnabled).toBe(false);
+  });
 });

@@ -1,6 +1,6 @@
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
-import { GamePage, statusLabel } from '../src/components/feed/GamePage';
+import { GamePage, statusLabel, type GamePageHandle } from '../src/components/feed/GamePage';
 import type { GameItem } from '../src/types/game';
 import { tutorialPageLoadPolicy } from '../src/feed/tutorialFlow';
 import { PAUSE_SCRIPT, buildResumeScript } from '../src/services/gameBridge';
@@ -109,6 +109,28 @@ afterEach(async () => {
   }
   jest.clearAllTimers();
   jest.useRealTimers();
+});
+
+test('ad pause/resume keeps the same WebView and does not replay saved progress or restart', async () => {
+  const ref = React.createRef<GamePageHandle>();
+  await act(async () => { tree = TestRenderer.create(<GamePage {...props} slot="active" ref={ref} />); });
+  await act(async () => { webviews()[0].props.onLoad(); });
+  const view = webviews()[0];
+  const source = view.props.source;
+  mockInjectJavaScript.mockClear();
+  act(() => ref.current!.pause(true));
+  expect(mockInjectJavaScript).toHaveBeenLastCalledWith(PAUSE_SCRIPT);
+  await act(async () => { tree.update(<GamePage {...props} slot="active" suspended ref={ref} />); });
+  await act(async () => { jest.advanceTimersByTime(30_000); });
+  expect(webviews()[0]).toBe(view);
+  await act(async () => { tree.update(<GamePage {...props} slot="active" ref={ref} />); });
+  expect(mockInjectJavaScript).toHaveBeenLastCalledWith(buildResumeScript(false, true));
+  expect(mockInjectJavaScript.mock.calls.filter(([script]) => script !== PAUSE_SCRIPT)).toEqual([
+    [buildResumeScript(false, true)],
+  ]);
+  expect(webviews()[0]).toBe(view);
+  expect(webviews()[0].props.source).toBe(source);
+  expect(mockStopLoading).not.toHaveBeenCalled();
 });
 
 test('a cold neighbor never starts an engine even when the caller opens its load gate', async () => {

@@ -76,6 +76,7 @@ export interface GameCatalog {
 export interface AdsRemoteConfig {
   bannerEnabled: boolean;
   interstitialEnabled: boolean;
+  swipeAdEnabled: boolean;
   swipeInterval: number;
   defaultIntervalMinutes: number;
   levelCompleteAd: boolean;

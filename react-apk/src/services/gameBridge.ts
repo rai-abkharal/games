@@ -568,7 +568,7 @@ export function buildPauseScript(graceFrames = 0): string {
 export const PAUSE_SCRIPT = buildPauseScript(0);
 
 /** Wakes the engine and (optionally) audio — GameFeedAdapter.buildGameResumeScript. */
-export function buildResumeScript(soundEnabled: boolean): string {
+export function buildResumeScript(soundEnabled: boolean, preserveSession = false): string {
   const sound = soundEnabled ? 'true' : 'false';
   return js(`
     window.__GAME_ACTIVE__ = true;
@@ -636,7 +636,7 @@ export function buildResumeScript(soundEnabled: boolean): string {
         if (typeof window.GameBridge.setSoundEnabled === 'function') window.GameBridge.setSoundEnabled(${sound});
         if (typeof window.GameBridge.resume === 'function') window.GameBridge.resume();
         if (typeof window.GameBridge.onResume === 'function') window.GameBridge.onResume();
-        if (window.__NEEDS_FRESH_START__ === true || window.__GAME_OVER_TRIGGERED__ === true) {
+        if (${preserveSession ? 'false' : 'true'} && (window.__NEEDS_FRESH_START__ === true || window.__GAME_OVER_TRIGGERED__ === true)) {
           window.__NEEDS_FRESH_START__ = false; window.__GAME_OVER_TRIGGERED__ = false;
           if (typeof window.GameBridge.restart === 'function') window.GameBridge.restart();
         }

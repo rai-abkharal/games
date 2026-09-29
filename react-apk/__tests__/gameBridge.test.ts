@@ -84,4 +84,9 @@ describe('injected scripts', () => {
       '{"level":3,"coins":120,"highScore":999}',
     );
   });
+
+  test('ad-specific resume disables automatic restart without changing ordinary resume', () => {
+    expect(buildResumeScript(true, true)).toContain('if (false && (window.__NEEDS_FRESH_START__');
+    expect(buildResumeScript(true)).toContain('if (true && (window.__NEEDS_FRESH_START__');
+  });
 });

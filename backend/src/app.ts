@@ -465,6 +465,7 @@ export function createApp(
         delete (config as any).initialPreloadGameCount;
         res.json({
           defaultIntervalMinutes: 5,
+          swipeAdEnabled: false,
           gaMeasurementId: process.env.GA4_MEASUREMENT_ID || "G-SWIPEPLAY1",
           ...config,
         });
@@ -475,6 +476,7 @@ export function createApp(
     res.json({
       bannerEnabled: true,
       interstitialEnabled: true,
+      swipeAdEnabled: false,
       swipeInterval: 10,
       defaultIntervalMinutes: 5,
       levelCompleteAd: true,

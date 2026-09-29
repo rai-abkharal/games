@@ -25,6 +25,7 @@ export type GameAdsConfig = z.infer<typeof GameAdsConfigSchema>;
 export const AdsConfigSchema = z.object({
   bannerEnabled: z.boolean().default(true),
   interstitialEnabled: z.boolean().default(true),
+  swipeAdEnabled: z.boolean().default(false),
   swipeInterval: z.number().int().min(1).default(10),
   defaultIntervalMinutes: z.number().int().min(1).default(5),
   levelCompleteAd: z.boolean().default(true),

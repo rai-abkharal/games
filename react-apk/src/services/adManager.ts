@@ -35,6 +35,8 @@ interface AdsUiState {
   bannerReloadKey: number;
   sdkReady: boolean;
   fullScreenAdShowing: boolean;
+  interstitialBreakPhase: 'idle' | 'countdown' | 'showing' | 'resuming';
+  interstitialCountdown: number | null;
 }
 
 export const useAdsStore = create<AdsUiState>(() => ({
@@ -43,7 +45,20 @@ export const useAdsStore = create<AdsUiState>(() => ({
   bannerReloadKey: 0,
   sdkReady: false,
   fullScreenAdShowing: false,
+  interstitialBreakPhase: 'idle',
+  interstitialCountdown: null,
 }));
+
+type InterstitialTrigger = 'timer' | 'swipe' | 'event';
+
+interface InterstitialBreak {
+  ad: InterstitialAd;
+  game: GameItem;
+  trigger: InterstitialTrigger;
+  phase: 'countdown' | 'showing' | 'resuming';
+  countdown: number;
+  opened: boolean;
+}
 
 interface PersistedAdState {
   lastAdShownAt: number;
@@ -62,10 +77,10 @@ const TICK_MS = 2000;
  *  - rewarded ad for hints with the same instant-fallback reward
  *  - the last-shown timestamp survives restarts so intervals aren't reset
  *
- * Unit ids from the server are only honoured in release builds; debug builds
- * always use Google's test units, exactly like the native client.
+ * Unit ids come from Admin in both builds. Release rejects Google's sample
+ * units; debug testing requires test units or a registered AdMob test device.
  */
-class AdManager {
+export class AdManager {
   private config: AdsRemoteConfig = DEFAULT_ADS_CONFIG;
   private interstitial: InterstitialAd | null = null;
   private interstitialUnsubs: Array<() => void> = [];
@@ -81,7 +96,8 @@ class AdManager {
   private nextLoadAttemptAt = 0;
   private swipeCount = 0;
   private levelWinCount = 0;
-  private adDue = false;
+  private adDueTrigger: InterstitialTrigger | null = null;
+  private get adDue(): boolean { return this.adDueTrigger !== null; }
   private appActive = true;
   private currentGame: GameItem | null = null;
   private lastConfigFetchAt = 0;
@@ -97,15 +113,20 @@ class AdManager {
   private playing = false;
   private interstitialDeferred = false;
   private rewardedDeferred = false;
+  private interstitialBreak: InterstitialBreak | null = null;
+  private breakTimer: ReturnType<typeof setTimeout> | null = null;
+  private lifecycle = 0;
 
   async start(): Promise<void> {
     if (this.started) return;
     this.started = true;
+    const lifecycle = ++this.lifecycle;
 
     const [saved, savedConfig] = await Promise.all([
       readJson<PersistedAdState>(STORAGE_KEYS.adState),
       readJson<Partial<AdsRemoteConfig>>(STORAGE_KEYS.adsConfig),
     ]);
+    if (!this.started || lifecycle !== this.lifecycle) return;
     const now = Date.now();
     this.lastAdShownAt = restoredAnchor(saved?.lastAdShownAt ?? 0, now);
     if (savedConfig) this.applyConfig(normalizeAdsConfig(savedConfig));
@@ -113,9 +134,11 @@ class AdManager {
 
     try {
       await mobileAds().initialize();
+      if (!this.started || lifecycle !== this.lifecycle) return;
       this.sdkReady = true;
       useAdsStore.setState(s => ({ sdkReady: true, bannerReloadKey: s.bannerReloadKey + 1 }));
     } catch {
+      if (!this.started || lifecycle !== this.lifecycle) return;
       // The SDK failing to initialise must never block gameplay; we simply
       // won't show ads this session.
       this.sdkReady = false;
@@ -123,7 +146,7 @@ class AdManager {
     }
 
     this.appStateSub = AppState.addEventListener('change', this.onAppState);
-    this.appActive = AppState.currentState !== 'background';
+    this.appActive = AppState.currentState === 'active';
 
     this.netInfoSub = NetInfo.addEventListener(state => {
       const isOnline = state.isConnected === true && state.isInternetReachable !== false;
@@ -141,14 +164,20 @@ class AdManager {
   }
 
   stop(): void {
+    this.started = false;
+    this.lifecycle++;
+    this.configInflight = null;
     this.stopTicker();
     this.appStateSub?.remove();
     this.appStateSub = null;
     this.netInfoSub?.();
     this.netInfoSub = null;
+    this.cancelBreak();
     this.disposeInterstitial();
     this.disposeRewarded();
-    this.started = false;
+    this.currentGame = null;
+    this.playing = false;
+    this.adDueTrigger = null;
   }
 
   /* ---------------------------------------------------------------- */
@@ -160,12 +189,21 @@ class AdManager {
     if (active === this.appActive) return;
     this.appActive = active;
     if (active) {
-      analytics.resumeAfterAd();
+      if (!useAdsStore.getState().fullScreenAdShowing) analytics.resumeAfterAd();
+      if (this.interstitialBreak?.phase === 'resuming') this.scheduleResume(this.interstitialBreak);
       void this.refreshConfig();
       if (!this.interstitial?.loaded) this.loadInterstitial();
       if (!this.rewarded) this.loadRewarded();
       this.startTicker();
     } else {
+      // Never let a countdown show an ad behind another app. Retry a fresh
+      // countdown when foregrounded; a real SDK ad keeps its close listeners.
+      if (this.interstitialBreak?.phase === 'countdown') {
+        this.adDueTrigger = this.interstitialBreak.trigger;
+        this.cancelBreak();
+      } else if (this.interstitialBreak?.phase === 'resuming') {
+        this.clearBreakTimer();
+      }
       if (useAdsStore.getState().fullScreenAdShowing) analytics.pauseForAd();
       this.stopTicker();
     }
@@ -195,6 +233,7 @@ class AdManager {
       if (Date.now() - this.lastConfigFetchAt >= NETWORK.adsConfigRefreshIntervalMs) {
         void this.refreshConfig();
       }
+      this.loadInterstitial();
       if (this.currentGame) this.check(false);
     }, TICK_MS);
   }
@@ -210,10 +249,12 @@ class AdManager {
 
   async refreshConfig(): Promise<void> {
     if (this.configInflight) return this.configInflight;
+    const lifecycle = this.lifecycle;
     this.lastConfigFetchAt = Date.now();
     this.configInflight = (async () => {
       try {
         const config = await fetchAdsConfig();
+        if (!this.started || lifecycle !== this.lifecycle) return;
         writeJson(STORAGE_KEYS.adsConfig, config, 0);
         this.applyConfig(config);
         this.loadInterstitial();
@@ -223,7 +264,7 @@ class AdManager {
         // Network failed (offline); mark so we react the instant connection returns
         this.wasOffline = true;
       } finally {
-        this.configInflight = null;
+        if (lifecycle === this.lifecycle) this.configInflight = null;
       }
     })();
     return this.configInflight;
@@ -232,7 +273,14 @@ class AdManager {
   private applyConfig(config: AdsRemoteConfig) {
     const previousInterstitial = this.interstitialUnitId;
     const previousRewarded = this.rewardedUnitId;
+    const previousSwipeEnabled = this.config.swipeAdEnabled;
     this.config = config;
+
+    if (!config.swipeAdEnabled || !previousSwipeEnabled) this.swipeCount = 0;
+    if (!config.swipeAdEnabled) {
+      if (this.adDueTrigger === 'swipe') this.adDueTrigger = null;
+      if (this.interstitialBreak?.phase === 'countdown' && this.interstitialBreak.trigger === 'swipe') this.cancelBreak();
+    }
 
     // Directly use production IDs from the Admin Panel.
     // In release builds, test ads are never shown under any circumstances.
@@ -240,13 +288,18 @@ class AdManager {
     this.interstitialUnitId = sanitizeAdUnitId(config.interstitialUnitId);
     this.rewardedUnitId = sanitizeAdUnitId(config.rewardedUnitId);
 
-    if (previousInterstitial !== this.interstitialUnitId) this.disposeInterstitial();
+    if (this.interstitialBreak?.phase === 'countdown' &&
+      (!config.interstitialEnabled || previousInterstitial !== this.interstitialUnitId)) this.cancelBreak();
+    // A showing ad must keep its CLOSED/ERROR listeners even if Admin changes
+    // its unit or disables interstitials while it is visible.
+    if (previousInterstitial !== this.interstitialUnitId && this.interstitialBreak?.phase !== 'showing') this.disposeInterstitial();
     if (previousRewarded !== this.rewardedUnitId) this.disposeRewarded();
 
+    const bannerEnabled = Boolean(config.bannerEnabled && bannerUnitId);
     useAdsStore.setState(s => ({
-      bannerEnabled: Boolean(config.bannerEnabled && bannerUnitId),
+      bannerEnabled,
       bannerUnitId,
-      bannerReloadKey: s.bannerReloadKey + 1,
+      bannerReloadKey: s.bannerReloadKey + (s.bannerUnitId !== bannerUnitId || s.bannerEnabled !== bannerEnabled ? 1 : 0),
     }));
     this.persistState();
   }
@@ -261,25 +314,27 @@ class AdManager {
 
   /** Called whenever the game on screen changes (or becomes null when leaving the player). */
   setCurrentGame(game: GameItem | null): void {
+    const previousGame = this.currentGame;
     const changed = game?.id !== this.currentGame?.id;
     this.currentGame = game;
+    if (this.interstitialBreak?.phase === 'countdown' &&
+      (!game || game.id !== this.interstitialBreak.game.id || game.ads?.enabled === false)) this.cancelBreak();
     if (game && changed) {
-      // Every game switch is a "swipe" for the swipeInterval trigger.
-      this.swipeCount += 1;
+      // Opening the first game is not a swipe.
+      if (previousGame && this.config.swipeAdEnabled) this.swipeCount += 1;
       this.check(false);
     }
   }
 
   onGameOver(): void {
-    if (this.config.gameOverAdEnabled || this.adDue) this.check(true);
+    if (this.config.gameOverAdEnabled || this.adDue) this.check(this.config.gameOverAdEnabled);
   }
 
   onLevelCompleted(): void {
     this.levelWinCount += 1;
     const thresholdMet = this.config.levelCompleteAd && this.levelWinCount >= this.config.levelWinInterval;
     if (thresholdMet || this.adDue) {
-      this.check(true);
-      this.levelWinCount = 0;
+      this.check(thresholdMet);
     }
   }
 
@@ -293,8 +348,8 @@ class AdManager {
    * builds another WebView inside that same renderer process, which costs the
    * running game frames, so preloads are held until play ends — a game over, a
    * level end, Settings, a full-screen ad, or the app going to the background.
-   * Nothing about *showing* an ad changes: a creative that is already loaded
-   * is still shown on exactly the same schedule as before.
+   * Due decisions keep the Admin schedule; a ready creative is presented only
+   * after the exclusive three-second ad-break countdown.
    */
   setPlaying(playing: boolean): void {
     if (this.playing === playing) return;
@@ -308,12 +363,11 @@ class AdManager {
   }
 
   /**
-   * MainActivity.checkAndShowInterstitialAd. Shows immediately when an ad is
-   * loaded, otherwise marks it due and requests a preload so it appears as
-   * soon as it arrives.
+   * A ready creative begins an exclusive countdown/pause flow. A missing
+   * creative is only marked due; network fill never freezes the player's game.
    */
   private check(forceIfDue: boolean): void {
-    if (!this.sdkReady || !this.config.interstitialEnabled || !this.appActive) return;
+    if (!this.sdkReady || !this.config.interstitialEnabled || !this.interstitialUnitId || !this.appActive) return;
     if (useAdsStore.getState().fullScreenAdShowing) return;
     const game = this.currentGame;
     if (!game) return;
@@ -321,23 +375,15 @@ class AdManager {
 
     const minutes = game.ads?.useCustomInterval ? game.ads.intervalMinutes : this.config.defaultIntervalMinutes;
     const elapsed = Date.now() - this.lastAdShownAt;
-    const swipeDue = this.config.swipeInterval > 0 && this.swipeCount >= this.config.swipeInterval;
-    if (!isAdDue(elapsed, minutes, this.config.cooldownSeconds, forceIfDue || swipeDue)) return;
+    const timerDue = isAdDue(elapsed, minutes, this.config.cooldownSeconds, false);
+    const swipeDue = this.config.swipeAdEnabled && this.config.swipeInterval > 0 && this.swipeCount >= this.config.swipeInterval;
+    if (!isAdDue(elapsed, minutes, this.config.cooldownSeconds, forceIfDue || swipeDue || this.adDue)) return;
+    const trigger: InterstitialTrigger = timerDue ? 'timer' : forceIfDue ? 'event' : (this.adDueTrigger ?? 'swipe');
 
     if (this.interstitial?.loaded) {
-      this.adDue = false;
-      const ready = this.interstitial;
-      useAdsStore.setState({ fullScreenAdShowing: true });
-      analytics.pauseForAd();
-      ready.show().catch(() => {
-        useAdsStore.setState({ fullScreenAdShowing: false });
-        analytics.resumeAfterAd();
-        this.disposeInterstitial();
-        this.nextLoadAttemptAt = Date.now() + RETRY_BACKOFF_MS;
-        this.loadInterstitial();
-      });
+      this.beginBreak(this.interstitial, game, trigger);
     } else {
-      this.adDue = true;
+      this.adDueTrigger = trigger;
       this.loadInterstitial();
     }
   }
@@ -345,7 +391,8 @@ class AdManager {
   private recordAdShown() {
     this.lastAdShownAt = Date.now();
     this.swipeCount = 0;
-    this.adDue = false;
+    this.levelWinCount = 0;
+    this.adDueTrigger = null;
     this.persistState();
   }
 
@@ -360,6 +407,80 @@ class AdManager {
   /* Interstitial                                                     */
   /* ---------------------------------------------------------------- */
 
+  private clearBreakTimer(): void {
+    if (this.breakTimer !== null) clearTimeout(this.breakTimer);
+    this.breakTimer = null;
+  }
+
+  private cancelBreak(): void {
+    if (!this.interstitialBreak) return;
+    this.clearBreakTimer();
+    this.interstitialBreak = null;
+    useAdsStore.setState({ fullScreenAdShowing: false, interstitialBreakPhase: 'idle', interstitialCountdown: null });
+    analytics.resumeAfterAd();
+  }
+
+  private beginBreak(ad: InterstitialAd, game: GameItem, trigger: InterstitialTrigger): void {
+    const flow: InterstitialBreak = { ad, game, trigger, phase: 'countdown', countdown: 3, opened: false };
+    this.interstitialBreak = flow;
+    analytics.pauseForAd();
+    // The feed's synchronous subscriber freezes its existing WebViews here,
+    // before either the overlay render or the first countdown timer.
+    useAdsStore.setState({ fullScreenAdShowing: true, interstitialBreakPhase: 'countdown', interstitialCountdown: 3 });
+    this.scheduleCountdown(flow);
+  }
+
+  private scheduleCountdown(flow: InterstitialBreak): void {
+    this.clearBreakTimer();
+    this.breakTimer = setTimeout(() => {
+      this.breakTimer = null;
+      if (this.interstitialBreak !== flow || flow.phase !== 'countdown') return;
+      if (!this.appActive || !this.config.interstitialEnabled || this.currentGame?.id !== flow.game.id ||
+        this.currentGame.ads?.enabled === false || this.interstitial !== flow.ad || !flow.ad.loaded) {
+        this.cancelBreak();
+        return;
+      }
+      flow.countdown--;
+      if (flow.countdown > 0) {
+        useAdsStore.setState({ interstitialCountdown: flow.countdown });
+        this.scheduleCountdown(flow);
+      } else {
+        flow.phase = 'showing';
+        useAdsStore.setState({ interstitialBreakPhase: 'showing', interstitialCountdown: null });
+        try {
+          // show() resolving means presentation was requested, NOT that the ad
+          // closed. Only SDK CLOSED/ERROR can start the two-second return delay.
+          void flow.ad.show().catch(error => this.finishBreak(flow, error));
+        } catch (error) { this.finishBreak(flow, error); }
+      }
+    }, 1000);
+  }
+
+  private finishBreak(flow: InterstitialBreak, error?: unknown): void {
+    if (this.interstitialBreak !== flow || flow.phase === 'resuming') return;
+    this.clearBreakTimer();
+    if (error !== undefined) {
+      console.warn('[Ads] Interstitial failed:', error);
+      this.adDueTrigger = flow.trigger === 'swipe' && !this.config.swipeAdEnabled ? null : flow.trigger;
+      this.nextLoadAttemptAt = Date.now() + RETRY_BACKOFF_MS;
+    }
+    flow.phase = 'resuming';
+    this.disposeInterstitial();
+    useAdsStore.setState({ interstitialBreakPhase: 'resuming', interstitialCountdown: null });
+    this.scheduleResume(flow);
+    // A replacement creative may preload while gameplay is still frozen.
+    this.loadInterstitial();
+  }
+
+  private scheduleResume(flow: InterstitialBreak): void {
+    this.clearBreakTimer();
+    if (!this.appActive) return;
+    this.breakTimer = setTimeout(() => {
+      this.breakTimer = null;
+      if (this.interstitialBreak === flow && flow.phase === 'resuming' && this.appActive) this.cancelBreak();
+    }, 2000);
+  }
+
   private loadInterstitial(): void {
     if (
       !this.sdkReady ||
@@ -367,7 +488,7 @@ class AdManager {
       !this.interstitialUnitId ||
       this.interstitialLoading ||
       this.interstitial?.loaded ||
-      useAdsStore.getState().fullScreenAdShowing ||
+      (useAdsStore.getState().fullScreenAdShowing && this.interstitialBreak?.phase !== 'resuming') ||
       Date.now() < this.nextLoadAttemptAt
     ) {
       return;
@@ -381,12 +502,19 @@ class AdManager {
     this.interstitialDeferred = false;
     this.disposeInterstitial();
     const unitId = this.interstitialUnitId;
-    const ad = InterstitialAd.createForAdRequest(unitId);
+    let ad: InterstitialAd;
+    try { ad = InterstitialAd.createForAdRequest(unitId); }
+    catch (error) {
+      console.warn('[Ads] Invalid interstitial request:', error);
+      this.nextLoadAttemptAt = Date.now() + RETRY_BACKOFF_MS;
+      return;
+    }
     this.interstitial = ad;
     this.interstitialLoading = true;
 
     this.interstitialUnsubs = [
       ad.addAdEventListener(AdEventType.LOADED, () => {
+        if (this.interstitial !== ad) return;
         this.interstitialLoading = false;
         if (unitId !== this.interstitialUnitId) {
           this.disposeInterstitial();
@@ -395,23 +523,35 @@ class AdManager {
         }
         if (this.adDue && this.currentGame?.ads?.enabled !== false) this.check(false);
       }),
-      ad.addAdEventListener(AdEventType.ERROR, () => {
+      ad.addAdEventListener(AdEventType.ERROR, error => {
+        if (this.interstitial !== ad) return;
+        if (this.interstitialBreak?.ad === ad) {
+          this.finishBreak(this.interstitialBreak, error ?? new Error('SDK interstitial error'));
+          return;
+        }
+        console.warn('[Ads] Interstitial load failed:', error);
         this.interstitialLoading = false;
         this.disposeInterstitial();
         this.nextLoadAttemptAt = Date.now() + RETRY_BACKOFF_MS;
       }),
       ad.addAdEventListener(AdEventType.OPENED, () => {
+        const flow = this.interstitialBreak;
+        if (!flow || flow.ad !== ad || flow.phase !== 'showing' || flow.opened) return;
+        flow.opened = true;
         this.recordAdShown();
-        if (this.currentGame) analytics.onAdImpression(this.currentGame.id, this.currentGame.title);
+        analytics.onAdImpression(flow.game.id, flow.game.title);
       }),
       ad.addAdEventListener(AdEventType.CLOSED, () => {
-        useAdsStore.setState({ fullScreenAdShowing: false });
-        analytics.resumeAfterAd();
-        this.disposeInterstitial();
-        this.loadInterstitial();
+        const flow = this.interstitialBreak;
+        if (flow?.ad === ad && flow.phase === 'showing') this.finishBreak(flow);
       }),
     ];
-    ad.load();
+    try { ad.load(); }
+    catch (error) {
+      console.warn('[Ads] Interstitial load failed:', error);
+      this.disposeInterstitial();
+      this.nextLoadAttemptAt = Date.now() + RETRY_BACKOFF_MS;
+    }
   }
 
   private disposeInterstitial() {

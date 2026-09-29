@@ -81,6 +81,7 @@ export default function App() {
   const [adsConfig, setAdsConfig] = useState<AdsConfig>({
     bannerEnabled: true,
     interstitialEnabled: true,
+    swipeAdEnabled: false,
     swipeInterval: 10,
     defaultIntervalMinutes: 5,
     levelCompleteAd: true,
@@ -159,7 +160,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/v1/admin/ads-config`);
       if (res.ok) {
         const data = await res.json();
-        if (data.config) setAdsConfig(data.config);
+        if (data.config) setAdsConfig({ ...data.config, swipeAdEnabled: data.config.swipeAdEnabled === true });
       }
     } catch (_) {}
   };

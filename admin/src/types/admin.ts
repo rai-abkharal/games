@@ -73,6 +73,7 @@ export interface BridgeLogItem {
 export interface AdsConfig {
   bannerEnabled: boolean;
   interstitialEnabled: boolean;
+  swipeAdEnabled: boolean;
   swipeInterval: number;
   defaultIntervalMinutes: number;
   levelCompleteAd: boolean;

@@ -4,8 +4,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Splash } from './src/components/Splash';
 import { Toast } from './src/components/Toast';
+import { InterstitialAdBreakOverlay } from './src/components/InterstitialAdBreakOverlay';
 import { RootNavigator } from './src/navigation/RootNavigator';
-import { adManager } from './src/services/adManager';
+import { adManager, useAdsStore } from './src/services/adManager';
 import { usePreloadStore } from './src/store/preloadStore';
 import { useCatalogStore } from './src/store/catalogStore';
 import { usePlayerStore } from './src/store/playerStore';
@@ -38,6 +39,7 @@ function App() {
   );
   const games = useCatalogStore(state => state.games);
   const readyBundles = useBundleStore(state => state.ready);
+  const adHoldingGame = useAdsStore(state => state.fullScreenAdShowing);
 
   const [splashDone, setSplashDone] = useState(false);
   const [bundlesSettled, setBundlesSettled] = useState(!isBundleStoreAvailable());
@@ -124,9 +126,9 @@ function App() {
       <SafeAreaProvider>
         <View style={styles.root}>
           {playerHydrated && tutorialsHydrated && bundlesSettled ? (
-            <View style={styles.root} pointerEvents={shouldShowSplash ? 'none' : 'auto'}
-              accessibilityElementsHidden={shouldShowSplash}
-              importantForAccessibility={shouldShowSplash ? 'no-hide-descendants' : 'auto'}>
+            <View style={styles.root} pointerEvents={shouldShowSplash || adHoldingGame ? 'none' : 'auto'}
+              accessibilityElementsHidden={shouldShowSplash || adHoldingGame}
+              importantForAccessibility={shouldShowSplash || adHoldingGame ? 'no-hide-descendants' : 'auto'}>
               <RootNavigator />
             </View>
           ) : null}
@@ -142,6 +144,7 @@ function App() {
           ) : null}
         </View>
         <Toast />
+        <InterstitialAdBreakOverlay />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

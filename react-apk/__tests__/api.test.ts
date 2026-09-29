@@ -14,6 +14,7 @@ describe('ads remote config normalisation', () => {
       gaMeasurementId: 'G-SWIPEPLAY1',
       bannerEnabled: false,
       interstitialEnabled: true,
+      swipeAdEnabled: true,
       swipeInterval: 3,
       levelCompleteAd: false,
       levelWinInterval: 1,
@@ -41,6 +42,14 @@ describe('ads remote config normalisation', () => {
     expect(out.bannerUnitId).toBe(DEFAULT_ADS_CONFIG.bannerUnitId);
     expect(out.interstitialEnabled).toBe(true);
     expect(normalizeAdsConfig(null)).toEqual(DEFAULT_ADS_CONFIG);
+  });
+
+  test('swipe ads require an explicit boolean opt-in; old cached/server configs remain OFF', () => {
+    expect(DEFAULT_ADS_CONFIG.swipeAdEnabled).toBe(false);
+    expect(normalizeAdsConfig({ swipeInterval: 3 }).swipeAdEnabled).toBe(false);
+    expect(normalizeAdsConfig({ swipeAdEnabled: 'true' as unknown as boolean }).swipeAdEnabled).toBe(false);
+    expect(normalizeAdsConfig({ swipeAdEnabled: true }).swipeAdEnabled).toBe(true);
+    expect(normalizeAdsConfig({ swipeAdEnabled: false }).swipeAdEnabled).toBe(false);
   });
 });
 

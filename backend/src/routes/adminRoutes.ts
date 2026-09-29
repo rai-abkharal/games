@@ -1328,6 +1328,7 @@ export function createAdminRouter(
       let config = {
         bannerEnabled: true,
         interstitialEnabled: true,
+        swipeAdEnabled: false,
         swipeInterval: 10,
         defaultIntervalMinutes: 5,
         levelCompleteAd: true,
